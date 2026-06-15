@@ -99,39 +99,64 @@ void CatRotatorPanel::buildUi()
     outer->addLayout(readout);
 
     m_navball = new NavballWidget(this);
+    m_navball->setToolTip(tr("Rotator navball: current antenna pointing is centered; TG is the active target. Sun and Moon markers update from local ephemeris when QTH is configured."));
     m_navball->set_x_size(330);
     m_navball->set_y_size(330);
     outer->addWidget(m_navball, 1);
 
-    QHBoxLayout *buttons = new QHBoxLayout();
-    m_btnConnect = new QPushButton(tr("Connect"), this);
-    m_btnStop = new QPushButton(tr("STOP"), this);
-    m_btnStop->setStyleSheet(QStringLiteral("QPushButton { color: #b00020; font-weight: bold; }"));
-    buttons->addWidget(m_btnConnect);
-    buttons->addWidget(m_btnStop);
-    outer->addLayout(buttons);
-
     QGridLayout *manual = new QGridLayout();
+    manual->setHorizontalSpacing(6);
+    manual->setVerticalSpacing(6);
+    manual->setColumnStretch(0, 0);
+    manual->setColumnStretch(1, 1);
+    manual->setColumnStretch(2, 0);
+
+    QLabel *lblSetAz = new QLabel(tr("Set Az"), this);
+    lblSetAz->setToolTip(tr("Manual azimuth setpoint for the rotator, in degrees."));
+    QLabel *lblSetEl = new QLabel(tr("Set El"), this);
+    lblSetEl->setToolTip(tr("Manual elevation setpoint for the rotator, in degrees."));
+
     m_spinAz = new QDoubleSpinBox(this);
     m_spinAz->setRange(0.0, 359.9);
     m_spinAz->setDecimals(1);
     m_spinAz->setSuffix(QStringLiteral("°"));
+    m_spinAz->setMinimumWidth(118);
+    m_spinAz->setMaximumWidth(150);
+    m_spinAz->setToolTip(tr("Manual azimuth setpoint. Press Go to command this value."));
+
     m_spinEl = new QDoubleSpinBox(this);
     m_spinEl->setRange(-10.0, 180.0);
     m_spinEl->setDecimals(1);
     m_spinEl->setSuffix(QStringLiteral("°"));
+    m_spinEl->setMinimumWidth(118);
+    m_spinEl->setMaximumWidth(150);
+    m_spinEl->setToolTip(tr("Manual elevation setpoint. Press Go to command this value."));
+
+    m_btnConnect = new QPushButton(tr("Connect"), this);
+    m_btnConnect->setToolTip(tr("Connect or disconnect the configured rotator backend."));
+    m_btnStop = new QPushButton(tr("STOP"), this);
+    m_btnStop->setToolTip(tr("Stop the current rotator movement immediately."));
+    m_btnStop->setStyleSheet(QStringLiteral("QPushButton { color: #b00020; font-weight: bold; }"));
+
     m_btnGo = new QPushButton(tr("Go"), this);
+    m_btnGo->setToolTip(tr("Move the rotator to the manual Set Az / Set El values."));
     m_btnTrack = new QPushButton(tr("Track QSO"), this);
+    m_btnTrack->setToolTip(tr("Track the current QSO/correspondent locator target."));
     m_btnMoonTrack = new QPushButton(tr("Track Moon / EME"), this);
+    m_btnMoonTrack->setToolTip(tr("Switch to Moon / EME tracking and point using local lunar ephemeris."));
     m_btnPark = new QPushButton(tr("Park"), this);
-    manual->addWidget(new QLabel(tr("SP Az"), this), 0, 0);
-    manual->addWidget(m_spinAz, 0, 1);
-    manual->addWidget(new QLabel(tr("SP El"), this), 1, 0);
-    manual->addWidget(m_spinEl, 1, 1);
-    manual->addWidget(m_btnGo, 2, 0);
-    manual->addWidget(m_btnPark, 2, 1);
-    manual->addWidget(m_btnTrack, 3, 0);
-    manual->addWidget(m_btnMoonTrack, 3, 1);
+    m_btnPark->setToolTip(tr("Move the rotator to the configured park position."));
+
+    manual->addWidget(lblSetAz, 0, 0);
+    manual->addWidget(m_spinAz, 0, 1, Qt::AlignLeft);
+    manual->addWidget(m_btnConnect, 0, 2);
+    manual->addWidget(lblSetEl, 1, 0);
+    manual->addWidget(m_spinEl, 1, 1, Qt::AlignLeft);
+    manual->addWidget(m_btnStop, 1, 2);
+    manual->addWidget(m_btnGo, 2, 0, 1, 2);
+    manual->addWidget(m_btnPark, 2, 2);
+    manual->addWidget(m_btnTrack, 3, 0, 1, 2);
+    manual->addWidget(m_btnMoonTrack, 3, 2);
     outer->addLayout(manual);
 
     QGroupBox *trackingBox = new QGroupBox(this);
@@ -140,8 +165,11 @@ void CatRotatorPanel::buildUi()
     trackingLayout->setSpacing(4);
     m_trackingModeGroup = new QButtonGroup(trackingBox);
     m_radioQso = new QRadioButton(tr("QSO / correspondent locator"), trackingBox);
+    m_radioQso->setToolTip(tr("Use the current QSO or selected correspondent locator as rotator target."));
     m_radioMoon = new QRadioButton(tr("Moon / EME"), trackingBox);
+    m_radioMoon->setToolTip(tr("Bypass the QSO locator and track the Moon for EME operation."));
     m_radioManual = new QRadioButton(tr("Manual az/el"), trackingBox);
+    m_radioManual->setToolTip(tr("Use manual azimuth/elevation values instead of automatic tracking."));
     m_trackingModeGroup->addButton(m_radioQso, 0);
     m_trackingModeGroup->addButton(m_radioMoon, 1);
     m_trackingModeGroup->addButton(m_radioManual, 2);
@@ -157,7 +185,9 @@ void CatRotatorPanel::buildUi()
     QGridLayout *direct = new QGridLayout(directBox);
     m_editDirectTarget = new QLineEdit(directBox);
     m_editDirectTarget->setPlaceholderText(tr("Locator, country, DXCC or prefix..."));
+    m_editDirectTarget->setToolTip(tr("Type a Maidenhead locator, country, DXCC name or callsign prefix to compute a bearing target."));
     m_btnDirectTarget = new QPushButton(tr("Point"), directBox);
+    m_btnDirectTarget->setToolTip(tr("Resolve the typed target and point the rotator to its bearing."));
     direct->addWidget(new QLabel(tr("Target"), directBox), 0, 0);
     direct->addWidget(m_editDirectTarget, 0, 1);
     direct->addWidget(m_btnDirectTarget, 1, 0, 1, 2);

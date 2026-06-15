@@ -1,29 +1,41 @@
-## MadModem 0.5.0-alpha.10 — compact Rotator tab layout
+## MadModem 0.5.0-alpha.12 — Navball lower text cleanup
+
+- Removed the white TG/AZ/EL text overlay from the lower-left Navball area.
+- The Navball now keeps the visual TG marker and external readouts without duplicating ugly internal text labels.
+
+## MadModem 0.5.0-alpha.12 — Rotator setpoint layout and tooltips
+
+- Renamed the manual setpoint labels from `SP Az` / `SP El` to clearer `Set Az` / `Set El`.
+- Moved the setpoint spinboxes closer to their labels.
+- Placed Connect and STOP vertically to the right of the Set Az / Set El controls.
+- Added hover tooltips to the main Rotator tab controls and Navball.
+
+## MadModem 0.5.0-alpha.12 — compact Rotator tab layout
 
 - Removed the duplicate Connected/Disconnected label from the top of the Rotator tab; the bottom status line remains the single connection/status indicator.
 - Removed the visible titles from the Tracking target and Point-to-locator/country boxes to save vertical space.
 - Repacked Go/Park on one row and Track QSO/Track Moon on one row.
 
-## MadModem 0.5.0-alpha.10 — rotator compile fix and navball bezel
+## MadModem 0.5.0-alpha.12 — rotator compile fix and navball bezel
 
 - Fixed `CatRotatorController.cpp` Sun ephemeris function placement so it is no longer nested inside the Moon ephemeris function.
 - Added a prominent `Track Moon / EME` button in the Rotator tab, in addition to the tracking-mode radio selector.
 - Added an instrument-style Navball bezel with rounded gunmetal frame and four screw heads.
 - Fixed the `cty.csv` lookup regular-expression string escape warning.
 
-## MadModem 0.5.0-alpha.10 — Navball icon styling and sparse elevation scale
+## MadModem 0.5.0-alpha.12 — Navball icon styling and sparse elevation scale
 
 - Refined the Navball Sun/Moon markers with stylized icons inspired by the supplied references.
 - Reduced the elevation labels to a sparse, more useful set: 0°, 30°, 60°, 90°, then 120°, 150°, 180° on the opposite side.
 - Confirmed the Rotator tab keeps the Tracking target selector with Moon / EME mode available.
 
-## MadModem 0.5.0-alpha.10 — Navball live Sun/Moon overlay
+## MadModem 0.5.0-alpha.12 — Navball live Sun/Moon overlay
 
 - Added live Sun and Moon ephemeris updates in the rotator controller using the configured station coordinates.
 - Added Sun and Moon markers to the Navball: Sun as a yellow ring with white center and rays, Moon as a grey-white crescent.
 - The Navball now refreshes those celestial markers in real time without internet access.
 
-## MadModem 0.5.0-alpha.10 — GitHub source-origin README cleanup
+## MadModem 0.5.0-alpha.12 — GitHub source-origin README cleanup
 
 - Reworked `README.md` into a less verbose bilingual GitHub overview.
 - Corrected the code-origin map by separating compiled/linked third-party code from bundled reference material and inspired-by reimplementations.
@@ -40,7 +52,7 @@
 
 # Changelog
 
-## MadModem 0.5.0-alpha.10 — Moon / EME rotator tracking
+## MadModem 0.5.0-alpha.12 — Moon / EME rotator tracking
 
 - Added Moon / EME tracking mode in the Rotator side tab.
 - Added local dependency-free Moon ephemeris calculation from UTC and the configured User/QTH locator.

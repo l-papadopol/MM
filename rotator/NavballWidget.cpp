@@ -556,18 +556,6 @@ void NavballWidget::paintEvent(QPaintEvent *event)
     painter.setBrush(QColor(241, 196, 15));
     painter.drawEllipse(center, 3.0, 3.0);
 
-    painter.setFont(QFont(QStringLiteral("monospace"), 8, QFont::Bold));
-    painter.setPen(QColor(230, 230, 230));
-    painter.drawText(QRectF(8, h - 30, w - 16, 22), Qt::AlignLeft | Qt::AlignVCenter,
-                     QStringLiteral("AZ %1°  EL %2°")
-                         .arg(QString::number(m_az, 'f', 0), QString::number(m_alt, 'f', 0)));
-
-    if (m_hasTarget) {
-        painter.drawText(QRectF(8, h - 48, w - 16, 18), Qt::AlignLeft | Qt::AlignVCenter,
-                         QStringLiteral("TG %1° / %2°")
-                             .arg(QString::number(m_taz, 'f', 0), QString::number(m_talt, 'f', 0)));
-    }
-
     if (m_az > 360.0) {
         QRectF overlapRect(12, 12, 138, 24);
         painter.setPen(QPen(QColor(230, 126, 34), 2));

@@ -2,7 +2,7 @@
 
 **English** | [Italiano](#madmodem-mm-italiano)
 
-Current version: **0.5.0-alpha.10**
+Current version: **0.5.0-alpha.12**
 
 MadModem, usually called **MM**, is an amateur-radio digital-mode application for Linux and Windows.
 
@@ -249,7 +249,7 @@ Do not remove upstream notices or license files when redistributing source or bi
 
 # MadModem (MM) Italiano
 
-Versione corrente: **0.5.0-alpha.10**
+Versione corrente: **0.5.0-alpha.12**
 
 MadModem, di solito abbreviato in **MM**, è un programma radioamatoriale per modi digitali, Linux e Windows.
 
