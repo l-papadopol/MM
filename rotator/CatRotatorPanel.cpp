@@ -43,6 +43,8 @@ CatRotatorPanel::CatRotatorPanel(CatRotatorController *controller, QWidget *pare
                 this, [this](CatRotatorController::TrackingMode) { refreshState(); });
         connect(m_controller, &CatRotatorController::moonTargetChanged,
                 this, [this](const CatRotatorController::MoonTarget &) { refreshState(); });
+        connect(m_controller, &CatRotatorController::sunTargetChanged,
+                this, [this](const CatRotatorController::SunTarget &) { refreshState(); });
         connect(m_controller, &CatRotatorController::motionChanged, this, [this](bool) { refreshState(); });
         connect(m_controller, &CatRotatorController::calibrationProgress, this, [this](int percent, const QString &message) {
             if (m_calibrationProgress != nullptr) {
@@ -292,6 +294,12 @@ void CatRotatorPanel::refreshState()
         m_navball->set_taz(m_controller->targetAzimuth());
         m_navball->set_talt(m_controller->targetElevation());
         m_navball->setTargetVisible(m_controller->targetAzimuth() >= 0.0);
+        const CatRotatorController::MoonTarget moon = m_controller->moonTarget();
+        m_navball->setMoonVisible(moon.valid && moon.aboveHorizon);
+        if (moon.valid) m_navball->setMoonAzEl(moon.azimuthDeg, moon.elevationDeg);
+        const CatRotatorController::SunTarget sun = m_controller->sunTarget();
+        m_navball->setSunVisible(sun.valid && sun.aboveHorizon);
+        if (sun.valid) m_navball->setSunAzEl(sun.azimuthDeg, sun.elevationDeg);
         m_navball->refresh();
     }
     updateTrackingModeControls();

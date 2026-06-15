@@ -52,6 +52,32 @@ void NavballWidget::setTargetVisible(bool visible)
     update();
 }
 
+void NavballWidget::setMoonAzEl(double az, double el)
+{
+    m_moonAz = az;
+    m_moonEl = clampElevation(el);
+    update();
+}
+
+void NavballWidget::setMoonVisible(bool visible)
+{
+    m_hasMoon = visible;
+    update();
+}
+
+void NavballWidget::setSunAzEl(double az, double el)
+{
+    m_sunAz = az;
+    m_sunEl = clampElevation(el);
+    update();
+}
+
+void NavballWidget::setSunVisible(bool visible)
+{
+    m_hasSun = visible;
+    update();
+}
+
 void NavballWidget::set_x_size(int w)
 {
     m_xSize = std::max(120, w);
@@ -169,6 +195,92 @@ void NavballWidget::drawLabel(QPainter &painter, const QPointF &pos, const QStri
     painter.restore();
 }
 
+
+void NavballWidget::drawStylizedSunFace(QPainter &painter, const QPointF &pos, qreal scale) const
+{
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const qreal bodyR = 12.0 * scale;
+    const qreal rayOuter = 19.0 * scale;
+    const int rayCount = 12;
+    QPainterPath rays;
+    for (int i = 0; i < rayCount; ++i) {
+        const double a = qDegreesToRadians(i * (360.0 / rayCount));
+        const double a1 = a - qDegreesToRadians(10.0);
+        const double a2 = a + qDegreesToRadians(10.0);
+        QPointF p1(pos.x() + std::cos(a1) * (bodyR * 0.92), pos.y() + std::sin(a1) * (bodyR * 0.92));
+        QPointF p2(pos.x() + std::cos(a) * rayOuter, pos.y() + std::sin(a) * rayOuter);
+        QPointF p3(pos.x() + std::cos(a2) * (bodyR * 0.92), pos.y() + std::sin(a2) * (bodyR * 0.92));
+        QPainterPath ray;
+        ray.moveTo(p1);
+        ray.quadTo(p2, p3);
+        ray.closeSubpath();
+        rays.addPath(ray);
+    }
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(255, 189, 18));
+    painter.drawPath(rays);
+
+    QRadialGradient g(pos, bodyR * 1.1, pos - QPointF(4.0 * scale, 5.0 * scale));
+    g.setColorAt(0.0, QColor(255, 244, 92));
+    g.setColorAt(0.7, QColor(255, 217, 18));
+    g.setColorAt(1.0, QColor(245, 170, 0));
+    painter.setBrush(g);
+    painter.setPen(QPen(QColor(255, 226, 40), 1.5 * scale));
+    painter.drawEllipse(pos, bodyR, bodyR);
+
+    // Sunglasses inspired by the reference image.
+    const QRectF leftGlass(pos.x() - 10.0 * scale, pos.y() - 2.5 * scale, 9.0 * scale, 6.8 * scale);
+    const QRectF rightGlass(pos.x() + 1.0 * scale, pos.y() - 2.5 * scale, 9.0 * scale, 6.8 * scale);
+    painter.setBrush(QColor(18, 20, 24));
+    painter.setPen(QPen(QColor(8, 8, 10), 1.2 * scale));
+    painter.drawRoundedRect(leftGlass, 2.2 * scale, 2.2 * scale);
+    painter.drawRoundedRect(rightGlass, 2.2 * scale, 2.2 * scale);
+    painter.drawLine(QPointF(leftGlass.right(), leftGlass.center().y()), QPointF(rightGlass.left(), rightGlass.center().y()));
+    painter.drawArc(QRectF(pos.x() - 8.0 * scale, pos.y() + 1.2 * scale, 16.0 * scale, 10.0 * scale), 200 * 16, 140 * 16);
+
+    painter.restore();
+}
+
+void NavballWidget::drawStylizedMoonFace(QPainter &painter, const QPointF &pos, qreal scale) const
+{
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const qreal r = 13.0 * scale;
+    QPainterPath moon;
+    moon.addEllipse(pos, r, r);
+    QPainterPath cut;
+    cut.addEllipse(QPointF(pos.x() + 6.0 * scale, pos.y() - 0.4 * scale), r * 0.92, r * 0.92);
+    moon = moon.subtracted(cut);
+    painter.setPen(QPen(QColor(35, 35, 40), 1.2 * scale));
+    painter.setBrush(QColor(232, 232, 236));
+    painter.drawPath(moon);
+
+    // Simple sleepy face inspired by the reference icon.
+    painter.setPen(QPen(QColor(45, 45, 50), 1.2 * scale, Qt::SolidLine, Qt::RoundCap));
+    painter.drawArc(QRectF(pos.x() - 5.8 * scale, pos.y() - 4.5 * scale, 5.0 * scale, 3.2 * scale), 25 * 16, 120 * 16);
+    painter.drawArc(QRectF(pos.x() - 4.2 * scale, pos.y() - 0.8 * scale, 4.6 * scale, 2.8 * scale), 200 * 16, 120 * 16);
+    QPainterPath nose;
+    nose.moveTo(pos.x() - 0.6 * scale, pos.y() - 1.0 * scale);
+    nose.quadTo(QPointF(pos.x() + 1.8 * scale, pos.y() + 0.6 * scale), QPointF(pos.x() - 0.6 * scale, pos.y() + 1.4 * scale));
+    painter.drawPath(nose);
+    painter.drawArc(QRectF(pos.x() - 2.0 * scale, pos.y() + 2.0 * scale, 5.5 * scale, 2.8 * scale), 190 * 16, 100 * 16);
+
+    painter.restore();
+}
+
+void NavballWidget::drawSunMarker(QPainter &painter, const QPointF &pos, bool edgeCue) const
+{
+    drawStylizedSunFace(painter, pos, edgeCue ? 0.82 : 1.0);
+}
+
+void NavballWidget::drawMoonMarker(QPainter &painter, const QPointF &pos, bool edgeCue) const
+{
+    drawStylizedMoonFace(painter, pos, edgeCue ? 0.82 : 1.0);
+}
+
 void NavballWidget::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
@@ -261,18 +373,26 @@ void NavballWidget::paintEvent(QPaintEvent *event)
         drawCurve(az, false, 4, c, widthLine);
     }
 
-    // Useful label subset only: no negative elevation labels because terrestrial
-    // antennas do not point below the horizon, and fewer azimuth labels to keep
-    // the navball readable at a glance.
-    for (int el : {10, 20, 30, 40, 50, 60, 70, 80, 90}) {
-        const QString label = QString::number(el);
-        QPointF leftPt;
-        if (project3D(315.0, static_cast<double>(el), leftPt)) {
-            drawLabel(painter, insetTowardCenter(leftPt, 0.80), label, Qt::white);
-        }
-        QPointF rightPt;
-        if (project3D(45.0, static_cast<double>(el), rightPt)) {
-            drawLabel(painter, insetTowardCenter(rightPt, 0.80), label, Qt::white);
+    // Sparse elevation labels only: 0/30/60/90 on one side, then 120/150/180 on the
+    // opposite side so the operator can immediately see when the elevation axis has
+    // passed through zenith and is effectively rotated over itself.
+    struct ElevLabel { int elevation; double azimuth; double factor; double yOffset; };
+    const ElevLabel elevLabels[] = {
+        {0,   315.0, 0.74,  8.0},
+        {30,  315.0, 0.80,  0.0},
+        {60,  315.0, 0.82, -1.0},
+        {90,  315.0, 0.78, -2.0},
+        {120,  45.0, 0.82, -1.0},
+        {150,  45.0, 0.80,  0.0},
+        {180,  45.0, 0.74,  8.0}
+    };
+    for (const ElevLabel &labelInfo : elevLabels) {
+        QPointF pt;
+        if (project3D(labelInfo.azimuth, static_cast<double>(labelInfo.elevation), pt)) {
+            drawLabel(painter,
+                      insetTowardCenter(pt, labelInfo.factor) + QPointF(0.0, labelInfo.yOffset),
+                      QString::number(labelInfo.elevation) + QChar(0x00B0),
+                      Qt::white);
         }
     }
 
@@ -301,6 +421,30 @@ void NavballWidget::paintEvent(QPaintEvent *event)
         QPointF pt;
         if (project3D(static_cast<double>(labelInfo.az), 0.0, pt)) {
             drawLabel(painter, insetTowardCenter(pt, labelInfo.factor) + labelInfo.delta, QString::fromLatin1(labelInfo.text), Qt::white);
+        }
+    }
+
+    if (m_hasSun) {
+        QPointF sunPt;
+        if (project3D(m_sunAz, m_sunEl, sunPt)) {
+            drawSunMarker(painter, sunPt, false);
+            drawLabel(painter, sunPt + QPointF(0.0, -22.0), QStringLiteral("Sun"), QColor(255, 214, 66));
+        } else {
+            const QPointF edge = edgePointForBearing(m_sunAz, m_sunEl, radius, center);
+            drawSunMarker(painter, edge, true);
+            drawLabel(painter, edge + QPointF(0.0, -22.0), QStringLiteral("Sun"), QColor(255, 214, 66));
+        }
+    }
+
+    if (m_hasMoon) {
+        QPointF moonPt;
+        if (project3D(m_moonAz, m_moonEl, moonPt)) {
+            drawMoonMarker(painter, moonPt, false);
+            drawLabel(painter, moonPt + QPointF(0.0, -22.0), QStringLiteral("Moon"), QColor(220, 225, 235));
+        } else {
+            const QPointF edge = edgePointForBearing(m_moonAz, m_moonEl, radius, center);
+            drawMoonMarker(painter, edge, true);
+            drawLabel(painter, edge + QPointF(0.0, -22.0), QStringLiteral("Moon"), QColor(220, 225, 235));
         }
     }
 

@@ -26,6 +26,10 @@ public:
     void set_alt(double alt);
     void set_az(double az);
     void setTargetVisible(bool visible);
+    void setMoonAzEl(double az, double el);
+    void setMoonVisible(bool visible);
+    void setSunAzEl(double az, double el);
+    void setSunVisible(bool visible);
 
     void set_x_size(int w);
     void set_y_size(int h);
@@ -51,12 +55,22 @@ private:
     bool project3D(double pointAzDeg, double pointElDeg, QPointF &outScreenPoint, double *outDepth = nullptr) const;
     QPointF edgePointForBearing(double pointAzDeg, double pointElDeg, double radius, const QPointF &center) const;
     void drawLabel(QPainter &painter, const QPointF &pos, const QString &text, const QColor &colour) const;
+    void drawSunMarker(QPainter &painter, const QPointF &pos, bool edgeCue) const;
+    void drawMoonMarker(QPainter &painter, const QPointF &pos, bool edgeCue) const;
+    void drawStylizedSunFace(QPainter &painter, const QPointF &pos, qreal scale) const;
+    void drawStylizedMoonFace(QPainter &painter, const QPointF &pos, qreal scale) const;
 
     double m_talt = 0.0;
     double m_taz = 0.0;
     double m_alt = 0.0;
     double m_az = 0.0;
     bool m_hasTarget = false;
+    double m_moonAz = 0.0;
+    double m_moonEl = 0.0;
+    bool m_hasMoon = false;
+    double m_sunAz = 0.0;
+    double m_sunEl = 0.0;
+    bool m_hasSun = false;
 
     int m_xSize = 360;
     int m_ySize = 360;

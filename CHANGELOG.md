@@ -1,4 +1,16 @@
-## MadModem 0.5.0-alpha.6 — GitHub source-origin README cleanup
+## MadModem 0.5.0-alpha.8 — Navball icon styling and sparse elevation scale
+
+- Refined the Navball Sun/Moon markers with stylized icons inspired by the supplied references.
+- Reduced the elevation labels to a sparse, more useful set: 0°, 30°, 60°, 90°, then 120°, 150°, 180° on the opposite side.
+- Confirmed the Rotator tab keeps the Tracking target selector with Moon / EME mode available.
+
+## MadModem 0.5.0-alpha.8 — Navball live Sun/Moon overlay
+
+- Added live Sun and Moon ephemeris updates in the rotator controller using the configured station coordinates.
+- Added Sun and Moon markers to the Navball: Sun as a yellow ring with white center and rays, Moon as a grey-white crescent.
+- The Navball now refreshes those celestial markers in real time without internet access.
+
+## MadModem 0.5.0-alpha.8 — GitHub source-origin README cleanup
 
 - Reworked `README.md` into a less verbose bilingual GitHub overview.
 - Corrected the code-origin map by separating compiled/linked third-party code from bundled reference material and inspired-by reimplementations.
@@ -15,7 +27,7 @@
 
 # Changelog
 
-## MadModem 0.5.0-alpha.6 — Moon / EME rotator tracking
+## MadModem 0.5.0-alpha.8 — Moon / EME rotator tracking
 
 - Added Moon / EME tracking mode in the Rotator side tab.
 - Added local dependency-free Moon ephemeris calculation from UTC and the configured User/QTH locator.

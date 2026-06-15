@@ -91,6 +91,16 @@ public:
         QDateTime updatedUtc;
     };
 
+    struct SunTarget
+    {
+        bool valid = false;
+        bool aboveHorizon = false;
+        double azimuthDeg = -1.0;
+        double elevationDeg = -90.0;
+        QString statusText;
+        QDateTime updatedUtc;
+    };
+
     struct QsoTarget
     {
         QString callsign;
@@ -111,6 +121,7 @@ public:
     bool isTrackingQsoTarget() const { return m_trackingQsoTarget; }
     TrackingMode trackingMode() const { return m_trackingMode; }
     MoonTarget moonTarget() const { return m_moonTarget; }
+    SunTarget sunTarget() const { return m_sunTarget; }
     bool isMoving() const { return m_motionActive; }
     bool isCalibrating() const { return m_calibrationState != CalibrationState::Idle; }
     double currentAzimuth() const { return m_currentAz; }
@@ -151,6 +162,7 @@ signals:
     void qsoTargetChanged(const mm::CatRotatorController::QsoTarget &target);
     void trackingModeChanged(mm::CatRotatorController::TrackingMode mode);
     void moonTargetChanged(const mm::CatRotatorController::MoonTarget &target);
+    void sunTargetChanged(const mm::CatRotatorController::SunTarget &target);
     void motionChanged(bool moving);
     void calibrationProgress(int percent, const QString &message);
     void calibrationFinished(const mm::CatRotatorController::Config &updatedConfig, const QString &message);
@@ -190,6 +202,7 @@ private:
     QString m_status;
     QsoTarget m_qsoTarget;
     MoonTarget m_moonTarget;
+    SunTarget m_sunTarget;
     qint64 m_lastMoonCommandMs = 0;
     double m_lastMoonCommandAz = -999.0;
     double m_lastMoonCommandEl = -999.0;
@@ -214,5 +227,6 @@ Q_DECLARE_METATYPE(mm::CatRotatorController::Config)
 Q_DECLARE_METATYPE(mm::CatRotatorController::QsoTarget)
 Q_DECLARE_METATYPE(mm::CatRotatorController::TrackingMode)
 Q_DECLARE_METATYPE(mm::CatRotatorController::MoonTarget)
+Q_DECLARE_METATYPE(mm::CatRotatorController::SunTarget)
 
 #endif // CATROTATORCONTROLLER_H

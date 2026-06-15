@@ -1813,7 +1813,7 @@ void MainWindow::setupCustomWidgets()
             // v1.18/v4.13ad: keep the side panel compact, but do not reserve a
             // separate global RX bar above the tabs.  RX/TX transport now lives
             // at the top of the Status tab, so all modes gain vertical room.
-            // 0.5.0-alpha.6 keeps diagnostic Runtime Log access only in FT Mode.
+            // 0.5.0-alpha.8 keeps diagnostic Runtime Log access only in FT Mode.
             sideContainer->setMinimumWidth(280);
             sideContainer->setMaximumWidth(340);
             sideContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
@@ -15780,7 +15780,7 @@ void MainWindow::showAboutMadModem()
     header->addWidget(icon, 0, Qt::AlignTop);
 
     QLabel *title = new QLabel(QStringLiteral(
-        "<b>MadModem 0.5.0-alpha.6</b><br>"
+        "<b>MadModem 0.5.0-alpha.8</b><br>"
         "Amateur radio digital modem for HF RX/TX."), &dialog);
     title->setTextFormat(Qt::RichText);
     title->setWordWrap(true);

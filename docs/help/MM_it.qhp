@@ -4,7 +4,7 @@
     <virtualFolder>doc</virtualFolder>
     <filterSection>
         <filterAttribute>MM</filterAttribute>
-        <filterAttribute>0.5.0-alpha.6</filterAttribute>
+        <filterAttribute>0.5.0-alpha.8</filterAttribute>
         <filterAttribute>it</filterAttribute>
         <toc>
             <section title="Guida MM" ref="it/index.html">

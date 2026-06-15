@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QHelpCollectionProject version="1.0">
+    <assistant>
+        <title>MM Help - Français</title>
+        <startPage>qthelp://org.madmodem.mm.050a1.fr/doc/fr/index.html</startPage>
+        <applicationIcon>../../icons/madmodem_32.png</applicationIcon>
+    </assistant>
+    <docFiles>
+        <generate>
+            <file>
+                <input>MM_fr.qhp</input>
+                <output>MM_fr.qch</output>
+            </file>
+        </generate>
+        <register>
+            <file>MM_fr.qch</file>
+        </register>
+    </docFiles>
+</QHelpCollectionProject>

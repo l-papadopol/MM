@@ -1,0 +1,358 @@
+#include "CatRotatorPanel.h"
+#include "NavballWidget.h"
+
+#include <QDoubleSpinBox>
+#include <QGridLayout>
+#include <QFrame>
+#include <QGroupBox>
+#include <QFont>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QPushButton>
+#include <QProgressBar>
+#include <QRadioButton>
+#include <QButtonGroup>
+#include <QSignalBlocker>
+#include <QVBoxLayout>
+#include <QSizePolicy>
+#include <QtGlobal>
+
+
+
+namespace mm {
+
+CatRotatorPanel::CatRotatorPanel(CatRotatorController *controller, QWidget *parent)
+    : QWidget(parent), m_controller(controller)
+{
+    buildUi();
+    if (m_controller != nullptr) {
+        connect(m_controller, &CatRotatorController::statusChanged,
+                this, [this](const QString &) {
+            updateStatusLabel();
+        });
+        connect(m_controller, &CatRotatorController::connectionChanged,
+                this, [this](bool) { refreshState(); });
+        connect(m_controller, &CatRotatorController::positionChanged,
+                this, [this](double, double) { refreshState(); });
+        connect(m_controller, &CatRotatorController::targetChanged,
+                this, [this](double, double, const QString &) { refreshState(); });
+        connect(m_controller, &CatRotatorController::qsoTargetChanged,
+                this, &CatRotatorPanel::updateQsoTarget);
+        connect(m_controller, &CatRotatorController::trackingModeChanged,
+                this, [this](CatRotatorController::TrackingMode) { refreshState(); });
+        connect(m_controller, &CatRotatorController::moonTargetChanged,
+                this, [this](const CatRotatorController::MoonTarget &) { refreshState(); });
+        connect(m_controller, &CatRotatorController::motionChanged, this, [this](bool) { refreshState(); });
+        connect(m_controller, &CatRotatorController::calibrationProgress, this, [this](int percent, const QString &message) {
+            if (m_calibrationProgress != nullptr) {
+                m_calibrationProgress->setValue(qBound(0, percent, 100));
+                m_calibrationProgress->setVisible(percent > 0 && percent < 100);
+            }
+            Q_UNUSED(message)
+            updateStatusLabel();
+            refreshState();
+        });
+        connect(m_controller, &CatRotatorController::calibrationFinished, this, [this](const CatRotatorController::Config &, const QString &message) {
+            if (m_calibrationProgress != nullptr) {
+                m_calibrationProgress->setValue(100);
+                m_calibrationProgress->setVisible(false);
+            }
+            Q_UNUSED(message)
+            updateStatusLabel();
+            refreshState();
+        });
+    }
+    refreshState();
+}
+
+void CatRotatorPanel::buildUi()
+{
+    QVBoxLayout *outer = new QVBoxLayout(this);
+    outer->setContentsMargins(8, 8, 8, 8);
+    outer->setSpacing(7);
+
+    m_lblConnection = new QLabel(tr("Disconnected"), this);
+    m_lblConnection->setAlignment(Qt::AlignCenter);
+    m_lblConnection->setStyleSheet(QStringLiteral("QLabel { font-weight: bold; }"));
+    outer->addWidget(m_lblConnection);
+
+    QGridLayout *readout = new QGridLayout();
+    readout->setHorizontalSpacing(6);
+    readout->setVerticalSpacing(4);
+    m_lblCurrentAz = new QLabel(QStringLiteral("--"), this);
+    m_lblCurrentEl = new QLabel(QStringLiteral("--"), this);
+    QFont big = m_lblCurrentAz->font();
+    big.setPointSize(qMax(14, big.pointSize() + 6));
+    big.setBold(true);
+    m_lblCurrentAz->setFont(big);
+    m_lblCurrentEl->setFont(big);
+    m_lblCurrentAz->setFrameShape(QFrame::StyledPanel);
+    m_lblCurrentEl->setFrameShape(QFrame::StyledPanel);
+    m_lblCurrentAz->setAlignment(Qt::AlignCenter);
+    m_lblCurrentEl->setAlignment(Qt::AlignCenter);
+    readout->addWidget(new QLabel(tr("Az"), this), 0, 0);
+    readout->addWidget(new QLabel(tr("El"), this), 0, 1);
+    readout->addWidget(m_lblCurrentAz, 1, 0);
+    readout->addWidget(m_lblCurrentEl, 1, 1);
+    outer->addLayout(readout);
+
+    m_navball = new NavballWidget(this);
+    m_navball->set_x_size(330);
+    m_navball->set_y_size(330);
+    outer->addWidget(m_navball, 1);
+
+    QHBoxLayout *buttons = new QHBoxLayout();
+    m_btnConnect = new QPushButton(tr("Connect"), this);
+    m_btnStop = new QPushButton(tr("STOP"), this);
+    m_btnStop->setStyleSheet(QStringLiteral("QPushButton { color: #b00020; font-weight: bold; }"));
+    buttons->addWidget(m_btnConnect);
+    buttons->addWidget(m_btnStop);
+    outer->addLayout(buttons);
+
+    QGridLayout *manual = new QGridLayout();
+    m_spinAz = new QDoubleSpinBox(this);
+    m_spinAz->setRange(0.0, 359.9);
+    m_spinAz->setDecimals(1);
+    m_spinAz->setSuffix(QStringLiteral("°"));
+    m_spinEl = new QDoubleSpinBox(this);
+    m_spinEl->setRange(-10.0, 180.0);
+    m_spinEl->setDecimals(1);
+    m_spinEl->setSuffix(QStringLiteral("°"));
+    m_btnGo = new QPushButton(tr("Go"), this);
+    m_btnTrack = new QPushButton(tr("Track QSO"), this);
+    m_btnPark = new QPushButton(tr("Park"), this);
+    manual->addWidget(new QLabel(tr("SP Az"), this), 0, 0);
+    manual->addWidget(m_spinAz, 0, 1);
+    manual->addWidget(new QLabel(tr("SP El"), this), 1, 0);
+    manual->addWidget(m_spinEl, 1, 1);
+    manual->addWidget(m_btnGo, 2, 0, 1, 2);
+    manual->addWidget(m_btnTrack, 3, 0, 1, 2);
+    manual->addWidget(m_btnPark, 4, 0, 1, 2);
+    outer->addLayout(manual);
+
+    QGroupBox *trackingBox = new QGroupBox(tr("Tracking target"), this);
+    QVBoxLayout *trackingLayout = new QVBoxLayout(trackingBox);
+    trackingLayout->setContentsMargins(8, 8, 8, 8);
+    trackingLayout->setSpacing(4);
+    m_trackingModeGroup = new QButtonGroup(trackingBox);
+    m_radioQso = new QRadioButton(tr("QSO / correspondent locator"), trackingBox);
+    m_radioMoon = new QRadioButton(tr("Moon / EME"), trackingBox);
+    m_radioManual = new QRadioButton(tr("Manual az/el"), trackingBox);
+    m_trackingModeGroup->addButton(m_radioQso, 0);
+    m_trackingModeGroup->addButton(m_radioMoon, 1);
+    m_trackingModeGroup->addButton(m_radioManual, 2);
+    trackingLayout->addWidget(m_radioQso);
+    trackingLayout->addWidget(m_radioMoon);
+    trackingLayout->addWidget(m_radioManual);
+    m_lblMoon = new QLabel(tr("Moon: --"), trackingBox);
+    m_lblMoon->setWordWrap(true);
+    trackingLayout->addWidget(m_lblMoon);
+    outer->addWidget(trackingBox);
+
+    QGroupBox *directBox = new QGroupBox(tr("Point to locator / country"), this);
+    QGridLayout *direct = new QGridLayout(directBox);
+    m_editDirectTarget = new QLineEdit(directBox);
+    m_editDirectTarget->setPlaceholderText(tr("Locator, country, DXCC or prefix..."));
+    m_btnDirectTarget = new QPushButton(tr("Point"), directBox);
+    direct->addWidget(new QLabel(tr("Target"), directBox), 0, 0);
+    direct->addWidget(m_editDirectTarget, 0, 1);
+    direct->addWidget(m_btnDirectTarget, 1, 0, 1, 2);
+    outer->addWidget(directBox);
+
+    m_lblTarget = new QLabel(tr("Target: --"), this);
+    m_lblTarget->setWordWrap(true);
+    m_lblQso = new QLabel(tr("QSO: --"), this);
+    m_lblQso->setWordWrap(true);
+    m_lblEta = new QLabel(tr("ETA: --"), this);
+    m_lblEta->setWordWrap(true);
+    m_lblStatus = new QLabel(tr("Rotator: not yet configured"), this);
+    m_lblStatus->setWordWrap(true);
+    m_lblStatus->setStyleSheet(QStringLiteral("QLabel { font-weight: bold; }"));
+    outer->addWidget(m_lblTarget);
+    outer->addWidget(m_lblQso);
+    outer->addWidget(m_lblEta);
+    m_calibrationProgress = new QProgressBar(this);
+    m_calibrationProgress->setRange(0, 100);
+    m_calibrationProgress->setValue(0);
+    m_calibrationProgress->setVisible(false);
+    outer->addWidget(m_calibrationProgress);
+    outer->addWidget(m_lblStatus);
+    outer->addStretch(1);
+
+    connect(m_radioQso, &QRadioButton::toggled, this, [this](bool checked) {
+        if (checked && m_controller != nullptr) {
+            m_controller->setTrackingMode(CatRotatorController::TrackingMode::Qso);
+        }
+    });
+    connect(m_radioMoon, &QRadioButton::toggled, this, [this](bool checked) {
+        if (checked && m_controller != nullptr) {
+            m_controller->setTrackingMode(CatRotatorController::TrackingMode::Moon);
+        }
+    });
+    connect(m_radioManual, &QRadioButton::toggled, this, [this](bool checked) {
+        if (checked && m_controller != nullptr) {
+            m_controller->setTrackingMode(CatRotatorController::TrackingMode::Manual);
+        }
+    });
+
+    connect(m_btnConnect, &QPushButton::clicked, this, [this]() {
+        if (m_controller == nullptr) return;
+        if (m_controller->isConnected()) m_controller->disconnectRotator();
+        else m_controller->connectRotator();
+    });
+    connect(m_btnStop, &QPushButton::clicked, this, [this]() {
+        if (m_controller != nullptr) m_controller->stop();
+    });
+    connect(m_btnGo, &QPushButton::clicked, this, [this]() {
+        if (m_controller != nullptr) {
+            m_controller->setTrackingMode(CatRotatorController::TrackingMode::Manual);
+            m_controller->setAzEl(m_spinAz->value(), m_spinEl->value(), tr("side Rotator tab manual command"));
+        }
+    });
+    connect(m_btnTrack, &QPushButton::clicked, this, [this]() {
+        if (m_controller != nullptr) {
+            m_controller->setTrackingMode(CatRotatorController::TrackingMode::Qso);
+            m_controller->setTrackingQsoTarget(true);
+            m_controller->trackQsoTargetNow(tr("side Rotator tab QSO tracking"));
+        }
+    });
+    connect(m_btnPark, &QPushButton::clicked, this, [this]() {
+        if (m_controller != nullptr) {
+            m_controller->setTrackingMode(CatRotatorController::TrackingMode::Manual);
+            m_controller->park();
+        }
+    });
+    connect(m_btnDirectTarget, &QPushButton::clicked, this, [this]() {
+        if (m_controller != nullptr) m_controller->setTrackingMode(CatRotatorController::TrackingMode::Manual);
+        if (m_editDirectTarget != nullptr) emit requestDirectTarget(m_editDirectTarget->text().trimmed());
+    });
+    connect(m_editDirectTarget, &QLineEdit::returnPressed, this, [this]() {
+        if (m_controller != nullptr) m_controller->setTrackingMode(CatRotatorController::TrackingMode::Manual);
+        if (m_editDirectTarget != nullptr) emit requestDirectTarget(m_editDirectTarget->text().trimmed());
+    });
+}
+
+void CatRotatorPanel::applyConfig(const CatRotatorController::Config &config)
+{
+    m_config = config;
+    refreshState();
+}
+
+void CatRotatorPanel::updateQsoTarget(const CatRotatorController::QsoTarget &target)
+{
+    m_qsoTarget = target;
+    refreshState();
+}
+
+QString CatRotatorPanel::azElText(double az, double el) const
+{
+    return tr("Az %1° / El %2°").arg(QString::number(az, 'f', 1), QString::number(el, 'f', 1));
+}
+
+void CatRotatorPanel::updateTrackingModeControls()
+{
+    if (m_controller == nullptr) {
+        return;
+    }
+    QSignalBlocker b1(m_radioQso);
+    QSignalBlocker b2(m_radioMoon);
+    QSignalBlocker b3(m_radioManual);
+    switch (m_controller->trackingMode()) {
+    case CatRotatorController::TrackingMode::Moon:
+        if (m_radioMoon != nullptr) m_radioMoon->setChecked(true);
+        break;
+    case CatRotatorController::TrackingMode::Manual:
+        if (m_radioManual != nullptr) m_radioManual->setChecked(true);
+        break;
+    case CatRotatorController::TrackingMode::Qso:
+    default:
+        if (m_radioQso != nullptr) m_radioQso->setChecked(true);
+        break;
+    }
+}
+
+void CatRotatorPanel::refreshState()
+{
+    const bool connected = (m_controller != nullptr && m_controller->isConnected());
+    if (m_lblConnection != nullptr) m_lblConnection->setText(connected ? tr("Connected") : tr("Disconnected"));
+    if (m_btnConnect != nullptr) m_btnConnect->setText(connected ? tr("Disconnect") : tr("Connect"));
+    if (m_lblCurrentAz != nullptr) {
+        m_lblCurrentAz->setText(m_controller != nullptr ? QString::number(m_controller->currentAzimuth(), 'f', 0) : QStringLiteral("--"));
+    }
+    if (m_lblCurrentEl != nullptr) {
+        m_lblCurrentEl->setText(m_controller != nullptr ? QString::number(m_controller->currentElevation(), 'f', 0) : QStringLiteral("--"));
+    }
+    if (m_lblTarget != nullptr) {
+        m_lblTarget->setText(m_controller != nullptr ? tr("Target: %1").arg(azElText(m_controller->targetAzimuth(), m_controller->targetElevation())) : tr("Target: --"));
+    }
+    if (m_navball != nullptr && m_controller != nullptr) {
+        m_navball->set_az(m_controller->currentAzimuth());
+        m_navball->set_alt(m_controller->currentElevation());
+        m_navball->set_taz(m_controller->targetAzimuth());
+        m_navball->set_talt(m_controller->targetElevation());
+        m_navball->setTargetVisible(m_controller->targetAzimuth() >= 0.0);
+        m_navball->refresh();
+    }
+    updateTrackingModeControls();
+    if (m_lblMoon != nullptr) {
+        QString moonText = tr("Moon: --");
+        if (m_controller != nullptr) {
+            const CatRotatorController::MoonTarget moon = m_controller->moonTarget();
+            if (!moon.statusText.trimmed().isEmpty()) {
+                moonText = moon.statusText;
+            }
+        }
+        m_lblMoon->setText(moonText);
+    }
+    if (m_lblQso != nullptr) {
+        QString qso = tr("QSO: --");
+        if (!m_qsoTarget.callsign.trimmed().isEmpty()) {
+            qso = tr("QSO: %1 %2 — %3° — %4 km")
+                      .arg(m_qsoTarget.callsign,
+                           m_qsoTarget.grid.isEmpty() ? QStringLiteral("--") : m_qsoTarget.grid,
+                           m_qsoTarget.bearingDeg >= 0.0 ? QString::number(m_qsoTarget.bearingDeg, 'f', 1) : QStringLiteral("--"),
+                           m_qsoTarget.distanceKm >= 0.0 ? QString::number(m_qsoTarget.distanceKm, 'f', 0) : QStringLiteral("--"));
+        }
+        m_lblQso->setText(qso);
+    }
+    if (m_lblEta != nullptr) {
+        QString etaText = tr("ETA: --");
+        if (m_controller != nullptr && !m_qsoTarget.callsign.trimmed().isEmpty() && m_qsoTarget.bearingDeg >= 0.0) {
+            const int eta = m_controller->estimatePointingTimeMs(m_qsoTarget.bearingDeg, 0.0);
+            const bool ready = m_controller->isReadyForTarget(m_qsoTarget.bearingDeg, 0.0);
+            etaText = ready
+                ? tr("ETA: ready")
+                : tr("ETA pointing: %1 s — TX inhibited until ready").arg(QString::number(static_cast<double>(eta) / 1000.0, 'f', 1));
+        }
+        m_lblEta->setText(etaText);
+    }
+    updateStatusLabel();
+}
+
+QString CatRotatorPanel::friendlyStatusText() const
+{
+    if (m_controller == nullptr) {
+        return tr("Rotator: not yet configured");
+    }
+
+    const CatRotatorController::Config cfg = m_controller->config();
+    if (!cfg.enabled) {
+        return tr("Rotator: disabled in settings");
+    }
+    if (cfg.hamlibModel <= 0 || cfg.path.trimmed().isEmpty()) {
+        return tr("Rotator: not yet configured");
+    }
+    return m_controller->isConnected()
+        ? tr("Rotator: connected")
+        : tr("Rotator: disconnected");
+}
+
+void CatRotatorPanel::updateStatusLabel()
+{
+    if (m_lblStatus != nullptr) {
+        m_lblStatus->setText(friendlyStatusText());
+    }
+}
+
+} // namespace mm

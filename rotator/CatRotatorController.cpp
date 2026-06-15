@@ -28,6 +28,13 @@ struct MoonEphemeris
     double distanceKm = 0.0;
 };
 
+struct SunEphemeris
+{
+    bool valid = false;
+    double azimuthDeg = 0.0;
+    double elevationDeg = -90.0;
+};
+
 double norm360(double degrees)
 {
     double v = std::fmod(degrees, 360.0);
@@ -128,6 +135,45 @@ MoonEphemeris moonTopocentricAzEl(const QDateTime &utc, double latitudeDeg, doub
     out.distanceKm = range;
     out.valid = true;
     return out;
+
+SunEphemeris sunTopocentricAzEl(const QDateTime &utc, double latitudeDeg, double longitudeDeg)
+{
+    SunEphemeris out;
+    const double jd = julianDateUtc(utc);
+    const double T = (jd - 2451545.0) / 36525.0;
+    const double L0 = norm360(280.46646 + T * (36000.76983 + 0.0003032 * T));
+    const double M = norm360(357.52911 + T * (35999.05029 - 0.0001537 * T));
+    const double C = (1.914602 - T * (0.004817 + 0.000014 * T)) * std::sin(M * kDegToRad)
+                   + (0.019993 - 0.000101 * T) * std::sin(2.0 * M * kDegToRad)
+                   + 0.000289 * std::sin(3.0 * M * kDegToRad);
+    const double trueLong = L0 + C;
+    const double omega = 125.04 - 1934.136 * T;
+    const double lambda = trueLong - 0.00569 - 0.00478 * std::sin(omega * kDegToRad);
+    const double epsilon0 = 23.0 + (26.0 + ((21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60.0)) / 60.0;
+    const double epsilon = epsilon0 + 0.00256 * std::cos(omega * kDegToRad);
+
+    const double lambdaRad = lambda * kDegToRad;
+    const double epsilonRad = epsilon * kDegToRad;
+
+    const double alpha = std::atan2(std::cos(epsilonRad) * std::sin(lambdaRad), std::cos(lambdaRad));
+    const double delta = std::asin(std::sin(epsilonRad) * std::sin(lambdaRad));
+
+    const double gmst = norm360(280.46061837 + 360.98564736629 * (jd - 2451545.0)
+                                + 0.000387933 * T * T - T * T * T / 38710000.0);
+    const double lst = norm360(gmst + longitudeDeg) * kDegToRad;
+    const double H = lst - alpha;
+    const double phi = latitudeDeg * kDegToRad;
+
+    const double sinEl = std::sin(phi) * std::sin(delta) + std::cos(phi) * std::cos(delta) * std::cos(H);
+    const double el = std::asin(qBound(-1.0, sinEl, 1.0));
+    const double az = std::atan2(std::sin(H), std::cos(H) * std::sin(phi) - std::tan(delta) * std::cos(phi));
+
+    out.azimuthDeg = norm360(az * kRadToDeg + 180.0);
+    out.elevationDeg = el * kRadToDeg;
+    out.valid = true;
+    return out;
+}
+
 }
 } // namespace
 
@@ -140,6 +186,7 @@ CatRotatorController::CatRotatorController(QObject *parent)
     qRegisterMetaType<CatRotatorController::QsoTarget>("mm::CatRotatorController::QsoTarget");
     qRegisterMetaType<CatRotatorController::TrackingMode>("mm::CatRotatorController::TrackingMode");
     qRegisterMetaType<CatRotatorController::MoonTarget>("mm::CatRotatorController::MoonTarget");
+    qRegisterMetaType<CatRotatorController::SunTarget>("mm::CatRotatorController::SunTarget");
     m_pollTimer.setSingleShot(false);
     connect(&m_pollTimer, &QTimer::timeout, this, &CatRotatorController::pollNow);
     m_calibrationTimer.setSingleShot(false);
@@ -217,10 +264,8 @@ void CatRotatorController::configure(const Config &config)
         return;
     }
 
-    if (m_trackingMode == TrackingMode::Moon) {
-        m_moonTimer.start(1000);
-        updateMoonTargetNow();
-    }
+    m_moonTimer.start(1000);
+    updateMoonTargetNow();
 
     if (wasConnected && backendChanged) {
         disconnectRotator();
@@ -479,23 +524,32 @@ void CatRotatorController::setTrackingMode(TrackingMode mode)
 void CatRotatorController::updateMoonTargetNow()
 {
     MoonTarget moon;
-    moon.updatedUtc = QDateTime::currentDateTimeUtc();
+    SunTarget sun;
+    const QDateTime nowUtc = QDateTime::currentDateTimeUtc();
+    moon.updatedUtc = nowUtc;
+    sun.updatedUtc = nowUtc;
 
     if (!m_config.enabled) {
         moon.statusText = QStringLiteral("Moon tracking unavailable: rotator disabled in settings.");
+        sun.statusText = QStringLiteral("Sun tracking unavailable: rotator disabled in settings.");
         m_moonTarget = moon;
+        m_sunTarget = sun;
         emit moonTargetChanged(m_moonTarget);
+        emit sunTargetChanged(m_sunTarget);
         return;
     }
     if (!m_config.homeCoordinatesValid) {
         moon.statusText = QStringLiteral("Moon tracking unavailable: set My Locator in Settings -> User/QTH first.");
+        sun.statusText = QStringLiteral("Sun tracking unavailable: set My Locator in Settings -> User/QTH first.");
         m_moonTarget = moon;
+        m_sunTarget = sun;
         emit moonTargetChanged(m_moonTarget);
+        emit sunTargetChanged(m_sunTarget);
         if (m_trackingMode == TrackingMode::Moon) setStatus(moon.statusText);
         return;
     }
 
-    const MoonEphemeris e = moonTopocentricAzEl(moon.updatedUtc,
+    const MoonEphemeris e = moonTopocentricAzEl(nowUtc,
                                                 m_config.homeLatitudeDeg,
                                                 m_config.homeLongitudeDeg,
                                                 m_config.homeAltitudeM);
@@ -515,6 +569,25 @@ void CatRotatorController::updateMoonTargetNow()
     }
     m_moonTarget = moon;
     emit moonTargetChanged(m_moonTarget);
+
+    const SunEphemeris se = sunTopocentricAzEl(nowUtc,
+                                               m_config.homeLatitudeDeg,
+                                               m_config.homeLongitudeDeg);
+    sun.valid = se.valid;
+    sun.azimuthDeg = se.azimuthDeg;
+    sun.elevationDeg = se.elevationDeg;
+    sun.aboveHorizon = se.valid && se.elevationDeg >= 0.0;
+    if (sun.valid) {
+        sun.statusText = sun.aboveHorizon
+            ? QStringLiteral("Sun: Az %1° / El %2°")
+                  .arg(QString::number(sun.azimuthDeg, 'f', 1), QString::number(sun.elevationDeg, 'f', 1))
+            : QStringLiteral("Sun: below horizon | Az %1° / El %2°")
+                  .arg(QString::number(sun.azimuthDeg, 'f', 1), QString::number(sun.elevationDeg, 'f', 1));
+    } else {
+        sun.statusText = QStringLiteral("Sun tracking unavailable: ephemeris calculation failed.");
+    }
+    m_sunTarget = sun;
+    emit sunTargetChanged(m_sunTarget);
 
     if (m_trackingMode != TrackingMode::Moon) {
         return;

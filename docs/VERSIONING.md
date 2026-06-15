@@ -6,7 +6,7 @@ MadModem uses Semantic Versioning for public/user-visible versions:
 MAJOR.MINOR.PATCH[-pre.release][+build.metadata]
 ```
 
-Current public version: **0.5.0-alpha.6**.
+Current public version: **0.5.0-alpha.8**.
 
 Rules used in this tree:
 
@@ -19,7 +19,7 @@ Rules used in this tree:
 
 Next expected versions:
 
-- `0.5.0-alpha.7` for a direct bugfix to this alpha.
+- `0.5.0-alpha.8` for a direct bugfix to this alpha.
 - `0.5.0-beta.1` when the current feature set is compile-tested and field-stable.
 - `0.5.0` when this milestone is ready as a normal release.
 - `1.0.0` only after the core radio workflows are considered stable.
