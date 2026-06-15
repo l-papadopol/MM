@@ -74,10 +74,9 @@ void CatRotatorPanel::buildUi()
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(7);
 
-    m_lblConnection = new QLabel(tr("Disconnected"), this);
-    m_lblConnection->setAlignment(Qt::AlignCenter);
-    m_lblConnection->setStyleSheet(QStringLiteral("QLabel { font-weight: bold; }"));
-    outer->addWidget(m_lblConnection);
+    // Connection state is shown in the compact status line at the bottom.
+    // Do not consume vertical space with a duplicate top label.
+    m_lblConnection = nullptr;
 
     QGridLayout *readout = new QGridLayout();
     readout->setHorizontalSpacing(6);
@@ -123,17 +122,19 @@ void CatRotatorPanel::buildUi()
     m_spinEl->setSuffix(QStringLiteral("°"));
     m_btnGo = new QPushButton(tr("Go"), this);
     m_btnTrack = new QPushButton(tr("Track QSO"), this);
+    m_btnMoonTrack = new QPushButton(tr("Track Moon / EME"), this);
     m_btnPark = new QPushButton(tr("Park"), this);
     manual->addWidget(new QLabel(tr("SP Az"), this), 0, 0);
     manual->addWidget(m_spinAz, 0, 1);
     manual->addWidget(new QLabel(tr("SP El"), this), 1, 0);
     manual->addWidget(m_spinEl, 1, 1);
-    manual->addWidget(m_btnGo, 2, 0, 1, 2);
-    manual->addWidget(m_btnTrack, 3, 0, 1, 2);
-    manual->addWidget(m_btnPark, 4, 0, 1, 2);
+    manual->addWidget(m_btnGo, 2, 0);
+    manual->addWidget(m_btnPark, 2, 1);
+    manual->addWidget(m_btnTrack, 3, 0);
+    manual->addWidget(m_btnMoonTrack, 3, 1);
     outer->addLayout(manual);
 
-    QGroupBox *trackingBox = new QGroupBox(tr("Tracking target"), this);
+    QGroupBox *trackingBox = new QGroupBox(this);
     QVBoxLayout *trackingLayout = new QVBoxLayout(trackingBox);
     trackingLayout->setContentsMargins(8, 8, 8, 8);
     trackingLayout->setSpacing(4);
@@ -152,7 +153,7 @@ void CatRotatorPanel::buildUi()
     trackingLayout->addWidget(m_lblMoon);
     outer->addWidget(trackingBox);
 
-    QGroupBox *directBox = new QGroupBox(tr("Point to locator / country"), this);
+    QGroupBox *directBox = new QGroupBox(this);
     QGridLayout *direct = new QGridLayout(directBox);
     m_editDirectTarget = new QLineEdit(directBox);
     m_editDirectTarget->setPlaceholderText(tr("Locator, country, DXCC or prefix..."));
@@ -217,6 +218,12 @@ void CatRotatorPanel::buildUi()
             m_controller->setTrackingMode(CatRotatorController::TrackingMode::Qso);
             m_controller->setTrackingQsoTarget(true);
             m_controller->trackQsoTargetNow(tr("side Rotator tab QSO tracking"));
+        }
+    });
+    connect(m_btnMoonTrack, &QPushButton::clicked, this, [this]() {
+        if (m_controller != nullptr) {
+            m_controller->setTrackingMode(CatRotatorController::TrackingMode::Moon);
+            m_controller->updateMoonTargetNow();
         }
     });
     connect(m_btnPark, &QPushButton::clicked, this, [this]() {

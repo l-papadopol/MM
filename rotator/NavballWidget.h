@@ -59,6 +59,7 @@ private:
     void drawMoonMarker(QPainter &painter, const QPointF &pos, bool edgeCue) const;
     void drawStylizedSunFace(QPainter &painter, const QPointF &pos, qreal scale) const;
     void drawStylizedMoonFace(QPainter &painter, const QPointF &pos, qreal scale) const;
+    void drawInstrumentBezel(QPainter &painter) const;
 
     double m_talt = 0.0;
     double m_taz = 0.0;

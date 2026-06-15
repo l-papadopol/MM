@@ -135,6 +135,7 @@ MoonEphemeris moonTopocentricAzEl(const QDateTime &utc, double latitudeDeg, doub
     out.distanceKm = range;
     out.valid = true;
     return out;
+}
 
 SunEphemeris sunTopocentricAzEl(const QDateTime &utc, double latitudeDeg, double longitudeDeg)
 {
@@ -172,8 +173,6 @@ SunEphemeris sunTopocentricAzEl(const QDateTime &utc, double latitudeDeg, double
     out.elevationDeg = el * kRadToDeg;
     out.valid = true;
     return out;
-}
-
 }
 } // namespace
 

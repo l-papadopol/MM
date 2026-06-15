@@ -4,6 +4,7 @@
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
+#include <QRadialGradient>
 #include <QPaintEvent>
 #include <QPen>
 #include <QSizePolicy>
@@ -281,6 +282,59 @@ void NavballWidget::drawMoonMarker(QPainter &painter, const QPointF &pos, bool e
     drawStylizedMoonFace(painter, pos, edgeCue ? 0.82 : 1.0);
 }
 
+
+void NavballWidget::drawInstrumentBezel(QPainter &painter) const
+{
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    const QRectF panel = rect().adjusted(4.0, 4.0, -4.0, -4.0);
+    QLinearGradient panelGradient(panel.topLeft(), panel.bottomRight());
+    panelGradient.setColorAt(0.0, QColor(55, 60, 68));
+    panelGradient.setColorAt(0.45, QColor(23, 27, 34));
+    panelGradient.setColorAt(1.0, QColor(8, 10, 14));
+
+    painter.setPen(QPen(QColor(95, 105, 118), 2.0));
+    painter.setBrush(panelGradient);
+    painter.drawRoundedRect(panel, 18.0, 18.0);
+
+    const QRectF inner = panel.adjusted(11.0, 11.0, -11.0, -11.0);
+    painter.setPen(QPen(QColor(8, 9, 12), 3.0));
+    painter.setBrush(QColor(6, 8, 12));
+    painter.drawRoundedRect(inner, 12.0, 12.0);
+    painter.setPen(QPen(QColor(65, 72, 82), 1.2));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawRoundedRect(inner.adjusted(2.0, 2.0, -2.0, -2.0), 10.0, 10.0);
+
+    const qreal screwR = qMax<qreal>(5.0, qMin(width(), height()) * 0.028);
+    const qreal margin = 21.0;
+    const QPointF screws[] = {
+        QPointF(panel.left() + margin, panel.top() + margin),
+        QPointF(panel.right() - margin, panel.top() + margin),
+        QPointF(panel.left() + margin, panel.bottom() - margin),
+        QPointF(panel.right() - margin, panel.bottom() - margin)
+    };
+
+    for (const QPointF &c : screws) {
+        QRadialGradient sg(c - QPointF(screwR * 0.35, screwR * 0.35), screwR * 1.25);
+        sg.setColorAt(0.0, QColor(230, 235, 240));
+        sg.setColorAt(0.45, QColor(130, 138, 148));
+        sg.setColorAt(1.0, QColor(38, 42, 48));
+        painter.setPen(QPen(QColor(10, 12, 16), 1.2));
+        painter.setBrush(sg);
+        painter.drawEllipse(c, screwR, screwR);
+
+        painter.save();
+        painter.translate(c);
+        painter.rotate((c.x() < width() / 2.0) ? -22.0 : 22.0);
+        painter.setPen(QPen(QColor(25, 28, 34), 1.6, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(QPointF(-screwR * 0.58, 0.0), QPointF(screwR * 0.58, 0.0));
+        painter.restore();
+    }
+
+    painter.restore();
+}
+
 void NavballWidget::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
@@ -294,7 +348,8 @@ void NavballWidget::paintEvent(QPaintEvent *event)
     const double radius = qMin(w, h) * 0.40;
     const QPointF center(w / 2.0, h / 2.0);
 
-    painter.fillRect(rect(), QColor(10, 12, 18));
+    painter.fillRect(rect(), QColor(7, 9, 13));
+    drawInstrumentBezel(painter);
 
     QPainterPath sphereClip;
     sphereClip.addEllipse(center, radius, radius);

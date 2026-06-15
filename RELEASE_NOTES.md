@@ -1,10 +1,14 @@
+This alpha compacts the Rotator tab layout by removing duplicate labels and placing related rotator action buttons on shared rows.
+
+This alpha fixes the rotator Sun/Moon compile error, makes Moon / EME tracking easier to find in the Rotator tab, and gives the Navball an instrument-style bezel with corner screws.
+
 This alpha refines the Navball celestial markers with more expressive Sun/Moon icons, makes the elevation scale much less crowded, and keeps the Moon / EME tracking selector available in the Rotator tab.
 
 This alpha adds live Sun and Moon markers to the Navball, updated in real time from local ephemeris calculations based on UTC and the configured station coordinates.
 
 # RELEASE NOTES — current source package
 
-## Current public version: MadModem 0.5.0-alpha.8
+## Current public version: MadModem 0.5.0-alpha.10
 
 This alpha adds Moon / EME tracking to the Rotator tab using an internal topocentric lunar ephemeris from UTC and the configured User/QTH locator.
 

@@ -66,6 +66,7 @@ private:
     QPushButton *m_btnStop = nullptr;
     QPushButton *m_btnGo = nullptr;
     QPushButton *m_btnTrack = nullptr;
+    QPushButton *m_btnMoonTrack = nullptr;
     QPushButton *m_btnPark = nullptr;
 };
 

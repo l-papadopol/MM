@@ -240,7 +240,7 @@ CtyCountryFile::LookupResult CtyCountryFile::lookupEntityNameOrPrefix(const QStr
     }
 
     // If the input looks like a human country name, try contains matching before callsign lookup.
-    const bool looksLikeCountryText = q.contains(QRegularExpression(QStringLiteral("[\s_.-]"))) || q.size() > 3;
+    const bool looksLikeCountryText = q.contains(QRegularExpression(QStringLiteral("[\\s_.-]"))) || q.size() > 3;
     if (looksLikeCountryText) {
         for (int i = 0; i < m_entities.size(); ++i) {
             const Entity &e = m_entities.at(i);
