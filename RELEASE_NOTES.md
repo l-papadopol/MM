@@ -1,3 +1,5 @@
+This alpha fixes rotator band gating: a profile assigned to one band no longer moves on other bands, and the Rotator status line reports when the current band has no assigned profile.
+
 This alpha removes the lower-left TG/AZ/EL text overlay from the Navball for a cleaner instrument look.
 
 This alpha improves the Rotator tab ergonomics: clearer Set Az/Set El labels, tighter setpoint layout, Connect/STOP moved beside the setpoints, and hover tooltips for the main controls.
@@ -12,7 +14,7 @@ This alpha adds live Sun and Moon markers to the Navball, updated in real time f
 
 # RELEASE NOTES — current source package
 
-## Current public version: MadModem 0.5.0-alpha.12
+## Current public version: MadModem 0.5.0-alpha.13
 
 This alpha adds Moon / EME tracking to the Rotator tab using an internal topocentric lunar ephemeris from UTC and the configured User/QTH locator.
 

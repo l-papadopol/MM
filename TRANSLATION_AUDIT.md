@@ -11,7 +11,7 @@ Maintained languages:
 - Norwegian: `translations/ui_no.ini`
 - Czech: `translations/ui_cs.ini`
 
-For MadModem 0.5.0-alpha.12 the dictionaries remain aligned after adding Moon / EME rotator tracking, target-mode labels and lunar status text. The previous alpha.1 dictionary refresh covered the rotator geometry presets, end-stop auto-reverse controls, no-movement timeout/threshold controls and calibration-result UI refresh.
+For MadModem 0.5.0-alpha.13 the dictionaries remain aligned after adding Moon / EME rotator tracking, target-mode labels and lunar status text. The previous alpha.1 dictionary refresh covered the rotator geometry presets, end-stop auto-reverse controls, no-movement timeout/threshold controls and calibration-result UI refresh.
 
 Current static audit result:
 

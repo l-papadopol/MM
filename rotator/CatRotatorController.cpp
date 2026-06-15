@@ -259,7 +259,10 @@ void CatRotatorController::configure(const Config &config)
     if (!m_config.enabled) {
         m_moonTimer.stop();
         disconnectRotator();
-        setStatus(QStringLiteral("CatRotator disabled in MM settings."));
+        const QString reason = m_config.disabledReason.trimmed();
+        setStatus(reason.isEmpty()
+            ? QStringLiteral("CatRotator disabled in MM settings.")
+            : reason);
         return;
     }
 

@@ -1813,7 +1813,7 @@ void MainWindow::setupCustomWidgets()
             // v1.18/v4.13ad: keep the side panel compact, but do not reserve a
             // separate global RX bar above the tabs.  RX/TX transport now lives
             // at the top of the Status tab, so all modes gain vertical room.
-            // 0.5.0-alpha.12 keeps diagnostic Runtime Log access only in FT Mode.
+            // 0.5.0-alpha.13 keeps diagnostic Runtime Log access only in FT Mode.
             sideContainer->setMinimumWidth(280);
             sideContainer->setMaximumWidth(340);
             sideContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
@@ -14727,17 +14727,33 @@ mm::CatRotatorController::Config MainWindow::catRotatorConfigFromSettings() cons
         currentBand = m_settings.ft8Band;
     }
 
-    int selected = qBound(0, m_settings.rotatorActiveProfile, 2);
+    const bool currentBandKnown = !normalizeBand(currentBand).isEmpty();
+    bool profileMatchedCurrentBand = false;
+    int selected = -1;
     for (int i = 0; i < 3; ++i) {
         if (profileMatchesBand(m_settings.rotatorProfiles[i], currentBand)) {
             selected = i;
+            profileMatchedCurrentBand = true;
             break;
         }
     }
 
+    // Do not silently fall back to the active profile when the current band is
+    // known but no rotator profile is assigned to it.  Example: a 2 m rotator
+    // must not move when the radio/app is on 20 m.
+    const bool rotatorAllowedForCurrentBand = !currentBandKnown || profileMatchedCurrentBand;
+    if (selected < 0) {
+        selected = qBound(0, m_settings.rotatorActiveProfile, 2);
+    }
+
     const AppSettings::RotatorProfileSettings &profile = m_settings.rotatorProfiles[selected];
     mm::CatRotatorController::Config cfg;
-    cfg.enabled = m_settings.rotatorEnabled;
+    cfg.enabled = m_settings.rotatorEnabled && rotatorAllowedForCurrentBand;
+    if (m_settings.rotatorEnabled && !rotatorAllowedForCurrentBand) {
+        cfg.disabledReason = uiText("rotator_disabled_for_current_band",
+                                    "Rotator: disabled for current band %1")
+                                 .arg(currentBand.trimmed().isEmpty() ? QStringLiteral("--") : currentBand.trimmed());
+    }
     cfg.stationIdentityOk = stationIdentityReady(nullptr);
     cfg.autoConnect = m_settings.rotatorAutoConnect;
     cfg.showWindowOnStart = false;
@@ -15780,7 +15796,7 @@ void MainWindow::showAboutMadModem()
     header->addWidget(icon, 0, Qt::AlignTop);
 
     QLabel *title = new QLabel(QStringLiteral(
-        "<b>MadModem 0.5.0-alpha.12</b><br>"
+        "<b>MadModem 0.5.0-alpha.13</b><br>"
         "Amateur radio digital modem for HF RX/TX."), &dialog);
     title->setTextFormat(Qt::RichText);
     title->setWordWrap(true);

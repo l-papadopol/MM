@@ -33,6 +33,7 @@ public:
         int profileIndex = 0;
         QString label = QStringLiteral("Rotator 1");
         QString bandsCsv;
+        QString disabledReason;
         int hamlibModel = 1;
         QString path;
         int baudRate = 9600;

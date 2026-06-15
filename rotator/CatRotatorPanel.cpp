@@ -383,7 +383,8 @@ QString CatRotatorPanel::friendlyStatusText() const
 
     const CatRotatorController::Config cfg = m_controller->config();
     if (!cfg.enabled) {
-        return tr("Rotator: disabled in settings");
+        const QString reason = cfg.disabledReason.trimmed();
+        return reason.isEmpty() ? tr("Rotator: disabled in settings") : reason;
     }
     if (cfg.hamlibModel <= 0 || cfg.path.trimmed().isEmpty()) {
         return tr("Rotator: not yet configured");
