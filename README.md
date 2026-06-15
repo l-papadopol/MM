@@ -1,112 +1,141 @@
-# MM — MadModem
+# MadModem (MM)
 
-**English** | [Italiano](#mm--madmodem-italiano)
+**English** | [Italiano](#madmodem-mm-italiano)
 
-Current public version: **MadModem 0.5.0-alpha.6**.
+Current version: **0.5.0-alpha.6**
 
-MadModem, usually shortened to **MM**, is a GPLv3 amateur-radio digital-mode application for Linux and Windows. It is developed as a single Qt Widgets program that combines audio RX/TX, CAT/PTT, waterfall display, logbook, QSO map, FT4/FT8 automation and an integrated rotator controller.
+MadModem, usually called **MM**, is an amateur-radio digital-mode application for Linux and Windows.
 
-This repository is intentionally explicit about attribution. MadModem contains original project code, source-level ports of GPL/LGPL/MIT open-source components, and original reimplementations inspired by well-known amateur-radio software. See also [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), [`AUTHORS.md`](AUTHORS.md), [`LICENSE.md`](LICENSE.md) and the license files preserved under `third_party/`.
+It is a single Qt Widgets program with modem RX/TX, audio routing, waterfall, CAT/PTT, logbook, QSO map, FT4/FT8 automation and rotator control. The project is still alpha software, but it is already used for real radio testing.
 
 ---
 
-## What MadModem can currently do
+## What it does
 
-### Digital modes and audio
+### Digital modes
 
-- FT8 and FT4 RX/TX with UTC slot scheduling, full-passband live decode, offline WAV analysis and an Auto test harness for regression checks.
-- FT AutoQSO with QSO-state tracking, automatic reply preparation, TX-plan scheduling, target selection and guarded Flow Studio shadow/runtime integration.
-- WEFAX RX/TX tools: LPM, black/white tones, APT start, auto tone, band-pass, stop/end detection, manual RX forcing, image reset and PNG save.
-- SSTV RX/TX support with image loading/transmission workflow and MMSSTV-derived receive ideas.
-- RTTY RX/TX, BPSK/QPSK, MFSK, CW and Hellschreiber support.
-- Dedicated FT TX audio worker for low-latency slot-aligned audio output.
-- Audio input/output selection, DSP controls, markers and waterfall display.
+MadModem currently contains support for:
 
-### CAT, PTT and station safety
+- FT8 / FT4;
+- WEFAX;
+- SSTV;
+- RTTY;
+- BPSK / QPSK;
+- MFSK;
+- CW;
+- Hellschreiber.
 
-- Hamlib-based radio CAT/PTT backend.
-- HRD-compatible backend support.
-- CAT frequency readout and QSY support.
-- CAT PTT, DATA/PTT handling where the Hamlib backend exposes it, and serial RTS/DTR PTT options.
-- Mandatory station identity guard: **My Call** and **My Locator** in Settings → User/QTH are required before TX/PTT/Tune and rotator movement are allowed.
+The FT side includes live full-passband decoding, UTC slot timing, prepared TX messages, slot-aligned audio output, WAV analysis and a regression auto-test tool.
 
-### FT4/FT8 automation
+### Audio, CAT and PTT
 
-- UTC-locked FT8 15 s and FT4 7.5 s scheduling model.
-- TxPlan-based transmission path: UI, scheduler, modulator and log use the same prepared transmission plan.
-- AutoQSO candidate ranking by new country, new locator square, new band, new mode, distance and SNR.
-- Optional behaviour controls such as TX-frequency strategy, target reclaim/retry and worked/blacklist logic.
-- Runtime log access for FT modes.
-- MM Flow Studio: a guarded event/capability architecture for visual AutoQSO flow work. Flow actions do not directly key PTT or audio; they request abstract actions through safety gates.
+- selectable audio input/output devices;
+- waterfall with RX/TX markers;
+- dedicated FT TX audio worker;
+- Hamlib radio backend;
+- HRD-compatible backend;
+- CAT frequency readout and QSY;
+- CAT PTT and serial RTS/DTR PTT;
+- station safety guard: callsign and locator must be configured before TX/PTT/Tune.
+
+### FT4 / FT8 automation
+
+- AutoQSO candidate ranking;
+- QSO state tracking;
+- automatic reply preparation;
+- TX frequency handling;
+- retry/reclaim logic;
+- runtime log for FT modes;
+- experimental MM Flow Studio layer for visual AutoQSO logic.
+
+MM Flow Studio does not directly key PTT or audio. Flow blocks request guarded actions from the scheduler/runtime.
 
 ### Rotator and EME
 
-- Independent Hamlib rotator backend, separate from radio CAT.
-- Hamlib rotator model enumeration plus fallback entries such as Yaesu G-601 / GS-232A.
-- Three rotator profiles with band assignment from HF through microwave bands.
-- Manual pointing to Maidenhead locator, country/DXCC or prefix using `cty.csv`.
-- QSO/correspondent locator tracking.
-- **Moon / EME tracking**: local dependency-free lunar ephemeris from UTC and configured User/QTH locator; the Moon mode bypasses QSO locator tracking and points the rotator to the Moon when it is above the local horizon.
-- Azimuth geometry presets: standard 360° stop-at-North, standard 360° stop-at-South, Yaesu 450° overlap and custom mechanical range.
-- End-stop/no-movement detection with one automatic reverse retry.
-- Inertia/speed calibration for azimuth/elevation and rotator-ready TX guard.
-- OpenGL-backed Navball visualization with horizon, useful grid labels, target marker and overlap indication.
+- independent Hamlib rotator backend;
+- multiple rotator profiles;
+- pointing to locator, country/DXCC or prefix;
+- QSO/correspondent locator tracking;
+- Moon / EME tracking from local lunar ephemeris;
+- azimuth geometry presets, including Yaesu 450° overlap rotators;
+- end-stop/no-movement detection;
+- speed/inertia calibration;
+- OpenGL-backed Navball display.
 
-### Logbook, map and support tools
+### Logbook and map
 
-- QSO logbook with ADIF-oriented data handling.
-- QSO map with OSM/cache/fallback rendering, marker layers, Maidenhead grid, Home→QSO paths and logbook overlays.
-- DXCC/country lookup from `cty.csv`.
-- Localized Qt/HTML help in English, Italian, French, German, Norwegian and Czech.
-- Multilingual runtime UI dictionaries for the same languages.
-- Linux + Windows all-in-one packaging through `build_all.sh` and `tools/package_mm_zip.sh`.
+- ADIF-oriented logbook;
+- QSO map with OSM/cache/fallback rendering;
+- Maidenhead grid and Home→QSO paths;
+- DXCC/prefix lookup through `cty.csv`.
+
+### Localization
+
+Runtime UI dictionaries and HTML/Qt help are currently present for English, Italian, French, German, Norwegian and Czech.
 
 ---
 
-## Authorship and code-origin map
+## Code origin and credits
 
-### Original MadModem project code
+MadModem is GPLv3 software. The repository contains three different kinds of material:
 
-Unless a file or directory is explicitly listed as third-party material, the code in this repository is original MadModem project material by **Papadopol Lucian-Ioan** / **IZ6NNH** / MadExp, developed through a human-directed AI-assisted workflow.
+1. original MadModem code;
+2. reused/bundled open-source code;
+3. MadModem-native code inspired by other programs but not copied from them.
 
-Original MadModem material includes, in particular:
+This distinction matters. The table below is based on the current source tree and CMake target, not on generic assumptions.
 
-- the Qt Widgets application shell, main window, settings dialogs, mode panels and integration glue;
-- the audio/DSP integration layer and mode switching infrastructure;
-- the waterfall/UI integration and marker workflow;
-- the FT scheduler integration, TxPlan ownership model, AutoQSO state integration and safety gates, except for FT protocol material credited below;
-- MM Flow Studio model/editor/runtime/capability architecture;
-- logbook, map integration, QSO-map layer management and ADIF-oriented application logic;
-- rotator panel/controller integration, rotator geometry handling, Moon/EME tracking integration and Navball widget;
-- build scripts, packaging scripts, documentation and localized runtime dictionaries.
+### Original MadModem code
 
-The author directed the product concept, UI decisions, feature requirements, validation, radio testing, release decisions and integration. AI assistance was used as an implementation accelerator; it does not remove the attribution and licensing obligations for reused open-source code.
+Unless a file or directory is explicitly marked as third-party material, the code belongs to the MadModem project by:
 
-### Open-source code copied, ported or bundled in the source tree
+**Papadopol Lucian-Ioan / IZ6NNH / MadExp**
 
-| Upstream project | Where in this tree | How it is used | License / credit |
-|---|---|---|---|
-| **MSHV** FT material, with FT protocol heritage from WSJT-X | `third_party/mshv_gpl/port/` | Source-level port for FT8/FT4 message packing/unpacking, FT TX waveform generation, CRC/LDPC/protocol helper material and related FT integration support. | GPL. Preserve MSHV notices and original WSJT-X-related credits contained in the upstream files. |
-| **Hamlib** | `third_party/hamlib_lgpl/source/` plus MadModem wrappers in `rig/` and `rotator/` | Bundled source tree used to build reproducible Linux and Windows CAT/PTT/rotator support. MadModem links to Hamlib APIs for radio and rotator control. | Hamlib library LGPL-2.1-or-later; some upstream tools/examples GPL-2.0-or-later. Credit The Hamlib Group and upstream `AUTHORS`. |
-| **ggmorse** | `third_party/ggmorse_mit/` | Bundled CW receive engine used for robust Morse timing/speed estimation and decoding support. | MIT License. Credit Georgi Gerganov. |
-| **MMSSTV** | `third_party/mmsstv_lgpl/` | Source-level Qt/CMake-friendly port/reference for SSTV RX ideas, frequency estimation and line/rendering concepts. | LGPLv3-or-later. Credit Makoto Mori and Nobuyuki Oba. |
-| **QSSTV** | `third_party/qsstv_gpl/` | Sound-card calibration concept and reference material; MadModem uses a Qt Multimedia adaptation rather than the original UI/audio stack. | GPLv3-or-later. Credit Johan Maes, ON4QZ. |
-| **Decodium / Raptor reference material** | `third_party/decodium_gpl/port/` | Small adapted Qt NTP client and waterfall/decoder-hygiene reference material. | GPL. Credit Decodium/Raptor authors as preserved in notices. |
-| **AD1C/K1EA country file format/data** | `cty.csv` and `dxcc/` loader | DXCC/country/prefix lookup for map/logbook/rotator target resolution. Users may replace `cty.csv` with an updated file. | External country-file data; keep upstream attribution when updating the file. |
-| **Qt** | Build/runtime dependency, not copied as source except generated project integration files | GUI, multimedia, serial port, networking, optional Qt Help and optional Qt Location support. | Respect the license of the Qt version used by the builder/distributor. |
+This includes the Qt application, UI, settings system, mode panels, audio/DSP integration, waterfall integration, logbook/map logic, rotator integration, Moon tracking integration, Navball widget, MM Flow Studio integration, build scripts, packaging scripts and documentation.
 
-### Inspired-by / reimplemented algorithms without direct source copying
+MadModem was developed with AI assistance under human direction. Product concept, requirements, UI decisions, validation, radio testing and release decisions are by the project author.
 
-The following MadModem subsystems were designed after studying established open-source amateur-radio programs, but are implemented as MadModem-native code unless a specific file is listed in the previous table:
+### Reused, compiled or linked open-source code
 
-| Reference project | MadModem subsystem | What was reimplemented or used as design inspiration |
+These components are actually compiled into MadModem, linked by MadModem, or built as part of the normal package workflow.
+
+| Upstream project | Current use in MadModem | Location |
 |---|---|---|
-| **WSJT-X** | FT4/FT8 timing, sequencing and parser behaviour | UTC slot discipline, post-slot decode timing, prepared TX messages, AutoQSO state progression, FT message classification and safety around PTT/audio scheduling. |
-| **MSHV / WSJT-X / JTDX family** | FT receiver architecture | Full-passband candidate search, Costas/sync handling, LDPC/CRC decode strategy, overlap/subtract/rescan ideas and practical live-decode budgeting. Protocol tables/helpers credited above remain third-party. |
-| **fldigi / gmfsk family** | PSK/QPSK/MFSK receiver design | Tone-bank receiver architecture, AFC-style tracking ideas, status metrics and conservative modem UI behaviour. No full fldigi UI/runtime subsystem is imported. |
-| **QSSTV / MMSSTV** | SSTV and sound-card calibration workflow | Timing/calibration concepts and SSTV receive behaviour were adapted to MadModem's own Qt audio engine and UI. |
-| **CatRotator-style workflows** | Rotator UX | Multi-rotator workflow ideas, model list expectations, band assignment and rotator status ergonomics; the integrated MadModem rotator controller/UI is original project code using Hamlib APIs. |
-| **Astronomical Meeus/NOAA-style formulae** | Moon / EME tracking | Low-order local lunar ephemeris calculation from UTC and QTH for topocentric Az/El. This is implemented internally and does not require online ephemeris downloads. |
+| **MSHV**, with WSJT-X FT protocol heritage | FT8/FT4 protocol support: packing/unpacking, CRC/LDPC helpers, FT8/FT4 TX waveform generation and selected protocol support code. | `third_party/mshv_gpl/port/` |
+| **Hamlib** | Radio CAT/PTT and rotator control. Built from the bundled source by the build scripts and linked by MadModem. | `third_party/hamlib_lgpl/source/`, wrappers in `rig/` and `rotator/` |
+| **ggmorse** | CW receive engine used by the CW decoder. | `third_party/ggmorse_mit/` |
+| **MMSSTV-derived MadModem SSTV core** | SSTV RX helper code derived from MMSSTV concepts/constants and compiled in the target. | `third_party/mmsstv_lgpl/MmsstvRxCore.*` |
+| **Decodium/Raptor-derived NTP client** | Small adapted Qt NTP client used by the application. | `third_party/decodium_gpl/port/NtpClient.*` |
+| **AD1C/K1EA country file** | DXCC/country/prefix lookup data. | `cty.csv` |
+| **Qt** | Application framework: Widgets, Multimedia, SerialPort, Network, PrintSupport, optional Help/Location pieces. | external dependency |
+
+Preserve the upstream notices and license files in `third_party/`.
+
+### Bundled reference material not compiled into the MadModem target
+
+These files are kept for attribution, traceability and future comparison. They are not listed in the current `MadModem` CMake target.
+
+| Upstream project | Current status |
+|---|---|
+| **QSSTV** | Reference material only. MadModem's sound-card calibration dialog is QSSTV-style / QSSTV-inspired, but the QSSTV reference tree is not compiled or linked into the MadModem executable. |
+| **MMSSTV reference tree** | Reference material. The compiled SSTV helper is the smaller `MmsstvRxCore.*` file listed above. |
+| **MSHV reference/upstream tree** | Reference material. The compiled FT material is the reduced port under `third_party/mshv_gpl/port/`. |
+| **Decodium/Raptor reference tree** | Reference material. The compiled part is the adapted NTP client under `third_party/decodium_gpl/port/`. |
+
+### Reimplemented / inspired-by work
+
+These MadModem parts were designed after studying other open-source programs, but the current MadModem files are native project code unless they are listed in the previous reused-code table.
+
+| Reference software | MadModem area |
+|---|---|
+| **WSJT-X** | FT4/FT8 slot timing, QSO-state behaviour, message sequencing and parser behaviour. |
+| **MSHV / WSJT-X / JTDX family** | FT receiver architecture ideas: candidate search, Costas/sync handling, LDPC/CRC workflow, subtract/rescan concepts and live-decode budgeting. |
+| **fldigi / gmfsk family** | PSK/QPSK/MFSK receiver design ideas. |
+| **QSSTV** | Sound-card calibration workflow idea. |
+| **CatRotator-style programs** | Rotator workflow and UX ideas. |
+| **Meeus/NOAA-style astronomical formulae** | Internal Moon / EME topocentric azimuth/elevation calculation. |
+
+See also `THIRD_PARTY_NOTICES.md`, `LICENSE.md`, `AUTHORS.md`, `COPYING`, `docs/SOURCE_AUDIT.md` and the license files under `third_party/`.
 
 ---
 
@@ -117,13 +146,13 @@ audio/          Audio engines and FT TX worker
 dialogs/        Settings, help, logbook and editor dialogs
 dsp/            DSP helpers and frequency tracking
 dxcc/           cty.csv loader and DXCC/prefix lookup
-flow/           MM Flow Studio model/runtime pieces
+flow/           MM Flow Studio model/runtime
 logbook/        Logbook data handling
 modems/         Digital-mode receivers/decoders and FT components
-rig/            Radio CAT/PTT wrappers around Hamlib/HRD
-rotator/        Rotator controller, panel, geometry, Moon tracking, Navball
+rig/            Radio CAT/PTT wrappers
+rotator/        Rotator controller, geometry, Moon tracking and Navball
 settings/       Persistent settings model
-third_party/    Preserved upstream source/ports/notices
+third_party/    Upstream source, ports, references and notices
 translations/   Runtime UI dictionaries
 tx/             Transmitters for supported modes
 widgets/        Custom Qt widgets, map, waterfall and UI components
@@ -131,13 +160,13 @@ widgets/        Custom Qt widgets, map, waterfall and UI components
 
 ---
 
-## Development/build environment
+## Building
 
-The normal development machine is Linux. Windows binaries are produced by cross-compiling with **MXE**.
+The normal development environment is Linux. Windows binaries are cross-compiled from Linux with **MXE**.
 
-### Native Linux requirements
+### Native Linux build
 
-Install the normal C++/Qt development stack for your distribution. On Debian/Ubuntu-like systems the package names are typically similar to:
+Typical Debian/Ubuntu packages:
 
 ```bash
 sudo apt install \
@@ -148,201 +177,212 @@ sudo apt install \
   qtpositioning5-dev qtlocation5-dev
 ```
 
-Notes:
-
-- Qt5 is the current practical baseline. The CMake files also probe Qt6 where available.
-- Qt Help is optional but recommended for generated `.qch` help files.
-- Qt Location is optional; when unavailable, MadModem uses fallback map rendering.
-- Hamlib does not need to be preinstalled when using the bundled build scripts; `build_all.sh` builds the bundled Hamlib source first.
-
-Native Linux build:
+Build:
 
 ```bash
 ./third_party/hamlib_lgpl/build_hamlib.sh
+
 cmake -S . -B build-linux \
   -DCMAKE_BUILD_TYPE=Release \
   -DHAMLIB_ROOT="$PWD/third_party/hamlib_lgpl/install-linux-x86_64" \
   -DMADMODEM_REQUIRE_HAMLIB=ON
+
 cmake --build build-linux -j"$(nproc)"
 ```
 
 ### Windows cross-build with MXE
 
-MadModem's Windows build is produced from Linux through MXE. The scripts expect MXE at either:
+The build scripts expect MXE in one of these locations:
 
 ```text
 /home/iz6nnh/mxe
-```
-
-or:
-
-```text
 $HOME/mxe
 ```
 
-You can override it with:
+Optional override:
 
 ```bash
 export MXE_ROOT=/path/to/mxe
 export MXE_TARGET=x86_64-w64-mingw32.static
 ```
 
-The MXE target must provide the static MinGW toolchain and the Qt/OpenSSL modules used by MadModem. In the current workflow the important MXE packages are:
+Required MXE packages for the current workflow:
 
 ```bash
 cd "$MXE_ROOT"
+
 make MXE_TARGETS=x86_64-w64-mingw32.static \
   openssl qtbase qttools qtserialport qtmultimedia qtlocation qtdeclarative
 ```
 
-Minimum practical notes:
-
-- `qtbase` provides Qt Widgets, Network and PrintSupport.
-- `qttools` provides tools such as `qhelpgenerator`.
-- `qtserialport` is required for serial/CAT-related Qt code.
-- `qtmultimedia` is required for audio I/O.
-- `openssl` is needed so the Windows build can use HTTPS map tiles through Qt Network.
-- `qtlocation`/`qtdeclarative` are useful for Qt Location/QML map support when enabled; the app has fallback map rendering when this stack is missing.
-
-Then run the all-in-one build script from the MadModem root:
+Full Linux + Windows build:
 
 ```bash
 ./build_all.sh
 ```
 
-`build_all.sh` does the following:
-
-1. builds bundled Hamlib for Linux;
-2. builds MadModem for Linux;
-3. builds bundled Hamlib for Windows through MXE;
-4. builds MadModem for Windows through MXE;
-5. installs build trees under `dist/linux` and `dist/windows`;
-6. creates the distributable `MM/` folder and `mm.zip`.
-
-Useful environment switches:
+Useful switches:
 
 ```bash
 MADMODEM_BUILD_LINUX=off ./build_all.sh      # Windows only
 MADMODEM_BUILD_WINDOWS=off ./build_all.sh    # Linux only
-MADMODEM_CREATE_MM_ZIP=off ./build_all.sh    # build without packaging
-JOBS=8 ./build_all.sh                        # override parallelism
+MADMODEM_CREATE_MM_ZIP=off ./build_all.sh    # build without final package
+JOBS=8 ./build_all.sh                        # manual parallelism
 ```
 
 ---
 
 ## License
 
-MadModem is distributed as a **GPLv3 combined work**. See [`COPYING`](COPYING) and [`LICENSE.md`](LICENSE.md).
+MadModem is distributed as a **GPLv3 combined work**.
 
-Because GPL/LGPL/MIT and other upstream material is preserved or used in the tree, do not remove the third-party notices. Any public binary/source redistribution must include the corresponding source and license notices.
+See:
 
----
+- `COPYING`
+- `LICENSE.md`
+- `THIRD_PARTY_NOTICES.md`
+- license files inside `third_party/`
 
-# MM — MadModem Italiano
-
-Versione pubblica corrente: **MadModem 0.5.0-alpha.6**.
-
-MadModem, spesso abbreviato in **MM**, è un'applicazione radioamatoriale GPLv3 per modi digitali, Linux e Windows. È sviluppata come programma unico Qt Widgets e integra audio RX/TX, CAT/PTT, waterfall, logbook, mappa QSO, automazione FT4/FT8 e controllo rotore.
-
-Questo repository dichiara esplicitamente le attribuzioni. MadModem contiene codice originale del progetto, porting/copie sorgente di componenti open source GPL/LGPL/MIT e reimplementazioni originali ispirate a software radioamatoriali noti. Vedi anche [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md), [`AUTHORS.md`](AUTHORS.md), [`LICENSE.md`](LICENSE.md) e i file licenza conservati in `third_party/`.
+Do not remove upstream notices or license files when redistributing source or binaries.
 
 ---
 
-## Cosa fa attualmente MadModem
+# MadModem (MM) Italiano
 
-### Modi digitali e audio
+Versione corrente: **0.5.0-alpha.6**
 
-- FT8 e FT4 RX/TX con scheduling UTC, decode live a banda intera, analisi WAV offline e Auto test per regressioni.
-- FT AutoQSO con stato QSO, preparazione automatica reply, pianificazione TX, scelta target e integrazione protetta con MM Flow Studio.
-- WEFAX RX/TX: LPM, toni nero/bianco, APT start, auto tone, band-pass, rilevamento stop/end, forzatura RX manuale, reset immagine e salvataggio PNG.
-- SSTV RX/TX con workflow immagine e idee RX derivate/adattate da MMSSTV.
-- Supporto RTTY RX/TX, BPSK/QPSK, MFSK, CW e Hellschreiber.
-- Worker audio FT dedicato per TX a bassa latenza allineato allo slot.
-- Selezione input/output audio, controlli DSP, marker e waterfall.
+MadModem, di solito abbreviato in **MM**, è un programma radioamatoriale per modi digitali, Linux e Windows.
 
-### CAT, PTT e sicurezza stazione
+Integra modem RX/TX, audio, waterfall, CAT/PTT, logbook, mappa QSO, automazione FT4/FT8 e controllo rotore in una singola applicazione Qt Widgets. Il progetto è ancora in alpha, ma è già usabile per test radio reali.
 
-- Backend radio CAT/PTT basato su Hamlib.
-- Supporto backend compatibile HRD.
-- Lettura frequenza CAT e QSY.
-- CAT PTT, gestione DATA/PTT dove esposta dal backend Hamlib e opzioni PTT seriale RTS/DTR.
-- Blocco obbligatorio identità stazione: **My Call** e **My Locator** in Settings → User/QTH sono richiesti prima di qualsiasi TX/PTT/Tune e prima di muovere il rotore.
+---
 
-### Automazione FT4/FT8
+## Cosa fa
 
-- Scheduling FT8 15 s e FT4 7,5 s agganciato all'UTC.
-- Percorso TX basato su TxPlan: UI, scheduler, modulatore e log usano lo stesso piano TX preparato.
-- Ranking AutoQSO per nuovo country, nuovo locator square, nuova banda, nuovo modo, distanza e SNR.
-- Strategie TX frequency, reclaim/retry target e logica worked/blacklist.
-- Runtime log nei modi FT.
-- MM Flow Studio: architettura visuale/event bus/capability per il lavoro AutoQSO. I blocchi non comandano direttamente PTT o audio, ma richiedono azioni astratte attraverso guardie di sicurezza.
+### Modi digitali
+
+MadModem attualmente contiene supporto per:
+
+- FT8 / FT4;
+- WEFAX;
+- SSTV;
+- RTTY;
+- BPSK / QPSK;
+- MFSK;
+- CW;
+- Hellschreiber.
+
+Il sottosistema FT supporta decode live a banda intera, timing UTC, messaggi TX preparati, audio allineato allo slot, analisi WAV e auto-test di regressione.
+
+### Audio, CAT e PTT
+
+- scelta dispositivi audio ingresso/uscita;
+- waterfall con marker RX/TX;
+- worker audio FT dedicato;
+- backend radio Hamlib;
+- backend compatibile HRD;
+- lettura frequenza CAT e QSY;
+- CAT PTT e PTT seriale RTS/DTR;
+- blocco sicurezza stazione: callsign e locator devono essere configurati prima di TX/PTT/Tune.
+
+### Automazione FT4 / FT8
+
+- ranking candidati AutoQSO;
+- tracking stato QSO;
+- preparazione automatica reply;
+- gestione frequenza TX;
+- retry/reclaim;
+- runtime log per modi FT;
+- livello sperimentale MM Flow Studio per logica AutoQSO visuale.
+
+MM Flow Studio non comanda direttamente PTT o audio. I blocchi richiedono azioni protette tramite scheduler/runtime.
 
 ### Rotore ed EME
 
-- Backend rotore Hamlib indipendente dalla CAT radio.
-- Enumerazione modelli Hamlib e fallback come Yaesu G-601 / GS-232A.
-- Tre profili rotore assegnabili per banda da HF a microonde.
-- Puntamento manuale verso locator Maidenhead, paese/DXCC o prefisso usando `cty.csv`.
-- Tracking locator QSO/corrispondente.
-- **Tracking Luna / EME**: effemeridi lunari locali senza dipendenze esterne, calcolate da UTC e locator User/QTH; la modalità Luna bypassa il locator del corrispondente e punta il rotore verso la Luna quando è sopra l'orizzonte locale.
-- Preset geometria azimuth: 360° stop a Nord, 360° stop a Sud, Yaesu overlap 450° e range meccanico custom.
-- Rilevamento finecorsa/no-movement con un retry automatico nel verso opposto.
-- Calibrazione inerzia/velocità azimuth/elevazione e guardia FT TX mentre il rotore non è pronto.
-- Navball OpenGL con orizzonte, griglia essenziale, marker target e indicazione overlap.
+- backend rotore Hamlib indipendente;
+- profili rotore multipli;
+- puntamento verso locator, country/DXCC o prefisso;
+- tracking locator QSO/corrispondente;
+- tracking Luna / EME con effemeridi lunari locali;
+- preset geometria azimuth, incluso Yaesu overlap 450°;
+- rilevamento finecorsa/no-movement;
+- calibrazione velocità/inerzia;
+- Navball OpenGL.
 
-### Logbook, mappa e strumenti
+### Logbook e mappa
 
-- Logbook QSO con gestione orientata ADIF.
-- QSO map con rendering OSM/cache/fallback, layer marker, griglia Maidenhead, percorsi Home→QSO e overlay logbook.
-- Lookup DXCC/country da `cty.csv`.
-- Help Qt/HTML localizzato in inglese, italiano, francese, tedesco, norvegese e ceco.
-- Dizionari runtime multilingua per le stesse lingue.
-- Packaging Linux + Windows all-in-one tramite `build_all.sh` e `tools/package_mm_zip.sh`.
+- logbook orientato ADIF;
+- QSO map con rendering OSM/cache/fallback;
+- griglia Maidenhead e tratte Home→QSO;
+- lookup DXCC/prefix tramite `cty.csv`.
+
+### Localizzazione
+
+Sono presenti dizionari runtime e help HTML/Qt per inglese, italiano, francese, tedesco, norvegese e ceco.
 
 ---
 
-## Autorialità e origine del codice
+## Origine del codice e crediti
+
+MadModem è software GPLv3. Il repository contiene tre tipi diversi di materiale:
+
+1. codice originale MadModem;
+2. codice open source riusato/bundled;
+3. codice MadModem nativo ispirato ad altri programmi ma non copiato da essi.
+
+Questa distinzione è importante. La tabella sotto è basata sul sorgente e sul target CMake attuali.
 
 ### Codice originale MadModem
 
-Salvo file o directory esplicitamente indicati come materiale di terze parti, il codice di questo repository è materiale originale del progetto MadModem di **Papadopol Lucian-Ioan** / **IZ6NNH** / MadExp, sviluppato con workflow assistito da AI ma diretto dall'autore umano.
+Salvo file o directory indicati esplicitamente come terze parti, il codice appartiene al progetto MadModem di:
 
-Il materiale originale MadModem include in particolare:
+**Papadopol Lucian-Ioan / IZ6NNH / MadExp**
 
-- shell applicativa Qt Widgets, main window, dialog impostazioni, pannelli modo e logica di integrazione;
-- layer di integrazione audio/DSP e infrastruttura cambio modo;
-- integrazione waterfall/UI e workflow marker;
-- integrazione scheduler FT, modello TxPlan, stato AutoQSO e guardie di sicurezza, escluso il materiale protocollo FT accreditato sotto;
-- modello/editor/runtime/capability di MM Flow Studio;
-- logbook, integrazione mappa, gestione layer QSO map e logica applicativa ADIF;
-- integrazione pannello/controller rotore, geometria rotore, tracking Luna/EME e widget Navball;
-- script build/packaging, documentazione e dizionari runtime localizzati.
+Questo include applicazione Qt, UI, impostazioni, pannelli modo, integrazione audio/DSP, waterfall, logbook/mappa, integrazione rotore, tracking Luna, Navball, MM Flow Studio, script build/package e documentazione.
 
-L'autore ha diretto concetto prodotto, scelte UI, requisiti, validazione, test radio, decisioni di release e integrazione. L'assistenza AI è stata usata come acceleratore implementativo; non elimina gli obblighi di attribuzione e licenza verso il codice open source riutilizzato.
+MadModem è stato sviluppato con assistenza AI sotto direzione umana. Concetto prodotto, requisiti, scelte UI, validazione, test radio e decisioni di release sono dell'autore del progetto.
 
-### Codice open source copiato, portato o incluso nel sorgente
+### Codice open source riusato, compilato o linkato
 
-| Progetto upstream | Dove si trova | Uso in MadModem | Licenza / credito |
-|---|---|---|---|
-| **MSHV** e materiale protocollo FT con eredità WSJT-X | `third_party/mshv_gpl/port/` | Porting sorgente per pack/unpack FT8/FT4, generazione TX FT, helper CRC/LDPC/protocollo e supporto integrazione FT. | GPL. Conservare notice MSHV e crediti WSJT-X presenti nei file upstream. |
-| **Hamlib** | `third_party/hamlib_lgpl/source/`, wrapper in `rig/` e `rotator/` | Sorgente incluso per build riproducibili di CAT/PTT/rotore Linux e Windows. MadModem usa le API Hamlib. | Libreria LGPL-2.1-or-later; alcuni tool/esempi GPL-2.0-or-later. Crediti a The Hamlib Group e upstream `AUTHORS`. |
-| **ggmorse** | `third_party/ggmorse_mit/` | Motore CW RX per stima timing/velocità Morse e decodifica. | MIT License. Credito a Georgi Gerganov. |
-| **MMSSTV** | `third_party/mmsstv_lgpl/` | Porting/riferimento Qt/CMake per idee SSTV RX, stima frequenza e rendering linee. | LGPLv3-or-later. Crediti a Makoto Mori e Nobuyuki Oba. |
-| **QSSTV** | `third_party/qsstv_gpl/` | Concetto calibrazione scheda audio e materiale di riferimento; MadModem usa un adattamento Qt Multimedia. | GPLv3-or-later. Credito a Johan Maes, ON4QZ. |
-| **Decodium / Raptor** | `third_party/decodium_gpl/port/` | Piccolo client NTP Qt adattato e materiale di riferimento per waterfall/decode hygiene. | GPL. Crediti come preservati nei notice. |
-| **AD1C/K1EA country file** | `cty.csv` e loader `dxcc/` | Lookup DXCC/country/prefix per mappa/logbook/rotore. L'utente può sostituire `cty.csv` con una versione aggiornata. | Dati country-file esterni; preservare attribuzione upstream quando si aggiorna. |
-| **Qt** | Dipendenza build/runtime | GUI, multimedia, seriale, networking, Qt Help opzionale e Qt Location opzionale. | Rispettare la licenza Qt usata da chi compila/distribuisce. |
+Questi componenti sono effettivamente compilati in MadModem, linkati da MadModem o compilati nel normale workflow di pacchetto.
 
-### Algoritmi reimplementati ispirandosi ad altri software, senza copia diretta di sorgente
-
-| Progetto di riferimento | Sottosistema MadModem | Cosa è stato reimplementato o usato come ispirazione |
+| Progetto upstream | Uso attuale in MadModem | Posizione |
 |---|---|---|
-| **WSJT-X** | Timing, sequencer e parser FT4/FT8 | Disciplina slot UTC, decode post-slot, messaggi TX preparati, progressione stato AutoQSO, classificazione messaggi FT e sicurezza PTT/audio. |
-| **Famiglia MSHV / WSJT-X / JTDX** | Architettura ricevitore FT | Ricerca candidati a banda intera, Costas/sync, strategia LDPC/CRC, idee overlap/subtract/rescan e budget decode live. Tabelle/helper protocollo accreditati sopra restano terze parti. |
-| **fldigi / gmfsk** | Design ricevitore PSK/QPSK/MFSK | Idee di tone-bank, AFC, metriche conservative e comportamento UI modem; nessun intero sottosistema GUI/runtime fldigi importato. |
-| **QSSTV / MMSSTV** | SSTV e calibrazione sound card | Concetti timing/calibrazione e comportamento SSTV adattati al motore audio Qt e alla UI MadModem. |
-| **Workflow tipo CatRotator** | UX rotore | Idee di workflow multi-rotore, lista modelli, assegnazione bande ed ergonomia status; controller/UI integrati MadModem sono originali e usano API Hamlib. |
-| **Formule astronomiche stile Meeus/NOAA** | Tracking Luna / EME | Calcolo interno locale delle effemeridi lunari topocentriche da UTC e QTH per Az/El. Non scarica effemeridi online. |
+| **MSHV**, con eredità protocollo FT da WSJT-X | Supporto protocollo FT8/FT4: pack/unpack, helper CRC/LDPC, generazione TX FT8/FT4 e codice supporto protocollo. | `third_party/mshv_gpl/port/` |
+| **Hamlib** | CAT/PTT radio e controllo rotore. Compilato dagli script e linkato da MadModem. | `third_party/hamlib_lgpl/source/`, wrapper in `rig/` e `rotator/` |
+| **ggmorse** | Motore CW RX usato dal decoder CW. | `third_party/ggmorse_mit/` |
+| **Core SSTV MadModem derivato da MMSSTV** | Helper SSTV RX derivato da concetti/costanti MMSSTV e compilato nel target. | `third_party/mmsstv_lgpl/MmsstvRxCore.*` |
+| **Client NTP derivato/adattato da Decodium/Raptor** | Piccolo client NTP Qt usato dall'applicazione. | `third_party/decodium_gpl/port/NtpClient.*` |
+| **AD1C/K1EA country file** | Dati lookup DXCC/country/prefix. | `cty.csv` |
+| **Qt** | Framework applicativo: Widgets, Multimedia, SerialPort, Network, PrintSupport, parti opzionali Help/Location. | dipendenza esterna |
+
+Conservare notice e file licenza upstream in `third_party/`.
+
+### Materiale reference bundled ma non compilato nel target MadModem
+
+Questi file sono tenuti per attribuzione, tracciabilità e confronto futuro. Non sono elencati nel target CMake `MadModem` attuale.
+
+| Progetto upstream | Stato attuale |
+|---|---|
+| **QSSTV** | Solo materiale reference. Il dialog di calibrazione audio MadModem è QSSTV-style / ispirato a QSSTV, ma l'albero reference QSSTV non è compilato o linkato nell'eseguibile MadModem. |
+| **Reference tree MMSSTV** | Materiale reference. L'helper SSTV compilato è il file più piccolo `MmsstvRxCore.*` indicato sopra. |
+| **Reference/upstream tree MSHV** | Materiale reference. Il materiale FT compilato è il port ridotto in `third_party/mshv_gpl/port/`. |
+| **Reference tree Decodium/Raptor** | Materiale reference. La parte compilata è il client NTP adattato in `third_party/decodium_gpl/port/`. |
+
+### Reimplementazioni / ispirazioni
+
+Queste parti MadModem sono state progettate studiando altri programmi open source, ma i file MadModem attuali sono codice nativo del progetto, salvo dove indicato nella tabella del codice riusato.
+
+| Software di riferimento | Area MadModem |
+|---|---|
+| **WSJT-X** | Timing slot FT4/FT8, comportamento stato QSO, sequenza messaggi e parser. |
+| **Famiglia MSHV / WSJT-X / JTDX** | Idee architettura ricevitore FT: ricerca candidati, Costas/sync, workflow LDPC/CRC, subtract/rescan e budget decode live. |
+| **fldigi / gmfsk** | Idee per ricevitori PSK/QPSK/MFSK. |
+| **QSSTV** | Idea workflow calibrazione scheda audio. |
+| **Programmi tipo CatRotator** | Workflow e UX rotore. |
+| **Formule astronomiche stile Meeus/NOAA** | Calcolo interno Az/El topocentrico Luna / EME. |
+
+Vedi anche `THIRD_PARTY_NOTICES.md`, `LICENSE.md`, `AUTHORS.md`, `COPYING`, `docs/SOURCE_AUDIT.md` e i file licenza in `third_party/`.
 
 ---
 
@@ -356,10 +396,10 @@ dxcc/           Loader cty.csv e lookup DXCC/prefix
 flow/           MM Flow Studio model/runtime
 logbook/        Gestione dati logbook
 modems/         Ricevitori/decoder modi digitali e componenti FT
-rig/            Wrapper radio CAT/PTT Hamlib/HRD
-rotator/        Controller rotore, pannello, geometria, Luna, Navball
+rig/            Wrapper CAT/PTT radio
+rotator/        Controller rotore, geometria, Luna e Navball
 settings/       Modello impostazioni persistenti
-third_party/    Sorgenti/port/notices upstream preservati
+third_party/    Sorgenti upstream, port, reference e notice
 translations/   Dizionari UI runtime
 tx/             Trasmettitori per i modi supportati
 widgets/        Widget Qt custom, mappa, waterfall e UI
@@ -367,13 +407,13 @@ widgets/        Widget Qt custom, mappa, waterfall e UI
 
 ---
 
-## Ambiente di sviluppo/build
+## Compilazione
 
-La macchina di sviluppo normale è Linux. I binari Windows vengono prodotti tramite cross-compilazione con **MXE**.
+L'ambiente normale di sviluppo è Linux. I binari Windows sono cross-compilati da Linux con **MXE**.
 
-### Requisiti Linux nativo
+### Build Linux nativa
 
-Installare lo stack C++/Qt di sviluppo della propria distribuzione. Su Debian/Ubuntu i pacchetti sono tipicamente simili a:
+Pacchetti tipici Debian/Ubuntu:
 
 ```bash
 sudo apt install \
@@ -384,83 +424,56 @@ sudo apt install \
   qtpositioning5-dev qtlocation5-dev
 ```
 
-Note:
-
-- Qt5 è la baseline pratica corrente; i CMake file provano anche Qt6 quando disponibile.
-- Qt Help è opzionale ma consigliato per generare i file `.qch`.
-- Qt Location è opzionale; se manca, MadModem usa rendering mappa fallback.
-- Hamlib non deve essere installato a sistema quando si usano gli script inclusi; `build_all.sh` compila prima Hamlib dal sorgente bundled.
-
-Build Linux nativa:
+Build:
 
 ```bash
 ./third_party/hamlib_lgpl/build_hamlib.sh
+
 cmake -S . -B build-linux \
   -DCMAKE_BUILD_TYPE=Release \
   -DHAMLIB_ROOT="$PWD/third_party/hamlib_lgpl/install-linux-x86_64" \
   -DMADMODEM_REQUIRE_HAMLIB=ON
+
 cmake --build build-linux -j"$(nproc)"
 ```
 
 ### Cross-build Windows con MXE
 
-La build Windows di MadModem viene prodotta da Linux con MXE. Gli script cercano MXE in:
+Gli script cercano MXE in una di queste posizioni:
 
 ```text
 /home/iz6nnh/mxe
-```
-
-oppure:
-
-```text
 $HOME/mxe
 ```
 
-Si può forzare il percorso con:
+Override opzionale:
 
 ```bash
 export MXE_ROOT=/path/to/mxe
 export MXE_TARGET=x86_64-w64-mingw32.static
 ```
 
-Il target MXE deve fornire toolchain MinGW statica e moduli Qt/OpenSSL usati da MadModem. Nel workflow corrente i pacchetti MXE importanti sono:
+Moduli MXE richiesti nel workflow attuale:
 
 ```bash
 cd "$MXE_ROOT"
+
 make MXE_TARGETS=x86_64-w64-mingw32.static \
   openssl qtbase qttools qtserialport qtmultimedia qtlocation qtdeclarative
 ```
 
-Note minime:
-
-- `qtbase` fornisce Qt Widgets, Network e PrintSupport.
-- `qttools` fornisce strumenti come `qhelpgenerator`.
-- `qtserialport` serve per codice seriale/CAT.
-- `qtmultimedia` serve per l'I/O audio.
-- `openssl` serve per HTTPS map tiles nella build Windows tramite Qt Network.
-- `qtlocation`/`qtdeclarative` sono utili per Qt Location/QML map quando abilitato; l'app ha comunque fallback mappa.
-
-Poi, dalla root MadModem:
+Build completa Linux + Windows:
 
 ```bash
 ./build_all.sh
 ```
-
-`build_all.sh`:
-
-1. compila Hamlib bundled per Linux;
-2. compila MadModem per Linux;
-3. compila Hamlib bundled per Windows tramite MXE;
-4. compila MadModem per Windows tramite MXE;
-5. installa sotto `dist/linux` e `dist/windows`;
-6. crea la cartella distribuibile `MM/` e `mm.zip`.
 
 Switch utili:
 
 ```bash
 MADMODEM_BUILD_LINUX=off ./build_all.sh      # solo Windows
 MADMODEM_BUILD_WINDOWS=off ./build_all.sh    # solo Linux
-MADMODEM_CREATE_MM_ZIP=off ./build_all.sh    # build senza package
+MADMODEM_CREATE_MM_ZIP=off ./build_all.sh    # build senza package finale
 JOBS=8 ./build_all.sh                        # parallelismo manuale
 ```
 
@@ -468,6 +481,13 @@ JOBS=8 ./build_all.sh                        # parallelismo manuale
 
 ## Licenza
 
-MadModem è distribuito come **opera combinata GPLv3**. Vedi [`COPYING`](COPYING) e [`LICENSE.md`](LICENSE.md).
+MadModem è distribuito come **opera combinata GPLv3**.
 
-Poiché nel tree sono presenti o usati materiali GPL/LGPL/MIT e altri upstream, non rimuovere i notice di terze parti. Qualsiasi redistribuzione pubblica binaria/sorgente deve includere sorgente corrispondente e notice/licenze.
+Vedi:
+
+- `COPYING`
+- `LICENSE.md`
+- `THIRD_PARTY_NOTICES.md`
+- file licenza in `third_party/`
+
+Non rimuovere notice o licenze upstream quando redistribuisci sorgente o binari.

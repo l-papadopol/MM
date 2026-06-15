@@ -36,4 +36,4 @@ Static packaging checks were performed in the sandbox. Full Qt compilation was n
 ## GitHub publication note
 
 README.md has been rewritten as a bilingual English/Italian project homepage with explicit upstream credits, original-code statements, inspired-by reimplementation notes, feature overview and Linux/MXE build requirements.
-
+Documentation note: the GitHub README and notices now separate compiled/linked third-party code, bundled reference material and inspired-by reimplementations.

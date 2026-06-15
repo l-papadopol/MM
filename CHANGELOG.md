@@ -1,3 +1,9 @@
+## MadModem 0.5.0-alpha.6 — GitHub source-origin README cleanup
+
+- Reworked `README.md` into a less verbose bilingual GitHub overview.
+- Corrected the code-origin map by separating compiled/linked third-party code from bundled reference material and inspired-by reimplementations.
+- Added `docs/SOURCE_AUDIT.md` with the CMake/source-tree basis for the attribution map.
+
 ## Source publication preparation — GitHub README refresh
 
 - Rewrote README.md as a bilingual English/Italian GitHub homepage.

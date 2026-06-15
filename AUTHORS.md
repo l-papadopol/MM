@@ -24,5 +24,4 @@ manual coding.
 
 ## Third-party projects
 
-See `THIRD_PARTY_NOTICES.md` and the notice/license files preserved under
-`third_party/` for MSHV, QSSTV, MMSSTV, Hamlib, Qt and other upstream material.
+See `THIRD_PARTY_NOTICES.md`, `docs/SOURCE_AUDIT.md` and the notice/license files preserved under `third_party/` for upstream material and reference trees.
