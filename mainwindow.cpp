@@ -1813,7 +1813,7 @@ void MainWindow::setupCustomWidgets()
             // v1.18/v4.13ad: keep the side panel compact, but do not reserve a
             // separate global RX bar above the tabs.  RX/TX transport now lives
             // at the top of the Status tab, so all modes gain vertical room.
-            // 0.5.0-alpha.13 keeps diagnostic Runtime Log access only in FT Mode.
+            // 0.5.0 keeps diagnostic Runtime Log access only in FT Mode.
             sideContainer->setMinimumWidth(280);
             sideContainer->setMaximumWidth(340);
             sideContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
@@ -10111,6 +10111,20 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                   .arg(stats.ldpcTried)
                   .arg(stats.workerCount));
 
+    if (stats.osdGf2Tried > 0 || stats.osdGf2Recovered > 0) {
+        appendLog(QStringLiteral("FT OSD GF2 lab: tried %1, recovered %2, rank-fail %3, pivot-skip %4, order0/1/2 %5/%6/%7, post-CRC reject %8, budget-skip %9, %10 ms")
+                      .arg(stats.osdGf2Tried)
+                      .arg(stats.osdGf2Recovered)
+                      .arg(stats.osdGf2RankFails)
+                      .arg(stats.osdGf2PivotSkips)
+                      .arg(stats.osdGf2Order0Hits)
+                      .arg(stats.osdGf2Order1Hits)
+                      .arg(stats.osdGf2Order2Hits)
+                      .arg(stats.osdGf2PostCrcRejects)
+                      .arg(stats.osdGf2BudgetSkips)
+                      .arg(stats.osdGf2TotalMs, 0, 'f', 1));
+    }
+
     if (!stats.offline && !m_ft8RecentLiveDecodeMs.isEmpty()) {
         appendLog(QStringLiteral("FT live decode rolling: last %1 slot(s), avg %2 ms, max %3 ms")
                       .arg(m_ft8RecentLiveDecodeMs.size())
@@ -10473,11 +10487,24 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message, const QStri
             if (m_pendingFt8TxMessage.trimmed().isEmpty()) {
                 return;
             }
+            if (!m_ft8PendingTxArmed) {
+                // A hard guard such as rotator pointing may have intentionally
+                // disarmed this UTC slot while leaving the pending message around
+                // for the next valid slot.  The watchdog must not resurrect it.
+                return;
+            }
             if (m_ft8PendingTxToken != watchdogToken || m_pendingFt8SlotBoundaryUtcMs != watchdogBoundary) {
                 return;
             }
             const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
             if (watchdogBoundary > 0 && nowMs + 25 < watchdogBoundary) {
+                return;
+            }
+            QString watchdogRotatorReason;
+            int watchdogRotatorEtaMs = 0;
+            if (!ftRotatorReadyForPendingTx(&watchdogRotatorReason, &watchdogRotatorEtaMs)) {
+                appendLog("FT timing watchdog: TX remains blocked by rotator guard; not forcing PTT/audio.");
+                deferPendingFtTxForRotator(watchdogRotatorEtaMs, watchdogRotatorReason);
                 return;
             }
             appendLog("FT timing watchdog: scheduler audio-start was not observed; forcing pending FT TX for the armed UTC slot.");
@@ -11917,6 +11944,20 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
         preferredTxRow = 2;
     }
 
+    const QStringList rawParts = message.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts);
+    const bool rawIsMyRReportToDx = rawParts.size() >= 3 &&
+                                    FtDecodedText::callMatches(rawParts.at(0), myCall) &&
+                                    !FtDecodedText::callMatches(rawParts.at(1), myCall) &&
+                                    QRegularExpression(QStringLiteral("^R[+-]\\d{2}$")).match(rawParts.at(2)).hasMatch();
+    if (rawIsMyRReportToDx) {
+        // The DX has acknowledged our report with R-xx.  Reply with RR73/73
+        // (Tx5/Tx6 family), never with another R-report.  This protects manual
+        // reselection and compound-call cases even if the generic parser returns
+        // the report token in a reduced form.
+        call = rawParts.at(1).trimmed().toUpper();
+        preferredTxRow = 4; // DX MY RR73
+    }
+
     if (!call.isEmpty()) {
         const QString previousDx = m_ftSession.dxCall.trimmed().toUpper();
         const bool changingCorrespondent = !previousDx.isEmpty() &&
@@ -11993,6 +12034,22 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
     if (m_tableFt8TxMessages != nullptr) {
         preferredTxRow = qBound(0, preferredTxRow, m_tableFt8TxMessages->rowCount() - 1);
         autoTxMessage = selectFt8TxRow(preferredTxRow);
+
+        const bool selectedShouldBeFinalAck = rawIsMyRReportToDx ||
+                                              (parsed.addressedToMe &&
+                                               (parsed.rrr || parsed.contestAck ||
+                                                (!parsed.report.isEmpty() && parsed.report.trimmed().toUpper().startsWith('R'))));
+        if (selectedShouldBeFinalAck &&
+            QRegularExpression(QStringLiteral("\\sR[+-]\\d{2}$")).match(autoTxMessage.trimmed().toUpper()).hasMatch()) {
+            const int rr73Row = qMin(4, m_tableFt8TxMessages->rowCount() - 1);
+            const QString rr73Message = selectFt8TxRow(rr73Row);
+            if (!rr73Message.trimmed().isEmpty() && !QRegularExpression(QStringLiteral("\\sR[+-]\\d{2}$")).match(rr73Message.trimmed().toUpper()).hasMatch()) {
+                preferredTxRow = rr73Row;
+                autoTxMessage = rr73Message;
+                appendLog("FT sequencer safety: R-report reply corrected to RR73/73 row.");
+            }
+        }
+
         m_tableFt8TxMessages->scrollToItem(m_tableFt8TxMessages->item(preferredTxRow, 0), QAbstractItemView::PositionAtCenter);
     }
 
@@ -12432,11 +12489,15 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     runFtAutoQsoFlowShadowForDecode(decode, blacklistedDecode, watchedDecode);
 
     if (blacklistedDecode) {
-        return;
+        appendLog(QStringLiteral("%1 blacklist: decoded %2 at %3 Hz; marked with skull and ignored by AutoQSO/sequencer.")
+                      .arg(Ft8Mode::profileForMode(ui->cmbMode->currentText()).shortLabel,
+                           decode.message.trimmed(),
+                           QString::number(decode.frequencyHz)));
     }
 
     const QString dxccForDisplay = displayInfo.countryDxcc.trimmed();
-    const bool newCountryForLog = m_settings.ftHighlightNewCountryEnabled &&
+    const bool newCountryForLog = !blacklistedDecode &&
+                                  m_settings.ftHighlightNewCountryEnabled &&
                                   !dxccForDisplay.isEmpty() &&
                                   !ftCountryAlreadyWorked(dxccForDisplay, displayInfo.country);
 
@@ -12461,12 +12522,17 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         }
     }
 
-    rememberFt8AudioActivity(decode, primaryCallForDisplay);
+    if (!blacklistedDecode) {
+        rememberFt8AudioActivity(decode, primaryCallForDisplay);
+    }
 
-    const bool fullAutoStartedFromThisDecode = tryStartFt8FullAutoQso(decode);
+    const bool fullAutoStartedFromThisDecode = !blacklistedDecode && tryStartFt8FullAutoQso(decode);
     Q_UNUSED(fullAutoStartedFromThisDecode);
 
     QString displayMessage = decode.message;
+    if (blacklistedDecode) {
+        displayMessage = QString::fromUtf8("☠ ") + displayMessage;
+    }
     if (m_settings.ftWatchListIconEnabled && watchedDecode) {
         displayMessage = QString::fromUtf8("🚨 ") + displayMessage;
     }
@@ -12496,7 +12562,8 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             heardCall = cqCall;
         }
     }
-    if (!heardCall.isEmpty() && !parsed.grid.isEmpty() && !FtDecodedText::isAckLikeGridTrap(parsed.grid)) {
+    if (!blacklistedDecode &&
+        !heardCall.isEmpty() && !parsed.grid.isEmpty() && !FtDecodedText::isAckLikeGridTrap(parsed.grid)) {
         recordHeardStationForMaps(heardCall,
                                   parsed.grid,
                                   Ft8Mode::profileForMode(ui->cmbMode->currentText()).adifMode,
@@ -12527,6 +12594,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
                 dtItem->setText(QString::number(decode.dt, 'f', 1));
                 freqItem->setText(QString::number(decode.frequencyHz));
             }
+            msgItem->setText(displayMessage);
             if (QTableWidgetItem *callItem = m_tableFt8Rx->item(row, 5)) {
                 callItem->setText(displayInfo.callsign);
             }
@@ -12545,7 +12613,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             // WSJT-X may receive multiple candidate copies of the same message;
             // the UI table should keep one row, but a valid direct report/RR73
             // must still be offered to the sequencer immediately.
-            if (directReplyToMe) {
+            if (!blacklistedDecode && directReplyToMe) {
                 processFt8SequencerDecode(decode);
             }
             return;
@@ -12591,7 +12659,19 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         }
     }
 
-    if (directReplyToMe) {
+    if (blacklistedDecode) {
+        const QColor bg(82, 0, 0);
+        const QColor fg(255, 92, 92);
+        for (QTableWidgetItem *item : items) {
+            item->setForeground(QBrush(fg));
+            item->setBackground(QBrush(bg));
+            QFont font = item->font();
+            font.setBold(true);
+            item->setFont(font);
+            item->setToolTip(uiText("ft_blacklisted_decode_tooltip",
+                                    "Blacklisted call: decoded and shown with a skull, but ignored by AutoQSO and the sequencer."));
+        }
+    } else if (directReplyToMe) {
         const QColor bg = mmColourFromSetting(m_settings.ftHighlightMyCallBackground, QColor(255, 235, 235));
         const QColor fg = mmColourFromSetting(m_settings.ftHighlightMyCallForeground, QColor(220, 0, 0));
         for (QTableWidgetItem *item : items) {
@@ -12647,7 +12727,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         m_tableFt8Rx->scrollToBottom();
     }
 
-    addFt8WaterfallOverlayForDecode(decode);
+    addFt8WaterfallOverlayForDecode(decode, blacklistedDecode);
 
     m_ftSession.haveLastSnr = true;
     m_ftSession.lastSnrDb = decode.snrDb;
@@ -12665,10 +12745,12 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
                   .arg(decode.frequencyHz)
                   .arg(decode.message));
 
-    processFt8SequencerDecode(decode);
+    if (!blacklistedDecode) {
+        processFt8SequencerDecode(decode);
+    }
 }
 
-void MainWindow::addFt8WaterfallOverlayForDecode(const Ft8RxDecoder::Decode &decode)
+void MainWindow::addFt8WaterfallOverlayForDecode(const Ft8RxDecoder::Decode &decode, bool blacklistedDecode)
 {
     const QString myCall = stationCallsign();
     const ParsedFt8Message parsed = parseFt8MessageText(decode.message, myCall);
@@ -12676,8 +12758,19 @@ void MainWindow::addFt8WaterfallOverlayForDecode(const Ft8RxDecoder::Decode &dec
     QString label;
     QColor color = mmColourFromSetting(m_settings.ftHighlightCqForeground, QColor(255, 235, 80));
     bool directReplyToMe = false;
+    bool blacklistedCallout = false;
 
-    if (parsed.cq) {
+    if (blacklistedDecode) {
+        QString call = ft8PrimaryCallsignForDisplay(parsed, myCall).trimmed().toUpper();
+        if (parsed.cq) {
+            const QString cqCall = ft8CqCallsignFromMessage(parsed).trimmed().toUpper();
+            if (!cqCall.isEmpty()) call = cqCall;
+        }
+        if (call.isEmpty()) call = QStringLiteral("BLACKLIST");
+        label = QString::fromUtf8("☠ ") + call;
+        color = QColor(255, 68, 68);
+        blacklistedCallout = true;
+    } else if (parsed.cq) {
         const QString cqCall = ft8CqCallsignFromMessage(parsed);
         if (cqCall.isEmpty()) {
             return;
@@ -12703,6 +12796,7 @@ void MainWindow::addFt8WaterfallOverlayForDecode(const Ft8RxDecoder::Decode &dec
     callout.color = color;
     callout.expiresUtc = QDateTime::currentDateTimeUtc().addSecs(directReplyToMe ? 45 : 32);
     callout.directReplyToMe = directReplyToMe;
+    callout.blacklisted = blacklistedCallout;
 
     // Replace existing label for the same station/frequency bucket instead of
     // piling up duplicates over consecutive FT8 slots.
@@ -12740,9 +12834,11 @@ void MainWindow::updateFt8WaterfallOverlays()
             overlay.frequencyHz = static_cast<double>(callout.frequencyHz);
             overlay.label = callout.label;
             overlay.textColor = callout.color;
-            overlay.backgroundColor = callout.directReplyToMe
-                                          ? QColor(70, 0, 0, 220)
-                                          : QColor(0, 0, 0, 190);
+            overlay.backgroundColor = callout.blacklisted
+                                          ? QColor(90, 0, 0, 225)
+                                          : (callout.directReplyToMe
+                                                ? QColor(70, 0, 0, 220)
+                                                : QColor(0, 0, 0, 190));
             overlays.append(overlay);
         }
         m_ft8WaterfallCallouts = kept;
@@ -13876,7 +13972,7 @@ void MainWindow::runFtAutoTest()
                             << QStringLiteral("UTC: %1").arg(m_ftAutoTestStartedUtc)
                             << QStringLiteral("WAV directory: %1").arg(wavDir)
                             << QStringLiteral("")
-                            << QStringLiteral("File	Mode	OK	Reference	Decodes	Delta	Result	Candidates	Passes	Search ms	LDPC ms	Subtract ms	Total ms	Attempted	Sync gate	LDPC tried	LDPC fail	LDPC fail %	CRC fail	Unpack fail	Unpack fail %	Msg reject	Dedup drop	Unresolved hash	Visible hash calls	OK sync	LDPC-fail sync	OK hard	LDPC-fail hard	OK LLR	LDPC-fail LLR	Summary");
+                            << QStringLiteral("File	Mode	OK	Reference	Decodes	Delta	Result	Candidates	Passes	Search ms	LDPC ms	Subtract ms	Total ms	Attempted	Sync gate	LDPC tried	LDPC fail	LDPC fail %	CRC fail	Unpack fail	Unpack fail %	Msg reject	Dedup drop	Unresolved hash	Visible hash calls	OK sync	LDPC-fail sync	OK hard	LDPC-fail hard	OK LLR	LDPC-fail LLR	OSD GF2 tried	OSD GF2 recovered	OSD GF2 rank fail	OSD GF2 pivot skips	OSD GF2 O0	OSD GF2 O1	OSD GF2 O2	OSD GF2 postCRC	OSD GF2 budget skip	OSD GF2 ms	Summary");
 
     appendLog(QStringLiteral("FT Auto test started: %1 file(s), Unified adaptive engine, WAV directory %2")
                   .arg(wavFiles.size())
@@ -13949,7 +14045,7 @@ void MainWindow::runNextFtAutoTestStep()
                                   Qt::QueuedConnection,
                                   Q_ARG(QString, item.filePath));
     } else {
-        m_ftAutoTestReportLines << QStringLiteral("%1\t%2\tNO\t%3\t0\t%4\tFAIL\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0.0\t0\t0\t0.0\t0\t0\t0\t0\t0.00\t0.00\t0.0\t0.0\t0.00\t0.00\tFT decoder unavailable")
+        m_ftAutoTestReportLines << QStringLiteral("%1\t%2\tNO\t%3\t0\t%4\tFAIL\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0.0\t0\t0\t0.0\t0\t0\t0\t0\t0.00\t0.00\t0.0\t0.0\t0.00\t0.00\t0\t0\t0\t0\t0\t0\t0\t0.0\tFT decoder unavailable")
                                    .arg(item.fileName)
                                    .arg(item.depthLabel)
                                    .arg(ftAutoTestExpectedDecodes(item.fileName))
@@ -14115,11 +14211,21 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
         const double failHard = haveStats ? m_lastFt8PerfStats.ldpcFailureAvgHardSync : 0.0;
         const double okLlr = haveStats ? m_lastFt8PerfStats.decodedAvgLlrAbs : 0.0;
         const double failLlr = haveStats ? m_lastFt8PerfStats.ldpcFailureAvgLlrAbs : 0.0;
+        const int osdGf2Tried = haveStats ? m_lastFt8PerfStats.osdGf2Tried : 0;
+        const int osdGf2Recovered = haveStats ? m_lastFt8PerfStats.osdGf2Recovered : 0;
+        const int osdGf2RankFails = haveStats ? m_lastFt8PerfStats.osdGf2RankFails : 0;
+        const int osdGf2PivotSkips = haveStats ? m_lastFt8PerfStats.osdGf2PivotSkips : 0;
+        const int osdGf2Order0 = haveStats ? m_lastFt8PerfStats.osdGf2Order0Hits : 0;
+        const int osdGf2Order1 = haveStats ? m_lastFt8PerfStats.osdGf2Order1Hits : 0;
+        const int osdGf2Order2 = haveStats ? m_lastFt8PerfStats.osdGf2Order2Hits : 0;
+        const int osdGf2PostCrcRejects = haveStats ? m_lastFt8PerfStats.osdGf2PostCrcRejects : 0;
+        const int osdGf2BudgetSkips = haveStats ? m_lastFt8PerfStats.osdGf2BudgetSkips : 0;
+        const double osdGf2Ms = haveStats ? m_lastFt8PerfStats.osdGf2TotalMs : 0.0;
         const int expected = ftAutoTestExpectedDecodes(item.fileName);
         const int delta = (expected > 0) ? (decodeCount - expected) : 0;
         const QString result = ftAutoTestResultLabel(ok, decodeCount, expected);
         const QString compactMessage = message.simplified();
-        const QString line = QStringLiteral("%1	%2	%3	%4	%5	%6	%7	%8	%9	%10	%11	%12	%13	%14	%15	%16	%17	%18	%19	%20	%21	%22	%23	%24	%25	%26	%27	%28	%29	%30	%31	%32")
+        const QString line = QStringLiteral("%1	%2	%3	%4	%5	%6	%7	%8	%9	%10	%11	%12	%13	%14	%15	%16	%17	%18	%19	%20	%21	%22	%23	%24	%25	%26	%27	%28	%29	%30	%31	%32	%33	%34	%35	%36	%37	%38	%39	%40	%41	%42")
                                  .arg(item.fileName)
                                  .arg(item.depthLabel)
                                  .arg(ok ? QStringLiteral("YES") : QStringLiteral("NO"))
@@ -14151,7 +14257,17 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
                                  .arg(QString::number(failHard, 'f', 1))
                                  .arg(QString::number(okLlr, 'f', 2))
                                  .arg(QString::number(failLlr, 'f', 2))
-                                 .arg(compactMessage);
+                                 .arg(osdGf2Tried)
+                                 .arg(osdGf2Recovered)
+                                 .arg(osdGf2RankFails)
+                                 .arg(osdGf2PivotSkips)
+                                 .arg(osdGf2Order0)
+                                 .arg(osdGf2Order1)
+                                 .arg(osdGf2Order2)
+                                 .arg(osdGf2PostCrcRejects)
+                                  .arg(osdGf2BudgetSkips)
+                                  .arg(QString::number(osdGf2Ms, 'f', 1))
+                                  .arg(compactMessage);
         m_ftAutoTestReportLines << line;
         appendLog(QStringLiteral("FT Auto test result: %1").arg(line));
 
@@ -14818,8 +14934,21 @@ void MainWindow::setupCatRotatorModule()
                 this, [this](double azimuthDeg, double elevationDeg) {
             updateRotatorStatusLamps();
             if (m_settings.ftAutoQsoFlowShadowMode) {
-                appendLog(QStringLiteral("[Flow][eventbus] Event: rotator.position -> az %1°, el %2°")
-                    .arg(QString::number(azimuthDeg, 'f', 1), QString::number(elevationDeg, 'f', 1)));
+                static qint64 s_lastRotatorPositionLogMs = 0;
+                static double s_lastRotatorPositionLogAz = -9999.0;
+                static double s_lastRotatorPositionLogEl = -9999.0;
+                const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+                const bool first = s_lastRotatorPositionLogMs <= 0;
+                const bool changedEnough = qAbs(azimuthDeg - s_lastRotatorPositionLogAz) >= 10.0 ||
+                                           qAbs(elevationDeg - s_lastRotatorPositionLogEl) >= 5.0;
+                const bool timeDue = (nowMs - s_lastRotatorPositionLogMs) >= 10000;
+                if (first || changedEnough || timeDue) {
+                    s_lastRotatorPositionLogMs = nowMs;
+                    s_lastRotatorPositionLogAz = azimuthDeg;
+                    s_lastRotatorPositionLogEl = elevationDeg;
+                    appendLog(QStringLiteral("[Flow][eventbus] Event: rotator.position -> az %1°, el %2°")
+                        .arg(QString::number(azimuthDeg, 'f', 1), QString::number(elevationDeg, 'f', 1)));
+                }
             }
         });
         connect(m_catRotatorController, &mm::CatRotatorController::targetChanged,
@@ -15140,6 +15269,12 @@ bool MainWindow::ftRotatorReadyForPendingTx(QString *reason, int *etaMs) const
     if (!cfg.enabled) {
         return true;
     }
+    if (!m_settings.rotatorBlockFtTxUntilReady) {
+        if (reason != nullptr) {
+            *reason = uiText("ft_rotator_guard_disabled", "rotator TX guard disabled by settings");
+        }
+        return true;
+    }
     // A configured but disconnected rotator must not make the FT sequencer drop
     // into RX monitor forever.  Use the rotator guard only when the backend is
     // actually connected and can report/move toward the current QSO target.
@@ -15184,7 +15319,14 @@ void MainWindow::deferPendingFtTxForRotator(int etaMs, const QString &reason)
     const QString cleanReason = reason.trimmed().isEmpty()
         ? uiText("ft_rotator_waiting_pointing_short", "waiting for rotator pointing")
         : reason.trimmed();
-    appendLog(QStringLiteral("FT rotator guard: %1. TX inhibited and deferred to the next valid slot.").arg(cleanReason));
+    static qint64 s_lastFtRotatorDeferLogMs = 0;
+    static QString s_lastFtRotatorDeferReason;
+    const qint64 nowLogMs = QDateTime::currentMSecsSinceEpoch();
+    if (s_lastFtRotatorDeferReason != cleanReason || nowLogMs - s_lastFtRotatorDeferLogMs > 5000) {
+        appendLog(QStringLiteral("FT rotator guard: %1. TX inhibited and deferred to the next valid slot.").arg(cleanReason));
+        s_lastFtRotatorDeferLogMs = nowLogMs;
+        s_lastFtRotatorDeferReason = cleanReason;
+    }
     if (m_lblFt8SlotStatus != nullptr) {
         m_lblFt8SlotStatus->setText(uiText("ft_rotator_waiting_countdown", "Rotator pointing wait: %1 s; FT TX inhibited")
             .arg(QString::number(static_cast<double>(etaMs) / 1000.0, 'f', 1)));
@@ -15796,7 +15938,7 @@ void MainWindow::showAboutMadModem()
     header->addWidget(icon, 0, Qt::AlignTop);
 
     QLabel *title = new QLabel(QStringLiteral(
-        "<b>MadModem 0.5.0-alpha.13</b><br>"
+        "<b>MadModem 0.5.0</b><br>"
         "Amateur radio digital modem for HF RX/TX."), &dialog);
     title->setTextFormat(Qt::RichText);
     title->setWordWrap(true);
@@ -17349,6 +17491,14 @@ void MainWindow::startFtPreparedSlotTransmit()
     }
     if (!m_pendingFt8Tune && m_pendingFt8TxMessage.trimmed().isEmpty()) {
         appendLog("FT TX cancelled: no pending FT message.");
+        return;
+    }
+
+    QString rotatorWaitReason;
+    int rotatorEtaMs = 0;
+    if (!ftRotatorReadyForPendingTx(&rotatorWaitReason, &rotatorEtaMs)) {
+        appendLog("FT TX blocked by rotator guard at audio-start; deferring to the next valid slot.");
+        deferPendingFtTxForRotator(rotatorEtaMs, rotatorWaitReason);
         return;
     }
 

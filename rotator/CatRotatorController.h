@@ -219,6 +219,9 @@ private:
     bool m_autoReverseTried = false;
     double m_calibrationHomeAz = 0.0;
     double m_calibrationHomeEl = 0.0;
+    double m_calibrationTargetAz = 0.0;
+    double m_calibrationTargetEl = 0.0;
+    double m_calibrationTravelDeg = 0.0;
     QString m_calibrationAxisLabel;
 };
 

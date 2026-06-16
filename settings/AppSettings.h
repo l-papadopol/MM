@@ -270,6 +270,10 @@ public:
     bool rotatorShowWindowOnStart = false;
     bool rotatorTrackSelectedQso = true;
     bool rotatorTrackOnlyWhenQsoActive = true;
+    // When true, FT4/FT8 TX is delayed until the connected rotator is within
+    // target tolerance for the current QSO bearing.  Operators who prefer
+    // immediate TX can disable this guard from Settings -> Rotator.
+    bool rotatorBlockFtTxUntilReady = true;
     int rotatorActiveProfile = 0;
     RotatorProfileSettings rotatorProfiles[3] = {
         { QStringLiteral("Rotator 1"), QStringLiteral("40m,30m,20m,17m,15m,12m,10m,6m,4m,2m,70cm,33cm,23cm,13cm,9cm,6cm,3cm,10GHz") },

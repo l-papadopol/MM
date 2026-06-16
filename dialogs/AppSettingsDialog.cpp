@@ -866,10 +866,14 @@ QWidget *AppSettingsDialog::makeRotatorPage()
     m_chkRotatorTrackSelectedQso->setChecked(m_initialSettings.rotatorTrackSelectedQso);
     m_chkRotatorTrackOnlyQso = new QCheckBox(L(QStringLiteral("Only move while a QSO is active")), global);
     m_chkRotatorTrackOnlyQso->setChecked(m_initialSettings.rotatorTrackOnlyWhenQsoActive);
+    m_chkRotatorBlockFtTxUntilReady = new QCheckBox(L(QStringLiteral("Block FT TX until rotator is pointed")), global);
+    m_chkRotatorBlockFtTxUntilReady->setChecked(m_initialSettings.rotatorBlockFtTxUntilReady);
+    m_chkRotatorBlockFtTxUntilReady->setToolTip(L(QStringLiteral("When enabled, FT4/FT8 TX is delayed until the connected rotator reaches the QSO target bearing. Disable this if you prefer to transmit immediately even while the antenna is still turning or not yet pointed.")));
     globalGrid->addWidget(m_chkRotatorEnabled, 0, 0);
     globalGrid->addWidget(m_chkRotatorAutoConnect, 0, 1);
     globalGrid->addWidget(m_chkRotatorTrackSelectedQso, 1, 0);
     globalGrid->addWidget(m_chkRotatorTrackOnlyQso, 1, 1);
+    globalGrid->addWidget(m_chkRotatorBlockFtTxUntilReady, 2, 0, 1, 2);
     outer->addWidget(global);
 
     QTabWidget *rotTabs = new QTabWidget(page);
@@ -1529,6 +1533,7 @@ void AppSettingsDialog::collectSettings()
     merged.rotatorShowWindowOnStart = false;
     if (m_chkRotatorTrackSelectedQso != nullptr) merged.rotatorTrackSelectedQso = m_chkRotatorTrackSelectedQso->isChecked();
     if (m_chkRotatorTrackOnlyQso != nullptr) merged.rotatorTrackOnlyWhenQsoActive = m_chkRotatorTrackOnlyQso->isChecked();
+    if (m_chkRotatorBlockFtTxUntilReady != nullptr) merged.rotatorBlockFtTxUntilReady = m_chkRotatorBlockFtTxUntilReady->isChecked();
 
     for (int i = 0; i < 3; ++i) {
         auto findLine = [this, i](const QString &name) { return m_rotatorPage != nullptr ? m_rotatorPage->findChild<QLineEdit *>(QStringLiteral("%1_%2").arg(name).arg(i)) : nullptr; };

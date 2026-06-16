@@ -1,53 +1,27 @@
-This alpha fixes rotator band gating: a profile assigned to one band no longer moves on other bands, and the Rotator status line reports when the current band has no assigned profile.
+# MadModem 0.5.0 release notes
 
-This alpha removes the lower-left TG/AZ/EL text overlay from the Navball for a cleaner instrument look.
+MadModem 0.5.0 is the production consolidation of the validated `0.5.0-alpha.26` source line.
 
-This alpha improves the Rotator tab ergonomics: clearer Set Az/Set El labels, tighter setpoint layout, Connect/STOP moved beside the setpoints, and hover tooltips for the main controls.
+## FT8/FT4 decoder baseline
 
-This alpha compacts the Rotator tab layout by removing duplicate labels and placing related rotator action buttons on shared rows.
+The FT8 decoder baseline is the GF(2) OSD full order-1 implementation with order-2 disabled. The expected bundled WAV Auto Test result is:
 
-This alpha fixes the rotator Sun/Moon compile error, makes Moon / EME tracking easier to find in the Rotator tab, and gives the Navball an instrument-style bezel with corner screws.
+| WAV | Expected decodes |
+|---|---:|
+| `websdr_test6.wav` | 26 |
+| `test_21.wav` | 25 |
+| `test_18.wav` | 16 |
+| `test_05.wav` | 21 |
+| **Total** | **88** |
 
-This alpha refines the Navball celestial markers with more expressive Sun/Moon icons, makes the elevation scale much less crowded, and keeps the Moon / EME tracking selector available in the Rotator tab.
+The later FT8 beta lab experiments (`beta02` through `beta08`) are intentionally not promoted into this production tree because they did not improve the validated decode count.
 
-This alpha adds live Sun and Moon markers to the Navball, updated in real time from local ephemeris calculations based on UTC and the configured station coordinates.
+## Packaging and support tools
 
-# RELEASE NOTES — current source package
+- `build_all.sh` builds Linux and Windows/MXE targets and can create the binary `MM.zip` package.
+- `tools/package_mm_zip.sh` packages the built Linux/Windows executables, help files, legal files, `cty.csv`, test WAVs and documentation.
+- `compare_ft8_wsjtx_madmodem.sh` is included for developer/support comparison against WSJT-X/jt9.
 
-## Current public version: MadModem 0.5.0-alpha.13
+## Scope
 
-This alpha adds Moon / EME tracking to the Rotator tab using an internal topocentric lunar ephemeris from UTC and the configured User/QTH locator.
-
-Versioning note: MadModem now uses Semantic Versioning (`MAJOR.MINOR.PATCH[-pre.release]`). The old `v4.13xx` package labels are retained only as internal historical snapshot tags and should not be shown as the user-facing application version.
-
-
-This package continues the semantic-versioned 0.5 alpha line with a clearer rotator visual display: the old flat arrow/compass indicator is replaced by a native Qt OpenGL-backed Navball.
-
-### Operator-visible changes
-
-- The Rotator side tab now uses a Navball display instead of the old flat arrow indicator.
-- The central yellow reticle represents the current antenna pointing; the green TG marker shows the selected target on the projected sphere.
-- Mechanical azimuth values above 360° trigger an **OVERLAP ACTIVE** cue, matching Yaesu-style `N-E-S-W-N-E` rotators.
-- Rotator profiles now expose an **Azimuth geometry** preset instead of relying only on a generic overlap checkbox.
-- Available geometry presets are: standard 360° stop at North, standard 360° stop at South, Yaesu 450° overlap, and Custom mechanical range.
-- The Yaesu-style 450° scale covers the `N-E-S-W-N-E` case used by rotators such as G-5500/GS-232-style installations.
-- A configurable **Auto-reverse if end-stop is detected** option retries the other valid mechanical path when the rotator is commanded but no appreciable movement is observed.
-- No-movement timeout and threshold are configurable per profile; defaults are 3000 ms and 2°.
-- Calibration results now update the Settings dialog immediately at the end of calibration, including the speed spin boxes and calibration result label.
-- The previous v4.13ag fixes remain: Yaesu G-601 / GS-232A fallback entry, clean Rotator status label, FT AutoQSO TX marker follows the chosen correspondent, stale rotator target cleanup, and disconnected rotator does not block FT TX.
-
-### Safety reminders
-
-- My Call and My Locator must be configured before TX/PTT or rotator movement.
-- FT TX may be delayed/skipped while a configured and connected rotator is still moving.
-- End-stop auto-reverse performs only one automatic retry per command to avoid loops.
-- Flow Studio actions must pass through the capability manager; they must not directly drive PTT/audio/CAT.
-
-### Validation status
-
-Static packaging checks were performed in the sandbox. Full Qt compilation was not performed here because Qt development headers are unavailable in this environment. Static source checks, translation harvesting, localization audit and package integrity checks were performed.
-
-## GitHub publication note
-
-README.md has been rewritten as a bilingual English/Italian project homepage with explicit upstream credits, original-code statements, inspired-by reimplementation notes, feature overview and Linux/MXE build requirements.
-Documentation note: the GitHub README and notices now separate compiled/linked third-party code, bundled reference material and inspired-by reimplementations.
+This package is a clean source release. It removes scattered historical v2.x notes from the production documentation tree and keeps consolidated release notes, architecture notes and multilingual online help.

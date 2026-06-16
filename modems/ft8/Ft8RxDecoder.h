@@ -60,6 +60,22 @@ public:
         int secondPassCandidates = 0;
         int dedupDropped = 0;
         double subtractionMs = 0.0;
+
+        // Live-log behaviour map counters.  These describe what the decoder did
+        // with the slot without changing any decoder decisions.
+        int pass1RawCandidates = 0;
+        int pass1KeptCandidates = 0;
+        int pass1PrunedCandidates = 0;
+        int pass1Decodes = 0;
+        int pass2RawCandidates = 0;
+        int pass2KeptCandidates = 0;
+        int pass2PrunedCandidates = 0;
+        int pass2Decodes = 0;
+        int residualRawCandidates = 0;
+        int residualSelectedCandidates = 0;
+        int residualAcceptedDecodes = 0;
+        QString adaptiveDecision;
+        QStringList adaptiveReasons;
         bool timeBudgetHit = false;
         QString earlyStopReason;
         QString engineName;
@@ -97,6 +113,21 @@ public:
         int residualDecodes = 0;
         int osdAttempts = 0;
         int osdDecodes = 0;
+
+        // 0.5.0: GF(2) OSD fallback lab.  These are
+        // diagnostic counters only; they do not drive candidate ranking or
+        // scheduling decisions.
+        int osdGf2Tried = 0;
+        int osdGf2Recovered = 0;
+        int osdGf2RankFails = 0;
+        int osdGf2PivotSkips = 0;
+        int osdGf2Order0Hits = 0;
+        int osdGf2Order1Hits = 0;
+        int osdGf2Order2Hits = 0;
+        int osdGf2PostCrcRejects = 0;
+        int osdGf2BudgetSkips = 0;
+        double osdGf2TotalMs = 0.0;
+
         int apHypotheses = 0;
         int apDecodes = 0;
     };
@@ -185,6 +216,19 @@ private:
         double syncScore = 0.0;
         int hardSyncCount = 0;
         double meanAbsLlr = 0.0;
+
+        // Per-candidate GF(2) OSD fallback diagnostics.  decodeSlot()
+        // aggregates these into PerfStats after the worker pool joins.
+        int osdGf2Tried = 0;
+        int osdGf2Recovered = 0;
+        int osdGf2RankFails = 0;
+        int osdGf2PivotSkips = 0;
+        int osdGf2Order0Hits = 0;
+        int osdGf2Order1Hits = 0;
+        int osdGf2Order2Hits = 0;
+        int osdGf2PostCrcRejects = 0;
+        int osdGf2BudgetSkips = 0;
+        double osdGf2TotalMs = 0.0;
     };
 
     bool decodeCandidate(const QVector<double> &samples,
@@ -194,7 +238,8 @@ private:
                          Candidate *refinedCandidateOut = nullptr,
                          DecodeRejectReason *rejectReasonOut = nullptr,
                          CandidateAttemptQuality *qualityOut = nullptr,
-                         bool allowMetricRecovery = true);
+                         bool allowMetricRecovery = true,
+                         bool allowGf2Osd = true);
     void subtractDecodedSignal(QVector<double> &samples, const Candidate &candidate, const Decode &decode) const;
     QVector<Decode> decodeSlotFt4(const QVector<double> &samples,
                                   const QDateTime &slotStartUtc,
@@ -232,6 +277,13 @@ private:
                           std::array<double, 174> *posteriorOut = nullptr) const;
     bool osdLiteRepair174_91(const std::array<double, 174> &posterior,
                              std::array<int, 174> &bits) const;
+    bool osdGf2Repair174_91(const std::array<double, 174> &posterior,
+                            std::array<int, 174> &bits,
+                            int &outOrder,
+                            bool &rankFail,
+                            int &pivotSkips,
+                            int order1Depth,
+                            int order2Depth) const;
     bool syndromeOk(const std::array<int, 174> &bits) const;
     bool crc14Ok(const std::array<int, 174> &bits) const;
     unsigned int crc14(const unsigned char *data, int length) const;

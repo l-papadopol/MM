@@ -749,19 +749,99 @@ void CatRotatorController::beginCalibration(CalibrationState initialState, const
         setStatus(QStringLiteral("Calibration already running."));
         return;
     }
+
     pollNow();
     m_calibrationHomeAz = m_currentAz;
     m_calibrationHomeEl = m_currentEl;
+    m_calibrationTargetAz = m_currentAz;
+    m_calibrationTargetEl = m_currentEl;
+    m_calibrationTravelDeg = 0.0;
     m_calibrationAxisLabel = axisLabel;
+
+    const bool azimuthCalibration = (initialState == CalibrationState::AzToMin);
+    if (azimuthCalibration) {
+        constexpr double kAzCalibrationTravelDeg = 45.0;
+        const double minAz = m_config.azimuthMinDeg;
+        const double maxAz = m_config.azimuthMaxDeg;
+        const double current = m_currentAz;
+
+        double forwardTarget = current + kAzCalibrationTravelDeg;
+        double backwardTarget = current - kAzCalibrationTravelDeg;
+        if (m_config.overlap) {
+            forwardTarget = qMin(maxAz, forwardTarget);
+            backwardTarget = qMax(minAz, backwardTarget);
+        } else {
+            forwardTarget = normalizeAzimuth(forwardTarget);
+            backwardTarget = normalizeAzimuth(backwardTarget);
+        }
+
+        const double forwardTravel = m_config.overlap ? qAbs(forwardTarget - current)
+                                                      : configuredAzimuthDifferenceDeg(forwardTarget, current);
+        const double backwardTravel = m_config.overlap ? qAbs(current - backwardTarget)
+                                                       : configuredAzimuthDifferenceDeg(backwardTarget, current);
+
+        if (forwardTravel >= kAzCalibrationTravelDeg - 0.5) {
+            m_calibrationTargetAz = forwardTarget;
+            m_calibrationTravelDeg = forwardTravel;
+        } else if (backwardTravel >= kAzCalibrationTravelDeg - 0.5) {
+            m_calibrationTargetAz = backwardTarget;
+            m_calibrationTravelDeg = backwardTravel;
+        } else if (forwardTravel >= backwardTravel && forwardTravel >= 5.0) {
+            m_calibrationTargetAz = forwardTarget;
+            m_calibrationTravelDeg = forwardTravel;
+        } else if (backwardTravel >= 5.0) {
+            m_calibrationTargetAz = backwardTarget;
+            m_calibrationTravelDeg = backwardTravel;
+        } else {
+            setStatus(QStringLiteral("Azimuth calibration refused: available mechanical travel is too small."));
+            emit calibrationProgress(0, QStringLiteral("Azimuth calibration refused: available mechanical travel is too small."));
+            return;
+        }
+        m_calibrationTargetEl = m_currentEl;
+    } else {
+        constexpr double kPreferredElCalibrationTravelDeg = 20.0;
+        constexpr double kMinimumElCalibrationTravelDeg = 10.0;
+        const double minEl = m_config.elevationMinDeg;
+        const double maxEl = m_config.elevationMaxDeg;
+        const double current = m_currentEl;
+        const double upTravel = qMax(0.0, qMin(kPreferredElCalibrationTravelDeg, maxEl - current));
+        const double downTravel = qMax(0.0, qMin(kPreferredElCalibrationTravelDeg, current - minEl));
+
+        if (upTravel >= kMinimumElCalibrationTravelDeg) {
+            m_calibrationTargetEl = current + upTravel;
+            m_calibrationTravelDeg = upTravel;
+        } else if (downTravel >= kMinimumElCalibrationTravelDeg) {
+            m_calibrationTargetEl = current - downTravel;
+            m_calibrationTravelDeg = downTravel;
+        } else {
+            const double fullSpan = qMax(0.0, maxEl - minEl);
+            if (fullSpan >= kMinimumElCalibrationTravelDeg && qAbs(current - minEl) <= 2.0) {
+                m_calibrationTargetEl = qMin(maxEl, current + kMinimumElCalibrationTravelDeg);
+                m_calibrationTravelDeg = qAbs(m_calibrationTargetEl - current);
+            } else if (fullSpan >= kMinimumElCalibrationTravelDeg && qAbs(current - maxEl) <= 2.0) {
+                m_calibrationTargetEl = qMax(minEl, current - kMinimumElCalibrationTravelDeg);
+                m_calibrationTravelDeg = qAbs(m_calibrationTargetEl - current);
+            } else {
+                setStatus(QStringLiteral("Elevation calibration refused: no usable elevation travel. Check profile elevation min/max and enable elevation axis."));
+                emit calibrationProgress(0, QStringLiteral("Elevation calibration refused: no usable elevation travel."));
+                return;
+            }
+        }
+        m_calibrationTargetAz = m_currentAz;
+    }
+
     m_calibrationState = initialState;
     m_calibrationLegStartMs = QDateTime::currentMSecsSinceEpoch();
-    emit calibrationProgress(1, QStringLiteral("Starting %1 auto-calibration. TX must remain inhibited.").arg(axisLabel));
-    setStatus(QStringLiteral("CatRotator %1 auto-calibration started; returning to initial position when complete.").arg(axisLabel));
+    emit calibrationProgress(1, QStringLiteral("Starting %1 auto-calibration over %2° travel. TX must remain inhibited.")
+                                  .arg(axisLabel, QString::number(m_calibrationTravelDeg, 'f', 1)));
+    setStatus(QStringLiteral("CatRotator %1 auto-calibration started: moving %2° then returning to initial position.")
+                  .arg(axisLabel, QString::number(m_calibrationTravelDeg, 'f', 1)));
     m_calibrationTimer.start(qMax(250, m_config.pollIntervalMs));
-    if (initialState == CalibrationState::AzToMin) {
-        moveBackend(m_config.azimuthMinDeg, m_currentEl, QStringLiteral("auto-calibration azimuth minimum"));
+
+    if (azimuthCalibration) {
+        moveBackend(m_calibrationTargetAz, m_currentEl, QStringLiteral("auto-calibration azimuth sample travel"));
     } else {
-        moveBackend(m_currentAz, m_config.elevationMinDeg, QStringLiteral("auto-calibration elevation minimum"));
+        moveBackend(m_currentAz, m_calibrationTargetEl, QStringLiteral("auto-calibration elevation sample travel"));
     }
 }
 
@@ -779,10 +859,15 @@ void CatRotatorController::advanceCalibration()
     pollNow();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     const qint64 legMs = qMax<qint64>(1, now - m_calibrationLegStartMs);
-    const double azSpan = qMax(1.0, m_config.overlap ? qAbs(m_config.azimuthMaxDeg - m_config.azimuthMinDeg) : qAbs(signedAngularSpanDeg(m_config.azimuthMinDeg, m_config.azimuthMaxDeg)));
-    const double elSpan = qMax(1.0, qAbs(m_config.elevationMaxDeg - m_config.elevationMinDeg));
-    const qint64 maxAzLegMs = qMax<qint64>(60000, static_cast<qint64>(azSpan * 20000.0));
-    const qint64 maxElLegMs = qMax<qint64>(60000, static_cast<qint64>(elSpan * 20000.0));
+
+    const double nominalAzMsPerDeg = hasValidAzimuthCalibration() ? m_config.azimuthMsPerDeg : 1000.0;
+    const double nominalElMsPerDeg = hasValidElevationCalibration() ? m_config.elevationMsPerDeg : nominalAzMsPerDeg;
+    const qint64 maxAzLegMs = qBound<qint64>(15000,
+                                             static_cast<qint64>((qMax(1.0, m_calibrationTravelDeg) * nominalAzMsPerDeg * 4.0) + 10000.0),
+                                             180000);
+    const qint64 maxElLegMs = qBound<qint64>(15000,
+                                             static_cast<qint64>((qMax(1.0, m_calibrationTravelDeg) * nominalElMsPerDeg * 4.0) + 10000.0),
+                                             180000);
 
     auto finish = [&](const QString &message) {
         m_calibrationState = CalibrationState::Idle;
@@ -793,51 +878,73 @@ void CatRotatorController::advanceCalibration()
         setStatus(message);
     };
 
+    auto failAndReturn = [&](const QString &message) {
+        emit calibrationProgress(85, message + QStringLiteral(" Returning to initial position."));
+        setStatus(message);
+        m_calibrationState = (m_calibrationAxisLabel == QStringLiteral("azimuth"))
+            ? CalibrationState::AzReturnHome
+            : CalibrationState::ElReturnHome;
+        m_calibrationLegStartMs = now;
+        moveBackend(m_calibrationHomeAz, m_calibrationHomeEl, QStringLiteral("auto-calibration return home after failed sample"));
+    };
+
     switch (m_calibrationState) {
     case CalibrationState::AzToMin:
-        emit calibrationProgress(15, QStringLiteral("Azimuth calibration: moving to minimum stop."));
+        emit calibrationProgress(35, QStringLiteral("Azimuth calibration: measuring %1° sample rotation.")
+                                      .arg(QString::number(m_calibrationTravelDeg, 'f', 1)));
         if (!m_motionActive || calibrationLegTimedOut(maxAzLegMs)) {
-            m_calibrationState = CalibrationState::AzMeasureToMax;
-            m_calibrationLegStartMs = now;
-            moveBackend(m_config.azimuthMaxDeg, m_currentEl, QStringLiteral("auto-calibration azimuth maximum"));
-        }
-        break;
-    case CalibrationState::AzMeasureToMax:
-        emit calibrationProgress(50, QStringLiteral("Azimuth calibration: measuring stop-to-stop rotation time."));
-        if (!m_motionActive || calibrationLegTimedOut(maxAzLegMs)) {
-            m_config.azimuthMsPerDeg = static_cast<double>(legMs) / azSpan;
+            const double actualTravel = configuredAzimuthDifferenceDeg(m_currentAz, m_calibrationHomeAz);
+            if (actualTravel < qMin(10.0, m_calibrationTravelDeg * 0.5)) {
+                failAndReturn(QStringLiteral("Azimuth calibration failed: no measurable movement detected."));
+                break;
+            }
+            const double measuredTravel = qMax(actualTravel, m_calibrationTravelDeg);
+            m_config.azimuthMsPerDeg = static_cast<double>(legMs) / measuredTravel;
             m_calibrationState = CalibrationState::AzReturnHome;
             m_calibrationLegStartMs = now;
             moveBackend(m_calibrationHomeAz, m_calibrationHomeEl, QStringLiteral("auto-calibration return home"));
         }
         break;
+    case CalibrationState::AzMeasureToMax:
+        m_calibrationState = CalibrationState::AzReturnHome;
+        m_calibrationLegStartMs = now;
+        moveBackend(m_calibrationHomeAz, m_calibrationHomeEl, QStringLiteral("auto-calibration return home"));
+        break;
     case CalibrationState::AzReturnHome:
         emit calibrationProgress(85, QStringLiteral("Azimuth calibration: returning to initial position."));
         if (!m_motionActive || calibrationLegTimedOut(maxAzLegMs)) {
-            finish(QStringLiteral("Azimuth calibration complete: %1 ms/degree saved.").arg(QString::number(m_config.azimuthMsPerDeg, 'f', 1)));
+            finish(QStringLiteral("Azimuth calibration complete: %1 ms/degree saved over %2° sample.")
+                       .arg(QString::number(m_config.azimuthMsPerDeg, 'f', 1),
+                            QString::number(m_calibrationTravelDeg, 'f', 1)));
         }
         break;
     case CalibrationState::ElToMin:
-        emit calibrationProgress(15, QStringLiteral("Elevation calibration: moving to minimum stop."));
+        emit calibrationProgress(35, QStringLiteral("Elevation calibration: measuring %1° sample movement.")
+                                      .arg(QString::number(m_calibrationTravelDeg, 'f', 1)));
         if (!m_motionActive || calibrationLegTimedOut(maxElLegMs)) {
-            m_calibrationState = CalibrationState::ElMeasureToMax;
-            m_calibrationLegStartMs = now;
-            moveBackend(m_currentAz, m_config.elevationMaxDeg, QStringLiteral("auto-calibration elevation maximum"));
-        }
-        break;
-    case CalibrationState::ElMeasureToMax:
-        emit calibrationProgress(50, QStringLiteral("Elevation calibration: measuring stop-to-stop rotation time."));
-        if (!m_motionActive || calibrationLegTimedOut(maxElLegMs)) {
-            m_config.elevationMsPerDeg = static_cast<double>(legMs) / elSpan;
+            const double actualTravel = qAbs(m_currentEl - m_calibrationHomeEl);
+            if (actualTravel < qMin(3.0, m_calibrationTravelDeg * 0.5)) {
+                failAndReturn(QStringLiteral("Elevation calibration failed: no measurable movement detected. Check elevation axis/profile and park position."));
+                break;
+            }
+            const double measuredTravel = qMax(actualTravel, m_calibrationTravelDeg);
+            m_config.elevationMsPerDeg = static_cast<double>(legMs) / measuredTravel;
             m_calibrationState = CalibrationState::ElReturnHome;
             m_calibrationLegStartMs = now;
             moveBackend(m_calibrationHomeAz, m_calibrationHomeEl, QStringLiteral("auto-calibration return home"));
         }
         break;
+    case CalibrationState::ElMeasureToMax:
+        m_calibrationState = CalibrationState::ElReturnHome;
+        m_calibrationLegStartMs = now;
+        moveBackend(m_calibrationHomeAz, m_calibrationHomeEl, QStringLiteral("auto-calibration return home"));
+        break;
     case CalibrationState::ElReturnHome:
         emit calibrationProgress(85, QStringLiteral("Elevation calibration: returning to initial position."));
         if (!m_motionActive || calibrationLegTimedOut(maxElLegMs)) {
-            finish(QStringLiteral("Elevation calibration complete: %1 ms/degree saved.").arg(QString::number(m_config.elevationMsPerDeg, 'f', 1)));
+            finish(QStringLiteral("Elevation calibration complete: %1 ms/degree saved over %2° sample.")
+                       .arg(QString::number(m_config.elevationMsPerDeg, 'f', 1),
+                            QString::number(m_calibrationTravelDeg, 'f', 1)));
         }
         break;
     case CalibrationState::Idle:

@@ -47,8 +47,12 @@ for f in \
     "$ROOT_DIR"/AUTHORS* \
     "$ROOT_DIR"/THIRD_PARTY_NOTICES* \
     "$ROOT_DIR"/TRANSLATION_AUDIT.md \
+    "$ROOT_DIR"/compare_ft8_wsjtx_madmodem.sh \
     "$ROOT_DIR"/cty.csv; do
-    [[ -f "$f" ]] && cp -f "$f" "$PACKAGE_DIR/"
+    if [[ -f "$f" ]]; then
+        cp -f "$f" "$PACKAGE_DIR/"
+        [[ "$(basename "$f")" == "compare_ft8_wsjtx_madmodem.sh" ]] && chmod +x "$PACKAGE_DIR/compare_ft8_wsjtx_madmodem.sh" || true
+    fi
 done
 
 if [[ -f "$ROOT_DIR/third_party/ggmorse_mit/LICENSE" ]]; then

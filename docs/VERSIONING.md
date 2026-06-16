@@ -1,25 +1,7 @@
 # MadModem versioning
 
-MadModem uses Semantic Versioning for public/user-visible versions:
+MadModem now uses Semantic Versioning for public packages.
 
-```text
-MAJOR.MINOR.PATCH[-pre.release][+build.metadata]
-```
+Current production release: **0.5.0**.
 
-Current public version: **0.5.0-alpha.13**.
-
-Rules used in this tree:
-
-- `0.x.y` means the application is still pre-1.0 and internal APIs/features may change.
-- `alpha.N` means a test build intended for field validation, not a final release.
-- PATCH increments fix compile/runtime bugs without changing intended behavior.
-- MINOR increments add user-visible features or sizeable UI/workflow changes.
-- MAJOR increments only after a stable public compatibility boundary is declared.
-- Historical package names such as `v4.13ai` are internal snapshot tags and must not be used as the main-window version.
-
-Next expected versions:
-
-- `0.5.0-alpha.13` for a direct bugfix to this alpha.
-- `0.5.0-beta.1` when the current feature set is compile-tested and field-stable.
-- `0.5.0` when this milestone is ready as a normal release.
-- `1.0.0` only after the core radio workflows are considered stable.
+This package is the production consolidation of the validated `0.5.0-alpha.26` FT8 GF(2) OSD order-1 decoder baseline. The later beta02..beta08 FT8 experiments were kept as laboratory branches and are not promoted here.

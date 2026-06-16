@@ -549,6 +549,7 @@ void AppSettings::load()
     rotatorShowWindowOnStart = settings.value("Rotator/showWindowOnStart", rotatorShowWindowOnStart).toBool();
     rotatorTrackSelectedQso = settings.value("Rotator/trackSelectedQso", rotatorTrackSelectedQso).toBool();
     rotatorTrackOnlyWhenQsoActive = settings.value("Rotator/trackOnlyWhenQsoActive", rotatorTrackOnlyWhenQsoActive).toBool();
+    rotatorBlockFtTxUntilReady = settings.value("Rotator/blockFtTxUntilReady", rotatorBlockFtTxUntilReady).toBool();
     rotatorActiveProfile = settings.value("Rotator/activeProfile", rotatorActiveProfile).toInt();
     if (rotatorActiveProfile < 0 || rotatorActiveProfile > 2) rotatorActiveProfile = 0;
 
@@ -839,6 +840,7 @@ bool AppSettings::save() const
     settings.setValue("Rotator/showWindowOnStart", rotatorShowWindowOnStart);
     settings.setValue("Rotator/trackSelectedQso", rotatorTrackSelectedQso);
     settings.setValue("Rotator/trackOnlyWhenQsoActive", rotatorTrackOnlyWhenQsoActive);
+    settings.setValue("Rotator/blockFtTxUntilReady", rotatorBlockFtTxUntilReady);
     settings.setValue("Rotator/activeProfile", rotatorActiveProfile);
 
     // Legacy profile-1 keys for backward compatibility.

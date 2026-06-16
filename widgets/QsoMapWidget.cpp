@@ -155,6 +155,133 @@ bool ctyCentroidForCoarseEntry(const LogbookEntry &entry, QPointF *lonLat, QStri
     return true;
 }
 
+
+
+QString normalizedMapCallsign(const QString &callsign)
+{
+    QString call = callsign.trimmed().toUpper();
+    call.remove(QRegularExpression(QStringLiteral("[^A-Z0-9/]")));
+    return call;
+}
+
+QString cleanMapLocator(const QString &grid)
+{
+    QString g = grid.trimmed().toUpper();
+    g.remove(QRegularExpression(QStringLiteral("[^A-R0-9A-X]")));
+    return g;
+}
+
+bool isMapMaidenheadLocator(const QString &grid, int minLength)
+{
+    const QString g = cleanMapLocator(grid);
+    if (g.size() < minLength || g.size() < 4) {
+        return false;
+    }
+    if (g.at(0) < QLatin1Char('A') || g.at(0) > QLatin1Char('R') ||
+        g.at(1) < QLatin1Char('A') || g.at(1) > QLatin1Char('R') ||
+        !g.at(2).isDigit() || !g.at(3).isDigit()) {
+        return false;
+    }
+    if (minLength >= 6 || g.size() >= 6) {
+        if (g.size() < 6) {
+            return false;
+        }
+        if (g.at(4) < QLatin1Char('A') || g.at(4) > QLatin1Char('X') ||
+            g.at(5) < QLatin1Char('A') || g.at(5) > QLatin1Char('X')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+QString fullLocatorIfValid(const QString &grid)
+{
+    const QString g = cleanMapLocator(grid);
+    return isMapMaidenheadLocator(g, 6) ? g.left(qMin(g.size(), 8)) : QString();
+}
+
+QString coarseLocatorIfValid(const QString &grid)
+{
+    const QString g = cleanMapLocator(grid);
+    return isMapMaidenheadLocator(g.left(4), 4) ? g.left(4) : QString();
+}
+
+QString bestKnownLocatorForCallsign(const QString &callsign,
+                                    const QString &currentGrid,
+                                    const QVector<LogbookEntry> &sourceRecords)
+{
+    /*
+     * Universal QSO-map locator policy:
+     *
+     * 1. A real station locator from the log/decode wins.
+     * 2. If the current record only has a coarse/no locator, reuse the latest
+     *    exact locator already known for the same callsign in the same loaded
+     *    log/heard dataset.
+     * 3. If only a 4-character Maidenhead square is known, plot the centre of
+     *    that square. That is coarse but honest.
+     * 4. Do not invent per-country/per-prefix coordinates for individual QSO
+     *    markers. Country/DXCC centroids are only used by the Worked DXCC layer.
+     */
+    const QString currentFull = fullLocatorIfValid(currentGrid);
+    if (!currentFull.isEmpty()) {
+        return currentFull;
+    }
+
+    const QString call = normalizedMapCallsign(callsign);
+    QString bestFull;
+    QDateTime bestFullUtc;
+
+    if (!call.isEmpty()) {
+        for (const LogbookEntry &rec : sourceRecords) {
+            if (normalizedMapCallsign(rec.callsign) != call) {
+                continue;
+            }
+            const QString recFull = fullLocatorIfValid(rec.grid);
+            if (recFull.isEmpty()) {
+                continue;
+            }
+            if (bestFull.isEmpty() ||
+                (rec.utc.isValid() && (!bestFullUtc.isValid() || rec.utc.toUTC() > bestFullUtc.toUTC()))) {
+                bestFull = recFull;
+                bestFullUtc = rec.utc;
+            }
+        }
+    }
+    if (!bestFull.isEmpty()) {
+        return bestFull;
+    }
+
+    const QString currentCoarse = coarseLocatorIfValid(currentGrid);
+    if (!currentCoarse.isEmpty()) {
+        const QString refined = CtyCountryFile::instance().refinedGridForCallsign(callsign, currentCoarse, 6);
+        if (isMapMaidenheadLocator(refined, 6) && refined.left(4) == currentCoarse) {
+            return refined.left(6);
+        }
+        return currentCoarse;
+    }
+
+    QString bestCoarse;
+    QDateTime bestCoarseUtc;
+    if (!call.isEmpty()) {
+        for (const LogbookEntry &rec : sourceRecords) {
+            if (normalizedMapCallsign(rec.callsign) != call) {
+                continue;
+            }
+            const QString recCoarse = coarseLocatorIfValid(rec.grid);
+            if (recCoarse.isEmpty()) {
+                continue;
+            }
+            if (bestCoarse.isEmpty() ||
+                (rec.utc.isValid() && (!bestCoarseUtc.isValid() || rec.utc.toUTC() > bestCoarseUtc.toUTC()))) {
+                bestCoarse = recCoarse;
+                bestCoarseUtc = rec.utc;
+            }
+        }
+    }
+
+    return bestCoarse;
+}
+
 QString osmTileKey(int z, int x, int y)
 {
     return QStringLiteral("%1/%2/%3").arg(z).arg(x).arg(y);
@@ -472,13 +599,23 @@ void QsoMapWidget::saveMap()
         painter.setRenderHint(QPainter::Antialiasing, true);
         painter.setRenderHint(QPainter::TextAntialiasing, true);
         painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-        const QImage image = renderedExportImage(QSize(3000, 1688));
+        // Use the current widget size so visible OSM tile cache keys match the
+        // on-screen map. Rendering at an arbitrary 3000px size asks for another
+        // tile zoom level that is usually not cached during export, causing the
+        // PDF to fall back to the blurred bundled world map.
+        const QSize exportSize = size().isValid() && width() > 320 && height() > 220
+            ? size()
+            : QSize(1400, 780);
+        const QImage image = renderedExportImage(exportSize);
         drawImageToPrinterPage(&painter, printer, image);
         painter.end();
         return;
     }
 
-    const QImage image = renderedExportImage(QSize(3000, 1688));
+    const QSize exportSize = size().isValid() && width() > 320 && height() > 220
+        ? size()
+        : QSize(1400, 780);
+    const QImage image = renderedExportImage(exportSize);
 
     if (!image.save(fileName)) {
         QMessageBox::warning(this, L(QStringLiteral("Save QSO map")), L(QStringLiteral("Unable to save the selected map file.")));
@@ -501,7 +638,10 @@ void QsoMapWidget::printMap()
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
     painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
-    const QImage image = renderedExportImage(QSize(3000, 1688));
+    const QSize exportSize = size().isValid() && width() > 320 && height() > 220
+        ? size()
+        : QSize(1400, 780);
+    const QImage image = renderedExportImage(exportSize);
     drawImageToPrinterPage(&painter, printer, image);
     painter.end();
 }
@@ -1089,7 +1229,7 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
                           Qt::AlignVCenter | Qt::AlignLeft,
                           cachedTiles > 0
                               ? L(QStringLiteral("OpenStreetMap cached tiles for export/print"))
-                              : L(QStringLiteral("Offline fallback map — OSM tiles not yet cached")));
+                              : L(QStringLiteral("Offline fallback map — refresh/zoom the map once before export if OSM tiles are missing")));
         painter->restore();
         return;
     }
@@ -1438,12 +1578,8 @@ QVector<QsoMapWidget::MapPoint> QsoMapWidget::visiblePoints(const QRect &targetR
     points.reserve(entries.size());
     for (const LogbookEntry &entry : entries) {
         QPointF lonLat;
-        QString mapGrid = CtyCountryFile::instance().refinedGridForCallsign(entry.callsign, entry.grid, 6);
-        if (mapGrid.isEmpty()) {
-            mapGrid = entry.grid.trimmed().toUpper();
-        }
-        const bool usedCtyCentroid = ctyCentroidForCoarseEntry(entry, &lonLat, &mapGrid);
-        if (!usedCtyCentroid && !maidenheadToLonLat(mapGrid, &lonLat)) {
+        QString mapGrid = bestKnownLocatorForCallsign(entry.callsign, entry.grid, sourceRecordsForBehavior());
+        if (!maidenheadToLonLat(mapGrid, &lonLat)) {
             bool haveCtyPoint = false;
             if (m_displayBehavior == DisplayBehavior::WorkedDxcc) {
                 bool okLat = false;
@@ -1461,6 +1597,9 @@ QVector<QsoMapWidget::MapPoint> QsoMapWidget::visiblePoints(const QRect &targetR
         }
         MapPoint p;
         p.entry = entry;
+        if (!mapGrid.isEmpty()) {
+            p.entry.grid = mapGrid;
+        }
         p.lonLat = lonLat;
         p.screen = lonLatToScreen(lonLat, mapRect).toPoint();
         if (haveHome) {
@@ -1681,12 +1820,8 @@ QVariantList QsoMapWidget::qmlMarkerList() const
     const QVector<LogbookEntry> entries = filteredMapRecords();
     for (const LogbookEntry &entry : entries) {
         QPointF lonLat;
-        QString mapGrid = CtyCountryFile::instance().refinedGridForCallsign(entry.callsign, entry.grid, 6);
-        if (mapGrid.isEmpty()) {
-            mapGrid = entry.grid.trimmed().toUpper();
-        }
-        const bool usedCtyCentroid = ctyCentroidForCoarseEntry(entry, &lonLat, &mapGrid);
-        if (!usedCtyCentroid && !maidenheadToLonLat(mapGrid, &lonLat)) {
+        QString mapGrid = bestKnownLocatorForCallsign(entry.callsign, entry.grid, sourceRecordsForBehavior());
+        if (!maidenheadToLonLat(mapGrid, &lonLat)) {
             continue;
         }
 

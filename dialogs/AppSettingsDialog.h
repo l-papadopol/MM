@@ -169,6 +169,7 @@ private:
     QDoubleSpinBox *m_spinRotatorParkEl = nullptr;
     QCheckBox *m_chkRotatorTrackSelectedQso = nullptr;
     QCheckBox *m_chkRotatorTrackOnlyQso = nullptr;
+    QCheckBox *m_chkRotatorBlockFtTxUntilReady = nullptr;
     QSpinBox *m_spinRotatorTolerance = nullptr;
 };
 

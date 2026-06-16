@@ -14,6 +14,7 @@
 #include <QStringList>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <cstring>
@@ -59,6 +60,96 @@ constexpr int kFt4Scrambler[77] = {
 };
 constexpr double kTwoPi = 6.283185307179586476925286766559;
 constexpr double kEps = 1.0e-18;
+
+/*
+ * 0.5.0 GF(2) OSD lab primitives.  FT8 LDPC parity rows
+ * are 174 bits wide, so three 64-bit words cover one row.  Gaussian
+ * elimination then becomes row swaps plus three XORs per elimination,
+ * with no heap allocation in the candidate hot path.
+ */
+struct Gf2Row
+{
+    uint64_t w0 = 0ULL;
+    uint64_t w1 = 0ULL;
+    uint64_t w2 = 0ULL;
+
+    void clear()
+    {
+        w0 = 0ULL;
+        w1 = 0ULL;
+        w2 = 0ULL;
+    }
+
+    void xorWith(const Gf2Row &other)
+    {
+        w0 ^= other.w0;
+        w1 ^= other.w1;
+        w2 ^= other.w2;
+    }
+
+    int getBit(int col) const
+    {
+        if (col < 64) {
+            return static_cast<int>((w0 >> col) & 1ULL);
+        }
+        if (col < 128) {
+            return static_cast<int>((w1 >> (col - 64)) & 1ULL);
+        }
+        return static_cast<int>((w2 >> (col - 128)) & 1ULL);
+    }
+
+    void setBit(int col, int value)
+    {
+        if (col < 64) {
+            const uint64_t mask = 1ULL << col;
+            if (value != 0) {
+                w0 |= mask;
+            } else {
+                w0 &= ~mask;
+            }
+            return;
+        }
+        if (col < 128) {
+            const uint64_t mask = 1ULL << (col - 64);
+            if (value != 0) {
+                w1 |= mask;
+            } else {
+                w1 &= ~mask;
+            }
+            return;
+        }
+        const uint64_t mask = 1ULL << (col - 128);
+        if (value != 0) {
+            w2 |= mask;
+        } else {
+            w2 &= ~mask;
+        }
+    }
+};
+
+struct Gf2Matrix83x174
+{
+    static constexpr int ROWS = 83;
+    static constexpr int COLS = 174;
+    std::array<Gf2Row, ROWS> rows{};
+
+    void clear()
+    {
+        for (Gf2Row &row : rows) {
+            row.clear();
+        }
+    }
+
+    void swapRows(int r1, int r2)
+    {
+        if (r1 == r2) {
+            return;
+        }
+        const Gf2Row tmp = rows[r1];
+        rows[r1] = rows[r2];
+        rows[r2] = tmp;
+    }
+};
 
 
 /*
@@ -321,6 +412,53 @@ const std::vector<double> &ft8RxGfskPulse()
     return pulse;
 }
 
+const std::array<std::vector<double>, 8> &ft8RxGfskToneDphiTable()
+{
+    static const std::array<std::vector<double>, 8> table = []() {
+        constexpr int nsps = 1920;
+        constexpr double dphiPeak = kTwoPi / static_cast<double>(nsps);
+        std::array<std::vector<double>, 8> out;
+        const std::vector<double> &pulse = ft8RxGfskPulse();
+        for (int tone = 0; tone < 8; ++tone) {
+            out[static_cast<size_t>(tone)].resize(static_cast<size_t>(3 * nsps));
+            const double scale = dphiPeak * static_cast<double>(tone);
+            for (int i = 0; i < 3 * nsps; ++i) {
+                out[static_cast<size_t>(tone)][static_cast<size_t>(i)] = pulse[static_cast<size_t>(i)] * scale;
+            }
+        }
+        return out;
+    }();
+    return table;
+}
+
+const std::vector<double> &ft8RxRampInTable()
+{
+    static const std::vector<double> ramp = []() {
+        constexpr int nsps = 1920;
+        const int nramp = nsps / 8;
+        std::vector<double> out(static_cast<size_t>(nramp), 1.0);
+        for (int i = 0; i < nramp; ++i) {
+            out[static_cast<size_t>(i)] = (1.0 - std::cos(kTwoPi * static_cast<double>(i) / (2.0 * static_cast<double>(nramp)))) * 0.5;
+        }
+        return out;
+    }();
+    return ramp;
+}
+
+const std::vector<double> &ft8RxRampOutTable()
+{
+    static const std::vector<double> ramp = []() {
+        constexpr int nsps = 1920;
+        const int nramp = nsps / 8;
+        std::vector<double> out(static_cast<size_t>(nramp), 1.0);
+        for (int i = 0; i < nramp; ++i) {
+            out[static_cast<size_t>(i)] = (1.0 + std::cos(kTwoPi * static_cast<double>(i) / (2.0 * static_cast<double>(nramp)))) * 0.5;
+        }
+        return out;
+    }();
+    return ramp;
+}
+
 void makeFt8ReferenceWaveformRx(const int *itone,
                                   double baseHz,
                                   std::vector<std::complex<double>> &cwave,
@@ -329,50 +467,54 @@ void makeFt8ReferenceWaveformRx(const int *itone,
     constexpr int nsym = 79;
     constexpr int nsps = 1920;
     constexpr int nwave = nsym * nsps;
-    const std::vector<double> &pulse = ft8RxGfskPulse();
+    const std::array<std::vector<double>, 8> &toneDphi = ft8RxGfskToneDphiTable();
 
     dphi.resize(static_cast<size_t>(nwave + 2 * nsps + 16));
     std::fill(dphi.begin(), dphi.end(), 0.0);
     cwave.resize(static_cast<size_t>(nwave));
 
-    const double dphiPeak = kTwoPi / static_cast<double>(nsps);
     for (int sym = 0; sym < nsym; ++sym) {
         const int ib = sym * nsps;
         const int tone = qBound(0, itone[sym], 7);
+        const std::vector<double> &shape = toneDphi[static_cast<size_t>(tone)];
         for (int i = 0; i < 3 * nsps; ++i) {
-            dphi[static_cast<size_t>(ib + i)] += dphiPeak * pulse[static_cast<size_t>(i)] * static_cast<double>(tone);
+            dphi[static_cast<size_t>(ib + i)] += shape[static_cast<size_t>(i)];
         }
     }
 
     const int bgn = nsym * nsps;
     const int firstTone = qBound(0, itone[0], 7);
     const int lastTone = qBound(0, itone[nsym - 1], 7);
+    const std::vector<double> &firstShape = toneDphi[static_cast<size_t>(firstTone)];
+    const std::vector<double> &lastShape = toneDphi[static_cast<size_t>(lastTone)];
     for (int i = 0; i < 2 * nsps; ++i) {
-        dphi[static_cast<size_t>(i)] += dphiPeak * static_cast<double>(firstTone) * pulse[static_cast<size_t>(i + nsps)];
-        dphi[static_cast<size_t>(i + bgn)] += dphiPeak * static_cast<double>(lastTone) * pulse[static_cast<size_t>(i)];
+        dphi[static_cast<size_t>(i)] += firstShape[static_cast<size_t>(i + nsps)];
+        dphi[static_cast<size_t>(i + bgn)] += lastShape[static_cast<size_t>(i)];
     }
 
     const double ofs = kTwoPi * baseHz / 12000.0;
     double phi = 0.0;
     for (int n = 0; n < nwave; ++n) {
         cwave[static_cast<size_t>(n)] = std::complex<double>(std::cos(phi), std::sin(phi));
-        phi = std::fmod(phi + dphi[static_cast<size_t>(n + nsps)] + ofs, kTwoPi);
-        if (phi < 0.0) {
+        phi += dphi[static_cast<size_t>(n + nsps)] + ofs;
+        if (phi >= kTwoPi) {
+            phi -= kTwoPi;
+        } else if (phi < 0.0) {
             phi += kTwoPi;
         }
     }
 
+    const std::vector<double> &rampIn = ft8RxRampInTable();
+    const std::vector<double> &rampOut = ft8RxRampOutTable();
     const int nramp = nsps / 8;
     for (int i = 0; i < nramp; ++i) {
-        const double rampIn = (1.0 - std::cos(kTwoPi * static_cast<double>(i) / (2.0 * static_cast<double>(nramp)))) * 0.5;
-        cwave[static_cast<size_t>(i)] *= rampIn;
+        cwave[static_cast<size_t>(i)] *= rampIn[static_cast<size_t>(i)];
     }
     const int k2 = nsym * nsps - nramp + 1;
     for (int i = 0; i < nramp; ++i) {
         const int idx = i + k2;
         if (idx >= 0 && idx < nwave) {
-            const double rampOut = (1.0 + std::cos(kTwoPi * static_cast<double>(i) / (2.0 * static_cast<double>(nramp)))) * 0.5;
-            cwave[static_cast<size_t>(idx)] *= rampOut;
+            cwave[static_cast<size_t>(idx)] *= rampOut[static_cast<size_t>(i)];
         }
     }
 }
@@ -701,6 +843,29 @@ int wsjtxFt4ReportDb(double candidateSnrRatio)
      */
     const double xsnr = 10.0 * std::log10(candidateSnrRatio) - 14.8;
     return qRound(qMax(-21.0, xsnr));
+}
+
+QVector<double> copyLeadingSamplesPadded(const QVector<double> &source, int sampleCount, bool padToCount)
+{
+    QVector<double> out;
+    if (sampleCount <= 0) {
+        return out;
+    }
+
+    const int copyCount = qMin(source.size(), sampleCount);
+    const int outCount = padToCount ? sampleCount : copyCount;
+    if (outCount <= 0) {
+        return out;
+    }
+
+    out.resize(outCount);
+    if (copyCount > 0) {
+        std::copy(source.constData(), source.constData() + copyCount, out.data());
+    }
+    if (padToCount && copyCount < sampleCount) {
+        std::fill(out.data() + copyCount, out.data() + sampleCount, 0.0);
+    }
+    return out;
 }
 
 }
@@ -1281,11 +1446,35 @@ void Ft8RxDecoder::processAudioBlock(const AudioBlock &block)
 
     const QVector<double> resampled = resampleTo12k(block);
     if (!resampled.isEmpty()) {
-        m_slotSamples += resampled;
         const int slotSamples = currentSlotSamples();
-        if (m_slotSamples.size() > slotSamples + kDecodeSampleRate * 2) {
-            // Keep the newest slot-sized material if the backend delivered a burst.
-            m_slotSamples = m_slotSamples.mid(m_slotSamples.size() - slotSamples);
+        const int overflowLimit = slotSamples + kDecodeSampleRate * 2;
+
+        // Keep the same overflow policy as before (newest slot-sized material
+        // after a backend burst), but do it without QVector::mid(), which
+        // allocates and copies a fresh vector in the live audio path.
+        if (resampled.size() >= slotSamples) {
+            if (m_slotSamples.capacity() < slotSamples) {
+                m_slotSamples.reserve(slotSamples + 4096);
+            }
+            m_slotSamples.resize(slotSamples);
+            std::copy(resampled.constData() + (resampled.size() - slotSamples),
+                      resampled.constData() + resampled.size(),
+                      m_slotSamples.data());
+        } else {
+            const int projectedSize = m_slotSamples.size() + resampled.size();
+            if (projectedSize > overflowLimit) {
+                const int keepExisting = qMax(0, slotSamples - resampled.size());
+                const int trimCount = qMax(0, m_slotSamples.size() - keepExisting);
+                if (trimCount > 0) {
+                    m_slotSamples.remove(0, trimCount);
+                }
+            }
+
+            const int neededSize = m_slotSamples.size() + resampled.size();
+            if (m_slotSamples.capacity() < neededSize) {
+                m_slotSamples.reserve(qMax(neededSize, slotSamples + 4096));
+            }
+            m_slotSamples += resampled;
         }
         maybeStartStreamingDecodeSlot();
     }
@@ -1355,10 +1544,7 @@ void Ft8RxDecoder::maybeStartStreamingDecodeSlot()
         return;
     }
 
-    QVector<double> snapshot = m_slotSamples;
-    if (snapshot.size() > availableSamples) {
-        snapshot.resize(availableSamples);
-    }
+    const QVector<double> snapshot = copyLeadingSamplesPadded(m_slotSamples, availableSamples, false);
 
     m_streamingDecodeSlotId = m_currentSlotId;
     m_lastStreamingDecodeSamples = availableSamples;
@@ -1411,12 +1597,7 @@ void Ft8RxDecoder::finishCurrentSlot()
         return;
     }
 
-    QVector<double> slot = m_slotSamples;
-    // QVector does not provide QString/QList-style left() on Qt 5.
-    // resize() pads with zeros when shorter and truncates the tail when longer.
-    if (slot.size() != slotSamples) {
-        slot.resize(slotSamples);
-    }
+    const QVector<double> slot = copyLeadingSamplesPadded(m_slotSamples, slotSamples, true);
 
     m_finalDecodeLaunchedForSlot = true;
     startAsyncDecodeSlot(slot, m_currentSlotStartUtc, QStringLiteral("boundary"));
@@ -1590,6 +1771,18 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     std::atomic<int> diagUnpackFailures {0};
     std::atomic<int> diagMessageRejects {0};
 
+    std::mutex diagOsdMutex;
+    int diagOsdGf2Tried = 0;
+    int diagOsdGf2Recovered = 0;
+    int diagOsdGf2RankFails = 0;
+    int diagOsdGf2PivotSkips = 0;
+    int diagOsdGf2Order0Hits = 0;
+    int diagOsdGf2Order1Hits = 0;
+    int diagOsdGf2Order2Hits = 0;
+    int diagOsdGf2PostCrcRejects = 0;
+    int diagOsdGf2BudgetSkips = 0;
+    double diagOsdGf2TotalMs = 0.0;
+
     std::mutex diagQualityMutex;
     int diagDecodedQualityCount = 0;
     int diagLdpcFailureQualityCount = 0;
@@ -1626,6 +1819,33 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         }
     };
 
+    auto noteOsdQuality = [&diagOsdMutex,
+                           &diagOsdGf2Tried,
+                           &diagOsdGf2Recovered,
+                           &diagOsdGf2RankFails,
+                           &diagOsdGf2PivotSkips,
+                           &diagOsdGf2Order0Hits,
+                           &diagOsdGf2Order1Hits,
+                           &diagOsdGf2Order2Hits,
+                           &diagOsdGf2PostCrcRejects,
+                           &diagOsdGf2BudgetSkips,
+                           &diagOsdGf2TotalMs](const CandidateAttemptQuality &quality) {
+        if (quality.osdGf2Tried <= 0 && quality.osdGf2BudgetSkips <= 0) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(diagOsdMutex);
+        diagOsdGf2Tried += quality.osdGf2Tried;
+        diagOsdGf2Recovered += quality.osdGf2Recovered;
+        diagOsdGf2RankFails += quality.osdGf2RankFails;
+        diagOsdGf2PivotSkips += quality.osdGf2PivotSkips;
+        diagOsdGf2Order0Hits += quality.osdGf2Order0Hits;
+        diagOsdGf2Order1Hits += quality.osdGf2Order1Hits;
+        diagOsdGf2Order2Hits += quality.osdGf2Order2Hits;
+        diagOsdGf2PostCrcRejects += quality.osdGf2PostCrcRejects;
+        diagOsdGf2BudgetSkips += quality.osdGf2BudgetSkips;
+        diagOsdGf2TotalMs += quality.osdGf2TotalMs;
+    };
+
     auto noteRejectReason = [&diagBoundaryRejects,
                              &diagSoftMetricRejects,
                              &diagSyncGateRejects,
@@ -1660,7 +1880,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         }
     };
 
-    auto decodeCandidateSet = [this, &slotStartUtc, &betterDecode, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality](const QVector<double> &slotSamples,
+    auto decodeCandidateSet = [this, &slotStartUtc, &betterDecode, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality, &noteOsdQuality](const QVector<double> &slotSamples,
                                                                                                                const QVector<Candidate> &candidateSet,
                                                                                                                int *workerCountOut) {
         QVector<CandidateDecode> rawPairs;
@@ -1677,6 +1897,18 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             *workerCountOut = workerCount;
         }
 
+        /*
+         * 0.5.0: GF(2) OSD is now useful, but alpha24 proved
+         * that unbounded OSD spends too much CPU. Keep it as a tactical
+         * recovery pass: cap the number of OSD candidates and the summed
+         * OSD worker time per candidate set. Parallel workers may overshoot
+         * slightly, but the cap prevents alpha24-style 100+ ms bursts.
+         */
+        const int osdGf2TryLimit = offline ? 16 : 8;
+        const int osdGf2BudgetTenthsMs = offline ? 600 : 250;
+        std::atomic<int> osdGf2TriedInSet {0};
+        std::atomic<int> osdGf2TenthsMsInSet {0};
+
         std::mutex rawMutex;
         std::mutex diagMutex;
         std::atomic<int> nextCandidate {0};
@@ -1685,7 +1917,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         // highly variable cost; static chunks can leave one worker stuck on a
         // hard cluster while the others are idle.  This keeps the no-thread-churn
         // benefit while recovering the load balance of the old atomic scheduler.
-        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality](int, int) {
+        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, osdGf2TryLimit, osdGf2BudgetTenthsMs](int, int) {
             QVector<CandidateDecode> localPairs;
             localPairs.reserve(8);
             int localAttempted = 0;
@@ -1693,6 +1925,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             QVector<DecodeRejectReason> localRejects;
             QVector<CandidateAttemptQuality> localDecodedQualities;
             QVector<CandidateAttemptQuality> localLdpcFailureQualities;
+            QVector<CandidateAttemptQuality> localOsdQualities;
             localRejects.reserve(64);
             for (;;) {
                 const int i = nextCandidate.fetch_add(1);
@@ -1705,12 +1938,31 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 Candidate refinedCandidate = candidate;
                 DecodeRejectReason rejectReason = DecodeRejectReason::None;
                 CandidateAttemptQuality quality;
-                const bool decoded = decodeCandidate(slotSamples, slotStartUtc, candidate, decode, &refinedCandidate, &rejectReason, &quality);
+                const bool allowGf2OsdForCandidate =
+                        osdGf2TriedInSet.load(std::memory_order_relaxed) < osdGf2TryLimit &&
+                        osdGf2TenthsMsInSet.load(std::memory_order_relaxed) < osdGf2BudgetTenthsMs;
+                const bool decoded = decodeCandidate(slotSamples,
+                                                     slotStartUtc,
+                                                     candidate,
+                                                     decode,
+                                                     &refinedCandidate,
+                                                     &rejectReason,
+                                                     &quality,
+                                                     true,
+                                                     allowGf2OsdForCandidate);
+                if (quality.osdGf2Tried > 0) {
+                    osdGf2TriedInSet.fetch_add(quality.osdGf2Tried, std::memory_order_relaxed);
+                    osdGf2TenthsMsInSet.fetch_add(qMax(1, static_cast<int>(std::lround(quality.osdGf2TotalMs * 10.0))),
+                                                  std::memory_order_relaxed);
+                }
                 if (decoded || rejectReason == DecodeRejectReason::Ldpc ||
                     rejectReason == DecodeRejectReason::Crc ||
                     rejectReason == DecodeRejectReason::Unpack ||
                     rejectReason == DecodeRejectReason::Message) {
                     ++localLdpcTried;
+                }
+                if (quality.osdGf2Tried > 0 || quality.osdGf2BudgetSkips > 0) {
+                    localOsdQualities.append(quality);
                 }
                 if (decoded) {
                     localDecodedQualities.append(quality);
@@ -1732,6 +1984,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 diagLdpcTried += localLdpcTried;
                 for (const CandidateAttemptQuality &q : localDecodedQualities) {
                     noteQuality(true, q);
+                }
+                for (const CandidateAttemptQuality &q : localOsdQualities) {
+                    noteOsdQuality(q);
                 }
                 for (const DecodeRejectReason reason : localRejects) {
                     noteRejectReason(reason);
@@ -2222,7 +2477,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                                                  &refinedCandidate,
                                                  &rejectReason,
                                                  &quality,
-                                                 allowHeavyMetricRecovery);
+                                                 allowHeavyMetricRecovery,
+                                                 (!liveAdaptiveResidual || elapsedLiveMs() < 500.0));
             const auto decodeEnd = Clock::now();
             decodeMs += std::chrono::duration<double, std::milli>(decodeEnd - decodeStart).count();
 
@@ -2232,6 +2488,10 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 rejectReason == DecodeRejectReason::Message) {
                 ++diagLdpcTried;
                 ++residualLdpcUsed;
+            }
+
+            if (quality.osdGf2Tried > 0 || quality.osdGf2BudgetSkips > 0) {
+                noteOsdQuality(quality);
             }
 
             if (decoded) {
@@ -2314,6 +2574,16 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         stats->ldpcFailureAvgHardSync = avgOrZero(diagLdpcFailureHardSyncSum, diagLdpcFailureQualityCount);
         stats->decodedAvgLlrAbs = avgOrZero(diagDecodedLlrAbsSum, diagDecodedQualityCount);
         stats->ldpcFailureAvgLlrAbs = avgOrZero(diagLdpcFailureLlrAbsSum, diagLdpcFailureQualityCount);
+        stats->osdGf2Tried = diagOsdGf2Tried;
+        stats->osdGf2Recovered = diagOsdGf2Recovered;
+        stats->osdGf2RankFails = diagOsdGf2RankFails;
+        stats->osdGf2PivotSkips = diagOsdGf2PivotSkips;
+        stats->osdGf2Order0Hits = diagOsdGf2Order0Hits;
+        stats->osdGf2Order1Hits = diagOsdGf2Order1Hits;
+        stats->osdGf2Order2Hits = diagOsdGf2Order2Hits;
+        stats->osdGf2PostCrcRejects = diagOsdGf2PostCrcRejects;
+        stats->osdGf2BudgetSkips = diagOsdGf2BudgetSkips;
+        stats->osdGf2TotalMs = diagOsdGf2TotalMs;
         stats->engineName = liveRealtimeDecode
             ? (liveAdaptiveDeepTriggered
                 ? QStringLiteral("FT8 Live Adaptive Residual")
@@ -2391,34 +2661,57 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
     struct CostasSpectrumCache
     {
         double binHz = 1.0;
-        std::array<std::vector<double>, 21> energy;
+        int rowSize = 0;
+        std::vector<double> energy; // 21 contiguous rows; allocated once per worker chunk.
+
+        void ensureCapacity(int binsPerRow)
+        {
+            rowSize = qMax(0, binsPerRow);
+            const size_t required = static_cast<size_t>(21 * rowSize);
+            if (energy.size() != required) {
+                energy.resize(required);
+            }
+        }
+
+        double *rowData(int costasIndex)
+        {
+            return energy.data() + static_cast<size_t>(costasIndex * rowSize);
+        }
+
         double read(double freqHz, int costasIndex) const
         {
-            if (costasIndex < 0 || costasIndex >= 21) {
+            if (costasIndex < 0 || costasIndex >= 21 || rowSize <= 0 || energy.empty()) {
                 return 0.0;
             }
-            const std::vector<double> &row = energy[static_cast<size_t>(costasIndex)];
-            if (row.empty()) {
-                return 0.0;
-            }
+            const double *row = energy.data() + static_cast<size_t>(costasIndex * rowSize);
             const double pos = freqHz / binHz;
             int bin = static_cast<int>(std::floor(pos));
             const double frac = pos - static_cast<double>(bin);
             if (bin < 0) {
-                return row.front();
+                return row[0];
             }
-            if (bin + 1 >= static_cast<int>(row.size())) {
-                return row.back();
+            if (bin + 1 >= rowSize) {
+                return row[rowSize - 1];
             }
-            return row[static_cast<size_t>(bin)] * (1.0 - frac) + row[static_cast<size_t>(bin + 1)] * frac;
+            return row[bin] * (1.0 - frac) + row[bin + 1] * frac;
         }
     };
 
-    auto buildCacheForStart = [&samples, maxEnergyBin](int startSample) {
-        CostasSpectrumCache cache;
+    static const std::vector<double> costasHannWindow = []() {
+        std::vector<double> window(static_cast<size_t>(kSamplesPerSymbol), 1.0);
+        for (int n = 0; n < kSamplesPerSymbol; ++n) {
+            window[static_cast<size_t>(n)] = 0.5 - 0.5 * std::cos(kTwoPi * static_cast<double>(n) /
+                                                                 static_cast<double>(kSamplesPerSymbol - 1));
+        }
+        return window;
+    }();
+
+    auto buildCacheForStart = [&samples, maxEnergyBin](int startSample,
+                                                                          CostasSpectrumCache &cache,
+                                                                          std::vector<std::complex<double>> &fft) {
         cache.binHz = kFftBinHz;
+        cache.ensureCapacity(maxEnergyBin + 2);
         int costasIndex = 0;
-        std::vector<std::complex<double>> fft(static_cast<size_t>(kFftSize));
         for (int block = 0; block < 3; ++block) {
             const int syncStart = kCostasStarts[block];
             for (int i = 0; i < 7; ++i) {
@@ -2428,26 +2721,22 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
                 if (symStart >= 0 && symStart + kSamplesPerSymbol < samples.size()) {
                     const double *x = samples.constData() + symStart;
                     for (int n = 0; n < kSamplesPerSymbol; ++n) {
-                        // A very light Hann taper reduces bin leakage while keeping the
-                        // FFT cache cheap.  MSHV's exact window/filter chain is more
-                        // elaborate, but the important fix here is the spectral matrix.
-                        const double w = 0.5 - 0.5 * std::cos(kTwoPi * static_cast<double>(n) /
-                                                              static_cast<double>(kSamplesPerSymbol - 1));
-                        fft[static_cast<size_t>(n)] = std::complex<double>(x[n] * w, 0.0);
+                        // Hann coefficients are precomputed once.  This removes
+                        // 21 * startCount * 1920 cos() calls from findCandidates()
+                        // and keeps the candidate matrix numerically identical.
+                        fft[static_cast<size_t>(n)] = std::complex<double>(x[n] * costasHannWindow[static_cast<size_t>(n)], 0.0);
                     }
                     fftRadix2(fft);
                 }
 
-                std::vector<double> row(static_cast<size_t>(maxEnergyBin + 2), 0.0);
+                double *row = cache.rowData(costasIndex);
                 for (int bin = 0; bin <= maxEnergyBin + 1; ++bin) {
                     const std::complex<double> v = fft[static_cast<size_t>(bin)];
-                    row[static_cast<size_t>(bin)] = std::norm(v);
+                    row[bin] = std::norm(v);
                 }
-                cache.energy[static_cast<size_t>(costasIndex)] = std::move(row);
                 ++costasIndex;
             }
         }
-        return cache;
     };
 
     auto scoreCandidate = [](const CostasSpectrumCache &cache, double baseHz, double *noiseOut) {
@@ -2501,10 +2790,12 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
     FtDecodeWorkerPool::instance().parallelFor(startCount, workerCount, [&](int begin, int end) {
         QVector<Candidate> local;
         local.reserve(128);
+        CostasSpectrumCache cache;
+        std::vector<std::complex<double>> fft(static_cast<size_t>(kFftSize));
         for (int startIndex = begin; startIndex < end; ++startIndex) {
             const int startSample = firstStart + startIndex * timeStepSamples;
             const double startSec = static_cast<double>(startSample) / static_cast<double>(kDecodeSampleRate);
-            const CostasSpectrumCache cache = buildCacheForStart(startSample);
+            buildCacheForStart(startSample, cache, fft);
             for (double baseHz = static_cast<double>(lowHz);
                  baseHz <= static_cast<double>(highHz);
                  baseHz += kFreqStepHz) {
@@ -2590,7 +2881,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                                    Candidate *refinedCandidateOut,
                                    DecodeRejectReason *rejectReasonOut,
                                    CandidateAttemptQuality *qualityOut,
-                                   bool allowMetricRecovery)
+                                   bool allowMetricRecovery,
+                                   bool allowGf2Osd)
 {
     /*
      * v3.27: first real recovery step: keep the fast v3.25 candidate matrix,
@@ -2880,34 +3172,112 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         std::array<int, 174> candidateBits{};
         std::array<double, 174> posterior{};
         int candidateIterations = 0;
+        bool decodedViaGf2Osd = false;
+        int gf2OsdHitOrder = -1;
         if (!ldpcDecode174_91(candidateLlr, candidateBits, candidateIterations, &posterior)) {
             /*
-             * v4.10 OSD lab: only try ordered-statistics repair on high-sync,
-             * borderline candidates.  This deliberately avoids the v3.36
-             * failure mode where heavy recovery was attempted on too many
-             * candidates.  CRC and unpack still have to pass below.
+             * 0.5.0 GF(2) OSD pivot-completion lab: use a true systematic
+             * OSD fallback only after BP/min-sum failed, and only for
+             * candidates that are plausible enough to justify the extra
+             * algebra.  The normal LDPC path and the v4.10 OSD-lite path
+             * remain intact.
              */
-            const bool osdAllowed = allowOsdLite && allowMetricRecovery &&
-                                    m_dspPlusDecodeEnabled &&
-                                    hardSyncCount >= 13 &&
-                                    meanAbsLlr >= 4.8;
-            if (!osdAllowed || !osdLiteRepair174_91(posterior, candidateBits)) {
-                rememberFailure(DecodeRejectReason::Ldpc);
-                return false;
+            const bool gf2OsdCandidate = allowOsdLite && allowMetricRecovery &&
+                                         m_dspPlusDecodeEnabled &&
+                                         hardSyncCount >= 10 &&
+                                         meanAbsLlr >= 3.8;
+            const bool tryGf2Osd = gf2OsdCandidate && allowGf2Osd;
+            if (gf2OsdCandidate && !allowGf2Osd && qualityOut != nullptr) {
+                ++qualityOut->osdGf2BudgetSkips;
+            }
+            bool osdSuccess = false;
+            if (tryGf2Osd) {
+                if (qualityOut != nullptr) {
+                    ++qualityOut->osdGf2Tried;
+                }
+                const auto osdStart = std::chrono::steady_clock::now();
+                int hitOrder = -1;
+                bool rankFail = false;
+                int pivotSkips = 0;
+                /*
+                 * 0.5.0: alpha24/25 proved that order-2 is not useful
+                 * on the current WAV set, while the lost recoveries are order-1.
+                 * Run complete order-1 over all 91 information bits, keep order-2
+                 * disabled, and let the per-slot OSD budget decide how many
+                 * candidates may enter this full single-bit repair.
+                 */
+                const int order1Depth = 91;
+                const int order2Depth = 0;
+                if (osdGf2Repair174_91(posterior,
+                                        candidateBits,
+                                        hitOrder,
+                                        rankFail,
+                                        pivotSkips,
+                                        order1Depth,
+                                        order2Depth)) {
+                    osdSuccess = true;
+                    decodedViaGf2Osd = true;
+                    gf2OsdHitOrder = hitOrder;
+                } else if (rankFail && qualityOut != nullptr) {
+                    ++qualityOut->osdGf2RankFails;
+                }
+                if (qualityOut != nullptr) {
+                    qualityOut->osdGf2PivotSkips += pivotSkips;
+                }
+                const auto osdEnd = std::chrono::steady_clock::now();
+                if (qualityOut != nullptr) {
+                    qualityOut->osdGf2TotalMs += std::chrono::duration<double, std::milli>(osdEnd - osdStart).count();
+                }
+            }
+
+            if (!osdSuccess) {
+                /*
+                 * Keep the old tiny OSD repair as a conservative secondary
+                 * fallback for the high-sync/high-LLR cases where it was
+                 * already allowed.
+                 */
+                const bool osdLiteAllowed = allowOsdLite && allowMetricRecovery &&
+                                            m_dspPlusDecodeEnabled &&
+                                            hardSyncCount >= 13 &&
+                                            meanAbsLlr >= 4.8;
+                if (!osdLiteAllowed || !osdLiteRepair174_91(posterior, candidateBits)) {
+                    rememberFailure(DecodeRejectReason::Ldpc);
+                    return false;
+                }
             }
         }
         if (!crc14Ok(candidateBits)) {
+            if (decodedViaGf2Osd && qualityOut != nullptr) {
+                ++qualityOut->osdGf2PostCrcRejects;
+            }
             rememberFailure(DecodeRejectReason::Crc);
             return false;
         }
         const QString candidateMessage = unpackMessage77(candidateBits).trimmed().toUpper();
         if (candidateMessage.isEmpty()) {
+            if (decodedViaGf2Osd && qualityOut != nullptr) {
+                ++qualityOut->osdGf2PostCrcRejects;
+            }
             rememberFailure(DecodeRejectReason::Unpack);
             return false;
         }
         if (!looksLikeUsefulFt8Message(candidateMessage)) {
+            if (decodedViaGf2Osd && qualityOut != nullptr) {
+                ++qualityOut->osdGf2PostCrcRejects;
+            }
             rememberFailure(DecodeRejectReason::Message);
             return false;
+        }
+
+        if (decodedViaGf2Osd && qualityOut != nullptr) {
+            ++qualityOut->osdGf2Recovered;
+            if (gf2OsdHitOrder == 0) {
+                ++qualityOut->osdGf2Order0Hits;
+            } else if (gf2OsdHitOrder == 1) {
+                ++qualityOut->osdGf2Order1Hits;
+            } else if (gf2OsdHitOrder == 2) {
+                ++qualityOut->osdGf2Order2Hits;
+            }
         }
 
         bits = candidateBits;
@@ -4078,6 +4448,185 @@ bool Ft8RxDecoder::ldpcDecode174_91(const std::array<double, 174> &llr,
 
     iterationsUsed = 35;
     return syndromeOk(hardBits);
+}
+
+bool Ft8RxDecoder::osdGf2Repair174_91(const std::array<double, 174> &posterior,
+                                      std::array<int, 174> &bits,
+                                      int &outOrder,
+                                      bool &rankFail,
+                                      int &pivotSkips,
+                                      int order1Depth,
+                                      int order2Depth) const
+{
+    outOrder = -1;
+    rankFail = false;
+    pivotSkips = 0;
+
+    struct OsdBit
+    {
+        int originalIndex = 0;
+        double absPost = 0.0;
+        int hardDecision = 0;
+    };
+
+    std::array<OsdBit, 174> orderedBits{};
+    for (int i = 0; i < 174; ++i) {
+        orderedBits[i] = OsdBit{i, std::abs(posterior[i]), (posterior[i] < 0.0) ? 1 : 0};
+    }
+
+    /*
+     * 0.5.0: pivot completion.  alpha23 forced the first 83
+     * least-reliable columns to become the systematic side and therefore
+     * failed rank on all tested candidates.  Here columns are still tried in
+     * reliability order, but a dependent column is skipped and a later column
+     * is used as pivot.  This keeps the pivot set as unreliable as possible
+     * while allowing H to reach rank 83 when the code matrix permits it.
+     */
+    std::sort(orderedBits.begin(), orderedBits.end(), [](const OsdBit &a, const OsdBit &b) {
+        return a.absPost < b.absPost;
+    });
+
+    std::array<int, 174> inverseMap{};
+    for (int col = 0; col < 174; ++col) {
+        inverseMap[orderedBits[col].originalIndex] = col;
+    }
+
+    Gf2Matrix83x174 matrix;
+    matrix.clear();
+    for (int r = 0; r < 83; ++r) {
+        for (int e = 0; e < nrw_ft8_174_91[r]; ++e) {
+            const int originalCol = Nm_ft8_174_91_[r][e] - 1;
+            if (originalCol >= 0 && originalCol < 174) {
+                matrix.rows[r].setBit(inverseMap[originalCol], 1);
+            }
+        }
+    }
+
+    std::array<int, 83> pivotColAtRow{};
+    std::array<unsigned char, 174> isPivotCol{};
+    pivotColAtRow.fill(-1);
+    isPivotCol.fill(0);
+
+    int pivotRow = 0;
+    for (int col = 0; col < 174 && pivotRow < 83; ++col) {
+        int swapRow = pivotRow;
+        while (swapRow < 83 && matrix.rows[swapRow].getBit(col) == 0) {
+            ++swapRow;
+        }
+
+        if (swapRow == 83) {
+            // Dependent for the current partial basis: keep it as information
+            // bit and try the next, slightly more reliable, column.
+            ++pivotSkips;
+            continue;
+        }
+
+        matrix.swapRows(pivotRow, swapRow);
+        for (int r = 0; r < 83; ++r) {
+            if (r != pivotRow && matrix.rows[r].getBit(col) != 0) {
+                matrix.rows[r].xorWith(matrix.rows[pivotRow]);
+            }
+        }
+
+        pivotColAtRow[pivotRow] = col;
+        isPivotCol[col] = 1;
+        ++pivotRow;
+    }
+
+    if (pivotRow != 83) {
+        rankFail = true;
+        return false;
+    }
+
+    std::array<int, 91> infoCols{};
+    int infoCount = 0;
+    for (int col = 0; col < 174; ++col) {
+        if (isPivotCol[col] == 0) {
+            if (infoCount >= 91) {
+                rankFail = true;
+                return false;
+            }
+            infoCols[infoCount++] = col;
+        }
+    }
+    if (infoCount != 91) {
+        rankFail = true;
+        return false;
+    }
+
+    std::array<int, 91> infoBits{};
+    for (int i = 0; i < 91; ++i) {
+        infoBits[i] = orderedBits[infoCols[i]].hardDecision;
+    }
+
+    auto testPattern = [&](const std::array<int, 91> &testInfo) -> bool {
+        std::array<int, 174> testBits{};
+
+        for (int i = 0; i < 91; ++i) {
+            testBits[orderedBits[infoCols[i]].originalIndex] = testInfo[i];
+        }
+
+        for (int r = 0; r < 83; ++r) {
+            int pivotBit = 0;
+            for (int i = 0; i < 91; ++i) {
+                if (matrix.rows[r].getBit(infoCols[i]) != 0) {
+                    pivotBit ^= testInfo[i];
+                }
+            }
+            const int pivotCol = pivotColAtRow[r];
+            if (pivotCol < 0 || pivotCol >= 174) {
+                rankFail = true;
+                return false;
+            }
+            testBits[orderedBits[pivotCol].originalIndex] = pivotBit;
+        }
+
+        if (!syndromeOk(testBits)) {
+            return false;
+        }
+        if (!crc14Ok(testBits)) {
+            return false;
+        }
+        bits = testBits;
+        return true;
+    };
+
+    if (testPattern(infoBits)) {
+        outOrder = 0;
+        return true;
+    }
+
+    /*
+     * 0.5.0 fast budget: alpha24 proved that order-0 and
+     * order-1 recover the useful cases in the current WAV set, while
+     * order-2 recovered nothing and consumed CPU. Keep the algebra
+     * unchanged, but bound the pattern search. Depths are supplied by
+     * the caller so live RX can be stricter than offline analysis.
+     */
+    const int singleDepth = qBound(0, order1Depth, 91);
+    for (int i = 0; i < singleDepth; ++i) {
+        std::array<int, 91> testInfo = infoBits;
+        testInfo[i] ^= 1;
+        if (testPattern(testInfo)) {
+            outOrder = 1;
+            return true;
+        }
+    }
+
+    const int pairDepth = qBound(0, qMin(order2Depth, singleDepth), 91);
+    for (int i = 0; i < pairDepth; ++i) {
+        for (int j = i + 1; j < pairDepth; ++j) {
+            std::array<int, 91> testInfo = infoBits;
+            testInfo[i] ^= 1;
+            testInfo[j] ^= 1;
+            if (testPattern(testInfo)) {
+                outOrder = 2;
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 bool Ft8RxDecoder::osdLiteRepair174_91(const std::array<double, 174> &posterior,

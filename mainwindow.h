@@ -672,7 +672,7 @@ private slots:
     /**
      * @brief Adds a CQ or direct-reply callout from one decoded FT8 message.
      */
-    void addFt8WaterfallOverlayForDecode(const Ft8RxDecoder::Decode &decode);
+    void addFt8WaterfallOverlayForDecode(const Ft8RxDecoder::Decode &decode, bool blacklistedDecode = false);
 
     /**
      * @brief Feeds one received FT8 decode into the QSO auto-sequencer.
@@ -1786,6 +1786,7 @@ private:
         QColor color;
         QDateTime expiresUtc;
         bool directReplyToMe = false;
+        bool blacklisted = false;
     };
     QVector<Ft8WaterfallCallout> m_ft8WaterfallCallouts;
     QVector<RttyMultiDecoder::Callout> m_rttyWaterfallCallouts;
