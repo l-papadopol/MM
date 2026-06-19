@@ -56,6 +56,8 @@ Used as an adapted Qt NTP client.
 
 License: GPL, as preserved in `third_party/decodium_gpl/`.
 
+
+
 ### AD1C/K1EA country file
 
 Location: `cty.csv`
@@ -88,3 +90,16 @@ The following projects influenced MadModem design, but their source code is not 
 - QSSTV: sound-card calibration workflow idea.
 - CatRotator-style programs: rotator workflow and UX ideas.
 - Meeus/NOAA-style formulae: Moon / EME local ephemeris calculation.
+
+### MIND Eigen
+
+Location: `ai/DeepDspTinyNet.*`
+
+MadModem internal code. No external neural-network runtime dependency is required for MIND shadow learning.
+
+
+### Eigen
+
+Location: `third_party/eigen/`
+
+Eigen is bundled as header-only source for MIND matrix algebra. License files from the supplied Eigen source archive are preserved in the same directory.

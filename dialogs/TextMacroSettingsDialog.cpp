@@ -1,5 +1,6 @@
 #include "TextMacroSettingsDialog.h"
 #include "../utils/UiScale.h"
+#include "../utils/RuntimeI18n.h"
 
 #include <QDialogButtonBox>
 #include <QFrame>
@@ -14,6 +15,15 @@
 
 namespace
 {
+
+QString L18n(const QString &source)
+{
+    return MadModemI18n::text(source);
+}
+QString P18n(const QString &source)
+{
+    return MadModemI18n::placeholder(source);
+}
 constexpr int kDialogMinWidth = 860;
 constexpr int kDialogMinHeight = 560;
 constexpr int kLabelMinWidth = 145;
@@ -70,16 +80,14 @@ TextMacroSettingsDialog::TextMacroSettingsDialog(const AppSettings &settings, QW
     : QDialog(parent),
       m_settings(settings)
 {
-    setWindowTitle("User/QTH");
+    setWindowTitle(L18n(QStringLiteral("User/QTH")));
     resize(780, 500);
     setMinimumSize(0, 0);
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 8);
     mainLayout->setSpacing(8);
 
-    QLabel *intro = new QLabel(
-        "Configure persistent user, station and QTH data plus the shared text-mode macro buttons. "
-        "The callsign and locator set here are used by FT4/FT8 standard messages and as the home position for QSO maps.",
+    QLabel *intro = new QLabel(L18n(QStringLiteral("Configure persistent user, station and QTH data plus the shared text-mode macro buttons. The callsign and locator set here are used by FT4/FT8 standard messages and as the home position for QSO maps.")),
         this);
     intro->setWordWrap(true);
     intro->setMinimumHeight(34);
@@ -97,37 +105,34 @@ TextMacroSettingsDialog::TextMacroSettingsDialog(const AppSettings &settings, QW
     variablesLayout->setContentsMargins(8, 8, 8, 8);
     variablesLayout->setSpacing(8);
 
-    QGroupBox *myStationGroup = new QGroupBox("User / station / QTH", variablesContent);
+    QGroupBox *myStationGroup = new QGroupBox(L18n(QStringLiteral("User / station / QTH")), variablesContent);
     QGridLayout *myStationGrid = new QGridLayout(myStationGroup);
     myStationGrid->setContentsMargins(10, 12, 10, 10);
     myStationGrid->setHorizontalSpacing(8);
     myStationGrid->setVerticalSpacing(5);
     myStationGrid->setColumnStretch(2, 1);
 
-    m_editMyCallsign = makeLineEdit("your callsign");
-    m_editMyName = makeLineEdit("operator name");
-    m_editMyQth = makeLineEdit("town / city");
-    m_editMyLocator = makeLineEdit("Maidenhead locator, e.g. AA00aa");
-    m_editRig = makeLineEdit("radio / SDR / transceiver");
-    m_editAntenna = makeLineEdit("antenna description");
-    m_editPower = makeLineEdit("power in watts");
+    m_editMyCallsign = makeLineEdit(QStringLiteral("your callsign"));
+    m_editMyName = makeLineEdit(QStringLiteral("operator name"));
+    m_editMyQth = makeLineEdit(QStringLiteral("town / city"));
+    m_editMyLocator = makeLineEdit(QStringLiteral("Maidenhead locator, e.g. AA00aa"));
+    m_editRig = makeLineEdit(QStringLiteral("radio / SDR / transceiver"));
+    m_editAntenna = makeLineEdit(QStringLiteral("antenna description"));
+    m_editPower = makeLineEdit(QStringLiteral("power in watts"));
 
-    addVariableRow(myStationGrid, 0, "My callsign", "{MYCALL}", m_editMyCallsign, myStationGroup);
-    addVariableRow(myStationGrid, 1, "My name", "{MYNAME}", m_editMyName, myStationGroup);
-    addVariableRow(myStationGrid, 2, "My QTH", "{MYQTH}", m_editMyQth, myStationGroup);
-    addVariableRow(myStationGrid, 3, "Locator", "{LOC}", m_editMyLocator, myStationGroup);
-    addVariableRow(myStationGrid, 4, "Rig", "{RIG}", m_editRig, myStationGroup);
-    addVariableRow(myStationGrid, 5, "Antenna", "{ANT}", m_editAntenna, myStationGroup);
-    addVariableRow(myStationGrid, 6, "Power", "{PWR}", m_editPower, myStationGroup);
+    addVariableRow(myStationGrid, 0, L18n(QStringLiteral("My callsign")), "{MYCALL}", m_editMyCallsign, myStationGroup);
+    addVariableRow(myStationGrid, 1, L18n(QStringLiteral("My name")), "{MYNAME}", m_editMyName, myStationGroup);
+    addVariableRow(myStationGrid, 2, L18n(QStringLiteral("My QTH")), "{MYQTH}", m_editMyQth, myStationGroup);
+    addVariableRow(myStationGrid, 3, L18n(QStringLiteral("Locator")), "{LOC}", m_editMyLocator, myStationGroup);
+    addVariableRow(myStationGrid, 4, L18n(QStringLiteral("Rig")), "{RIG}", m_editRig, myStationGroup);
+    addVariableRow(myStationGrid, 5, L18n(QStringLiteral("Antenna")), "{ANT}", m_editAntenna, myStationGroup);
+    addVariableRow(myStationGrid, 6, L18n(QStringLiteral("Power")), "{PWR}", m_editPower, myStationGroup);
 
-    QGroupBox *tokensGroup = new QGroupBox("Available tokens", variablesContent);
+    QGroupBox *tokensGroup = new QGroupBox(L18n(QStringLiteral("Available tokens")), variablesContent);
     QVBoxLayout *tokensLayout = new QVBoxLayout(tokensGroup);
     tokensLayout->setContentsMargins(10, 12, 10, 10);
     tokensLayout->setSpacing(5);
-    QLabel *tokens = new QLabel(
-        "{MYCALL}, {MYNAME}, {MYQTH}, {LOC}, {CALL}, {NAME}, {QTH}, {RST}, "
-        "{RIG}, {ANT}, {PWR}, {MODE}, {DATE}, {TIME}, {UTC}, {NL}.\n"
-        "{NL} inserts a new line. Token names are case-insensitive.",
+    QLabel *tokens = new QLabel(L18n(QStringLiteral("{MYCALL}, {MYNAME}, {MYQTH}, {LOC}, {CALL}, {NAME}, {QTH}, {RST}, {RIG}, {ANT}, {PWR}, {MODE}, {DATE}, {TIME}, {UTC}, {NL}.\n{NL} inserts a new line. Token names are case-insensitive.")),
         tokensGroup);
     tokens->setWordWrap(true);
     tokens->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -136,7 +141,7 @@ TextMacroSettingsDialog::TextMacroSettingsDialog(const AppSettings &settings, QW
     variablesLayout->addWidget(myStationGroup);
     variablesLayout->addWidget(tokensGroup);
     variablesLayout->addStretch(1);
-    tabs->addTab(makeScrollPage(variablesContent), "User / QTH");
+    tabs->addTab(makeScrollPage(variablesContent), L18n(QStringLiteral("User / QTH")));
 
     // ---------------------------------------------------------------------
     // Macros page
@@ -148,7 +153,7 @@ TextMacroSettingsDialog::TextMacroSettingsDialog(const AppSettings &settings, QW
     macrosLayout->setSpacing(8);
 
     for (int i = 0; i < 6; ++i) {
-        QGroupBox *macroGroup = new QGroupBox(QString("Macro %1").arg(i + 1), macrosContent);
+        QGroupBox *macroGroup = new QGroupBox(L18n(QStringLiteral("Macro %1")).arg(i + 1), macrosContent);
         QGridLayout *grid = new QGridLayout(macroGroup);
         grid->setContentsMargins(10, 12, 10, 10);
         grid->setHorizontalSpacing(8);
@@ -158,13 +163,13 @@ TextMacroSettingsDialog::TextMacroSettingsDialog(const AppSettings &settings, QW
         QLineEdit *labelEdit = makeLineEdit(QString("button label %1").arg(i + 1));
         QPlainTextEdit *textEdit = new QPlainTextEdit(macroGroup);
         textEdit->setMinimumHeight(62);
-        textEdit->setPlaceholderText("Macro text with tokens, e.g. CQ CQ CQ de {MYCALL} {MYCALL} pse k");
+        textEdit->setPlaceholderText(P18n(QStringLiteral("Macro text with tokens, e.g. CQ CQ CQ de {MYCALL} {MYCALL} pse k")));
 
         m_macroLabelEdits.append(labelEdit);
         m_macroTextEdits.append(textEdit);
 
-        QLabel *buttonLabel = makeFieldLabel("Button label", macroGroup);
-        QLabel *textLabel = makeFieldLabel("Macro text", macroGroup);
+        QLabel *buttonLabel = makeFieldLabel(L18n(QStringLiteral("Button label")), macroGroup);
+        QLabel *textLabel = makeFieldLabel(L18n(QStringLiteral("Macro text")), macroGroup);
         textLabel->setAlignment(Qt::AlignRight | Qt::AlignTop);
 
         grid->addWidget(buttonLabel, 0, 0);
@@ -176,7 +181,7 @@ TextMacroSettingsDialog::TextMacroSettingsDialog(const AppSettings &settings, QW
     }
 
     macrosLayout->addStretch(1);
-    tabs->addTab(makeScrollPage(macrosContent), "Macros");
+    tabs->addTab(makeScrollPage(macrosContent), L18n(QStringLiteral("Macros")));
 
     QDialogButtonBox *buttons = new QDialogButtonBox(
         QDialogButtonBox::Ok | QDialogButtonBox::Cancel,
@@ -216,7 +221,7 @@ QLineEdit *TextMacroSettingsDialog::makeLineEdit(const QString &placeholder)
 {
     QLineEdit *edit = new QLineEdit(this);
     edit->setMinimumHeight(kFieldMinHeight);
-    edit->setPlaceholderText(placeholder);
+    edit->setPlaceholderText(P18n(placeholder));
     return edit;
 }
 
@@ -235,7 +240,7 @@ void TextMacroSettingsDialog::loadFromSettings(const AppSettings &settings)
     m_editPower->setText(settings.textPower);
 
     for (int i = 0; i < m_macroLabelEdits.size(); ++i) {
-        m_macroLabelEdits[i]->setText(settings.textMacroLabels.value(i, QString("Macro %1").arg(i + 1)));
+        m_macroLabelEdits[i]->setText(settings.textMacroLabels.value(i, L18n(QStringLiteral("Macro %1")).arg(i + 1)));
         m_macroTextEdits[i]->setPlainText(settings.textMacroTexts.value(i));
     }
 }
@@ -261,7 +266,7 @@ void TextMacroSettingsDialog::storeToSettings()
     for (int i = 0; i < m_macroLabelEdits.size(); ++i) {
         QString label = m_macroLabelEdits[i]->text().trimmed();
         if (label.isEmpty()) {
-            label = QString("Macro %1").arg(i + 1);
+            label = L18n(QStringLiteral("Macro %1")).arg(i + 1);
         }
 
         m_settings.textMacroLabels.append(label);

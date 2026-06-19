@@ -1,4 +1,5 @@
 #include "HelpDialog.h"
+#include "../utils/RuntimeI18n.h"
 #include "../MadModemVersion.h"
 #include "../settings/AppSettings.h"
 
@@ -123,7 +124,7 @@ HelpDialog::~HelpDialog() = default;
 
 void HelpDialog::setupUiShell()
 {
-    setWindowTitle(tr("MM Help"));
+    setWindowTitle(MadModemI18n::text(QStringLiteral("MM Help")));
     resize(1080, 720);
     setMinimumSize(820, 520);
 
@@ -134,19 +135,19 @@ void HelpDialog::setupUiShell()
     QHBoxLayout *toolbar = new QHBoxLayout();
     toolbar->setSpacing(6);
 
-    m_homeButton = new QPushButton(tr("Home"), this);
-    m_backButton = new QPushButton(tr("Back"), this);
-    m_forwardButton = new QPushButton(tr("Forward"), this);
+    m_homeButton = new QPushButton(MadModemI18n::text(QStringLiteral("Home")), this);
+    m_backButton = new QPushButton(MadModemI18n::text(QStringLiteral("Back")), this);
+    m_forwardButton = new QPushButton(MadModemI18n::text(QStringLiteral("Forward")), this);
     m_searchEdit = new QLineEdit(this);
-    m_searchEdit->setPlaceholderText(tr("Filter contents / index..."));
-    m_whatsThisButton = new QPushButton(tr("What's This?"), this);
-    QPushButton *closeButton = new QPushButton(tr("Close"), this);
+    m_searchEdit->setPlaceholderText(MadModemI18n::text(QStringLiteral("Filter contents / index...")));
+    m_whatsThisButton = new QPushButton(MadModemI18n::text(QStringLiteral("What's This?")), this);
+    QPushButton *closeButton = new QPushButton(MadModemI18n::text(QStringLiteral("Close")), this);
 
     toolbar->addWidget(m_homeButton);
     toolbar->addWidget(m_backButton);
     toolbar->addWidget(m_forwardButton);
     toolbar->addSpacing(10);
-    toolbar->addWidget(new QLabel(tr("Search:"), this));
+    toolbar->addWidget(new QLabel(MadModemI18n::text(QStringLiteral("Search:")), this));
     toolbar->addWidget(m_searchEdit, 1);
     toolbar->addWidget(m_whatsThisButton);
     toolbar->addWidget(closeButton);
@@ -205,10 +206,10 @@ bool HelpDialog::setupQtHelpBackend(const QUrl &startUrl)
     m_contentWidget = m_helpEngine->contentWidget();
     m_indexWidget = m_helpEngine->indexWidget();
     if (m_contentWidget != nullptr) {
-        m_leftTabs->addTab(m_contentWidget, tr("Contents"));
+        m_leftTabs->addTab(m_contentWidget, MadModemI18n::text(QStringLiteral("Contents")));
     }
     if (m_indexWidget != nullptr) {
-        m_leftTabs->addTab(m_indexWidget, tr("Index"));
+        m_leftTabs->addTab(m_indexWidget, MadModemI18n::text(QStringLiteral("Index")));
     }
 
     m_viewer = new HelpBrowser(m_helpEngine, m_splitter);
@@ -264,7 +265,7 @@ void HelpDialog::setupFallbackBackend(const QUrl &startUrl)
     m_effectiveHelpLanguage = htmlLang;
 
     m_fallbackTree = new QTreeWidget(m_splitter);
-    m_fallbackTree->setHeaderLabel(tr("Contents"));
+    m_fallbackTree->setHeaderLabel(MadModemI18n::text(QStringLiteral("Contents")));
     m_fallbackTree->setRootIsDecorated(false);
     m_fallbackTree->setUniformRowHeights(true);
 

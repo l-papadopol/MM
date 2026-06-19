@@ -66,6 +66,11 @@ private:
                        const QString &dialogTitle,
                        const QString &defaultBaseName,
                        const QString &successLabel);
+    bool configureAdifExportOptions(const QVector<LogbookEntry> &sourceRecords,
+                                    const QString &dialogTitle,
+                                    QVector<LogbookEntry> *outputRecords,
+                                    QString *defaultBaseName,
+                                    QString *successLabel);
     bool exportRecordsCsv(const QVector<LogbookEntry> &records,
                           const QString &dialogTitle,
                           const QString &defaultBaseName,

@@ -72,6 +72,8 @@ class QMenu;
 class RttyScopeWidget;
 class QTabWidget;
 class QCheckBox;
+class DeepDspController;
+class DdspPanelWidget;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -458,6 +460,11 @@ private slots:
      * @brief Opens and analyzes an FT4/FT8 WAV test file through the isolated FT decoder worker.
      */
     void openFtWavFile();
+
+    /**
+     * @brief Feeds a lightweight offline WAV fingerprint to MIND before FT WAV decode results arrive.
+     */
+    void primeMINDFromWav(const QString &modeName, const QString &fileName);
 
     /**
      * @brief Runs the bundled FT8 WAV benchmark in Fast and Deep modes.
@@ -1486,6 +1493,8 @@ private:
     NtpClient *m_ntpClient = nullptr;
     HamlibController *m_rigController = nullptr;
     QThread *m_rigThread = nullptr;
+    DeepDspController *m_ddspController = nullptr;
+    DdspPanelWidget *m_ddspPanelWidget = nullptr;
     bool m_rigCatConnected = false;
     QString m_rigStatusMirror;
     QDialog *m_runtimeLogDialog = nullptr;

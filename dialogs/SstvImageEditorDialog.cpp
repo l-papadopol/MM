@@ -1,5 +1,6 @@
 #include "SstvImageEditorDialog.h"
 #include "../utils/UiScale.h"
+#include "../utils/RuntimeI18n.h"
 
 #include <QCheckBox>
 #include <QColorDialog>
@@ -23,6 +24,18 @@
 #include <QVBoxLayout>
 
 #include <functional>
+
+namespace {
+QString L18n(const QString &source)
+{
+    return MadModemI18n::text(source);
+}
+QString P18n(const QString &source)
+{
+    return MadModemI18n::placeholder(source);
+}
+}
+
 
 class SstvEditorCanvas : public QWidget
 {
@@ -429,14 +442,14 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     m_scrollArea->setWidgetResizable(false);
     m_scrollArea->setMinimumHeight(980);
 
-    m_btnLoadBackground = new QPushButton("Load background...", this);
-    m_btnWhiteCard = new QPushButton("White card", this);
-    m_btnLoadLogo = new QPushButton("Load logo...", this);
-    m_chkFrame = new QCheckBox("Frame preset", this);
+    m_btnLoadBackground = new QPushButton(L18n(QStringLiteral("Load background...")), this);
+    m_btnWhiteCard = new QPushButton(L18n(QStringLiteral("White card")), this);
+    m_btnLoadLogo = new QPushButton(L18n(QStringLiteral("Load logo...")), this);
+    m_chkFrame = new QCheckBox(L18n(QStringLiteral("Frame preset")), this);
     m_chkFrame->setChecked(true);
-    m_btnSavePng = new QPushButton("Save PNG...", this);
-    m_btnUseForTx = new QPushButton("Use for SSTV TX", this);
-    QPushButton *btnClose = new QPushButton("Close", this);
+    m_btnSavePng = new QPushButton(L18n(QStringLiteral("Save PNG...")), this);
+    m_btnUseForTx = new QPushButton(L18n(QStringLiteral("Use for SSTV TX")), this);
+    QPushButton *btnClose = new QPushButton(L18n(QStringLiteral("Close")), this);
 
     for (QPushButton *button : {m_btnLoadBackground, m_btnWhiteCard, m_btnLoadLogo,
                                 m_btnSavePng, m_btnUseForTx, btnClose}) {
@@ -448,29 +461,29 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     m_editName = new QLineEdit(this);
     m_editQth = new QLineEdit(this);
     m_editReport = new QLineEdit(this);
-    m_editCall->setPlaceholderText("Other station callsign, e.g. W6HN");
-    m_editName->setPlaceholderText("Name / operator");
-    m_editQth->setPlaceholderText("QTH / locator / county");
-    m_editReport->setPlaceholderText("RST / note / equipment");
+    m_editCall->setPlaceholderText(P18n(QStringLiteral("Other station callsign, e.g. W6HN")));
+    m_editName->setPlaceholderText(P18n(QStringLiteral("Name / operator")));
+    m_editQth->setPlaceholderText(P18n(QStringLiteral("QTH / locator / county")));
+    m_editReport->setPlaceholderText(P18n(QStringLiteral("RST / note / equipment")));
 
     m_editOverlayText = new QLineEdit(this);
-    m_editOverlayText->setPlaceholderText("Selected/new text overlay");
+    m_editOverlayText->setPlaceholderText(P18n(QStringLiteral("Selected/new text overlay")));
     m_fontCombo = new QFontComboBox(this);
     m_spinFontSize = new QSpinBox(this);
     m_spinFontSize->setRange(8, 144);
     m_spinFontSize->setValue(28);
-    m_btnColor = new QPushButton("Color", this);
+    m_btnColor = new QPushButton(L18n(QStringLiteral("Color")), this);
     m_btnColor->setMinimumHeight(42);
-    m_btnAddText = new QPushButton("Add text overlay", this);
-    m_btnDeleteSelected = new QPushButton("Delete selected", this);
+    m_btnAddText = new QPushButton(L18n(QStringLiteral("Add text overlay")), this);
+    m_btnDeleteSelected = new QPushButton(L18n(QStringLiteral("Delete selected")), this);
     for (QPushButton *button : {m_btnAddText, m_btnDeleteSelected}) {
         button->setMinimumHeight(52);
         button->setMinimumWidth(230);
     }
     m_btnDeleteSelected->setEnabled(false);
 
-    m_btnTemplateCq = new QPushButton("CQ SSTV", this);
-    m_btnTemplateQsl = new QPushButton("QSL card template", this);
+    m_btnTemplateCq = new QPushButton(L18n(QStringLiteral("CQ SSTV")), this);
+    m_btnTemplateQsl = new QPushButton(L18n(QStringLiteral("QSL card template")), this);
     m_btnTemplate73 = new QPushButton("73", this);
     for (QPushButton *button : {m_btnTemplateCq, m_btnTemplateQsl, m_btnTemplate73}) {
         button->setMinimumHeight(50);
@@ -493,7 +506,7 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     fileRow->addWidget(btnClose);
     toolLayout->addLayout(fileRow);
 
-    QLabel *qsoTitle = new QLabel("SSTV QSO / QSL fields", this);
+    QLabel *qsoTitle = new QLabel(L18n(QStringLiteral("SSTV QSO / QSL fields")), this);
     QFont sectionFont = qsoTitle->font();
     sectionFont.setBold(true);
     qsoTitle->setFont(sectionFont);
@@ -502,38 +515,38 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     QGridLayout *qsoGrid = new QGridLayout;
     qsoGrid->setHorizontalSpacing(12);
     qsoGrid->setVerticalSpacing(8);
-    qsoGrid->addWidget(new QLabel("Callsign"), 0, 0);
+    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("Callsign"))), 0, 0);
     qsoGrid->addWidget(m_editCall, 0, 1);
-    qsoGrid->addWidget(new QLabel("Name"), 0, 2);
+    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("Name"))), 0, 2);
     qsoGrid->addWidget(m_editName, 0, 3);
-    qsoGrid->addWidget(new QLabel("QTH"), 1, 0);
+    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("QTH"))), 1, 0);
     qsoGrid->addWidget(m_editQth, 1, 1);
-    qsoGrid->addWidget(new QLabel("Report / note"), 1, 2);
+    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("Report / note"))), 1, 2);
     qsoGrid->addWidget(m_editReport, 1, 3);
     qsoGrid->setColumnStretch(1, 1);
     qsoGrid->setColumnStretch(3, 1);
     toolLayout->addLayout(qsoGrid);
 
     QHBoxLayout *templateRow = new QHBoxLayout;
-    templateRow->addWidget(new QLabel("Templates"));
+    templateRow->addWidget(new QLabel(L18n(QStringLiteral("Templates"))));
     templateRow->addWidget(m_btnTemplateCq);
     templateRow->addWidget(m_btnTemplateQsl);
     templateRow->addWidget(m_btnTemplate73);
     templateRow->addStretch(1);
     toolLayout->addLayout(templateRow);
 
-    QLabel *textTitle = new QLabel("Text overlay", this);
+    QLabel *textTitle = new QLabel(L18n(QStringLiteral("Text overlay")), this);
     textTitle->setFont(sectionFont);
     toolLayout->addWidget(textTitle);
 
     QGridLayout *textGrid = new QGridLayout;
     textGrid->setHorizontalSpacing(12);
     textGrid->setVerticalSpacing(8);
-    textGrid->addWidget(new QLabel("Text"), 0, 0);
+    textGrid->addWidget(new QLabel(L18n(QStringLiteral("Text"))), 0, 0);
     textGrid->addWidget(m_editOverlayText, 0, 1, 1, 6);
-    textGrid->addWidget(new QLabel("Font"), 1, 0);
+    textGrid->addWidget(new QLabel(L18n(QStringLiteral("Font"))), 1, 0);
     textGrid->addWidget(m_fontCombo, 1, 1, 1, 2);
-    textGrid->addWidget(new QLabel("Size"), 1, 3);
+    textGrid->addWidget(new QLabel(L18n(QStringLiteral("Size"))), 1, 3);
     textGrid->addWidget(m_spinFontSize, 1, 4);
     textGrid->addWidget(m_btnColor, 1, 5);
     textGrid->addWidget(m_btnAddText, 1, 6);
@@ -541,8 +554,7 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     textGrid->setColumnStretch(2, 1);
     toolLayout->addLayout(textGrid);
 
-    QLabel *hint = new QLabel("Drag text/logo overlays directly on the card. Select an overlay and use Delete selected, Canc or Backspace to remove it. "
-                               "The QSL template creates correctly positioned editable text elements inspired by classic SSTV/QSL card editors.", this);
+    QLabel *hint = new QLabel(L18n(QStringLiteral("Drag text/logo overlays directly on the card. Select an overlay and use Delete selected, Canc or Backspace to remove it. The QSL template creates correctly positioned editable text elements inspired by classic SSTV/QSL card editors.")), this);
     hint->setWordWrap(true);
     toolLayout->addWidget(hint);
 
@@ -605,7 +617,7 @@ void SstvImageEditorDialog::loadBackground()
     reader.setAutoTransform(true);
     const QImage image = reader.read();
     if (image.isNull()) {
-        QMessageBox::warning(this, "SSTV editor", "Unable to load the selected background image.");
+        QMessageBox::warning(this, L18n(QStringLiteral("SSTV editor")), L18n(QStringLiteral("Unable to load the selected background image.")));
         return;
     }
 
@@ -634,7 +646,7 @@ void SstvImageEditorDialog::loadLogo()
     reader.setAutoTransform(true);
     const QImage image = reader.read();
     if (image.isNull()) {
-        QMessageBox::warning(this, "SSTV editor", "Unable to load the selected logo image.");
+        QMessageBox::warning(this, L18n(QStringLiteral("SSTV editor")), L18n(QStringLiteral("Unable to load the selected logo image.")));
         return;
     }
 
@@ -665,7 +677,7 @@ void SstvImageEditorDialog::savePng()
     }
 
     if (!m_canvas->composedImage().save(fileName, "PNG")) {
-        QMessageBox::warning(this, "SSTV editor", "Unable to save the PNG image.");
+        QMessageBox::warning(this, L18n(QStringLiteral("SSTV editor")), L18n(QStringLiteral("Unable to save the PNG image.")));
     }
 }
 
@@ -673,7 +685,7 @@ void SstvImageEditorDialog::useForTx()
 {
     const QImage image = m_canvas->composedImage();
     if (image.isNull()) {
-        QMessageBox::warning(this, "SSTV editor", "There is no image to send.");
+        QMessageBox::warning(this, L18n(QStringLiteral("SSTV editor")), L18n(QStringLiteral("There is no image to send.")));
         return;
     }
 

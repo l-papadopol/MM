@@ -1,4 +1,5 @@
 #include "QsoMapWidget.h"
+#include "../utils/RuntimeI18n.h"
 #include "../dxcc/CtyCountryFile.h"
 
 #include <QDateTime>
@@ -408,7 +409,7 @@ QsoMapWidget::QsoMapWidget(QWidget *parent)
     }
     m_tileNetwork = new QNetworkAccessManager(this);
     if (!QSslSocket::supportsSsl()) {
-        m_onlineMapFailureReason = tr("Qt SSL/OpenSSL is unavailable; online OSM HTTPS tiles will use the offline map unless MADMODEM_OSM_TILE_BASE points to a local HTTP tile proxy/cache.");
+        m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("Qt SSL/OpenSSL is unavailable; online OSM HTTPS tiles will use the offline map unless MADMODEM_OSM_TILE_BASE points to a local HTTP tile proxy/cache."));
     }
     logOsmDiagnostics(QStringLiteral("startup"));
 
@@ -583,7 +584,7 @@ void QsoMapWidget::saveMap()
     const QString fileName = QFileDialog::getSaveFileName(this,
                                                           L(QStringLiteral("Save QSO map")),
                                                           QStringLiteral("qso-map.pdf"),
-                                                          tr("PDF files (*.pdf);;PNG images (*.png);;JPEG images (*.jpg *.jpeg)"));
+                                                          MadModemI18n::text(QStringLiteral("PDF files (*.pdf);;PNG images (*.png);;JPEG images (*.jpg *.jpeg)")));
     if (fileName.isEmpty()) {
         return;
     }
@@ -1065,8 +1066,8 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
         self->m_osmTileRequestBlocked = true;
         self->m_onlineMapFailed = true;
         self->m_osmLastTileUrl = url.toString(QUrl::RemoveUserInfo);
-        self->m_osmLastNetworkError = tr("Qt SSL/OpenSSL support is not available");
-        self->m_onlineMapFailureReason = tr("OSM HTTPS tiles require Qt SSL/OpenSSL on Windows. Rebuild MXE Qt with OpenSSL or set MADMODEM_OSM_TILE_BASE to a local HTTP tile proxy/cache.");
+        self->m_osmLastNetworkError = MadModemI18n::text(QStringLiteral("Qt SSL/OpenSSL support is not available"));
+        self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM HTTPS tiles require Qt SSL/OpenSSL on Windows. Rebuild MXE Qt with OpenSSL or set MADMODEM_OSM_TILE_BASE to a local HTTP tile proxy/cache."));
         self->logOsmDiagnostics(QStringLiteral("ssl-unavailable"));
         self->update();
         return;
@@ -1099,7 +1100,7 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
             messages << err.errorString();
         }
         self->m_osmLastSslError = messages.join(QStringLiteral("; "));
-        self->m_onlineMapFailureReason = tr("OSM SSL warning: %1").arg(self->m_osmLastSslError.left(120));
+        self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM SSL warning: %1")).arg(self->m_osmLastSslError.left(120));
 #ifdef Q_OS_WIN
         /*
          * Map tiles are public raster images and Windows 7 installations often
@@ -1131,7 +1132,7 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
             const QUrl redirectUrl = reply->url().resolved(redirectAttr.toUrl());
             self->m_osmLastRedirectTarget = redirectUrl.toString(QUrl::RemoveUserInfo);
             ++self->m_osmTileFailureCount;
-            self->m_onlineMapFailureReason = tr("OSM tile endpoint redirected to %1; trying another configured source")
+            self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM tile endpoint redirected to %1; trying another configured source"))
                                                  .arg(redirectUrl.scheme().toUpper());
             providerShouldAdvance = true;
         } else if (reply->error() == QNetworkReply::NoError) {
@@ -1147,8 +1148,8 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
                 }
             } else {
                 ++self->m_osmTileFailureCount;
-                self->m_osmLastNetworkError = tr("Tile image decode failed");
-                self->m_onlineMapFailureReason = tr("OSM tile image decode failed; trying another source");
+                self->m_osmLastNetworkError = MadModemI18n::text(QStringLiteral("Tile image decode failed"));
+                self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM tile image decode failed; trying another source"));
                 providerShouldAdvance = true;
             }
         } else {
@@ -1160,7 +1161,7 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
                  reply->error() == QNetworkReply::ProtocolInvalidOperationError ||
                  reply->errorString().contains(QStringLiteral("SSL"), Qt::CaseInsensitive) ||
                  reply->errorString().contains(QStringLiteral("TLS"), Qt::CaseInsensitive))) {
-                self->m_onlineMapFailureReason = tr("HTTPS/TLS tile request failed. Verify that the Windows build has Qt SSL/OpenSSL, or set MADMODEM_OSM_TILE_BASE to a local HTTP tile proxy/cache.");
+                self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("HTTPS/TLS tile request failed. Verify that the Windows build has Qt SSL/OpenSSL, or set MADMODEM_OSM_TILE_BASE to a local HTTP tile proxy/cache."));
                 providerShouldAdvance = true;
             } else if (reply->errorString().contains(QStringLiteral("SSL"), Qt::CaseInsensitive) ||
                        reply->errorString().contains(QStringLiteral("TLS"), Qt::CaseInsensitive) ||
@@ -1181,7 +1182,7 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
             self->m_osmTileRequestBlocked = true;
             self->m_onlineMapFailed = true;
             if (self->m_onlineMapFailureReason.isEmpty()) {
-                self->m_onlineMapFailureReason = tr("OSM tiles unavailable");
+                self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM tiles unavailable"));
             }
         }
         if (self->m_osmTileFailureCount > 0 || !self->m_osmLastRedirectTarget.isEmpty() || !self->m_osmLastNetworkError.isEmpty()) {
@@ -1923,34 +1924,34 @@ QString QsoMapWidget::mapStatusText() const
 QString QsoMapWidget::osmDiagnosticsText() const
 {
     QStringList lines;
-    lines << tr("Qt SSL support: %1").arg(QSslSocket::supportsSsl() ? L(QStringLiteral("YES")) : L(QStringLiteral("NO")));
+    lines << MadModemI18n::text(QStringLiteral("Qt SSL support: %1")).arg(QSslSocket::supportsSsl() ? L(QStringLiteral("YES")) : L(QStringLiteral("NO")));
 #if QT_VERSION >= QT_VERSION_CHECK(5, 4, 0)
-    lines << tr("OpenSSL build: %1").arg(QSslSocket::sslLibraryBuildVersionString().isEmpty()
+    lines << MadModemI18n::text(QStringLiteral("OpenSSL build: %1")).arg(QSslSocket::sslLibraryBuildVersionString().isEmpty()
                                           ? L(QStringLiteral("unknown"))
                                           : QSslSocket::sslLibraryBuildVersionString());
-    lines << tr("OpenSSL runtime: %1").arg(QSslSocket::sslLibraryVersionString().isEmpty()
+    lines << MadModemI18n::text(QStringLiteral("OpenSSL runtime: %1")).arg(QSslSocket::sslLibraryVersionString().isEmpty()
                                             ? L(QStringLiteral("not loaded"))
                                             : QSslSocket::sslLibraryVersionString());
 #endif
-    lines << tr("HTTP fallback: %1").arg(m_osmUseHttpFallback ? L(QStringLiteral("ON")) : L(QStringLiteral("OFF")));
-    lines << tr("Tile providers: %1").arg(configuredOsmTileBaseUrls(m_osmUseHttpFallback).join(QStringLiteral(" | ")));
+    lines << MadModemI18n::text(QStringLiteral("HTTP fallback: %1")).arg(m_osmUseHttpFallback ? L(QStringLiteral("ON")) : L(QStringLiteral("OFF")));
+    lines << MadModemI18n::text(QStringLiteral("Tile providers: %1")).arg(configuredOsmTileBaseUrls(m_osmUseHttpFallback).join(QStringLiteral(" | ")));
     if (!m_osmLastTileUrl.isEmpty()) {
-        lines << tr("Last tile: %1").arg(m_osmLastTileUrl);
+        lines << MadModemI18n::text(QStringLiteral("Last tile: %1")).arg(m_osmLastTileUrl);
     }
     if (!m_osmLastHttpStatus.isEmpty()) {
-        lines << tr("Last HTTP status: %1").arg(m_osmLastHttpStatus);
+        lines << MadModemI18n::text(QStringLiteral("Last HTTP status: %1")).arg(m_osmLastHttpStatus);
     }
     if (!m_osmLastRedirectTarget.isEmpty()) {
-        lines << tr("Last redirect: %1").arg(m_osmLastRedirectTarget);
+        lines << MadModemI18n::text(QStringLiteral("Last redirect: %1")).arg(m_osmLastRedirectTarget);
     }
     if (!m_osmLastNetworkError.isEmpty()) {
-        lines << tr("Last network error: %1").arg(m_osmLastNetworkError);
+        lines << MadModemI18n::text(QStringLiteral("Last network error: %1")).arg(m_osmLastNetworkError);
     }
     if (!m_osmLastSslError.isEmpty()) {
-        lines << tr("Last SSL error: %1").arg(m_osmLastSslError);
+        lines << MadModemI18n::text(QStringLiteral("Last SSL error: %1")).arg(m_osmLastSslError);
     }
     if (!m_onlineMapFailureReason.isEmpty()) {
-        lines << tr("Fallback reason: %1").arg(m_onlineMapFailureReason);
+        lines << MadModemI18n::text(QStringLiteral("Fallback reason: %1")).arg(m_onlineMapFailureReason);
     }
     return lines.join(QStringLiteral("\n"));
 }

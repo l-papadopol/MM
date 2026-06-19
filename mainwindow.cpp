@@ -26,8 +26,11 @@
 #include "tx/HellschreiberTransmitter.h"
 #include "tx/Ft8Transmitter.h"
 #include "utils/UiScale.h"
+#include "utils/RuntimeI18n.h"
 #include "tx/WeatherFaxTransmitter.h"
 #include "widgets/RttyScopeWidget.h"
+#include "widgets/DdspPanelWidget.h"
+#include "ai/DeepDspController.h"
 #include "dxcc/CtyCountryFile.h"
 #include "rig/HamlibController.h"
 #include "dsp/cpu/CpuFeatures.h"
@@ -1376,7 +1379,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_ftSlotThread(new QThread(this)),
     m_ntpClient(new NtpClient(this)),
     m_rigController(new HamlibController()),
-    m_rigThread(new QThread(this))
+    m_rigThread(new QThread(this)),
+    m_ddspController(new DeepDspController(this))
 {
     ui->setupUi(this);
     setWindowIcon(QIcon(":/icons/madmodem.png"));
@@ -1392,6 +1396,7 @@ MainWindow::MainWindow(QWidget *parent)
     // The main/UI thread may arm messages and update controls, but it must not build
     // or run time-critical FT TX audio at the slot edge.
     qRegisterMetaType<TxModulator *>("TxModulator*");
+    qRegisterMetaType<QVector<float>>("QVector<float>");
     if (m_ftTxWorker != nullptr && m_ftTxThread != nullptr) {
         m_ftTxWorker->moveToThread(m_ftTxThread);
         connect(m_ftTxThread, &QThread::finished,
@@ -1474,6 +1479,12 @@ MainWindow::MainWindow(QWidget *parent)
     setupUiConnections();
     setupCatRotatorModule();
     setupCatRotatorSideTab();
+    if (ui != nullptr && ui->sideTabWidget != nullptr && m_ddspController != nullptr) {
+        m_ddspPanelWidget = new DdspPanelWidget(m_ddspController, this);
+        ui->sideTabWidget->addTab(m_ddspPanelWidget, uiText("tab_ddsp", "MIND"));
+        connect(m_ddspController, &DeepDspController::logMessage,
+                this, [this](const QString &message) { appendLog(message); });
+    }
     setupModeMenu();
     refreshQsoMaps();
     setupLanguageMenu();
@@ -4697,6 +4708,13 @@ void MainWindow::setupProcessingConnections()
     connect(m_rttyDecoder, &RttyDecoder::characterReceived,
             this, &MainWindow::handleRttyTextUpdated,
             Qt::QueuedConnection);
+    if (m_ddspController != nullptr) {
+        connect(m_rttyDecoder, &RttyDecoder::characterReceived,
+                this, [this](const QString &text) {
+                    m_ddspController->submitConfirmedText(QStringLiteral("RTTY"), text);
+                },
+                Qt::QueuedConnection);
+    }
 
     connect(m_rttyDecoder, &RttyDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -4799,6 +4817,11 @@ void MainWindow::setupProcessingConnections()
     connect(m_cwDecoder, &CwDecoder::characterReceived,
             this, &MainWindow::handleCwTextUpdated,
             Qt::QueuedConnection);
+    // Do not feed every raw CW character directly into MIND as a truth label:
+    // CW has no CRC/parity, so automatic character-level labels can teach the
+    // neural net decoder mistakes.  CW training is intentionally manual/high
+    // confidence through the MIND panel until a proper token-confidence gate is
+    // implemented.
 
     connect(m_cwDecoder, &CwDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -4849,6 +4872,14 @@ void MainWindow::setupProcessingConnections()
     connect(m_ft8RxDecoder, &Ft8RxDecoder::decodeReady,
             this, &MainWindow::handleFt8DecodeReady,
             Qt::QueuedConnection);
+    if (m_ddspController != nullptr) {
+        connect(m_ft8RxDecoder, &Ft8RxDecoder::nativeTrainingSampleReady,
+                this, [this](const QString &mode, const QVector<float> &candidateMagnitudes,
+                             const QVector<float> &targetBits, const QString &message) {
+                    m_ddspController->submitNativeFtSample(mode, candidateMagnitudes, targetBits, message);
+                },
+                Qt::QueuedConnection);
+    }
 
     connect(m_ft8RxDecoder, &Ft8RxDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus,
@@ -4929,6 +4960,7 @@ void MainWindow::saveUiLanguageSetting() const
 
 void MainWindow::loadUiTranslationFile(const QString &languageCode)
 {
+    MadModemI18n::setLanguageCode(languageCode);
     m_uiTranslations.clear();
 
     const QString resourcePath = QStringLiteral(":/translations/ui_%1.ini").arg(languageCode);
@@ -5100,12 +5132,18 @@ void MainWindow::translateObjectTree(QObject *object)
     }
 
     if (QWidget *widget = qobject_cast<QWidget *>(object)) {
-        const QString source = widget->property("i18nSourceWindowTitle").toString().isEmpty()
-                                   ? widget->windowTitle()
-                                   : widget->property("i18nSourceWindowTitle").toString();
-        if (!source.trimmed().isEmpty()) {
-            widget->setProperty("i18nSourceWindowTitle", source);
-            widget->setWindowTitle(uiTextFromSource("text", source));
+        // The main application title is the product/version identifier, not UI copy.
+        // It must never be harvested or translated; otherwise language switching can
+        // corrupt or duplicate it in localized builds.  Dialog window titles are
+        // still translated below.
+        if (widget != this) {
+            const QString source = widget->property("i18nSourceWindowTitle").toString().isEmpty()
+                                       ? widget->windowTitle()
+                                       : widget->property("i18nSourceWindowTitle").toString();
+            if (!source.trimmed().isEmpty()) {
+                widget->setProperty("i18nSourceWindowTitle", source);
+                widget->setWindowTitle(uiTextFromSource("text", source));
+            }
         }
 
         const QString toolSource = widget->property("i18nSourceToolTip").toString().isEmpty()
@@ -5256,6 +5294,7 @@ void MainWindow::applyUiLanguage()
     // previous translated caption as if it were the source text, so menu and tab
     // labels appeared to change only after restarting the application.
     applyUiLanguageToObjectTree(this);
+    setWindowTitle(QStringLiteral(MADMODEM_VERSION_DISPLAY));
 
     if (ui->menuFile != nullptr) ui->menuFile->setTitle(uiText("menu.file", "File"));
     if (ui->menuSettings != nullptr) ui->menuSettings->setTitle(uiText("menu.settings", "Settings"));
@@ -8334,6 +8373,9 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
     }
 
     const QString modeName = ui->cmbMode->currentText();
+    if (m_ddspController != nullptr) {
+        m_ddspController->observeAudioBlock(modeName, block);
+    }
 
     if (Ft8Mode::isFamilyMode(modeName)) {
         if (Ft8Mode::profileForMode(modeName).interoperableCoreAvailable && m_ft8RxDecoder != nullptr) {
@@ -13978,6 +14020,10 @@ void MainWindow::runFtAutoTest()
                   .arg(wavFiles.size())
                   .arg(wavDir));
 
+    if (m_ddspController != nullptr) {
+        m_ddspController->setDecodeCritical(true);
+    }
+
     runNextFtAutoTestStep();
 }
 
@@ -14039,6 +14085,9 @@ void MainWindow::runNextFtAutoTestStep()
                   .arg(item.fileName)
                   .arg(item.depthLabel));
 
+    // MIND v2 learns from native FT candidate matrices emitted by Ft8RxDecoder.
+    // No global WAV/audio fingerprint priming is used.
+
     if (m_ft8RxDecoder != nullptr) {
         QMetaObject::invokeMethod(m_ft8RxDecoder,
                                   "analyzeAudioFile",
@@ -14085,6 +14134,10 @@ void MainWindow::finishFtAutoTest()
 
     setReceiverRunning(false);
 
+    if (m_ddspController != nullptr) {
+        m_ddspController->setDecodeCritical(false);
+    }
+
     if (!wasRunning) {
         return;
     }
@@ -14115,6 +14168,59 @@ void MainWindow::finishFtAutoTest()
     QMessageBox::information(this,
                              uiText("ft_auto_test_done", "FT Auto test completed"),
                              uiText("ft_auto_test_done_message", "FT Auto test completed. The textual report was saved to:\n%1").arg(reportPath));
+}
+
+void MainWindow::primeMINDFromWav(const QString &modeName, const QString &fileName)
+{
+    if (m_ddspController == nullptr) {
+        return;
+    }
+
+    const QString domain = modeName.trimmed().toUpper();
+    if (!domain.contains(QStringLiteral("FT8")) && !domain.contains(QStringLiteral("FT4"))) {
+        return;
+    }
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) {
+        appendLog(QStringLiteral("MIND WAV prime skipped: unable to open %1").arg(fileName));
+        return;
+    }
+
+    WavStreamFormat wav;
+    QString errorMessage;
+    if (!parseWavHeader(file, wav, errorMessage)) {
+        appendLog(QStringLiteral("MIND WAV prime skipped: %1").arg(errorMessage));
+        return;
+    }
+
+    const QByteArray raw = file.read(wav.dataSize);
+    const QVector<float> samples = convertWavBytesToMono(raw, wav);
+    if (samples.isEmpty()) {
+        appendLog(QStringLiteral("MIND WAV prime skipped: no audio samples in %1").arg(fileName));
+        return;
+    }
+
+    QVector<float> featureSamples;
+    constexpr int kMindPrimeMaxSamples = 8192;
+    if (samples.size() > kMindPrimeMaxSamples) {
+        featureSamples.reserve(kMindPrimeMaxSamples);
+        for (int i = 0; i < kMindPrimeMaxSamples; ++i) {
+            const int pos = static_cast<int>((static_cast<qint64>(i) * (samples.size() - 1)) / (kMindPrimeMaxSamples - 1));
+            featureSamples.append(samples[pos]);
+        }
+    } else {
+        featureSamples = samples;
+    }
+
+    AudioBlock block;
+    block.sampleRate = static_cast<int>(wav.sampleRate);
+    block.samples = featureSamples;
+    m_ddspController->observeAudioBlock(domain.contains(QStringLiteral("FT4")) ? QStringLiteral("FT4") : QStringLiteral("FT8"), block);
+    appendLog(QStringLiteral("MIND legacy WAV fingerprint prime: %1/%2 sample(s), %3 Hz")
+                  .arg(featureSamples.size())
+                  .arg(samples.size())
+                  .arg(wav.sampleRate));
 }
 
 void MainWindow::openFtWavFile()
@@ -14165,12 +14271,21 @@ void MainWindow::openFtWavFile()
                   .arg(wavDecodeMode));
     appendLog(QStringLiteral("FT WAV analysis is RX-only: PTT, slot scheduler and TX worker are not armed."));
 
+    // MIND v2 learns from native FT candidate matrices emitted by Ft8RxDecoder.
+    // No global WAV/audio fingerprint priming is used.
+    if (m_ddspController != nullptr) {
+        m_ddspController->setDecodeCritical(true);
+    }
+
     if (m_ft8RxDecoder != nullptr) {
         QMetaObject::invokeMethod(m_ft8RxDecoder,
                                   "analyzeAudioFile",
                                   Qt::QueuedConnection,
                                   Q_ARG(QString, fileName));
     } else {
+        if (m_ddspController != nullptr) {
+            m_ddspController->setDecodeCritical(false);
+        }
         m_offlineAnalysisActive = false;
         setReceiverRunning(false);
     }
@@ -14281,6 +14396,9 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
     Q_UNUSED(decodeCount)
     m_offlineAnalysisActive = false;
     setReceiverRunning(false);
+    if (m_ddspController != nullptr) {
+        m_ddspController->setDecodeCritical(false);
+    }
     ui->lblAppStatus->setText(ok ? uiText("ready", "Ready") : uiText("ft_wav_failed", "FT WAV failed"));
 
     if (ok) {

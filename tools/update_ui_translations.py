@@ -105,18 +105,33 @@ def harvest_keys() -> OrderedDict[str, str]:
         def inside_two_arg_l(pos: int) -> bool:
             return any(a <= pos < b for a, b in two_arg_spans)
 
-        # Single-argument L("English source") still resolves through
-        # MainWindow::uiTextFromSource("text", source).  Skip marker-like
-        # one-word keys to avoid polluting dictionaries with internal ids.
-        for m in re.finditer(r'\bL\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"', text, re.S):
-            if inside_two_arg_l(m.start()):
-                continue
-            source = unescape_cpp(m.group(1)).strip()
-            if not source:
-                continue
-            if re.fullmatch(r'[a-z0-9_]+', source) and '_' in source:
-                continue
-            out.setdefault("text." + norm_key(source), source)
+        # Single-argument L("English source") and runtime dictionary calls
+        # resolve through MainWindow::uiTextFromSource()/MadModemI18n.  Skip
+        # marker-like one-word keys to avoid polluting dictionaries with
+        # internal ids.
+        local_text_call_patterns = [
+            r'\bL\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"',
+            r'\bL18n\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"',
+            r'\bP18n\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"',
+            r'\bMadModemI18n::text\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"',
+            r'(?<![A-Za-z0-9_:])T\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"',
+            r'\bMadModemI18n::placeholder\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"',
+            r'(?<![A-Za-z0-9_:])tr\s*\(\s*"((?:\\.|[^"])*)"',
+            r'\bQObject::tr\s*\(\s*"((?:\\.|[^"])*)"',
+        ]
+        for call_pat in local_text_call_patterns:
+            for m in re.finditer(call_pat, text, re.S):
+                if call_pat.startswith(r'\bL') and inside_two_arg_l(m.start()):
+                    continue
+                source = unescape_cpp(m.group(1)).strip()
+                if not source:
+                    continue
+                if re.fullmatch(r'[a-z0-9_]+', source) and '_' in source:
+                    continue
+                if call_pat.startswith(r'\bMadModemI18n::placeholder') or call_pat.startswith(r'\bP18n'):
+                    out.setdefault("placeholder." + norm_key(source), source)
+                else:
+                    out.setdefault("text." + norm_key(source), source)
 
     # Selected visible/runtime C++ strings.  This is intentionally not a generic
     # string-literal scraper: it only harvests strings passed to common UI/log
@@ -134,6 +149,8 @@ def harvest_keys() -> OrderedDict[str, str]:
     ]
 
     def plausible_user_text(src: str) -> bool:
+        if src in {"MadModem 0.5.0"}:
+            return False
         if not src or len(src) > 180:
             return False
         if src.startswith(":/") or src.startswith("/") or src.startswith("../"):
@@ -161,6 +178,33 @@ def harvest_keys() -> OrderedDict[str, str]:
                     value = value.strip()
                     if plausible_user_text(value):
                         out.setdefault(prefix + "." + norm_key(value), value)
+
+    # Explicit runtime keys which are not convenient to harvest from concatenated
+    # rich-text literals but are still shown to the user.
+    out.setdefault("help.autoqso_flow_html", (
+        "<h2>MM Flow editor</h2>"
+        "<p>This editor is becoming the visual programming layer for MadModem. "
+        "Today it stores and validates the flow graph; live PTT/audio/CAT safety still remains in the scheduler.</p>"
+        "<h3>Basic editing</h3>"
+        "<ul>"
+        "<li><b>Create a block:</b> press one of the + buttons, choose the type, title and note.</li>"
+        "<li><b>Create an arrow:</b> select two blocks, press <b>Connect arrow</b>, choose the output port if needed.</li>"
+        "<li><b>Delete an arrow:</b> click the arrow line and press <b>Delete arrows</b> or the Delete key.</li>"
+        "<li><b>Delete a block:</b> select the block and press Delete. Connected arrows are removed too.</li>"
+        "<li><b>Edit:</b> select exactly one block and press <b>Edit selected</b>. Shortcuts: Delete, Ctrl+E, Ctrl+L, Ctrl+H.</li>"
+        "</ul>"
+        "<h3>Programming blocks</h3>"
+        "<ul>"
+        "<li><b>Variable:</b> set/copy/increment/clear/list/map values.</li>"
+        "<li><b>Compare:</b> compare variables, constants, decoded calls, bands, modes and regex matches.</li>"
+        "<li><b>Loop:</b> iterate over decodes, candidates, log rows or bounded counters. Use next/done or loop/exit ports.</li>"
+        "<li><b>I/O:</b> keyboard input, popup message/question, status message, log message, table output.</li>"
+        "<li><b>Timer:</b> FT slot wait, decode-window wait, retry delay, interval, watchdog, UTC time trigger.</li>"
+        "<li><b>Math:</b> arithmetic plus radio helpers such as locator distance/bearing.</li>"
+        "</ul>"
+        "<h3>Safety model</h3>"
+        "<p>Flows may request abstract app actions. Dangerous operations such as TX, PTT, audio start, CAT QSY, file writes and scheduler operations must pass through MadModem's runtime guards.</p>"
+    ))
 
     # Visible strings from Qt Designer forms.  These are translated through
     # MainWindow::translateObjectTree() using text.<normalized-source> keys.

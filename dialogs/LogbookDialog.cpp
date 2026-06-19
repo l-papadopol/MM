@@ -18,6 +18,7 @@
 #include <QDate>
 #include <QDateEdit>
 #include <QDateTime>
+#include <QDateTimeEdit>
 #include <QFileDialog>
 #include <QEventLoop>
 #include <QFileInfo>
@@ -1013,6 +1014,179 @@ void LogbookDialog::saveSelectedRowsCsv()
                      "Selected QSOs");
 }
 
+
+bool LogbookDialog::configureAdifExportOptions(const QVector<LogbookEntry> &sourceRecords,
+                                               const QString &dialogTitle,
+                                               QVector<LogbookEntry> *outputRecords,
+                                               QString *defaultBaseName,
+                                               QString *successLabel)
+{
+    if (outputRecords == nullptr || defaultBaseName == nullptr || successLabel == nullptr) {
+        return false;
+    }
+
+    *outputRecords = sourceRecords;
+
+    QDateTime minUtc;
+    QDateTime maxUtc;
+    for (const LogbookEntry &entry : sourceRecords) {
+        const QDateTime qsoUtc = entry.utc.toUTC();
+        if (!qsoUtc.isValid() || qsoUtc.isNull()) {
+            continue;
+        }
+        if (!minUtc.isValid() || qsoUtc < minUtc) {
+            minUtc = qsoUtc;
+        }
+        if (!maxUtc.isValid() || qsoUtc > maxUtc) {
+            maxUtc = qsoUtc;
+        }
+    }
+
+    const QDateTime nowUtc = QDateTime::currentDateTimeUtc();
+    QDateTime defaultStart = minUtc.isValid() ? minUtc : nowUtc.addSecs(-4 * 3600);
+    QDateTime defaultEnd = maxUtc.isValid() ? maxUtc.addSecs(1) : nowUtc;
+    if (defaultEnd <= defaultStart) {
+        defaultEnd = defaultStart.addSecs(4 * 3600);
+    }
+
+
+    QDialog optionsDialog(this);
+    optionsDialog.setWindowTitle(L("ADIF export options"));
+    QVBoxLayout *layout = new QVBoxLayout(&optionsDialog);
+    layout->setContentsMargins(12, 12, 12, 12);
+    layout->setSpacing(8);
+
+    QLabel *sourceLabel = new QLabel(QString("%1: %2")
+                                     .arg(L("Source QSO records"))
+                                     .arg(sourceRecords.size()), &optionsDialog);
+    layout->addWidget(sourceLabel);
+
+    QCheckBox *timeFilterCheck = new QCheckBox(L("Limit export to UTC time interval (TIME_ON)"), &optionsDialog);
+    timeFilterCheck->setToolTip(L("Use ADIF QSO_DATE + TIME_ON in UTC. Start is included, end is excluded."));
+    layout->addWidget(timeFilterCheck);
+
+    QGridLayout *grid = new QGridLayout();
+    grid->setHorizontalSpacing(8);
+    grid->setVerticalSpacing(6);
+
+    QDateTimeEdit *fromEdit = new QDateTimeEdit(defaultStart, &optionsDialog);
+    fromEdit->setCalendarPopup(true);
+    fromEdit->setDisplayFormat("yyyy-MM-dd HH:mm:ss");
+    fromEdit->setEnabled(false);
+
+    QDateTimeEdit *toEdit = new QDateTimeEdit(defaultEnd, &optionsDialog);
+    toEdit->setCalendarPopup(true);
+    toEdit->setDisplayFormat("yyyy-MM-dd HH:mm:ss");
+    toEdit->setEnabled(false);
+
+    grid->addWidget(new QLabel(L("Start UTC, included"), &optionsDialog), 0, 0);
+    grid->addWidget(fromEdit, 0, 1);
+    grid->addWidget(new QLabel(L("End UTC, excluded"), &optionsDialog), 1, 0);
+    grid->addWidget(toEdit, 1, 1);
+    grid->setColumnStretch(1, 1);
+    layout->addLayout(grid);
+
+    QLabel *hintLabel = new QLabel(L("Example: for a 4-hour activity, set 18:00 as start and 22:00 as end. A QSO exactly at the end time is not exported, avoiding duplicates in consecutive exports."), &optionsDialog);
+    hintLabel->setWordWrap(true);
+    layout->addWidget(hintLabel);
+
+    QLabel *countLabel = new QLabel(&optionsDialog);
+    layout->addWidget(countLabel);
+
+    QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &optionsDialog);
+    layout->addWidget(buttons);
+
+    auto normalizedUtc = [](const QDateTime &dt) -> QDateTime {
+        QDateTime copy(dt.date(), dt.time(), Qt::UTC);
+        return copy;
+    };
+    auto recordsForInterval = [&sourceRecords, &normalizedUtc](const QDateTime &startUtc, const QDateTime &endUtc) -> QVector<LogbookEntry> {
+        QVector<LogbookEntry> filtered;
+        if (!startUtc.isValid() || !endUtc.isValid() || endUtc <= startUtc) {
+            return filtered;
+        }
+        filtered.reserve(sourceRecords.size());
+        for (const LogbookEntry &entry : sourceRecords) {
+            const QDateTime qsoUtc = entry.utc.toUTC();
+            if (!qsoUtc.isValid() || qsoUtc.isNull()) {
+                continue;
+            }
+            if (qsoUtc >= startUtc && qsoUtc < endUtc) {
+                filtered.append(entry);
+            }
+        }
+        return filtered;
+    };
+    auto refreshCount = [&]() {
+        if (!timeFilterCheck->isChecked()) {
+            countLabel->setText(QString("%1: %2")
+                                .arg(L("QSOs to export"))
+                                .arg(sourceRecords.size()));
+            return;
+        }
+        const QDateTime startUtc = normalizedUtc(fromEdit->dateTime());
+        const QDateTime endUtc = normalizedUtc(toEdit->dateTime());
+        const int count = recordsForInterval(startUtc, endUtc).size();
+        countLabel->setText(QString("%1: %2")
+                            .arg(L("QSOs matching interval"))
+                            .arg(count));
+    };
+
+    QObject::connect(timeFilterCheck, &QCheckBox::toggled, fromEdit, &QDateTimeEdit::setEnabled);
+    QObject::connect(timeFilterCheck, &QCheckBox::toggled, toEdit, &QDateTimeEdit::setEnabled);
+    QObject::connect(timeFilterCheck, &QCheckBox::toggled, &optionsDialog, [&](bool) { refreshCount(); });
+    QObject::connect(fromEdit, &QDateTimeEdit::dateTimeChanged, &optionsDialog, [&](const QDateTime &) { refreshCount(); });
+    QObject::connect(toEdit, &QDateTimeEdit::dateTimeChanged, &optionsDialog, [&](const QDateTime &) { refreshCount(); });
+    QObject::connect(buttons, &QDialogButtonBox::accepted, &optionsDialog, [&]() {
+        if (!timeFilterCheck->isChecked()) {
+            optionsDialog.accept();
+            return;
+        }
+        const QDateTime startUtc = normalizedUtc(fromEdit->dateTime());
+        const QDateTime endUtc = normalizedUtc(toEdit->dateTime());
+        if (!startUtc.isValid() || !endUtc.isValid() || endUtc <= startUtc) {
+            QMessageBox::warning(&optionsDialog,
+                                 L(dialogTitle),
+                                 L("End UTC must be after start UTC."));
+            return;
+        }
+        optionsDialog.accept();
+    });
+    QObject::connect(buttons, &QDialogButtonBox::rejected, &optionsDialog, &QDialog::reject);
+
+    refreshCount();
+    if (optionsDialog.exec() != QDialog::Accepted) {
+        return false;
+    }
+
+    if (timeFilterCheck->isChecked()) {
+        const QDateTime startUtc = normalizedUtc(fromEdit->dateTime());
+        const QDateTime endUtc = normalizedUtc(toEdit->dateTime());
+        QVector<LogbookEntry> filtered = recordsForInterval(startUtc, endUtc);
+        if (filtered.isEmpty()) {
+            QMessageBox::information(this,
+                                     L(dialogTitle),
+                                     L("No QSO records match the selected UTC interval."));
+            return false;
+        }
+        *outputRecords = filtered;
+        const QString suffix = QString("_utc_%1_%2")
+                                   .arg(startUtc.toString("yyyyMMdd_HHmmss"))
+                                   .arg(endUtc.toString("yyyyMMdd_HHmmss"));
+        if (defaultBaseName->endsWith(".adi", Qt::CaseInsensitive)) {
+            defaultBaseName->chop(4);
+            *defaultBaseName += suffix + ".adi";
+        } else {
+            *defaultBaseName += suffix;
+        }
+        *successLabel = QString("%1 - %2")
+                            .arg(L(*successLabel))
+                            .arg(L("UTC interval"));
+    }
+
+    return true;
+}
+
 bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
                                   const QString &dialogTitle,
                                   const QString &defaultBaseName,
@@ -1026,9 +1200,16 @@ bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
         return false;
     }
 
-    const QString defaultName = defaultBaseName.endsWith(".adi", Qt::CaseInsensitive)
-                                ? defaultBaseName
-                                : defaultBaseName + ".adi";
+    QVector<LogbookEntry> exportList;
+    QString adjustedBaseName = defaultBaseName;
+    QString adjustedSuccessLabel = successLabel;
+    if (!configureAdifExportOptions(records, dialogTitle, &exportList, &adjustedBaseName, &adjustedSuccessLabel)) {
+        return false;
+    }
+
+    const QString defaultName = adjustedBaseName.endsWith(".adi", Qt::CaseInsensitive)
+                                ? adjustedBaseName
+                                : adjustedBaseName + ".adi";
     const QString fileName = QFileDialog::getSaveFileName(
         this,
         L(dialogTitle),
@@ -1040,7 +1221,7 @@ bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
     }
 
     QString error;
-    if (!m_logbook->exportRecordsAdif(fileName, records, &error)) {
+    if (!m_logbook->exportRecordsAdif(fileName, exportList, &error)) {
         QMessageBox::warning(this, L(dialogTitle), L("Export failed:") + " " + error);
         return false;
     }
@@ -1048,8 +1229,8 @@ bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
     QMessageBox::information(this,
                              L(dialogTitle),
                              L("%1 exported successfully (%2 QSO records).")
-                             .arg(L(successLabel))
-                             .arg(records.size()));
+                             .arg(L(adjustedSuccessLabel))
+                             .arg(exportList.size()));
     return true;
 }
 

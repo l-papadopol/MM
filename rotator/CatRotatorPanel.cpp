@@ -1,4 +1,5 @@
 #include "CatRotatorPanel.h"
+#include "../utils/RuntimeI18n.h"
 #include "NavballWidget.h"
 
 #include <QDoubleSpinBox>
@@ -92,14 +93,14 @@ void CatRotatorPanel::buildUi()
     m_lblCurrentEl->setFrameShape(QFrame::StyledPanel);
     m_lblCurrentAz->setAlignment(Qt::AlignCenter);
     m_lblCurrentEl->setAlignment(Qt::AlignCenter);
-    readout->addWidget(new QLabel(tr("Az"), this), 0, 0);
-    readout->addWidget(new QLabel(tr("El"), this), 0, 1);
+    readout->addWidget(new QLabel(MadModemI18n::text(QStringLiteral("Az")), this), 0, 0);
+    readout->addWidget(new QLabel(MadModemI18n::text(QStringLiteral("El")), this), 0, 1);
     readout->addWidget(m_lblCurrentAz, 1, 0);
     readout->addWidget(m_lblCurrentEl, 1, 1);
     outer->addLayout(readout);
 
     m_navball = new NavballWidget(this);
-    m_navball->setToolTip(tr("Rotator navball: current antenna pointing is centered; TG is the active target. Sun and Moon markers update from local ephemeris when QTH is configured."));
+    m_navball->setToolTip(MadModemI18n::text(QStringLiteral("Rotator navball: current antenna pointing is centered; TG is the active target. Sun and Moon markers update from local ephemeris when QTH is configured.")));
     m_navball->set_x_size(330);
     m_navball->set_y_size(330);
     outer->addWidget(m_navball, 1);
@@ -111,10 +112,10 @@ void CatRotatorPanel::buildUi()
     manual->setColumnStretch(1, 1);
     manual->setColumnStretch(2, 0);
 
-    QLabel *lblSetAz = new QLabel(tr("Set Az"), this);
-    lblSetAz->setToolTip(tr("Manual azimuth setpoint for the rotator, in degrees."));
-    QLabel *lblSetEl = new QLabel(tr("Set El"), this);
-    lblSetEl->setToolTip(tr("Manual elevation setpoint for the rotator, in degrees."));
+    QLabel *lblSetAz = new QLabel(MadModemI18n::text(QStringLiteral("Set Az")), this);
+    lblSetAz->setToolTip(MadModemI18n::text(QStringLiteral("Manual azimuth setpoint for the rotator, in degrees.")));
+    QLabel *lblSetEl = new QLabel(MadModemI18n::text(QStringLiteral("Set El")), this);
+    lblSetEl->setToolTip(MadModemI18n::text(QStringLiteral("Manual elevation setpoint for the rotator, in degrees.")));
 
     m_spinAz = new QDoubleSpinBox(this);
     m_spinAz->setRange(0.0, 359.9);
@@ -122,7 +123,7 @@ void CatRotatorPanel::buildUi()
     m_spinAz->setSuffix(QStringLiteral("°"));
     m_spinAz->setMinimumWidth(118);
     m_spinAz->setMaximumWidth(150);
-    m_spinAz->setToolTip(tr("Manual azimuth setpoint. Press Go to command this value."));
+    m_spinAz->setToolTip(MadModemI18n::text(QStringLiteral("Manual azimuth setpoint. Press Go to command this value.")));
 
     m_spinEl = new QDoubleSpinBox(this);
     m_spinEl->setRange(-10.0, 180.0);
@@ -130,22 +131,22 @@ void CatRotatorPanel::buildUi()
     m_spinEl->setSuffix(QStringLiteral("°"));
     m_spinEl->setMinimumWidth(118);
     m_spinEl->setMaximumWidth(150);
-    m_spinEl->setToolTip(tr("Manual elevation setpoint. Press Go to command this value."));
+    m_spinEl->setToolTip(MadModemI18n::text(QStringLiteral("Manual elevation setpoint. Press Go to command this value.")));
 
-    m_btnConnect = new QPushButton(tr("Connect"), this);
-    m_btnConnect->setToolTip(tr("Connect or disconnect the configured rotator backend."));
-    m_btnStop = new QPushButton(tr("STOP"), this);
-    m_btnStop->setToolTip(tr("Stop the current rotator movement immediately."));
+    m_btnConnect = new QPushButton(MadModemI18n::text(QStringLiteral("Connect")), this);
+    m_btnConnect->setToolTip(MadModemI18n::text(QStringLiteral("Connect or disconnect the configured rotator backend.")));
+    m_btnStop = new QPushButton(MadModemI18n::text(QStringLiteral("STOP")), this);
+    m_btnStop->setToolTip(MadModemI18n::text(QStringLiteral("Stop the current rotator movement immediately.")));
     m_btnStop->setStyleSheet(QStringLiteral("QPushButton { color: #b00020; font-weight: bold; }"));
 
-    m_btnGo = new QPushButton(tr("Go"), this);
-    m_btnGo->setToolTip(tr("Move the rotator to the manual Set Az / Set El values."));
-    m_btnTrack = new QPushButton(tr("Track QSO"), this);
-    m_btnTrack->setToolTip(tr("Track the current QSO/correspondent locator target."));
-    m_btnMoonTrack = new QPushButton(tr("Track Moon / EME"), this);
-    m_btnMoonTrack->setToolTip(tr("Switch to Moon / EME tracking and point using local lunar ephemeris."));
-    m_btnPark = new QPushButton(tr("Park"), this);
-    m_btnPark->setToolTip(tr("Move the rotator to the configured park position."));
+    m_btnGo = new QPushButton(MadModemI18n::text(QStringLiteral("Go")), this);
+    m_btnGo->setToolTip(MadModemI18n::text(QStringLiteral("Move the rotator to the manual Set Az / Set El values.")));
+    m_btnTrack = new QPushButton(MadModemI18n::text(QStringLiteral("Track QSO")), this);
+    m_btnTrack->setToolTip(MadModemI18n::text(QStringLiteral("Track the current QSO/correspondent locator target.")));
+    m_btnMoonTrack = new QPushButton(MadModemI18n::text(QStringLiteral("Track Moon / EME")), this);
+    m_btnMoonTrack->setToolTip(MadModemI18n::text(QStringLiteral("Switch to Moon / EME tracking and point using local lunar ephemeris.")));
+    m_btnPark = new QPushButton(MadModemI18n::text(QStringLiteral("Park")), this);
+    m_btnPark->setToolTip(MadModemI18n::text(QStringLiteral("Move the rotator to the configured park position.")));
 
     manual->addWidget(lblSetAz, 0, 0);
     manual->addWidget(m_spinAz, 0, 1, Qt::AlignLeft);
@@ -164,19 +165,19 @@ void CatRotatorPanel::buildUi()
     trackingLayout->setContentsMargins(8, 8, 8, 8);
     trackingLayout->setSpacing(4);
     m_trackingModeGroup = new QButtonGroup(trackingBox);
-    m_radioQso = new QRadioButton(tr("QSO / correspondent locator"), trackingBox);
-    m_radioQso->setToolTip(tr("Use the current QSO or selected correspondent locator as rotator target."));
-    m_radioMoon = new QRadioButton(tr("Moon / EME"), trackingBox);
-    m_radioMoon->setToolTip(tr("Bypass the QSO locator and track the Moon for EME operation."));
-    m_radioManual = new QRadioButton(tr("Manual az/el"), trackingBox);
-    m_radioManual->setToolTip(tr("Use manual azimuth/elevation values instead of automatic tracking."));
+    m_radioQso = new QRadioButton(MadModemI18n::text(QStringLiteral("QSO / correspondent locator")), trackingBox);
+    m_radioQso->setToolTip(MadModemI18n::text(QStringLiteral("Use the current QSO or selected correspondent locator as rotator target.")));
+    m_radioMoon = new QRadioButton(MadModemI18n::text(QStringLiteral("Moon / EME")), trackingBox);
+    m_radioMoon->setToolTip(MadModemI18n::text(QStringLiteral("Bypass the QSO locator and track the Moon for EME operation.")));
+    m_radioManual = new QRadioButton(MadModemI18n::text(QStringLiteral("Manual az/el")), trackingBox);
+    m_radioManual->setToolTip(MadModemI18n::text(QStringLiteral("Use manual azimuth/elevation values instead of automatic tracking.")));
     m_trackingModeGroup->addButton(m_radioQso, 0);
     m_trackingModeGroup->addButton(m_radioMoon, 1);
     m_trackingModeGroup->addButton(m_radioManual, 2);
     trackingLayout->addWidget(m_radioQso);
     trackingLayout->addWidget(m_radioMoon);
     trackingLayout->addWidget(m_radioManual);
-    m_lblMoon = new QLabel(tr("Moon: --"), trackingBox);
+    m_lblMoon = new QLabel(MadModemI18n::text(QStringLiteral("Moon: --")), trackingBox);
     m_lblMoon->setWordWrap(true);
     trackingLayout->addWidget(m_lblMoon);
     outer->addWidget(trackingBox);
@@ -184,22 +185,22 @@ void CatRotatorPanel::buildUi()
     QGroupBox *directBox = new QGroupBox(this);
     QGridLayout *direct = new QGridLayout(directBox);
     m_editDirectTarget = new QLineEdit(directBox);
-    m_editDirectTarget->setPlaceholderText(tr("Locator, country, DXCC or prefix..."));
-    m_editDirectTarget->setToolTip(tr("Type a Maidenhead locator, country, DXCC name or callsign prefix to compute a bearing target."));
-    m_btnDirectTarget = new QPushButton(tr("Point"), directBox);
-    m_btnDirectTarget->setToolTip(tr("Resolve the typed target and point the rotator to its bearing."));
-    direct->addWidget(new QLabel(tr("Target"), directBox), 0, 0);
+    m_editDirectTarget->setPlaceholderText(MadModemI18n::text(QStringLiteral("Locator, country, DXCC or prefix...")));
+    m_editDirectTarget->setToolTip(MadModemI18n::text(QStringLiteral("Type a Maidenhead locator, country, DXCC name or callsign prefix to compute a bearing target.")));
+    m_btnDirectTarget = new QPushButton(MadModemI18n::text(QStringLiteral("Point")), directBox);
+    m_btnDirectTarget->setToolTip(MadModemI18n::text(QStringLiteral("Resolve the typed target and point the rotator to its bearing.")));
+    direct->addWidget(new QLabel(MadModemI18n::text(QStringLiteral("Target")), directBox), 0, 0);
     direct->addWidget(m_editDirectTarget, 0, 1);
     direct->addWidget(m_btnDirectTarget, 1, 0, 1, 2);
     outer->addWidget(directBox);
 
-    m_lblTarget = new QLabel(tr("Target: --"), this);
+    m_lblTarget = new QLabel(MadModemI18n::text(QStringLiteral("Target: --")), this);
     m_lblTarget->setWordWrap(true);
-    m_lblQso = new QLabel(tr("QSO: --"), this);
+    m_lblQso = new QLabel(MadModemI18n::text(QStringLiteral("QSO: --")), this);
     m_lblQso->setWordWrap(true);
-    m_lblEta = new QLabel(tr("ETA: --"), this);
+    m_lblEta = new QLabel(MadModemI18n::text(QStringLiteral("ETA: --")), this);
     m_lblEta->setWordWrap(true);
-    m_lblStatus = new QLabel(tr("Rotator: not yet configured"), this);
+    m_lblStatus = new QLabel(MadModemI18n::text(QStringLiteral("Rotator: not yet configured")), this);
     m_lblStatus->setWordWrap(true);
     m_lblStatus->setStyleSheet(QStringLiteral("QLabel { font-weight: bold; }"));
     outer->addWidget(m_lblTarget);
@@ -240,14 +241,14 @@ void CatRotatorPanel::buildUi()
     connect(m_btnGo, &QPushButton::clicked, this, [this]() {
         if (m_controller != nullptr) {
             m_controller->setTrackingMode(CatRotatorController::TrackingMode::Manual);
-            m_controller->setAzEl(m_spinAz->value(), m_spinEl->value(), tr("side Rotator tab manual command"));
+            m_controller->setAzEl(m_spinAz->value(), m_spinEl->value(), MadModemI18n::text(QStringLiteral("side Rotator tab manual command")));
         }
     });
     connect(m_btnTrack, &QPushButton::clicked, this, [this]() {
         if (m_controller != nullptr) {
             m_controller->setTrackingMode(CatRotatorController::TrackingMode::Qso);
             m_controller->setTrackingQsoTarget(true);
-            m_controller->trackQsoTargetNow(tr("side Rotator tab QSO tracking"));
+            m_controller->trackQsoTargetNow(MadModemI18n::text(QStringLiteral("side Rotator tab QSO tracking")));
         }
     });
     connect(m_btnMoonTrack, &QPushButton::clicked, this, [this]() {
@@ -286,7 +287,7 @@ void CatRotatorPanel::updateQsoTarget(const CatRotatorController::QsoTarget &tar
 
 QString CatRotatorPanel::azElText(double az, double el) const
 {
-    return tr("Az %1° / El %2°").arg(QString::number(az, 'f', 1), QString::number(el, 'f', 1));
+    return MadModemI18n::text(QStringLiteral("Az %1° / El %2°")).arg(QString::number(az, 'f', 1), QString::number(el, 'f', 1));
 }
 
 void CatRotatorPanel::updateTrackingModeControls()
@@ -314,8 +315,8 @@ void CatRotatorPanel::updateTrackingModeControls()
 void CatRotatorPanel::refreshState()
 {
     const bool connected = (m_controller != nullptr && m_controller->isConnected());
-    if (m_lblConnection != nullptr) m_lblConnection->setText(connected ? tr("Connected") : tr("Disconnected"));
-    if (m_btnConnect != nullptr) m_btnConnect->setText(connected ? tr("Disconnect") : tr("Connect"));
+    if (m_lblConnection != nullptr) m_lblConnection->setText(connected ? MadModemI18n::text(QStringLiteral("Connected")) : MadModemI18n::text(QStringLiteral("Disconnected")));
+    if (m_btnConnect != nullptr) m_btnConnect->setText(connected ? MadModemI18n::text(QStringLiteral("Disconnect")) : MadModemI18n::text(QStringLiteral("Connect")));
     if (m_lblCurrentAz != nullptr) {
         m_lblCurrentAz->setText(m_controller != nullptr ? QString::number(m_controller->currentAzimuth(), 'f', 0) : QStringLiteral("--"));
     }
@@ -323,7 +324,7 @@ void CatRotatorPanel::refreshState()
         m_lblCurrentEl->setText(m_controller != nullptr ? QString::number(m_controller->currentElevation(), 'f', 0) : QStringLiteral("--"));
     }
     if (m_lblTarget != nullptr) {
-        m_lblTarget->setText(m_controller != nullptr ? tr("Target: %1").arg(azElText(m_controller->targetAzimuth(), m_controller->targetElevation())) : tr("Target: --"));
+        m_lblTarget->setText(m_controller != nullptr ? MadModemI18n::text(QStringLiteral("Target: %1")).arg(azElText(m_controller->targetAzimuth(), m_controller->targetElevation())) : MadModemI18n::text(QStringLiteral("Target: --")));
     }
     if (m_navball != nullptr && m_controller != nullptr) {
         m_navball->set_az(m_controller->currentAzimuth());
@@ -341,7 +342,7 @@ void CatRotatorPanel::refreshState()
     }
     updateTrackingModeControls();
     if (m_lblMoon != nullptr) {
-        QString moonText = tr("Moon: --");
+        QString moonText = MadModemI18n::text(QStringLiteral("Moon: --"));
         if (m_controller != nullptr) {
             const CatRotatorController::MoonTarget moon = m_controller->moonTarget();
             if (!moon.statusText.trimmed().isEmpty()) {
@@ -351,9 +352,9 @@ void CatRotatorPanel::refreshState()
         m_lblMoon->setText(moonText);
     }
     if (m_lblQso != nullptr) {
-        QString qso = tr("QSO: --");
+        QString qso = MadModemI18n::text(QStringLiteral("QSO: --"));
         if (!m_qsoTarget.callsign.trimmed().isEmpty()) {
-            qso = tr("QSO: %1 %2 — %3° — %4 km")
+            qso = MadModemI18n::text(QStringLiteral("QSO: %1 %2 — %3° — %4 km"))
                       .arg(m_qsoTarget.callsign,
                            m_qsoTarget.grid.isEmpty() ? QStringLiteral("--") : m_qsoTarget.grid,
                            m_qsoTarget.bearingDeg >= 0.0 ? QString::number(m_qsoTarget.bearingDeg, 'f', 1) : QStringLiteral("--"),
@@ -362,13 +363,13 @@ void CatRotatorPanel::refreshState()
         m_lblQso->setText(qso);
     }
     if (m_lblEta != nullptr) {
-        QString etaText = tr("ETA: --");
+        QString etaText = MadModemI18n::text(QStringLiteral("ETA: --"));
         if (m_controller != nullptr && !m_qsoTarget.callsign.trimmed().isEmpty() && m_qsoTarget.bearingDeg >= 0.0) {
             const int eta = m_controller->estimatePointingTimeMs(m_qsoTarget.bearingDeg, 0.0);
             const bool ready = m_controller->isReadyForTarget(m_qsoTarget.bearingDeg, 0.0);
             etaText = ready
-                ? tr("ETA: ready")
-                : tr("ETA pointing: %1 s — TX inhibited until ready").arg(QString::number(static_cast<double>(eta) / 1000.0, 'f', 1));
+                ? MadModemI18n::text(QStringLiteral("ETA: ready"))
+                : MadModemI18n::text(QStringLiteral("ETA pointing: %1 s — TX inhibited until ready")).arg(QString::number(static_cast<double>(eta) / 1000.0, 'f', 1));
         }
         m_lblEta->setText(etaText);
     }
@@ -378,20 +379,20 @@ void CatRotatorPanel::refreshState()
 QString CatRotatorPanel::friendlyStatusText() const
 {
     if (m_controller == nullptr) {
-        return tr("Rotator: not yet configured");
+        return MadModemI18n::text(QStringLiteral("Rotator: not yet configured"));
     }
 
     const CatRotatorController::Config cfg = m_controller->config();
     if (!cfg.enabled) {
         const QString reason = cfg.disabledReason.trimmed();
-        return reason.isEmpty() ? tr("Rotator: disabled in settings") : reason;
+        return reason.isEmpty() ? MadModemI18n::text(QStringLiteral("Rotator: disabled in settings")) : reason;
     }
     if (cfg.hamlibModel <= 0 || cfg.path.trimmed().isEmpty()) {
-        return tr("Rotator: not yet configured");
+        return MadModemI18n::text(QStringLiteral("Rotator: not yet configured"));
     }
     return m_controller->isConnected()
-        ? tr("Rotator: connected")
-        : tr("Rotator: disconnected");
+        ? MadModemI18n::text(QStringLiteral("Rotator: connected"))
+        : MadModemI18n::text(QStringLiteral("Rotator: disconnected"));
 }
 
 void CatRotatorPanel::updateStatusLabel()

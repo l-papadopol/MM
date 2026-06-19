@@ -167,6 +167,10 @@ public:
 
 signals:
     void decodeReady(const Ft8RxDecoder::Decode &decode);
+    void nativeTrainingSampleReady(const QString &mode,
+                                   const QVector<float> &candidateMagnitudes,
+                                   const QVector<float> &targetBits,
+                                   const QString &message);
     void statusChanged(const QString &status);
     void performanceUpdated(const Ft8RxDecoder::PerfStats &stats);
     void offlineAnalysisFinished(const QString &filePath, bool ok, int decodeCount, const QString &message);

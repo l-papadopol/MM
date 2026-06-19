@@ -1,4 +1,5 @@
 #include "AutoQsoFlowEditorWidget.h"
+#include "../utils/RuntimeI18n.h"
 
 #include <QComboBox>
 #include <QDateTime>
@@ -51,16 +52,16 @@ QString normalizedPortLabel(const QString &port)
 {
     const QString p = port.trimmed().toLower();
     if (p == QLatin1String("yes")) {
-        return QObject::tr("Yes");
+        return MadModemI18n::text(QStringLiteral("Yes"));
     }
     if (p == QLatin1String("no")) {
-        return QObject::tr("No");
+        return MadModemI18n::text(QStringLiteral("No"));
     }
     if (p == QLatin1String("ok")) {
-        return QObject::tr("OK");
+        return MadModemI18n::text(QStringLiteral("OK"));
     }
     if (p == QLatin1String("retry")) {
-        return QObject::tr("Retry");
+        return MadModemI18n::text(QStringLiteral("Retry"));
     }
     return port;
 }
@@ -138,71 +139,71 @@ QColor kindBorderColour(const QString &kind)
 QString kindBadge(const QString &kind)
 {
     if (kind == QLatin1String("event")) {
-        return QObject::tr("EVENT");
+        return MadModemI18n::text(QStringLiteral("EVENT"));
     }
     if (kind == QLatin1String("condition")) {
-        return QObject::tr("DECISION");
+        return MadModemI18n::text(QStringLiteral("DECISION"));
     }
     if (kind == QLatin1String("action")) {
-        return QObject::tr("ACTION");
+        return MadModemI18n::text(QStringLiteral("ACTION"));
     }
     if (kind == QLatin1String("timer")) {
-        return QObject::tr("TIMER");
+        return MadModemI18n::text(QStringLiteral("TIMER"));
     }
     if (kind == QLatin1String("terminal")) {
-        return QObject::tr("END");
+        return MadModemI18n::text(QStringLiteral("END"));
     }
     if (kind == QLatin1String("variable")) {
-        return QObject::tr("VAR");
+        return MadModemI18n::text(QStringLiteral("VAR"));
     }
     if (kind == QLatin1String("compare")) {
-        return QObject::tr("COMPARE");
+        return MadModemI18n::text(QStringLiteral("COMPARE"));
     }
     if (kind == QLatin1String("loop")) {
-        return QObject::tr("LOOP");
+        return MadModemI18n::text(QStringLiteral("LOOP"));
     }
     if (kind == QLatin1String("io")) {
-        return QObject::tr("I/O");
+        return MadModemI18n::text(QStringLiteral("I/O"));
     }
     if (kind == QLatin1String("math")) {
-        return QObject::tr("MATH");
+        return MadModemI18n::text(QStringLiteral("MATH"));
     }
-    return QObject::tr("STEP");
+    return MadModemI18n::text(QStringLiteral("STEP"));
 }
 
 QString kindDisplayName(const QString &kind)
 {
     if (kind == QLatin1String("event")) {
-        return QObject::tr("Event");
+        return MadModemI18n::text(QStringLiteral("Event"));
     }
     if (kind == QLatin1String("condition")) {
-        return QObject::tr("Decision");
+        return MadModemI18n::text(QStringLiteral("Decision"));
     }
     if (kind == QLatin1String("action")) {
-        return QObject::tr("Action");
+        return MadModemI18n::text(QStringLiteral("Action"));
     }
     if (kind == QLatin1String("timer")) {
-        return QObject::tr("Timer");
+        return MadModemI18n::text(QStringLiteral("Timer"));
     }
     if (kind == QLatin1String("terminal")) {
-        return QObject::tr("Terminal");
+        return MadModemI18n::text(QStringLiteral("Terminal"));
     }
     if (kind == QLatin1String("variable")) {
-        return QObject::tr("Variable");
+        return MadModemI18n::text(QStringLiteral("Variable"));
     }
     if (kind == QLatin1String("compare")) {
-        return QObject::tr("Compare");
+        return MadModemI18n::text(QStringLiteral("Compare"));
     }
     if (kind == QLatin1String("loop")) {
-        return QObject::tr("Loop");
+        return MadModemI18n::text(QStringLiteral("Loop"));
     }
     if (kind == QLatin1String("io")) {
-        return QObject::tr("Input / Output");
+        return MadModemI18n::text(QStringLiteral("Input / Output"));
     }
     if (kind == QLatin1String("math")) {
-        return QObject::tr("Math");
+        return MadModemI18n::text(QStringLiteral("Math"));
     }
-    return QObject::tr("Step");
+    return MadModemI18n::text(QStringLiteral("Step"));
 }
 
 QString sanitizeId(const QString &text)
@@ -265,65 +266,65 @@ QString defaultTypeForKind(const QString &kind)
 QString defaultTitleForKind(const QString &kind)
 {
     if (kind == QLatin1String("event")) {
-        return QObject::tr("New event");
+        return MadModemI18n::text(QStringLiteral("New event"));
     }
     if (kind == QLatin1String("condition")) {
-        return QObject::tr("New decision");
+        return MadModemI18n::text(QStringLiteral("New decision"));
     }
     if (kind == QLatin1String("timer")) {
-        return QObject::tr("New timer");
+        return MadModemI18n::text(QStringLiteral("New timer"));
     }
     if (kind == QLatin1String("terminal")) {
-        return QObject::tr("New end state");
+        return MadModemI18n::text(QStringLiteral("New end state"));
     }
     if (kind == QLatin1String("variable")) {
-        return QObject::tr("Set variable");
+        return MadModemI18n::text(QStringLiteral("Set variable"));
     }
     if (kind == QLatin1String("compare")) {
-        return QObject::tr("Compare values");
+        return MadModemI18n::text(QStringLiteral("Compare values"));
     }
     if (kind == QLatin1String("loop")) {
-        return QObject::tr("Loop / iterate");
+        return MadModemI18n::text(QStringLiteral("Loop / iterate"));
     }
     if (kind == QLatin1String("io")) {
-        return QObject::tr("Show / ask user");
+        return MadModemI18n::text(QStringLiteral("Show / ask user"));
     }
     if (kind == QLatin1String("math")) {
-        return QObject::tr("Calculate value");
+        return MadModemI18n::text(QStringLiteral("Calculate value"));
     }
-    return QObject::tr("New action");
+    return MadModemI18n::text(QStringLiteral("New action"));
 }
 
 QString defaultNoteForKind(const QString &kind)
 {
     if (kind == QLatin1String("event")) {
-        return QObject::tr("Trigger for the AutoQSO flow.");
+        return MadModemI18n::text(QStringLiteral("Trigger for the AutoQSO flow."));
     }
     if (kind == QLatin1String("condition")) {
-        return QObject::tr("Branch according to current QSO state.");
+        return MadModemI18n::text(QStringLiteral("Branch according to current QSO state."));
     }
     if (kind == QLatin1String("timer")) {
-        return QObject::tr("Wait for a valid FT slot or retry window.");
+        return MadModemI18n::text(QStringLiteral("Wait for a valid FT slot or retry window."));
     }
     if (kind == QLatin1String("terminal")) {
-        return QObject::tr("Stop this branch and return control safely.");
+        return MadModemI18n::text(QStringLiteral("Stop this branch and return control safely."));
     }
     if (kind == QLatin1String("variable")) {
-        return QObject::tr("Create, update or clear a named flow variable.");
+        return MadModemI18n::text(QStringLiteral("Create, update or clear a named flow variable."));
     }
     if (kind == QLatin1String("compare")) {
-        return QObject::tr("Compare variables, constants or decoded-message fields.");
+        return MadModemI18n::text(QStringLiteral("Compare variables, constants or decoded-message fields."));
     }
     if (kind == QLatin1String("loop")) {
-        return QObject::tr("Repeat a branch over decodes, candidates, rows or a bounded counter.");
+        return MadModemI18n::text(QStringLiteral("Repeat a branch over decodes, candidates, rows or a bounded counter."));
     }
     if (kind == QLatin1String("io")) {
-        return QObject::tr("Ask for keyboard input or show a popup/status message.");
+        return MadModemI18n::text(QStringLiteral("Ask for keyboard input or show a popup/status message."));
     }
     if (kind == QLatin1String("math")) {
-        return QObject::tr("Compute arithmetic, distance, bearing or formatted values.");
+        return MadModemI18n::text(QStringLiteral("Compute arithmetic, distance, bearing or formatted values."));
     }
-    return QObject::tr("Emit an abstract AutoQSO or app action.");
+    return MadModemI18n::text(QStringLiteral("Emit an abstract AutoQSO or app action."));
 }
 
 QStringList typeSuggestionsForKind(const QString &kind)
@@ -959,7 +960,7 @@ public:
     explicit NodeEditorDialog(QWidget *parent = nullptr)
         : QDialog(parent)
     {
-        setWindowTitle(QObject::tr("AutoQSO flow block"));
+        setWindowTitle(MadModemI18n::text(QStringLiteral("AutoQSO flow block")));
         QVBoxLayout *outer = new QVBoxLayout(this);
         QFormLayout *form = new QFormLayout();
 
@@ -982,14 +983,14 @@ public:
         noteEdit->setAcceptRichText(false);
         noteEdit->setMinimumHeight(90);
 
-        form->addRow(QObject::tr("ID"), idEdit);
-        form->addRow(QObject::tr("Kind"), kindCombo);
-        form->addRow(QObject::tr("Type"), typeCombo);
-        form->addRow(QObject::tr("Title"), titleEdit);
-        form->addRow(QObject::tr("Note"), noteEdit);
+        form->addRow(MadModemI18n::text(QStringLiteral("ID")), idEdit);
+        form->addRow(MadModemI18n::text(QStringLiteral("Kind")), kindCombo);
+        form->addRow(MadModemI18n::text(QStringLiteral("Type")), typeCombo);
+        form->addRow(MadModemI18n::text(QStringLiteral("Title")), titleEdit);
+        form->addRow(MadModemI18n::text(QStringLiteral("Note")), noteEdit);
         outer->addLayout(form);
 
-        QLabel *hint = new QLabel(QObject::tr("The editor saves abstract AutoQSO actions only. PTT, audio and UTC slot safety remain controlled by the FT scheduler."), this);
+        QLabel *hint = new QLabel(MadModemI18n::text(QStringLiteral("The editor saves abstract AutoQSO actions only. PTT, audio and UTC slot safety remain controlled by the FT scheduler.")), this);
         hint->setWordWrap(true);
         hint->setStyleSheet(QStringLiteral("QLabel { color: palette(mid); }"));
         outer->addWidget(hint);
@@ -1052,7 +1053,7 @@ public:
     explicit ConnectionEditorDialog(const QList<FlowNodeItem *> &nodes, QWidget *parent = nullptr)
         : QDialog(parent)
     {
-        setWindowTitle(QObject::tr("Connect AutoQSO blocks"));
+        setWindowTitle(MadModemI18n::text(QStringLiteral("Connect AutoQSO blocks")));
         QVBoxLayout *outer = new QVBoxLayout(this);
         QFormLayout *form = new QFormLayout();
         fromCombo = new QComboBox(this);
@@ -1070,12 +1071,12 @@ public:
             toCombo->addItem(label, node->id());
         }
 
-        form->addRow(QObject::tr("From"), fromCombo);
-        form->addRow(QObject::tr("To"), toCombo);
-        form->addRow(QObject::tr("Port label"), portCombo);
+        form->addRow(MadModemI18n::text(QStringLiteral("From")), fromCombo);
+        form->addRow(MadModemI18n::text(QStringLiteral("To")), toCombo);
+        form->addRow(MadModemI18n::text(QStringLiteral("Port label")), portCombo);
         outer->addLayout(form);
 
-        QLabel *hint = new QLabel(QObject::tr("For decisions/comparisons/loops use ports such as yes/no, true/false, ok/retry, next/done or loop/exit. Leave empty for a normal sequential arrow."), this);
+        QLabel *hint = new QLabel(MadModemI18n::text(QStringLiteral("For decisions/comparisons/loops use ports such as yes/no, true/false, ok/retry, next/done or loop/exit. Leave empty for a normal sequential arrow.")), this);
         hint->setWordWrap(true);
         hint->setStyleSheet(QStringLiteral("QLabel { color: palette(mid); }"));
         outer->addWidget(hint);
@@ -1191,7 +1192,7 @@ AutoQsoFlowEditorWidget::AutoQsoFlowEditorWidget(QWidget *parent)
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(8);
 
-    QLabel *intro = new QLabel(tr("Visual AutoQSO flow editor. Create, edit, connect and delete blocks here. The saved flow is still safe-by-design: it stores abstract AutoQSO actions; live PTT/audio/slot control remains in the FT scheduler."), this);
+    QLabel *intro = new QLabel(MadModemI18n::text(QStringLiteral("Visual AutoQSO flow editor. Create, edit, connect and delete blocks here. The saved flow is still safe-by-design: it stores abstract AutoQSO actions; live PTT/audio/slot control remains in the FT scheduler.")), this);
     intro->setWordWrap(true);
     intro->setStyleSheet(QStringLiteral("QLabel { color: palette(mid); }"));
     outer->addWidget(intro);
@@ -1202,24 +1203,24 @@ AutoQsoFlowEditorWidget::AutoQsoFlowEditorWidget(QWidget *parent)
     QVBoxLayout *toolbar = new QVBoxLayout();
     toolbar->setContentsMargins(0, 0, 0, 0);
     toolbar->setSpacing(6);
-    m_btnAddEvent = new QPushButton(tr("⚡ Event"), this);
-    m_btnAddCondition = new QPushButton(tr("◆ Decision"), this);
-    m_btnAddAction = new QPushButton(tr("✓ Action"), this);
-    m_btnAddTimer = new QPushButton(tr("⏱ Timer"), this);
-    m_btnAddVariable = new QPushButton(tr("𝑥 Variable"), this);
-    m_btnAddCompare = new QPushButton(tr("≟ Compare"), this);
-    m_btnAddLoop = new QPushButton(tr("↻ Loop"), this);
-    m_btnAddIo = new QPushButton(tr("⌨ I/O"), this);
-    m_btnAddMath = new QPushButton(tr("∑ Math"), this);
-    m_btnAddTerminal = new QPushButton(tr("■ End"), this);
-    m_btnEdit = new QPushButton(tr("✎ Edit"), this);
-    m_btnConnect = new QPushButton(tr("→ Connect"), this);
-    m_btnDelete = new QPushButton(tr("🗑 Delete"), this);
-    m_btnDeleteArrows = new QPushButton(tr("↛ Arrows"), this);
-    m_btnValidate = new QPushButton(tr("✓ Validate"), this);
-    m_btnFit = new QPushButton(tr("▣ Fit"), this);
-    m_btnRestore = new QPushButton(tr("↺ Default"), this);
-    m_btnHelp = new QPushButton(tr("? Help"), this);
+    m_btnAddEvent = new QPushButton(MadModemI18n::text(QStringLiteral("⚡ Event")), this);
+    m_btnAddCondition = new QPushButton(MadModemI18n::text(QStringLiteral("◆ Decision")), this);
+    m_btnAddAction = new QPushButton(MadModemI18n::text(QStringLiteral("✓ Action")), this);
+    m_btnAddTimer = new QPushButton(MadModemI18n::text(QStringLiteral("⏱ Timer")), this);
+    m_btnAddVariable = new QPushButton(MadModemI18n::text(QStringLiteral("𝑥 Variable")), this);
+    m_btnAddCompare = new QPushButton(MadModemI18n::text(QStringLiteral("≟ Compare")), this);
+    m_btnAddLoop = new QPushButton(MadModemI18n::text(QStringLiteral("↻ Loop")), this);
+    m_btnAddIo = new QPushButton(MadModemI18n::text(QStringLiteral("⌨ I/O")), this);
+    m_btnAddMath = new QPushButton(MadModemI18n::text(QStringLiteral("∑ Math")), this);
+    m_btnAddTerminal = new QPushButton(MadModemI18n::text(QStringLiteral("■ End")), this);
+    m_btnEdit = new QPushButton(MadModemI18n::text(QStringLiteral("✎ Edit")), this);
+    m_btnConnect = new QPushButton(MadModemI18n::text(QStringLiteral("→ Connect")), this);
+    m_btnDelete = new QPushButton(MadModemI18n::text(QStringLiteral("🗑 Delete")), this);
+    m_btnDeleteArrows = new QPushButton(MadModemI18n::text(QStringLiteral("↛ Arrows")), this);
+    m_btnValidate = new QPushButton(MadModemI18n::text(QStringLiteral("✓ Validate")), this);
+    m_btnFit = new QPushButton(MadModemI18n::text(QStringLiteral("▣ Fit")), this);
+    m_btnRestore = new QPushButton(MadModemI18n::text(QStringLiteral("↺ Default")), this);
+    m_btnHelp = new QPushButton(MadModemI18n::text(QStringLiteral("? Help")), this);
 
     auto styleButton = [](QPushButton *button, QStyle::StandardPixmap, const QString &tooltip) {
         if (button == nullptr) return;
@@ -1227,29 +1228,29 @@ AutoQsoFlowEditorWidget::AutoQsoFlowEditorWidget(QWidget *parent)
         button->setMaximumWidth(170);
         button->setToolTip(tooltip);
     };
-    styleButton(m_btnAddEvent, QStyle::SP_FileDialogNewFolder, tr("Add an event/start block."));
-    styleButton(m_btnAddCondition, QStyle::SP_MessageBoxQuestion, tr("Add a decision/comparison branch."));
-    styleButton(m_btnAddAction, QStyle::SP_DialogApplyButton, tr("Add an action block."));
-    styleButton(m_btnAddTimer, QStyle::SP_BrowserReload, tr("Add a timer/delay/watchdog block."));
-    styleButton(m_btnAddVariable, QStyle::SP_FileIcon, tr("Add a variable assignment block."));
-    styleButton(m_btnAddCompare, QStyle::SP_FileDialogDetailedView, tr("Add a variable comparison block."));
-    styleButton(m_btnAddLoop, QStyle::SP_ArrowRight, tr("Add a loop/iteration block."));
-    styleButton(m_btnAddIo, QStyle::SP_DialogOpenButton, tr("Add keyboard/popup/status I/O block."));
-    styleButton(m_btnAddMath, QStyle::SP_FileDialogListView, tr("Add a calculation block."));
-    styleButton(m_btnAddTerminal, QStyle::SP_DialogCloseButton, tr("Add an end/terminal block."));
-    styleButton(m_btnEdit, QStyle::SP_FileDialogContentsView, tr("Edit the selected block."));
-    styleButton(m_btnConnect, QStyle::SP_ArrowRight, tr("Connect two selected blocks with an arrow."));
-    styleButton(m_btnDelete, QStyle::SP_TrashIcon, tr("Delete selected blocks or arrows."));
-    styleButton(m_btnDeleteArrows, QStyle::SP_DialogCancelButton, tr("Delete only selected arrows."));
-    styleButton(m_btnValidate, QStyle::SP_DialogApplyButton, tr("Validate the flow."));
-    styleButton(m_btnFit, QStyle::SP_TitleBarMaxButton, tr("Fit the flow in the view."));
-    styleButton(m_btnRestore, QStyle::SP_BrowserReload, tr("Restore the default flow."));
-    styleButton(m_btnHelp, QStyle::SP_DialogHelpButton, tr("Open the flow editor help."));
+    styleButton(m_btnAddEvent, QStyle::SP_FileDialogNewFolder, MadModemI18n::text(QStringLiteral("Add an event/start block.")));
+    styleButton(m_btnAddCondition, QStyle::SP_MessageBoxQuestion, MadModemI18n::text(QStringLiteral("Add a decision/comparison branch.")));
+    styleButton(m_btnAddAction, QStyle::SP_DialogApplyButton, MadModemI18n::text(QStringLiteral("Add an action block.")));
+    styleButton(m_btnAddTimer, QStyle::SP_BrowserReload, MadModemI18n::text(QStringLiteral("Add a timer/delay/watchdog block.")));
+    styleButton(m_btnAddVariable, QStyle::SP_FileIcon, MadModemI18n::text(QStringLiteral("Add a variable assignment block.")));
+    styleButton(m_btnAddCompare, QStyle::SP_FileDialogDetailedView, MadModemI18n::text(QStringLiteral("Add a variable comparison block.")));
+    styleButton(m_btnAddLoop, QStyle::SP_ArrowRight, MadModemI18n::text(QStringLiteral("Add a loop/iteration block.")));
+    styleButton(m_btnAddIo, QStyle::SP_DialogOpenButton, MadModemI18n::text(QStringLiteral("Add keyboard/popup/status I/O block.")));
+    styleButton(m_btnAddMath, QStyle::SP_FileDialogListView, MadModemI18n::text(QStringLiteral("Add a calculation block.")));
+    styleButton(m_btnAddTerminal, QStyle::SP_DialogCloseButton, MadModemI18n::text(QStringLiteral("Add an end/terminal block.")));
+    styleButton(m_btnEdit, QStyle::SP_FileDialogContentsView, MadModemI18n::text(QStringLiteral("Edit the selected block.")));
+    styleButton(m_btnConnect, QStyle::SP_ArrowRight, MadModemI18n::text(QStringLiteral("Connect two selected blocks with an arrow.")));
+    styleButton(m_btnDelete, QStyle::SP_TrashIcon, MadModemI18n::text(QStringLiteral("Delete selected blocks or arrows.")));
+    styleButton(m_btnDeleteArrows, QStyle::SP_DialogCancelButton, MadModemI18n::text(QStringLiteral("Delete only selected arrows.")));
+    styleButton(m_btnValidate, QStyle::SP_DialogApplyButton, MadModemI18n::text(QStringLiteral("Validate the flow.")));
+    styleButton(m_btnFit, QStyle::SP_TitleBarMaxButton, MadModemI18n::text(QStringLiteral("Fit the flow in the view.")));
+    styleButton(m_btnRestore, QStyle::SP_BrowserReload, MadModemI18n::text(QStringLiteral("Restore the default flow.")));
+    styleButton(m_btnHelp, QStyle::SP_DialogHelpButton, MadModemI18n::text(QStringLiteral("Open the flow editor help.")));
 
-    m_btnConnect->setToolTip(tr("Select two blocks then press Connect arrow, or press it and choose From/To in the dialog."));
-    m_btnDelete->setToolTip(tr("Delete selected blocks or selected arrows. Deleting a block also deletes its connected arrows."));
-    m_btnDeleteArrows->setToolTip(tr("Delete only the selected arrows, leaving blocks in place."));
-    m_btnHelp->setToolTip(tr("Show quick instructions and the visual-programming block reference."));
+    m_btnConnect->setToolTip(MadModemI18n::text(QStringLiteral("Select two blocks then press Connect arrow, or press it and choose From/To in the dialog.")));
+    m_btnDelete->setToolTip(MadModemI18n::text(QStringLiteral("Delete selected blocks or selected arrows. Deleting a block also deletes its connected arrows.")));
+    m_btnDeleteArrows->setToolTip(MadModemI18n::text(QStringLiteral("Delete only the selected arrows, leaving blocks in place.")));
+    m_btnHelp->setToolTip(MadModemI18n::text(QStringLiteral("Show quick instructions and the visual-programming block reference.")));
 
     toolbar->addWidget(m_btnAddEvent);
     toolbar->addWidget(m_btnAddCondition);
@@ -1321,9 +1322,9 @@ AutoQsoFlowEditorWidget::AutoQsoFlowEditorWidget(QWidget *parent)
             }
         }
         if (nodeCount == 0 && edgeCount == 0) {
-            setStatus(tr("Select blocks or arrows. Mouse wheel zooms; drag blocks; Delete removes selected items."));
+            setStatus(MadModemI18n::text(QStringLiteral("Select blocks or arrows. Mouse wheel zooms; drag blocks; Delete removes selected items.")));
         } else {
-            setStatus(tr("Selected: %1 block(s), %2 arrow(s). Delete removes selection; Delete arrows removes only arrows.").arg(nodeCount).arg(edgeCount));
+            setStatus(MadModemI18n::text(QStringLiteral("Selected: %1 block(s), %2 arrow(s). Delete removes selection; Delete arrows removes only arrows.")).arg(nodeCount).arg(edgeCount));
         }
     });
 
@@ -1394,7 +1395,7 @@ void AutoQsoFlowEditorWidget::setFlowJson(const QString &json)
     const QString normalized = normalizedOrDefaultJson(json);
     m_lastValidJson = normalized;
     rebuildSceneFromJson(normalized);
-    setStatus(tr("Flow loaded. Drag blocks, add/edit/connect/delete items, then press OK in Settings to save."));
+    setStatus(MadModemI18n::text(QStringLiteral("Flow loaded. Drag blocks, add/edit/connect/delete items, then press OK in Settings to save.")));
 }
 
 QString AutoQsoFlowEditorWidget::flowJson() const
@@ -1491,7 +1492,7 @@ void AutoQsoFlowEditorWidget::restoreDefaultFlow()
 {
     setFlowJson(defaultFlowJson());
     emit flowChanged();
-    setStatus(tr("Default AutoQSO flow restored. Press OK to save it permanently."));
+    setStatus(MadModemI18n::text(QStringLiteral("Default AutoQSO flow restored. Press OK to save it permanently.")));
 }
 
 void AutoQsoFlowEditorWidget::validateFlow()
@@ -1499,7 +1500,7 @@ void AutoQsoFlowEditorWidget::validateFlow()
     QJsonParseError err;
     const QJsonDocument doc = QJsonDocument::fromJson(flowJson().toUtf8(), &err);
     if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        setStatus(tr("Flow JSON is invalid."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Flow JSON is invalid.")), true);
         return;
     }
     const QJsonObject root = doc.object();
@@ -1510,13 +1511,13 @@ void AutoQsoFlowEditorWidget::validateFlow()
         const QJsonObject obj = value.toObject();
         const QString id = obj.value(QStringLiteral("id")).toString();
         if (id.isEmpty() || ids.contains(id)) {
-            setStatus(tr("Flow validation failed: duplicated or empty node id."), true);
+            setStatus(MadModemI18n::text(QStringLiteral("Flow validation failed: duplicated or empty node id.")), true);
             return;
         }
         ids.insert(id);
     }
     if (ids.isEmpty()) {
-        setStatus(tr("Flow validation failed: no blocks in the flow."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Flow validation failed: no blocks in the flow.")), true);
         return;
     }
     for (const QJsonValue &value : edges) {
@@ -1524,13 +1525,13 @@ void AutoQsoFlowEditorWidget::validateFlow()
         const QString from = obj.value(QStringLiteral("from")).toString();
         const QString to = obj.value(QStringLiteral("to")).toString();
         if (!ids.contains(from) || !ids.contains(to)) {
-            setStatus(tr("Flow validation failed: a connection points to a missing node."), true);
+            setStatus(MadModemI18n::text(QStringLiteral("Flow validation failed: a connection points to a missing node.")), true);
             return;
         }
         // Self-loops are legal in the new programming editor: they model bounded
         // retry/while loops.  Runtime execution will enforce iteration limits.
     }
-    setStatus(tr("Flow validation OK. The graph is structurally valid; runtime permissions and safety checks are enforced by MadModem."));
+    setStatus(MadModemI18n::text(QStringLiteral("Flow validation OK. The graph is structurally valid; runtime permissions and safety checks are enforced by MadModem.")));
 }
 
 void AutoQsoFlowEditorWidget::fitFlowInView()
@@ -1637,7 +1638,7 @@ void AutoQsoFlowEditorWidget::addNodeWithDialog(const QString &kind)
     item->setSelected(true);
     refreshSceneBounds();
     emit flowChanged();
-    setStatus(tr("Block added. Press OK in Settings to save the flow."));
+    setStatus(MadModemI18n::text(QStringLiteral("Block added. Press OK in Settings to save the flow.")));
 }
 
 void AutoQsoFlowEditorWidget::editSelectedNode()
@@ -1649,14 +1650,14 @@ void AutoQsoFlowEditorWidget::editSelectedNode()
     for (QGraphicsItem *item : m_scene->selectedItems()) {
         if (FlowNodeItem *node = dynamic_cast<FlowNodeItem *>(item)) {
             if (target != nullptr) {
-                setStatus(tr("Select exactly one block to edit."), true);
+                setStatus(MadModemI18n::text(QStringLiteral("Select exactly one block to edit.")), true);
                 return;
             }
             target = node;
         }
     }
     if (target == nullptr) {
-        setStatus(tr("Select one block, then press Edit selected."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Select one block, then press Edit selected.")), true);
         return;
     }
 
@@ -1672,7 +1673,7 @@ void AutoQsoFlowEditorWidget::editSelectedNode()
     }
     for (FlowNodeItem *node : sceneNodes(m_scene)) {
         if (node != target && node->id() == newId) {
-            setStatus(tr("Cannot edit block: another block already uses this ID."), true);
+            setStatus(MadModemI18n::text(QStringLiteral("Cannot edit block: another block already uses this ID.")), true);
             return;
         }
     }
@@ -1682,7 +1683,7 @@ void AutoQsoFlowEditorWidget::editSelectedNode()
     target->setNodeData(newId, dlg.currentKind(), type, title, dlg.currentNote());
     refreshSceneBounds();
     emit flowChanged();
-    setStatus(tr("Block updated. Press OK in Settings to save the flow."));
+    setStatus(MadModemI18n::text(QStringLiteral("Block updated. Press OK in Settings to save the flow.")));
 }
 
 void AutoQsoFlowEditorWidget::connectNodes()
@@ -1692,7 +1693,7 @@ void AutoQsoFlowEditorWidget::connectNodes()
     }
     QList<FlowNodeItem *> nodes = sceneNodes(m_scene);
     if (nodes.size() < 2) {
-        setStatus(tr("At least two blocks are required to create a connection."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("At least two blocks are required to create a connection.")), true);
         return;
     }
 
@@ -1723,17 +1724,17 @@ void AutoQsoFlowEditorWidget::connectNodes()
     const QString toId = dlg.toId();
     const QString port = dlg.port();
     if (fromId.isEmpty() || toId.isEmpty() || fromId == toId) {
-        setStatus(tr("Invalid connection: choose two different blocks."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Invalid connection: choose two different blocks.")), true);
         return;
     }
     if (edgeAlreadyExists(m_scene, fromId, toId, port)) {
-        setStatus(tr("Connection already exists."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Connection already exists.")), true);
         return;
     }
     FlowNodeItem *from = findNodeById(m_scene, fromId);
     FlowNodeItem *to = findNodeById(m_scene, toId);
     if (from == nullptr || to == nullptr) {
-        setStatus(tr("Cannot create connection: missing block."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Cannot create connection: missing block.")), true);
         return;
     }
 
@@ -1743,7 +1744,7 @@ void AutoQsoFlowEditorWidget::connectNodes()
     edge->setSelected(true);
     refreshSceneBounds();
     emit flowChanged();
-    setStatus(tr("Connection added. Press OK in Settings to save the flow."));
+    setStatus(MadModemI18n::text(QStringLiteral("Connection added. Press OK in Settings to save the flow.")));
 }
 
 void AutoQsoFlowEditorWidget::deleteSelectedArrows()
@@ -1758,7 +1759,7 @@ void AutoQsoFlowEditorWidget::deleteSelectedArrows()
         }
     }
     if (edgesToDelete.isEmpty()) {
-        setStatus(tr("Select one or more arrows, then press Delete arrows."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Select one or more arrows, then press Delete arrows.")), true);
         return;
     }
     for (FlowEdgeItem *edge : std::as_const(edgesToDelete)) {
@@ -1770,18 +1771,18 @@ void AutoQsoFlowEditorWidget::deleteSelectedArrows()
     }
     refreshSceneBounds();
     emit flowChanged();
-    setStatus(tr("Selected arrow(s) deleted. Press OK in Settings to save the flow."));
+    setStatus(MadModemI18n::text(QStringLiteral("Selected arrow(s) deleted. Press OK in Settings to save the flow.")));
 }
 
 void AutoQsoFlowEditorWidget::showHelp()
 {
     QDialog dlg(this);
-    dlg.setWindowTitle(tr("AutoQSO / MM Flow help"));
+    dlg.setWindowTitle(MadModemI18n::text(QStringLiteral("AutoQSO / MM Flow help")));
     QVBoxLayout *layout = new QVBoxLayout(&dlg);
     QTextEdit *text = new QTextEdit(&dlg);
     text->setReadOnly(true);
     text->setAcceptRichText(true);
-    text->setHtml(tr(
+    text->setHtml(MadModemI18n::translate(QStringLiteral("help.autoqso_flow_html"), QStringLiteral(
         "<h2>MM Flow editor</h2>"
         "<p>This editor is becoming the visual programming layer for MadModem. "
         "Today it stores and validates the flow graph; live PTT/audio/CAT safety still remains in the scheduler.</p>"
@@ -1803,7 +1804,7 @@ void AutoQsoFlowEditorWidget::showHelp()
         "<li><b>Math:</b> arithmetic plus radio helpers such as locator distance/bearing.</li>"
         "</ul>"
         "<h3>Safety model</h3>"
-        "<p>Flows may request abstract app actions. Dangerous operations such as TX, PTT, audio start, CAT QSY, file writes and scheduler operations must pass through MadModem's runtime guards.</p>"));
+        "<p>Flows may request abstract app actions. Dangerous operations such as TX, PTT, audio start, CAT QSY, file writes and scheduler operations must pass through MadModem's runtime guards.</p>")));
     layout->addWidget(text, 1);
     QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok, &dlg);
     layout->addWidget(buttons);
@@ -1819,7 +1820,7 @@ void AutoQsoFlowEditorWidget::deleteSelectedItems()
     }
     const QList<QGraphicsItem *> selected = m_scene->selectedItems();
     if (selected.isEmpty()) {
-        setStatus(tr("Select blocks or arrows to delete."), true);
+        setStatus(MadModemI18n::text(QStringLiteral("Select blocks or arrows to delete.")), true);
         return;
     }
 
@@ -1854,7 +1855,7 @@ void AutoQsoFlowEditorWidget::deleteSelectedItems()
 
     refreshSceneBounds();
     emit flowChanged();
-    setStatus(tr("Selected item(s) deleted. Press OK in Settings to save the flow."));
+    setStatus(MadModemI18n::text(QStringLiteral("Selected item(s) deleted. Press OK in Settings to save the flow.")));
 }
 
 void AutoQsoFlowEditorWidget::refreshSceneBounds()

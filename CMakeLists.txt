@@ -27,6 +27,12 @@ option(MADMODEM_MAX_OPTIMIZE
 option(MADMODEM_NATIVE_OPTIMIZE
     "Also tune generated code for the build machine CPU (-march=native). OFF keeps packages portable."
     OFF)
+option(MADMODEM_MIND_OPENMP
+    "Require OpenMP and enable Eigen/OpenMP parallel MIND training."
+    ON)
+option(MADMODEM_AVX2_BUILD
+    "Build the optimized x86_64 MIND/DSP target with AVX2/FMA/SSE4.2 baseline."
+    ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -48,6 +54,18 @@ endif()
 
 if(MADMODEM_NATIVE_OPTIMIZE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     add_compile_options($<$<CONFIG:Release>:-march=native>)
+endif()
+
+if(MADMODEM_AVX2_BUILD AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64|i[3-6]86")
+    if(MSVC)
+        add_compile_options($<$<CONFIG:Release>:/arch:AVX2>)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_compile_options($<$<CONFIG:Release>:-mavx2> $<$<CONFIG:Release>:-mfma> $<$<CONFIG:Release>:-msse4.2>)
+    endif()
+endif()
+
+if(MADMODEM_MIND_OPENMP)
+    find_package(OpenMP REQUIRED COMPONENTS CXX)
 endif()
 
 # -------------------------------------------------------------------------
@@ -196,6 +214,16 @@ add_executable(MadModem
     widgets/QsoMapWidget.cpp
     widgets/AutoQsoFlowEditorWidget.h
     widgets/AutoQsoFlowEditorWidget.cpp
+    widgets/DdspPanelWidget.h
+    widgets/DdspPanelWidget.cpp
+    ai/DeepDspController.h
+    ai/DeepDspController.cpp
+    ai/DeepDspTinyNet.h
+    ai/DeepDspTinyNet.cpp
+    ai/DeepDspProfileNet.h
+    ai/DeepDspProfileNet.cpp
+    utils/RuntimeI18n.h
+    utils/RuntimeI18n.cpp
     dsp/DspEngine.h
     dsp/DspEngine.cpp
     dsp/common/DspConditioner.h
@@ -359,6 +387,14 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 target_compile_definitions(MadModem PRIVATE MADMODEM_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+if(MADMODEM_MIND_OPENMP)
+    target_compile_definitions(MadModem PRIVATE MADMODEM_MIND_OPENMP=1)
+    target_link_libraries(MadModem PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+target_include_directories(MadModem PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/eigen"
+)
 
 # -------------------------------------------------------------------------
 # Link libraries

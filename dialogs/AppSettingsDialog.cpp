@@ -1,4 +1,5 @@
 #include "AppSettingsDialog.h"
+#include "../utils/RuntimeI18n.h"
 
 #include "AudioSettingsDialog.h"
 #include "../widgets/AutoQsoFlowEditorWidget.h"
@@ -258,7 +259,7 @@ void populateRotatorPortCombo(QComboBox *combo, const QString &current)
     if (combo->count() == 0) combo->addItem(QString());
     const int idx = combo->findText(current.trimmed(), Qt::MatchFixedString);
     combo->setCurrentIndex(idx >= 0 ? idx : 0);
-    combo->lineEdit()->setPlaceholderText(QObject::tr("independent rotator port, e.g. /dev/ttyUSB1, COM5 or rotctld:localhost:4533"));
+    combo->lineEdit()->setPlaceholderText(MadModemI18n::text(QStringLiteral("independent rotator port, e.g. /dev/ttyUSB1, COM5 or rotctld:localhost:4533")));
 }
 
 QString rotatorBandObjectKey(QString band)

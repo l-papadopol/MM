@@ -17,6 +17,8 @@
 #include <QStyle>
 #include <QSurfaceFormat>
 #include <QtGlobal>
+#include <QThread>
+#include <Eigen/Core>
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <QTextCodec>
 #endif
@@ -62,6 +64,12 @@ public:
 
 int main(int argc, char *argv[])
 {
+#ifdef MADMODEM_MIND_OPENMP
+    Eigen::initParallel();
+    const int logicalThreads = qMax(1, QThread::idealThreadCount());
+    const int eigenThreads = qBound(1, logicalThreads - 2, 12);
+    Eigen::setNbThreads(eigenThreads);
+#endif
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);

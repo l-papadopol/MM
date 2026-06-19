@@ -491,3 +491,44 @@ Vedi:
 - file licenza in `third_party/`
 
 Non rimuovere notice o licenze upstream quando redistribuisci sorgente o binari.
+
+## MIND experimental tab
+
+This source package includes the MIND shadow-learning laboratory. MIND uses MadModem's own minimal C++/Eigen neural engine instead of bundling external neural runtime as an active dependency. The model observes FT8/FT4, RTTY and CW receive audio and trains only from text already accepted by the classic decoders or manually confirmed by the user.
+
+The feature is fail-closed by design: MIND does not replace FT8/FT4, RTTY or CW decoders, does not key PTT, does not drive CAT, and does not feed AutoQSO. Assisted decoding remains unavailable until the validation window is perfect.
+
+
+### MIND Eigen update
+
+The MIND laboratory uses bundled Eigen header-only algebra instead of TinyDNN. The active network is a small built-in MLP implemented in `ai/DeepDspTinyNet.*`, with checkpointing, a validation-success progress bar and a live neural-matrix activity widget in the MIND tab.
+
+### MIND CPU-only backend
+
+MIND currently uses the bundled Eigen header-only CPU backend only. GPU/OpenCL training is intentionally disabled: the neural learner runs in deferred low-budget idle slices and never inside the FT timing-critical decode path. This keeps the production decoder predictable while preserving persistent MIND shadow learning.
+
+### MIND v2 native FT candidate training
+- Replaced the old FT audio/text fingerprint lab path with native FT8 candidate samples.
+- MIND now learns from `dataMagnitudes[58][8]` flattened to 464 inputs and the CRC-valid 174-bit LDPC codeword as target.
+- The checkpoint is now `mind_native_ft_eigen_v2.model`; old v1 fingerprint checkpoints are intentionally ignored.
+- UI now separates bit accuracy, message/codeword exact accuracy and readiness.
+- No MIND inference/training runs inside the FT decoder timing-critical path; the decoder only emits queued gold-label samples after LDPC+CRC+unpack succeeds.
+- MIND remains shadow-only and cannot key TX, CAT, PTT or AutoQSO.
+
+
+### MIND CW bootcamp
+The MIND panel includes a **Run CW bootcamp** button. It queues synthetic CW dit/dah/gap/noise training samples for the dedicated CW profile (`256 -> 96 -> 48 -> 6`). This is a shadow-learning laboratory feature and does not drive TX, CAT/PTT, AutoQSO or live decode output.
+
+### MIND shadow training notes
+
+MIND remains a shadow-learning lab: it never keys TX, never controls CAT/PTT and never drives AutoQSO. Native FT gold samples that pass LDPC/CRC/unpack validation are stored in the persistent FT replay buffer `mind_ft_gold_samples_v1.dat` under the MadModem MIND application-data directory. Training runs from a dedicated low-priority thread so UI, audio, FT decode and CAT timing stay isolated.
+
+
+### MIND dedicated full-speed trainer
+MIND training uses a dedicated CPU/Eigen trainer thread. The trainer budget controls how much work that thread may do per cycle. Higher values speed up offline training without moving training onto the UI/audio/CAT/PTT threads.
+
+
+### MIND Eigen/OpenMP optimized training
+
+The MIND FT-native trainer uses Eigen with OpenMP and batched matrix-matrix updates. The optimized build requires OpenMP and targets modern x86_64 CPUs with AVX2/FMA/SSE4.2. The training remains isolated in the dedicated MIND trainer thread; FT8/FT4 decoder, TX, CAT/PTT and AutoQSO are not changed by this optimization.
+

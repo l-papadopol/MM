@@ -65,11 +65,33 @@ def main() -> int:
         "Freq: -- Hz", "UTC</div>", "msg=", "s", "ppm", "px",
         "Kenwood USB Audio via DATA SEND", "Kenwood ACC 2 audio via DATA SEND",
         "Kenwood LAN audio via DATA SEND",
+        # Radio/GUI acronyms, protocol labels, icons and words whose spelling is
+        # intentionally identical in at least one supported language.
+        "Audio / PTT / CAT", "Audio / PTT", "Radio / CAT", "Data/Pkt",
+        "Hardware RTS/CTS", "Serial RTS", "Serial DTR", "Front/Mic",
+        "Auto WPM", "standard FT", "UTC interval", "APT start", "FT8 slot: --",
+        "RTTY contest DSP", "TX report", "Live max 10", "SSTV editor",
+        "Send SSTV", "Hellschreiber TX", "Start RX", "Tune",
+        "Mode", "Source", "Index", "Palette", "Message", "Convergence",
+        "Terminal", "Variable", "Type", "Note", "Image", "Station",
+        "Text", "Model", "Band", "Name", "QSOs", "Status", "Scheduler",
+        "No", "Locator", "Auto QSO", "MM Flow Studio",
+        "Yaesu 450° overlap (N-E-S-W-N-E)", "Az min / max", "El min / max",
+        "Az Park", "El Park", "Az", "El", "Az %1° / El %2°",
+        "QSO: %1 %2 — %3° — %4 km", "● TX", "… WAV", "■ RX",
+        "▶ RX", "■ TX", "6m", "2m", ":</td><td>",
+        "MeteoFax / HF WEFAX RX", "MadModem 0.5.0", "𝑥 Variable",
+        "R skew", "B skew", "Antenna", "Macro %1", "Macros",
+        "{MYCALL}, {MYNAME}, {MYQTH}, {LOC}, {CALL}, {NAME}, {QTH}, {RST},",
     }
     def intentionally_same(key: str, value: str) -> bool:
         if value in same_ok_values:
             return True
         if key.startswith("placeholder."):
+            return True
+        if key.startswith("button.transport_"):
+            return True
+        if key.startswith("log.ft_osd_gf2_lab_"):
             return True
         if key.startswith("text.") and (value.startswith("<") or "background-color:" in value):
             return True

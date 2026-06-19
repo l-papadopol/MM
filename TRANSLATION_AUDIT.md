@@ -1,12 +1,10 @@
-# Translation audit — MadModem 0.5.0
+# Translation audit
 
-The production package preserves the multilingual UI/help set available in the source tree:
+Generated after MIND UI cleanup.
 
-- English
-- Italian
-- French
-- German
-- Norwegian
-- Czech
+Runtime dictionary key counts remain aligned across the supported languages. This update mainly removes visible labels from the MIND tab and adds only short runtime strings for the compact progress bar/tooltips.
 
-The translation dictionaries remain aligned with the 0.5.0 production source. Future UI changes must update all language dictionaries and the HTML/Qt help files together.
+Audit result: no intentionally untranslated user-facing MIND cleanup strings were left outside the runtime dictionary path.
+
+
+MIND full-speed trainer patch: no new untranslated runtime UI keys required beyond the existing trainer-budget text path.

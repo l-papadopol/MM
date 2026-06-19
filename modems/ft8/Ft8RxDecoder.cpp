@@ -3451,6 +3451,47 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         return reject(bestFailure);
     }
 
+    /*
+     * MIND v2 native FT sample hook.
+     *
+     * The old MIND lab used a global audio/text fingerprint, which is useless
+     * for real assisted decoding.  Here we export the actual candidate matrix
+     * seen by the FT8 demapper: 58 data symbols x 8 tones = 464 normalized
+     * magnitudes.  The target is the full validated LDPC codeword (174 bits).
+     * This signal is emitted only after LDPC+CRC+unpack+message sanity have
+     * already passed, so it is a gold-label training sample.  No neural work is
+     * performed inside the decoder thread.
+     */
+    {
+        QVector<float> mindInput;
+        QVector<float> mindTarget;
+        mindInput.reserve(58 * 8);
+        mindTarget.reserve(174);
+        double maxMag = 0.0;
+        for (const auto &row : dataMagnitudes) {
+            for (double v : row) {
+                if (std::isfinite(v)) {
+                    maxMag = std::max(maxMag, v);
+                }
+            }
+        }
+        if (maxMag > 0.0 && std::isfinite(maxMag)) {
+            const double inv = 1.0 / maxMag;
+            for (const auto &row : dataMagnitudes) {
+                for (double v : row) {
+                    const double x = std::isfinite(v) ? qBound(0.0, v * inv, 1.0) : 0.0;
+                    mindInput.append(static_cast<float>(x));
+                }
+            }
+            for (int i = 0; i < 174; ++i) {
+                mindTarget.append((bits[i] & 1) ? 1.0f : 0.0f);
+            }
+            if (mindInput.size() == 464 && mindTarget.size() == 174) {
+                emit nativeTrainingSampleReady(QStringLiteral("FT8"), mindInput, mindTarget, message);
+            }
+        }
+    }
+
     decodeOut.utc = slotStartUtc.time().toString(QStringLiteral("HHmmss"));
     decodeOut.slotStartUtcMs = slotStartUtc.toMSecsSinceEpoch();
     decodeOut.slotPeriodMs = currentSlotMs();
