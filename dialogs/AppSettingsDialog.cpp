@@ -34,6 +34,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSizePolicy>
+#include <QStringList>
 #include <QSet>
 #include <QScreen>
 #include <QSpinBox>
@@ -74,6 +75,21 @@ bool sameEndpoint(const QString &a, const QString &b)
     const QString ka = endpointKey(a);
     const QString kb = endpointKey(b);
     return !ka.isEmpty() && !kb.isEmpty() && ka == kb;
+}
+
+bool pttMethodUsesDedicatedSerialPort(const AppSettings &settings)
+{
+    const QString method = settings.pttMethod.trimmed().toLower();
+    return method == QStringLiteral("serial_rts") || method == QStringLiteral("serial_dtr");
+}
+
+QString pttMethodHumanLabel(const AppSettings &settings)
+{
+    const QString method = settings.pttMethod.trimmed().toLower();
+    if (method == QStringLiteral("serial_rts")) return QStringLiteral("serial RTS PTT port");
+    if (method == QStringLiteral("serial_dtr")) return QStringLiteral("serial DTR PTT port");
+    if (method == QStringLiteral("cat_hamlib")) return QStringLiteral("CAT/Hamlib PTT");
+    return QStringLiteral("PTT port");
 }
 
 
@@ -374,8 +390,12 @@ QString rotatorEndpointConflictText(const AppSettings &settings)
         if (sameEndpoint(path, settings.hamlibTcpAddress)) {
             conflicts << QStringLiteral("radio CAT TCP endpoint");
         }
-        if (sameEndpoint(path, settings.pttPortName)) {
-            conflicts << QStringLiteral("serial PTT port");
+        // A stale PTT/serialPort value may remain in settings even when the
+        // active PTT method is CAT/Hamlib.  Only reserve the PTT serial port
+        // when PTT is really using serial RTS/DTR; otherwise a rotator on the
+        // old COM port would be reported as a false conflict.
+        if (pttMethodUsesDedicatedSerialPort(settings) && sameEndpoint(path, settings.pttPortName)) {
+            conflicts << pttMethodHumanLabel(settings);
         }
         conflicts.removeDuplicates();
         if (!conflicts.isEmpty()) {
@@ -389,7 +409,7 @@ QString rotatorEndpointConflictText(const AppSettings &settings)
         return QString();
     }
 
-    return messages.join(QStringLiteral("; ")) + QStringLiteral(". The CatRotator backend must use independent ports/endpoints from radio CAT/PTT, even when both use Hamlib. Use shared access only with an external multiplexer/proxy designed for it.");
+    return messages.join(QStringLiteral("; ")) + QStringLiteral(". The CatRotator backend must use independent ports/endpoints from radio CAT and from serial RTS/DTR PTT. CAT/Hamlib PTT does not reserve the stale serial PTT combo value. Use shared access only with an external multiplexer/proxy designed for it.");
 }
 QString colourName(const QColor &colour, const QString &fallback)
 {
@@ -540,9 +560,12 @@ AppSettingsDialog::AppSettingsDialog(const AppSettings &settings,
 
     m_tabs->addTab(makeAudioCatPage(), L(QStringLiteral("Audio / PTT / CAT")));
 
-    m_textMacroPage = new TextMacroSettingsDialog(settings, this);
-    hideEmbeddedIntroLabels(m_textMacroPage);
-    m_tabs->addTab(embedDialogPage(m_textMacroPage), L(QStringLiteral("User / QTH / Macros")));
+    // Build User / QTH / Macros directly as a normal QWidget page.
+    // The old reusable TextMacroSettingsDialog remains available as a standalone
+    // dialog, but embedding a QDialog inside the unified Settings tab proved
+    // unreliable on some Qt/Windows/Linux combinations and could leave this
+    // tab completely blank.
+    m_tabs->addTab(makeUserQthMacrosPage(), L(QStringLiteral("User / QTH / Macros")));
 
     m_tabs->addTab(makeLogbookPage(), L(QStringLiteral("Logbook / FT colours")));
 
@@ -613,8 +636,178 @@ QWidget *AppSettingsDialog::embedDialogPage(QDialog *dialog)
         return page;
     }
 
+    // Qt hides widgets when their window flags are changed.  These settings
+    // pages are real QDialog classes reused as child widgets inside the unified
+    // Settings dialog; after converting them to Qt::Widget they must be
+    // re-parented to the tab page and explicitly shown, otherwise some pages
+    // (notably User / QTH / Macros on Windows/Linux builds) can appear as an
+    // empty white tab even though the dialog was constructed correctly.
+    dialog->setParent(page);
     prepareEmbeddedDialog(dialog);
     layout->addWidget(dialog, 1);
+    dialog->show();
+    return page;
+}
+
+QWidget *AppSettingsDialog::makeUserQthMacrosPage()
+{
+    QWidget *page = new QWidget(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(page);
+    mainLayout->setContentsMargins(12, 10, 12, 10);
+    mainLayout->setSpacing(8);
+
+    QTabWidget *innerTabs = new QTabWidget(page);
+    innerTabs->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    mainLayout->addWidget(innerTabs, 1);
+
+    auto makeLineEdit = [](QWidget *parent, const QString &placeholder) {
+        QLineEdit *edit = new QLineEdit(parent);
+        edit->setMinimumHeight(28);
+        edit->setMinimumWidth(170);
+        edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        edit->setPlaceholderText(MadModemI18n::placeholder(placeholder));
+        return edit;
+    };
+
+    auto makeFieldLabel = [](QWidget *parent, const QString &text) {
+        QLabel *label = new QLabel(text, parent);
+        label->setMinimumWidth(145);
+        label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        return label;
+    };
+
+    auto makeTokenLabel = [](QWidget *parent, const QString &text) {
+        QLabel *label = new QLabel(text, parent);
+        label->setMinimumWidth(74);
+        label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        label->setStyleSheet(QStringLiteral("color: #555555;"));
+        return label;
+    };
+
+    auto addVariableRow = [&](QGridLayout *grid,
+                              int row,
+                              const QString &labelText,
+                              const QString &tokenText,
+                              QLineEdit *editor,
+                              QWidget *parent) {
+        grid->addWidget(makeFieldLabel(parent, labelText), row, 0);
+        grid->addWidget(makeTokenLabel(parent, tokenText), row, 1);
+        grid->addWidget(editor, row, 2);
+        grid->setRowMinimumHeight(row, 32);
+    };
+
+    auto makeScrollPage = [](QWidget *content) {
+        QScrollArea *scroll = new QScrollArea;
+        scroll->setWidgetResizable(true);
+        scroll->setFrameShape(QFrame::NoFrame);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        scroll->setWidget(content);
+        return scroll;
+    };
+
+    QWidget *variablesContent = new QWidget;
+    QVBoxLayout *variablesLayout = new QVBoxLayout(variablesContent);
+    variablesLayout->setContentsMargins(8, 8, 8, 8);
+    variablesLayout->setSpacing(8);
+
+    QGroupBox *myStationGroup = new QGroupBox(L(QStringLiteral("User / station / QTH")), variablesContent);
+    myStationGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    QGridLayout *myStationGrid = new QGridLayout(myStationGroup);
+    myStationGrid->setContentsMargins(10, 12, 10, 10);
+    myStationGrid->setHorizontalSpacing(8);
+    myStationGrid->setVerticalSpacing(5);
+    myStationGrid->setColumnStretch(2, 1);
+
+    m_editMyCallsign = makeLineEdit(myStationGroup, QStringLiteral("your callsign"));
+    m_editMyName = makeLineEdit(myStationGroup, QStringLiteral("operator name"));
+    m_editMyQth = makeLineEdit(myStationGroup, QStringLiteral("town / city"));
+    m_editMyLocator = makeLineEdit(myStationGroup, QStringLiteral("Maidenhead locator, e.g. AA00aa"));
+    m_editRig = makeLineEdit(myStationGroup, QStringLiteral("radio / SDR / transceiver"));
+    m_editAntenna = makeLineEdit(myStationGroup, QStringLiteral("antenna description"));
+    m_editPower = makeLineEdit(myStationGroup, QStringLiteral("power in watts"));
+
+    m_editMyCallsign->setText(!m_initialSettings.textMyCallsign.trimmed().isEmpty()
+                                  ? m_initialSettings.textMyCallsign
+                                  : m_initialSettings.ft8MyCallsign);
+    m_editMyName->setText(m_initialSettings.textMyName);
+    m_editMyQth->setText(m_initialSettings.textMyQth);
+    m_editMyLocator->setText(!m_initialSettings.textMyLocator.trimmed().isEmpty()
+                                 ? m_initialSettings.textMyLocator
+                                 : m_initialSettings.ft8MyGrid);
+    m_editRig->setText(m_initialSettings.textRig);
+    m_editAntenna->setText(m_initialSettings.textAntenna);
+    m_editPower->setText(m_initialSettings.textPower);
+
+    addVariableRow(myStationGrid, 0, L(QStringLiteral("My callsign")), QStringLiteral("{MYCALL}"), m_editMyCallsign, myStationGroup);
+    addVariableRow(myStationGrid, 1, L(QStringLiteral("My name")), QStringLiteral("{MYNAME}"), m_editMyName, myStationGroup);
+    addVariableRow(myStationGrid, 2, L(QStringLiteral("My QTH")), QStringLiteral("{MYQTH}"), m_editMyQth, myStationGroup);
+    addVariableRow(myStationGrid, 3, L(QStringLiteral("Locator")), QStringLiteral("{LOC}"), m_editMyLocator, myStationGroup);
+    addVariableRow(myStationGrid, 4, L(QStringLiteral("Rig")), QStringLiteral("{RIG}"), m_editRig, myStationGroup);
+    addVariableRow(myStationGrid, 5, L(QStringLiteral("Antenna")), QStringLiteral("{ANT}"), m_editAntenna, myStationGroup);
+    addVariableRow(myStationGrid, 6, L(QStringLiteral("Power")), QStringLiteral("{PWR}"), m_editPower, myStationGroup);
+
+    QGroupBox *tokensGroup = new QGroupBox(L(QStringLiteral("Available tokens")), variablesContent);
+    tokensGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    QVBoxLayout *tokensLayout = new QVBoxLayout(tokensGroup);
+    tokensLayout->setContentsMargins(10, 12, 10, 10);
+    tokensLayout->setSpacing(5);
+    QLabel *tokens = new QLabel(L(QStringLiteral("{MYCALL}, {MYNAME}, {MYQTH}, {LOC}, {CALL}, {NAME}, {QTH}, {RST}, {RIG}, {ANT}, {PWR}, {MODE}, {DATE}, {TIME}, {UTC}, {NL}.\n{NL} inserts a new line. Token names are case-insensitive.")),
+                                tokensGroup);
+    tokens->setWordWrap(true);
+    tokens->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    tokensLayout->addWidget(tokens);
+
+    variablesLayout->addWidget(myStationGroup);
+    variablesLayout->addWidget(tokensGroup);
+    variablesLayout->addStretch(1);
+    innerTabs->addTab(makeScrollPage(variablesContent), L(QStringLiteral("User / QTH")));
+
+    QWidget *macrosContent = new QWidget;
+    QVBoxLayout *macrosLayout = new QVBoxLayout(macrosContent);
+    macrosLayout->setContentsMargins(8, 8, 8, 8);
+    macrosLayout->setSpacing(8);
+
+    m_macroLabelEdits.clear();
+    m_macroTextEdits.clear();
+
+    for (int i = 0; i < 6; ++i) {
+        QGroupBox *macroGroup = new QGroupBox(L(QStringLiteral("Macro %1")).arg(i + 1), macrosContent);
+        macroGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+        QGridLayout *grid = new QGridLayout(macroGroup);
+        grid->setContentsMargins(10, 12, 10, 10);
+        grid->setHorizontalSpacing(8);
+        grid->setVerticalSpacing(5);
+        grid->setColumnStretch(1, 1);
+
+        QLineEdit *labelEdit = makeLineEdit(macroGroup, QStringLiteral("button label %1").arg(i + 1));
+        QPlainTextEdit *textEdit = new QPlainTextEdit(macroGroup);
+        textEdit->setMinimumHeight(62);
+        textEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        textEdit->setPlaceholderText(MadModemI18n::placeholder(QStringLiteral("Macro text with tokens, e.g. CQ CQ CQ de {MYCALL} {MYCALL} pse k")));
+
+        labelEdit->setText(m_initialSettings.textMacroLabels.value(i, L(QStringLiteral("Macro %1")).arg(i + 1)));
+        textEdit->setPlainText(m_initialSettings.textMacroTexts.value(i));
+
+        m_macroLabelEdits.append(labelEdit);
+        m_macroTextEdits.append(textEdit);
+
+        QLabel *buttonLabel = makeFieldLabel(macroGroup, L(QStringLiteral("Button label")));
+        QLabel *textLabel = makeFieldLabel(macroGroup, L(QStringLiteral("Macro text")));
+        textLabel->setAlignment(Qt::AlignRight | Qt::AlignTop);
+
+        grid->addWidget(buttonLabel, 0, 0);
+        grid->addWidget(labelEdit, 0, 1);
+        grid->addWidget(textLabel, 1, 0);
+        grid->addWidget(textEdit, 1, 1);
+
+        macrosLayout->addWidget(macroGroup);
+    }
+
+    macrosLayout->addStretch(1);
+    innerTabs->addTab(makeScrollPage(macrosContent), L(QStringLiteral("Macros")));
+
     return page;
 }
 
@@ -688,6 +881,17 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     compactEmbeddedSettingsWidgets(m_logbookPage);
     logbookLayout->addWidget(m_logbookPage);
     layout->addWidget(logbookGroup);
+
+    QGroupBox *displayGroup = new QGroupBox(L(QStringLiteral("Logbook display")), holder);
+    displayGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    QVBoxLayout *displayLayout = new QVBoxLayout(displayGroup);
+    displayLayout->setContentsMargins(10, 8, 10, 10);
+    displayLayout->setSpacing(6);
+    m_chkLogbookStrikeWorkedCalls = new QCheckBox(L(QStringLiteral("Strike through callsigns already worked")), displayGroup);
+    m_chkLogbookStrikeWorkedCalls->setToolTip(L(QStringLiteral("Mark callsigns already present in the ADIF log with a strike-through line in RX/decode views.")));
+    m_chkLogbookStrikeWorkedCalls->setChecked(m_initialSettings.logbookStrikeWorkedCalls);
+    displayLayout->addWidget(m_chkLogbookStrikeWorkedCalls);
+    layout->addWidget(displayGroup);
 
     QWidget *colourEditor = makeFtColourEditor();
     colourEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
@@ -1444,8 +1648,40 @@ void AppSettingsDialog::collectSettings()
         merged.audioTxClockPpm = cal.audioTxClockPpm;
     }
 
-    if (m_textMacroPage != nullptr) {
-        // TextMacroSettingsDialog commits the editable fields in accept().
+    if (m_editMyCallsign != nullptr) {
+        merged.textMyCallsign = m_editMyCallsign->text().trimmed().toUpper();
+        merged.textMyName = m_editMyName != nullptr ? m_editMyName->text().trimmed() : QString();
+        merged.textMyQth = m_editMyQth != nullptr ? m_editMyQth->text().trimmed() : QString();
+        merged.textMyLocator = m_editMyLocator != nullptr ? m_editMyLocator->text().trimmed().toUpper() : QString();
+        merged.textRig = m_editRig != nullptr ? m_editRig->text().trimmed() : QString();
+        merged.textAntenna = m_editAntenna != nullptr ? m_editAntenna->text().trimmed() : QString();
+        merged.textPower = m_editPower != nullptr ? m_editPower->text().trimmed() : QString();
+
+        QStringList labels;
+        QStringList texts;
+        for (int i = 0; i < m_macroLabelEdits.size(); ++i) {
+            QString label = m_macroLabelEdits[i] != nullptr
+                                ? m_macroLabelEdits[i]->text().trimmed()
+                                : QString();
+            if (label.isEmpty()) {
+                label = L(QStringLiteral("Macro %1")).arg(i + 1);
+            }
+            labels << label;
+            texts << (i < m_macroTextEdits.size() && m_macroTextEdits[i] != nullptr
+                          ? m_macroTextEdits[i]->toPlainText()
+                          : QString());
+        }
+        merged.textMacroLabels = labels;
+        merged.textMacroTexts = texts;
+
+        // Keep the legacy FT identity synchronized.  Other parts of the app
+        // still consume these fields for standard FT messages and QSO-map home
+        // locator, so the direct Settings page must preserve the old dialog's
+        // behaviour exactly.
+        merged.ft8MyCallsign = merged.textMyCallsign;
+        merged.ft8MyGrid = merged.textMyLocator;
+    } else if (m_textMacroPage != nullptr) {
+        // Fallback for standalone/reused builds that still embed the old dialog.
         QMetaObject::invokeMethod(m_textMacroPage, "accept", Qt::DirectConnection);
         const AppSettings text = m_textMacroPage->settings();
         merged.textMyCallsign = text.textMyCallsign;
@@ -1490,6 +1726,9 @@ void AppSettingsDialog::collectSettings()
     if (m_logbookPage != nullptr) {
         m_selectedLogbookPath = m_logbookPage->selectedPath().trimmed();
         merged.logbookFilePath = m_selectedLogbookPath;
+    }
+    if (m_chkLogbookStrikeWorkedCalls != nullptr) {
+        merged.logbookStrikeWorkedCalls = m_chkLogbookStrikeWorkedCalls->isChecked();
     }
 
     if (m_schedulerPage != nullptr) {
@@ -1633,17 +1872,12 @@ void AppSettingsDialog::updateRotatorEndpointWarning()
         return;
     }
 
-    AppSettings probe = m_initialSettings;
-    if (m_chkRotatorEnabled != nullptr) {
-        probe.rotatorEnabled = m_chkRotatorEnabled->isChecked();
-    }
-    for (int i = 0; i < 3; ++i) {
-        if (m_rotatorPage != nullptr) {
-            if (QComboBox *path = m_rotatorPage->findChild<QComboBox *>(QStringLiteral("rotatorPath_%1").arg(i))) {
-                probe.rotatorProfiles[i].path = path->currentText().trimmed();
-            }
-        }
-    }
+    // Build the warning from the current dialog state, not only from the
+    // initial settings snapshot.  This prevents false rotator/PTT warnings
+    // after the user changes PTT from serial RTS/DTR to CAT/Hamlib inside the
+    // same Settings dialog.
+    collectSettings();
+    AppSettings probe = m_resultSettings;
 
     const QString conflict = rotatorEndpointConflictText(probe);
     if (conflict.isEmpty()) {

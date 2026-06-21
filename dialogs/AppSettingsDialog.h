@@ -94,6 +94,7 @@ private:
     };
 
     QWidget *embedDialogPage(QDialog *dialog);
+    QWidget *makeUserQthMacrosPage();
     QWidget *makeAudioCatPage();
     QWidget *makeLogbookPage();
     QWidget *makeFtColourEditor();
@@ -128,6 +129,15 @@ private:
     AudioSettingsDialog *m_audioPage = nullptr;
     RigControlSettingsDialog *m_rigPage = nullptr;
     TextMacroSettingsDialog *m_textMacroPage = nullptr;
+    QLineEdit *m_editMyCallsign = nullptr;
+    QLineEdit *m_editMyName = nullptr;
+    QLineEdit *m_editMyQth = nullptr;
+    QLineEdit *m_editMyLocator = nullptr;
+    QLineEdit *m_editRig = nullptr;
+    QLineEdit *m_editAntenna = nullptr;
+    QLineEdit *m_editPower = nullptr;
+    QList<QLineEdit *> m_macroLabelEdits;
+    QList<QPlainTextEdit *> m_macroTextEdits;
     LogbookSettingsDialog *m_logbookPage = nullptr;
     BandSchedulerDialog *m_schedulerPage = nullptr;
     SoundCardCalibrationDialog *m_calibrationPage = nullptr;
@@ -150,6 +160,7 @@ private:
 
     QCheckBox *m_chkHighlightNewCountry = nullptr;
     QCheckBox *m_chkWatchListIcon = nullptr;
+    QCheckBox *m_chkLogbookStrikeWorkedCalls = nullptr;
     QPlainTextEdit *m_editFtBlacklist = nullptr;
     QPlainTextEdit *m_editFtWatchList = nullptr;
     QComboBox *m_cmbAutoQsoDuplicatePolicy = nullptr;

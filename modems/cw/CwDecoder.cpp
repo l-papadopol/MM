@@ -4,8 +4,12 @@
 
 #include <QByteArray>
 #include <QColor>
+#include <QRegularExpression>
+#include <QMetaType>
 #include <QtMath>
+#include <algorithm>
 #include <cstring>
+#include <utility>
 
 namespace {
 
@@ -74,11 +78,49 @@ bool isFinitePositive(double v)
     return qIsFinite(v) && v > 0.0;
 }
 
+double medianOf(QVector<double> values)
+{
+    if (values.isEmpty()) {
+        return 0.0;
+    }
+    std::sort(values.begin(), values.end());
+    const int n = values.size();
+    if ((n % 2) != 0) {
+        return values.at(n / 2);
+    }
+    return 0.5 * (values.at((n / 2) - 1) + values.at(n / 2));
+}
+
+QString normalizeRadioCwSpacing(QString text)
+{
+    if (text.isEmpty()) {
+        return text;
+    }
+
+    static const QRegularExpression reDe(
+        QStringLiteral("(^|\\s)DE([A-Z]{1,3}\\d[A-Z0-9/]{1,12})"));
+    static const QRegularExpression reCq(
+        QStringLiteral("(^|\\s)CQ([A-Z]{1,3}\\d[A-Z0-9/]{1,12})"));
+    static const QRegularExpression reKnownProsig(
+        QStringLiteral("(^|\\s)(K|KN|AR|SK)([A-Z]{1,3}\\d[A-Z0-9/]{1,12})"));
+    static const QRegularExpression reSplitCallTail(
+        QStringLiteral("\\b([A-Z]{1,3}\\d[A-Z0-9/]{1,8})\\s+([A-Z]{1,2})(?=\\s|$)"));
+    static const QRegularExpression reDoubleSpaces(QStringLiteral(" {2,}"));
+
+    text.replace(reDe, QStringLiteral("\\1DE \\2"));
+    text.replace(reCq, QStringLiteral("\\1CQ \\2"));
+    text.replace(reKnownProsig, QStringLiteral("\\1\\2 \\3"));
+    text.replace(reSplitCallTail, QStringLiteral("\\1\\2"));
+    text.replace(reDoubleSpaces, QStringLiteral(" "));
+    return text;
+}
+
 } // namespace
 
 CwDecoder::CwDecoder(QObject *parent)
     : QObject(parent)
 {
+    qRegisterMetaType<QVector<float>>("QVector<float>");
     reset();
 }
 
@@ -122,6 +164,9 @@ void CwDecoder::reset()
     m_keyUpStart = 0;
     m_currentPattern.clear();
     m_currentDurations.clear();
+    m_recentElements.clear();
+    m_recentGaps.clear();
+    m_mindEnvelopeHistory.clear();
     m_text.clear();
     m_dotSeconds = 1.2 / qMax(5.0, m_wpm);
     m_trackingDotSeconds = m_dotSeconds;
@@ -129,6 +174,10 @@ void CwDecoder::reset()
     m_lastEmittedTrackedWpm = 0.0;
     m_lastFuzzyPattern.clear();
     m_lastFuzzyScore = 0.0;
+    m_mindAssistUsed = 0;
+    m_mindAssistDisagreed = 0;
+    m_mindNativeChars = 0;
+    m_mindGgmorseSuppressedChars = 0;
     m_decodedChars = 0;
     m_badPatterns = 0;
     m_statusCounter = 0;
@@ -259,6 +308,25 @@ void CwDecoder::setAfcRangeHz(double rangeHz)
     }
 }
 
+void CwDecoder::setMindEventAssistEnabled(bool enabled)
+{
+    if (m_mindEventAssistEnabled == enabled) {
+        return;
+    }
+    m_mindEventAssistEnabled = enabled;
+    if (!enabled) {
+        m_mindAssistUsed = 0;
+        m_mindAssistDisagreed = 0;
+        m_mindNativeChars = 0;
+        m_mindGgmorseSuppressedChars = 0;
+    }
+}
+
+void CwDecoder::setMindEventClassifier(std::function<bool(const QVector<float> &, QVector<float> *, double *)> classifier)
+{
+    m_mindEventClassifier = std::move(classifier);
+}
+
 double CwDecoder::toneHz() const
 {
     return m_afcEnabled ? m_trackedToneHz : m_toneHz;
@@ -367,7 +435,22 @@ void CwDecoder::processSample(double sample)
     m_q2 += m_lpfAlpha * (m_q1 - m_q2);
 
     const double mag = qSqrt((m_i2 * m_i2) + (m_q2 * m_q2));
-    m_env += m_envAlpha * (mag - m_env);
+    // Human fist recovery: use a faster attack and a gentler release.  Fast
+    // attacks preserve short dits; gentler release avoids QRN/QSB punching
+    // holes inside one element without smearing long word gaps too much.
+    const double envAlpha = (mag > m_env)
+        ? qMin(0.75, m_envAlpha * 1.65)
+        : qMax(0.0005, m_envAlpha * 0.72);
+    m_env += envAlpha * (mag - m_env);
+
+    // MIND CW event profile: keep a compact envelope history around the
+    // selected tone.  It is emitted only when an event is classified by the
+    // classical CW timing state machine; MIND learns from this teacher signal
+    // and does not generate final text.
+    m_mindEnvelopeHistory.append(m_env);
+    while (m_mindEnvelopeHistory.size() > 512) {
+        m_mindEnvelopeHistory.removeFirst();
+    }
 
     m_gateAccumulator += m_env;
     ++m_gateSamples;
@@ -433,8 +516,11 @@ void CwDecoder::configureGgmorseForBlock(const AudioBlock &block)
         dec.speed_wpm = static_cast<float>(selectedWpm);
         dec.frequencyRangeMin_hz = static_cast<float>(qMax(kMinSearchHz, selectedTone - qMax(80.0, m_bandwidthHz)));
         dec.frequencyRangeMax_hz = static_cast<float>(qMin(kMaxSearchHz, selectedTone + qMax(80.0, m_bandwidthHz)));
-        dec.applyFilterHighPass = false;
-        dec.applyFilterLowPass = false;
+        // Let ggmorse isolate the selected note before its windowed peak and
+        // spacing estimator runs.  With the filters disabled, adjacent CW/QRM
+        // energy can fill the silences and glue words together.
+        dec.applyFilterHighPass = true;
+        dec.applyFilterLowPass = true;
         m_ggmorse->setParametersDecode(dec);
         m_ggmorseConfiguredToneHz = selectedTone;
         m_ggmorseConfiguredWpm = selectedWpm;
@@ -476,9 +562,14 @@ void CwDecoder::appendDecodedText(const QString &text)
         return;
     }
 
+    // Normalize only very common CW glue cases such as DEIW6DRH or CQIZ6NNH.
+    // This restores radio-token spacing; it does not invent callsigns or
+    // characters, and the raw decoder stream remains otherwise unchanged.
+    const QString normalized = normalizeRadioCwSpacing(text);
+
     QString cleaned;
-    cleaned.reserve(text.size());
-    for (QChar ch : text) {
+    cleaned.reserve(normalized.size());
+    for (QChar ch : normalized) {
         if (ch == QLatin1Char(' ')) {
             if (cleaned.endsWith(QLatin1Char(' '))) {
                 continue;
@@ -494,6 +585,7 @@ void CwDecoder::appendDecodedText(const QString &text)
     }
 
     m_text.append(cleaned);
+    m_text = normalizeRadioCwSpacing(m_text);
     if (m_text.size() > 20000) {
         m_text.remove(0, m_text.size() - 20000);
     }
@@ -516,7 +608,16 @@ void CwDecoder::emitGgmorseOutput()
         for (std::uint8_t b : rx) {
             bytes.append(static_cast<char>(b));
         }
-        appendDecodedText(sanitizeGgmorseText(bytes));
+        const QString decoded = sanitizeGgmorseText(bytes);
+        if (mindHeavyHumanFistAssistActive()) {
+            // In CW Active, MIND is deliberately used as a heavy human-fist
+            // event/timing helper.  ggmorse remains available for speed/cost
+            // estimation, but its final text stream is suppressed so the
+            // MIND-biased native event decoder can handle irregular spacing.
+            m_mindGgmorseSuppressedChars += decoded.size();
+        } else {
+            appendDecodedText(decoded);
+        }
     }
 
     const GGMorse::Statistics &st = m_ggmorse->getStatistics();
@@ -729,7 +830,29 @@ void CwDecoder::handleToneStarted()
     if (m_haveElement && !m_currentDurations.isEmpty()) {
         const double silenceSeconds = static_cast<double>(m_sampleCounter - m_keyUpStart) /
                                       static_cast<double>(m_sampleRate);
-        if (silenceSeconds >= 5.4 * m_trackingDotSeconds && !m_wordSpaceSent) {
+        rememberGap(silenceSeconds);
+
+        const double dot = qBound(0.015, m_trackingDotSeconds, 0.250);
+        const double letterThreshold = adaptiveLetterGapThreshold(true);
+        const double wordThreshold = adaptiveWordGapThreshold(true);
+        const QVector<float> feature = makeMindEventFeature();
+        QVector<float> mindProb;
+        double mindConfidence = 0.0;
+        const int mindClass = mindSuggestedEventClass(feature, &mindConfidence, &mindProb);
+        const bool heavyMind = mindHeavyHumanFistAssistActive();
+        const double pIntra = mindEventProbability(mindProb, 2);
+        const double pLetter = mindEventProbability(mindProb, 3);
+        const double pWord = mindEventProbability(mindProb, 4);
+        const bool mindWord = heavyMind
+            ? (mindClass == 4 && mindConfidence >= 0.42 && silenceSeconds >= 2.65 * dot && pWord >= pLetter + 0.03 && pWord >= pIntra + 0.06)
+            : (mindClass == 4 && mindConfidence >= 0.70 && silenceSeconds >= 3.8 * dot);
+        const bool mindLetter = heavyMind
+            ? (mindClass == 3 && mindConfidence >= 0.42 && silenceSeconds >= 1.35 * dot && pLetter >= pIntra + 0.02)
+            : (mindClass == 3 && mindConfidence >= 0.66 && silenceSeconds >= 1.9 * dot);
+
+        if ((silenceSeconds >= wordThreshold || mindWord) && !m_wordSpaceSent) {
+            emitMindEventSample(4, QStringLiteral("word-gap"));
+            if (mindWord && silenceSeconds < wordThreshold) ++m_mindAssistUsed;
             finishCurrentCharacter();
             if (!m_text.endsWith(' ') && !m_text.isEmpty()) {
                 m_text.append(' ');
@@ -737,8 +860,12 @@ void CwDecoder::handleToneStarted()
                 emit textUpdated(m_text);
             }
             m_wordSpaceSent = true;
-        } else if (silenceSeconds >= 2.35 * m_trackingDotSeconds) {
+        } else if (silenceSeconds >= letterThreshold || mindLetter) {
+            emitMindEventSample(3, QStringLiteral("letter-gap"));
+            if (mindLetter && silenceSeconds < letterThreshold) ++m_mindAssistUsed;
             finishCurrentCharacter();
+        } else if (silenceSeconds > 0.35 * dot) {
+            emitMindEventSample(2, QStringLiteral("intra-gap"));
         }
     }
 
@@ -762,10 +889,44 @@ void CwDecoder::handleToneEnded()
 
     maybeTrackSpeed(markSeconds);
 
+    const double dot = qBound(0.015, m_trackingDotSeconds, 0.250);
+    int symbolClass = (markSeconds <= 2.05 * dot) ? 0 : 1;
+    const int nativeClass = symbolClass;
+    const double ratio = markSeconds / dot;
+    const bool borderline = (ratio >= 1.55 && ratio <= 2.75);
+    const QVector<float> feature = makeMindEventFeature();
+    QVector<float> mindProb;
+    double mindConfidence = 0.0;
+    const int mindClass = mindSuggestedEventClass(feature, &mindConfidence, &mindProb);
+    const bool heavyMind = mindHeavyHumanFistAssistActive();
+    const double pDit = mindEventProbability(mindProb, 0);
+    const double pDah = mindEventProbability(mindProb, 1);
+    const bool mindStrongElement = heavyMind
+        ? (mindConfidence >= 0.42 && qAbs(pDit - pDah) >= 0.05)
+        : (mindConfidence >= 0.60);
+    if ((mindClass == 0 || mindClass == 1) &&
+        (borderline || mindConfidence >= (heavyMind ? 0.54 : 0.78)) &&
+        mindStrongElement) {
+        symbolClass = mindClass;
+        if (symbolClass != nativeClass) {
+            ++m_mindAssistUsed;
+            ++m_mindAssistDisagreed;
+        }
+    } else if (mindClass == 5 && mindConfidence >= (heavyMind ? 0.62 : 0.82) && markSeconds < (heavyMind ? 0.95 : 0.80) * dot) {
+        // Active-only neural noise veto: discard very short key blips that look
+        // like noise/QSB rather than a real dit.  Long or borderline elements
+        // are never vetoed by MIND.
+        ++m_mindAssistUsed;
+        m_keyUpStart = m_sampleCounter;
+        return;
+    }
+
     m_currentDurations.append(markSeconds);
-    if (markSeconds <= 2.05 * m_trackingDotSeconds) {
+    if (symbolClass == 0) {
+        emitMindEventSample(0, QStringLiteral("dit"));
         m_currentPattern.append('.');
     } else {
+        emitMindEventSample(1, QStringLiteral("dah"));
         m_currentPattern.append('-');
     }
 
@@ -789,11 +950,29 @@ void CwDecoder::querySilenceDecoder()
     const double silenceSeconds = static_cast<double>(m_sampleCounter - m_keyUpStart) /
                                   static_cast<double>(m_sampleRate);
 
-    if (!m_currentDurations.isEmpty() && silenceSeconds >= 2.65 * m_trackingDotSeconds) {
+    const double dot = qBound(0.015, m_trackingDotSeconds, 0.250);
+    const double letterThreshold = adaptiveLetterGapThreshold(false);
+    const double wordThreshold = adaptiveWordGapThreshold(false);
+    const QVector<float> feature = makeMindEventFeature();
+    double mindConfidence = 0.0;
+    const int mindClass = mindSuggestedEventClass(feature, &mindConfidence, nullptr);
+    const bool heavyMind = mindHeavyHumanFistAssistActive();
+    const bool mindLetter = heavyMind
+        ? (mindClass == 3 && mindConfidence >= 0.42 && silenceSeconds >= 1.35 * dot)
+        : (mindClass == 3 && mindConfidence >= 0.68 && silenceSeconds >= 2.0 * dot);
+    const bool mindWord = heavyMind
+        ? (mindClass == 4 && mindConfidence >= 0.44 && silenceSeconds >= 2.75 * dot)
+        : (mindClass == 4 && mindConfidence >= 0.72 && silenceSeconds >= 4.0 * dot);
+
+    if (!m_currentDurations.isEmpty() && (silenceSeconds >= letterThreshold || mindLetter)) {
+        emitMindEventSample(3, QStringLiteral("letter-gap"));
+        if (mindLetter && silenceSeconds < letterThreshold) ++m_mindAssistUsed;
         finishCurrentCharacter();
     }
 
-    if (!m_wordSpaceSent && silenceSeconds >= 5.6 * m_trackingDotSeconds) {
+    if (!m_wordSpaceSent && (silenceSeconds >= wordThreshold || mindWord)) {
+        emitMindEventSample(4, QStringLiteral("word-gap"));
+        if (mindWord && silenceSeconds < wordThreshold) ++m_mindAssistUsed;
         if (!m_text.endsWith(' ') && !m_text.isEmpty()) {
             m_text.append(' ');
             emit characterReceived(" ");
@@ -801,6 +980,210 @@ void CwDecoder::querySilenceDecoder()
         }
         m_wordSpaceSent = true;
     }
+}
+
+double CwDecoder::adaptiveLetterGapThreshold(bool realtimeToneStart) const
+{
+    const double dot = qBound(0.015, m_trackingDotSeconds, 0.250);
+    double factor = realtimeToneStart ? 2.95 : 3.30;
+
+    // If the recent operator already shows longer intra-copy gaps, be patient
+    // before closing a character.  Bound this so fast machine-sent CW still
+    // copies normally.
+    if (!m_recentGaps.isEmpty()) {
+        QVector<double> scaled;
+        scaled.reserve(m_recentGaps.size());
+        for (double g : m_recentGaps) {
+            if (g > 0.45 * dot && g < 6.0 * dot) {
+                scaled.append(g / dot);
+            }
+        }
+        const double med = medianOf(scaled);
+        if (med > 0.0) {
+            factor = qBound(factor, med * 1.55, realtimeToneStart ? 3.65 : 3.90);
+        }
+    }
+    return factor * dot;
+}
+
+double CwDecoder::adaptiveWordGapThreshold(bool realtimeToneStart) const
+{
+    const double dot = qBound(0.015, m_trackingDotSeconds, 0.250);
+    double factor = realtimeToneStart ? 5.10 : 5.55;
+
+    if (!m_recentGaps.isEmpty()) {
+        QVector<double> candidates;
+        candidates.reserve(m_recentGaps.size());
+        for (double g : m_recentGaps) {
+            const double units = g / dot;
+            if (units >= 3.4 && units <= 10.0) {
+                candidates.append(units);
+            }
+        }
+        const double med = medianOf(candidates);
+        if (med > 0.0) {
+            factor = qBound(4.7, med * 1.18, realtimeToneStart ? 7.0 : 7.4);
+        }
+    }
+
+    const double letterFactor = adaptiveLetterGapThreshold(realtimeToneStart) / dot;
+    return qMax((letterFactor + 1.65) * dot, factor * dot);
+}
+
+void CwDecoder::rememberGap(double silenceSeconds)
+{
+    if (!isFinitePositive(silenceSeconds) || m_trackingDotSeconds <= 0.0) {
+        return;
+    }
+
+    const double dot = qBound(0.015, m_trackingDotSeconds, 0.250);
+    if (silenceSeconds < 0.35 * dot || silenceSeconds > 12.0 * dot) {
+        return;
+    }
+
+    m_recentGaps.append(silenceSeconds);
+    while (m_recentGaps.size() > 28) {
+        m_recentGaps.removeFirst();
+    }
+}
+
+QVector<float> CwDecoder::makeMindEventFeature() const
+{
+    constexpr int kMindCwInput = 256;
+    QVector<float> out(kMindCwInput, 0.0f);
+    if (m_mindEnvelopeHistory.isEmpty()) {
+        return out;
+    }
+
+    QVector<double> src = m_mindEnvelopeHistory;
+    const double med = medianOf(src);
+    QVector<double> deviations;
+    deviations.reserve(src.size());
+    for (double v : src) {
+        deviations.append(qAbs(v - med));
+    }
+    const double mad = qMax(1.0e-8, medianOf(deviations));
+
+    const int n = src.size();
+    for (int i = 0; i < kMindCwInput; ++i) {
+        const int a = (n * i) / kMindCwInput;
+        const int z = qMax(a + 1, (n * (i + 1)) / kMindCwInput);
+        double sum = 0.0;
+        int count = 0;
+        for (int j = a; j < z && j < n; ++j) {
+            sum += src.at(j);
+            ++count;
+        }
+        const double mean = count > 0 ? sum / static_cast<double>(count) : med;
+        // Robust local normalization: 0.5 is recent floor, values above floor
+        // show tone energy.  This keeps the CW MIND model resilient to QSB and
+        // receiver gain changes.
+        const double robust = 0.5 + 0.18 * ((mean - med) / mad);
+        out[i] = static_cast<float>(qBound(0.0, robust, 1.0));
+    }
+    return out;
+}
+
+void CwDecoder::emitMindEventSample(int klass, const QString &label)
+{
+    if (klass < 0 || klass >= 6) {
+        return;
+    }
+    const QVector<float> feature = makeMindEventFeature();
+    if (feature.size() != 256) {
+        return;
+    }
+    QVector<float> target(6, 0.0f);
+    target[klass] = 1.0f;
+    emit mindEventSampleReady(feature, target, label);
+}
+
+bool CwDecoder::mindEventAssistActive() const
+{
+    return m_mindEventAssistEnabled && static_cast<bool>(m_mindEventClassifier);
+}
+
+bool CwDecoder::mindHeavyHumanFistAssistActive() const
+{
+    // Active CW is intentionally a heavy human-fist assist mode: MIND is allowed
+    // to steer low-level timing and the native event decoder becomes the text
+    // source.  Training still does not alter decoding because
+    // setMindEventAssistEnabled(false) is used outside Active.
+    return mindEventAssistActive();
+}
+
+double CwDecoder::mindEventProbability(const QVector<float> &probabilities, int klass) const
+{
+    if (klass < 0 || klass >= probabilities.size()) {
+        return 0.0;
+    }
+    return qBound(0.0, static_cast<double>(probabilities.at(klass)), 1.0);
+}
+
+int CwDecoder::mindSuggestedEventClass(const QVector<float> &feature, double *confidence, QVector<float> *probabilities) const
+{
+    if (confidence != nullptr) {
+        *confidence = 0.0;
+    }
+    if (probabilities != nullptr) {
+        probabilities->clear();
+    }
+    if (!mindEventAssistActive() || feature.size() != 256) {
+        return -1;
+    }
+
+    QVector<float> pred;
+    double confPercent = 0.0;
+    if (!m_mindEventClassifier(feature, &pred, &confPercent) || pred.size() != 6) {
+        return -1;
+    }
+    int best = 0;
+    for (int i = 1; i < pred.size(); ++i) {
+        if (pred.at(i) > pred.at(best)) {
+            best = i;
+        }
+    }
+    const double conf = qBound(0.0, static_cast<double>(pred.at(best)), 1.0);
+    if (confidence != nullptr) {
+        *confidence = conf;
+    }
+    if (probabilities != nullptr) {
+        *probabilities = pred;
+    }
+    Q_UNUSED(confPercent);
+    return best;
+}
+
+double CwDecoder::robustDotFromRecentElements() const
+{
+    if (m_recentElements.isEmpty()) {
+        return 0.0;
+    }
+
+    QVector<double> sorted;
+    sorted.reserve(m_recentElements.size());
+    for (double d : m_recentElements) {
+        if (d >= 0.010 && d <= 2.0) {
+            sorted.append(d);
+        }
+    }
+    if (sorted.isEmpty()) {
+        return 0.0;
+    }
+
+    std::sort(sorted.begin(), sorted.end());
+    const int count = qBound(1, qRound(sorted.size() * 0.40), sorted.size());
+    QVector<double> dotCluster;
+    dotCluster.reserve(count);
+    for (int i = 0; i < count; ++i) {
+        dotCluster.append(sorted.at(i));
+    }
+
+    double candidate = medianOf(dotCluster);
+    if (candidate > 2.0 * m_trackingDotSeconds) {
+        candidate /= 3.0;
+    }
+    return candidate;
 }
 
 void CwDecoder::finishCurrentCharacter()
@@ -827,16 +1210,23 @@ void CwDecoder::finishCurrentCharacter()
         return;
     }
 
-    if (m_useGgmorsePrimary) {
-        // Do not double-print: ggmorse is now the selected-signal text source.
-        // The native path still classifies events to maintain timing/status and
-        // for future fallback diagnostics.
+    if (m_useGgmorsePrimary && !mindHeavyHumanFistAssistActive()) {
+        // In Training/classic operation, do not double-print: ggmorse is the
+        // selected-signal text source.  The native path still classifies events
+        // for timing/status and MIND sample generation.
         ++m_decodedChars;
         m_currentPattern.clear();
         m_currentDurations.clear();
         return;
     }
 
+    // In Active CW, MIND is meant to help heavily with human timing.  Therefore
+    // the MIND-biased native event decoder must be allowed to produce the final
+    // character stream; otherwise CW MIND would only collect statistics and have
+    // no visible effect.
+    if (mindHeavyHumanFistAssistActive()) {
+        ++m_mindNativeChars;
+    }
     appendDecodedText(decoded);
 
     m_currentPattern.clear();
@@ -919,22 +1309,13 @@ QString CwDecoder::decodeMorseFuzzy(const QVector<double> &durations, QString *w
 
 void CwDecoder::maybeTrackSpeed(double markSeconds)
 {
-    if (markSeconds <= 0.0) {
+    if (markSeconds <= 0.010 || markSeconds > 2.0) {
         return;
     }
 
-    double candidateDot = markSeconds;
-    if (m_lastElementSeconds > 0.0) {
-        const double longer = qMax(markSeconds, m_lastElementSeconds);
-        const double shorter = qMin(markSeconds, m_lastElementSeconds);
-        const double ratio = longer / qMax(1.0e-6, shorter);
-        if (ratio > 2.05 && ratio < 4.25) {
-            candidateDot = shorter;
-        } else if (markSeconds > 2.15 * m_trackingDotSeconds) {
-            candidateDot = markSeconds / 3.0;
-        }
-    } else if (markSeconds > 2.15 * m_trackingDotSeconds) {
-        candidateDot = markSeconds / 3.0;
+    m_recentElements.append(markSeconds);
+    while (m_recentElements.size() > 24) {
+        m_recentElements.removeFirst();
     }
 
     m_lastElementSeconds = markSeconds;
@@ -944,14 +1325,22 @@ void CwDecoder::maybeTrackSpeed(double markSeconds)
         return;
     }
 
-    // When ggmorse is active, do not let one noisy mark jerk the public WPM
-    // estimate.  ggmorse updates m_trackingDotSeconds from a windowed cost
-    // search; this native mark estimator is only a gentle bootstrap/fallback.
-    const double alpha = m_useGgmorsePrimary ? 0.025 : 0.08;
+    double candidateDot = robustDotFromRecentElements();
+    if (candidateDot <= 0.0) {
+        candidateDot = (markSeconds > 2.15 * m_trackingDotSeconds) ? (markSeconds / 3.0) : markSeconds;
+    }
 
-    // Keep the tracker in a human/radio range and reject most noise spikes.
+    // With ggmorse active this native tracker is a slow, robust bootstrap and
+    // fallback.  It follows the cluster of short elements rather than one noisy
+    // dot/dash ratio, which is much more stable for straight-key human fists.
+    const double alpha = m_useGgmorsePrimary ? 0.030 : 0.060;
+
     if (candidateDot > 0.012 && candidateDot < 0.260) {
-        m_trackingDotSeconds = ((1.0 - alpha) * m_trackingDotSeconds) + (alpha * candidateDot);
+        const double maxStep = 0.12 * m_trackingDotSeconds;
+        const double boundedDot = qBound(m_trackingDotSeconds - maxStep,
+                                         candidateDot,
+                                         m_trackingDotSeconds + maxStep);
+        m_trackingDotSeconds = ((1.0 - alpha) * m_trackingDotSeconds) + (alpha * boundedDot);
         rebuildDetectorConstants();
         const double estimated = trackedWpm();
         const double emitStep = m_useGgmorsePrimary ? 1.0 : 0.5;
@@ -975,7 +1364,7 @@ void CwDecoder::maybeEmitStatus()
     const double noiseDb = 20.0 * qLn(m_noiseLevel + kTiny) / qLn(10.0);
     const double openDb = 20.0 * qLn(m_openThreshold + kTiny) / qLn(10.0);
 
-    emit statusChanged(QString("CW ggmorse+fldigi: %1 Hz, %2 WPM set / %3 WPM tracked (%4), %5, lvl %6 dB, noise %7 dB, thr %8 dB, margin %9 dB, AFC %10 Hz/%11 dB, pat %12→%13, score %14, ggcost %15, chars %16, bad %17")
+    emit statusChanged(QString("CW ggmorse+fldigi: %1 Hz, %2 WPM set / %3 WPM tracked (%4), %5, lvl %6 dB, noise %7 dB, thr %8 dB, margin %9 dB, AFC %10 Hz/%11 dB, pat %12→%13, score %14, ggcost %15, chars %16, bad %17, MIND %18/%19 native %20 gg-sup %21")
                            .arg(m_trackedToneHz, 0, 'f', 0)
                            .arg(m_wpm, 0, 'f', 0)
                            .arg(currentTrackedWpm, 0, 'f', 0)
@@ -992,6 +1381,10 @@ void CwDecoder::maybeEmitStatus()
                            .arg(m_lastFuzzyScore, 0, 'f', 2)
                            .arg(m_ggmorseLastCost, 0, 'f', 2)
                            .arg(m_decodedChars)
-                           .arg(m_badPatterns));
+                           .arg(m_badPatterns)
+                           .arg(m_mindEventAssistEnabled ? QStringLiteral("heavy-human-fist") : QStringLiteral("idle"))
+                           .arg(m_mindAssistUsed)
+                           .arg(m_mindNativeChars)
+                           .arg(m_mindGgmorseSuppressedChars));
     emit markersChanged(frequencyMarkers(m_afcEnabled ? m_trackedToneHz : m_toneHz));
 }

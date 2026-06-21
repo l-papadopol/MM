@@ -23,6 +23,7 @@ public:
         double secondPower = 0.0;
         double confidence = 0.0;
         double offsetHz = 0.0;
+        QVector<double> energies;
     };
 
     GoertzelToneBank();

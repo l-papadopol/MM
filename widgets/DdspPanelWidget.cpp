@@ -47,6 +47,12 @@ public:
         update();
     }
 
+    void setIdleText(const QString &text)
+    {
+        m_idleText = text;
+        update();
+    }
+
 protected:
     void paintEvent(QPaintEvent *) override
     {
@@ -113,12 +119,13 @@ protected:
         if (m_activity.isEmpty()) {
             p.setPen(QColor(190, 195, 200));
             p.drawText(rect().adjusted(0, 14, 0, 0), Qt::AlignCenter,
-                       T(QStringLiteral("Waiting for profile activity")));
+                       m_idleText.isEmpty() ? T(QStringLiteral("Waiting for profile activity")) : m_idleText);
         }
     }
 
 private:
     QString m_profileName;
+    QString m_idleText;
     QVector<int> m_layers;
     QVector<float> m_activity;
 };
@@ -137,18 +144,31 @@ DdspPanelWidget::DdspPanelWidget(DeepDspController *controller, QWidget *parent)
     statusLayout->setHorizontalSpacing(8);
     statusLayout->setVerticalSpacing(5);
 
-    m_lblState = new QLabel(T(QStringLiteral("Shadow training")), grpStatus);
+    m_lblState = new QLabel(T(QStringLiteral("Autonomous training")), grpStatus);
     QFont stateFont = m_lblState->font();
     stateFont.setBold(true);
     m_lblState->setFont(stateFont);
 
     m_lblSamples = new QLabel(T(QStringLiteral("Samples: 0")), grpStatus);
-    m_lblSamples->setToolTip(T(QStringLiteral("Gold samples collected for MIND. FT native samples come from CRC-valid FT candidate matrices.")));
+    m_lblSamples->setToolTip(T(QStringLiteral("MIND ranker samples. FT native samples include CRC-valid positives and LDPC/CRC failed negatives for candidate pruning.")));
+    m_lblModeMeaning = new QLabel(T(QStringLiteral("Off: MIND is bypassed. Training: it learns but does not touch decoding. Active: it may assist low-level decisions; final text remains classical.")), grpStatus);
+    m_lblModeMeaning->setWordWrap(true);
+    m_lblModeMeaning->setStyleSheet(QStringLiteral("color: palette(mid);"));
+    m_lblProfileMeaning = new QLabel(T(QStringLiteral("Current profile: FT ranks candidates, CW heavily assists human-fist timing, RTTY assists mark/space slicing.")), grpStatus);
+    m_lblProfileMeaning->setWordWrap(true);
     m_lblBreakdown = new QLabel(QStringLiteral("FT 0 · RTTY 0 · CW 0"), grpStatus);
     m_lblArchitecture = new QLabel(QStringLiteral("Net --"), grpStatus);
     m_lblBackend = new QLabel(T(QStringLiteral("Backend: CPU Eigen")), grpStatus);
-    m_lblTrainingCompletion = new QLabel(T(QStringLiteral("Bit: -- · Best: --")), grpStatus);
+    m_lblModelState = new QLabel(T(QStringLiteral("Model")) + QStringLiteral(": --"), grpStatus);
+    m_lblTrainingCompletion = new QLabel(T(QStringLiteral("Ranker: -- · Best: --")), grpStatus);
     m_lblLoss = new QLabel(QStringLiteral("Replay 0 · Loss --"), grpStatus);
+
+    for (QLabel *lbl : {m_lblState, m_lblSamples, m_lblModeMeaning, m_lblProfileMeaning,
+                        m_lblBreakdown, m_lblArchitecture,
+                        m_lblBackend, m_lblModelState, m_lblTrainingCompletion, m_lblLoss}) {
+        lbl->setWordWrap(true);
+        lbl->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    }
 
     m_progressAccuracy = new QProgressBar(grpStatus);
     m_progressAccuracy->setRange(0, 100);
@@ -156,14 +176,21 @@ DdspPanelWidget::DdspPanelWidget(DeepDspController *controller, QWidget *parent)
     m_progressAccuracy->setFormat(T(QStringLiteral("MIND %p%")));
     m_progressAccuracy->setTextVisible(true);
 
-    statusLayout->addWidget(m_lblState, 0, 0, 1, 2);
-    statusLayout->addWidget(m_progressAccuracy, 1, 0, 1, 2);
-    statusLayout->addWidget(m_lblSamples, 2, 0);
-    statusLayout->addWidget(m_lblTrainingCompletion, 2, 1);
-    statusLayout->addWidget(m_lblBreakdown, 3, 0, 1, 2);
-    statusLayout->addWidget(m_lblArchitecture, 4, 0, 1, 2);
-    statusLayout->addWidget(m_lblBackend, 5, 0, 1, 2);
-    statusLayout->addWidget(m_lblLoss, 6, 0, 1, 2);
+    statusLayout->addWidget(m_lblState, 0, 0);
+    statusLayout->addWidget(m_progressAccuracy, 1, 0);
+    statusLayout->addWidget(m_lblModeMeaning, 2, 0);
+    statusLayout->addWidget(m_lblSamples, 3, 0);
+    statusLayout->addWidget(m_lblTrainingCompletion, 4, 0);
+    statusLayout->addWidget(m_lblProfileMeaning, 5, 0);
+    statusLayout->addWidget(m_lblBreakdown, 6, 0);
+    statusLayout->addWidget(m_lblArchitecture, 7, 0);
+    statusLayout->addWidget(m_lblBackend, 8, 0);
+    statusLayout->addWidget(m_lblModelState, 9, 0);
+    statusLayout->addWidget(m_lblLoss, 10, 0);
+    m_lblArchitecture->setVisible(false);
+    m_lblBackend->setVisible(false);
+    m_lblModelState->setVisible(false);
+    m_lblLoss->setVisible(false);
 
     auto *grpMatrix = new QGroupBox(this);
     auto *matrixLayout = new QVBoxLayout(grpMatrix);
@@ -191,67 +218,39 @@ DdspPanelWidget::DdspPanelWidget(DeepDspController *controller, QWidget *parent)
     controlLayout->setHorizontalSpacing(6);
     controlLayout->setVerticalSpacing(4);
 
-    m_chkTraining = new QCheckBox(T(QStringLiteral("Shadow training")), grpControl);
-    m_chkTraining->setChecked(true);
-    m_chkTraining->setToolTip(T(QStringLiteral("MIND learns from native FT candidate matrices after LDPC/CRC validation. It does not key TX or AutoQSO.")));
-    m_chkAssist = new QCheckBox(T(QStringLiteral("Assist")), grpControl);
-    m_chkAssist->setEnabled(false);
-    m_chkAssist->setToolTip(T(QStringLiteral("Available only after native validation is perfect. Assisted decodes remain guarded by deterministic checks.")));
+    auto *assistLabel = new QLabel(T(QStringLiteral("MIND Assist")), grpControl);
+    m_cmbAssistMode = new QComboBox(grpControl);
+    m_cmbAssistMode->addItem(T(QStringLiteral("Off")), QStringLiteral("off"));
+    m_cmbAssistMode->addItem(T(QStringLiteral("Training")), QStringLiteral("shadow"));
+    m_cmbAssistMode->addItem(T(QStringLiteral("Active")), QStringLiteral("assisted"));
+    m_cmbAssistMode->setToolTip(T(QStringLiteral("Off: native decoders only. Training: MIND learns and scores without changing decoding. Active: MIND may rank/prioritize FT candidates and run mode-specific helpers, but final text remains produced by the classical decoders.")));
 
-    auto *budgetLabel = new QLabel(T(QStringLiteral("Trainer budget")), grpControl);
-    m_spinBudget = new QSpinBox(grpControl);
-    m_spinBudget->setRange(0, 250);
-    m_spinBudget->setValue(50);
-    m_spinBudget->setSuffix(QStringLiteral(" ms"));
-    m_spinBudget->setToolTip(T(QStringLiteral("Maximum dedicated trainer-thread work per cycle. Higher values use more CPU for offline learning; decoder, audio, CAT and UI threads are not used for MIND training.")));
+    auto *autonomyLabel = new QLabel(T(QStringLiteral("Training is automatic. Off = no overhead. Training = safe learning. Active = assisted decoding without neural text generation.")), grpControl);
+    autonomyLabel->setWordWrap(true);
+    autonomyLabel->setToolTip(T(QStringLiteral("No manual training budget, save, load or reset controls are exposed. MIND checkpoints and replay data are managed automatically in the background.")));
 
-    m_btnReset = new QPushButton(T(QStringLiteral("Reset")), grpControl);
-    m_btnSave = new QPushButton(T(QStringLiteral("Save")), grpControl);
-    m_btnLoad = new QPushButton(T(QStringLiteral("Load")), grpControl);
-
-    controlLayout->addWidget(m_chkTraining, 0, 0, 1, 2);
-    controlLayout->addWidget(m_chkAssist, 0, 2);
-    controlLayout->addWidget(budgetLabel, 1, 0);
-    controlLayout->addWidget(m_spinBudget, 1, 1, 1, 2);
-    controlLayout->addWidget(m_btnSave, 2, 0);
-    controlLayout->addWidget(m_btnLoad, 2, 1);
-    controlLayout->addWidget(m_btnReset, 2, 2);
-
-    auto *grpModel = new QGroupBox(this);
-    auto *modelLayout = new QVBoxLayout(grpModel);
-    modelLayout->setContentsMargins(8, 8, 8, 8);
-    m_lblCheckpoint = new QLabel(T(QStringLiteral("Model: not loaded")), grpModel);
-    m_lblCheckpoint->setWordWrap(false);
-    m_lblLastCheckpoint = new QLabel(T(QStringLiteral("Checkpoint: never")), grpModel);
-    m_lblLastCheckpoint->setWordWrap(false);
-    modelLayout->addWidget(m_lblCheckpoint);
-    modelLayout->addWidget(m_lblLastCheckpoint);
+    controlLayout->addWidget(assistLabel, 0, 0);
+    controlLayout->addWidget(m_cmbAssistMode, 0, 1, 1, 2);
+    controlLayout->addWidget(autonomyLabel, 1, 0, 1, 3);
 
     // Manual CW/RTTY teaching and synthetic bootcamp controls are intentionally
     // hidden from the production MIND panel. FT labels are collected from
     // native CRC-valid candidate matrices; CW/RTTY profile plumbing remains
-    // internal for later shadow-assist work.
+    // internal for later training/active assist work.
 
 
     outer->addWidget(grpStatus);
     outer->addWidget(grpMatrix);
     outer->addWidget(grpControl);
-    outer->addWidget(grpModel);
     outer->addStretch(1);
 
     if (m_controller != nullptr) {
-        connect(m_chkTraining, &QCheckBox::toggled,
-                m_controller, &DeepDspController::setEnabled);
-        connect(m_chkAssist, &QCheckBox::toggled,
-                m_controller, &DeepDspController::setAssistEnabled);
-        connect(m_spinBudget, QOverload<int>::of(&QSpinBox::valueChanged),
-                m_controller, &DeepDspController::setTrainingBudgetMs);
-        connect(m_btnReset, &QPushButton::clicked,
-                m_controller, &DeepDspController::resetModel);
-        connect(m_btnSave, &QPushButton::clicked,
-                m_controller, &DeepDspController::saveCheckpoint);
-        connect(m_btnLoad, &QPushButton::clicked,
-                m_controller, &DeepDspController::loadCheckpoint);
+        connect(m_cmbAssistMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [this](int) {
+                    if (m_controller != nullptr && m_cmbAssistMode != nullptr) {
+                        m_controller->setAssistMode(m_cmbAssistMode->currentData().toString());
+                    }
+                });
         connect(m_cmbProfileView, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &DdspPanelWidget::profileSelectionChanged);
         connect(m_controller, &DeepDspController::statusChanged,
@@ -328,14 +327,22 @@ void DdspPanelWidget::applyProfileToMatrix(const QString &profile, const DeepDsp
             activity = status.rttyActivity;
         }
     } else {
-        layers = QVector<int>{464, 128, 64, 174};
-        if (status.ftActivity.size() == 464 + 128 + 64 + 174) {
+        layers = QVector<int>{464, 8, 24, 1};
+        if (status.ftActivity.size() == 464 + 8 + 24 + 1) {
             activity = status.ftActivity;
-        } else if (status.neuralActivity.size() == 464 + 128 + 64 + 174) {
+        } else if (status.neuralActivity.size() == 464 + 8 + 24 + 1) {
             activity = status.neuralActivity;
         }
     }
     m_matrixWidget->setProfile(profile, layers);
+    if (activity.isEmpty()) {
+        const QString idle = status.modelStateText.contains(QStringLiteral("loaded"), Qt::CaseInsensitive)
+            ? T(QStringLiteral("Model loaded")) + QStringLiteral(" · ") + T(QStringLiteral("waiting for %1 activity")).arg(profile)
+            : T(QStringLiteral("Model missing")) + QStringLiteral(" · ") + T(QStringLiteral("collecting %1 samples")).arg(profile);
+        m_matrixWidget->setIdleText(idle);
+    } else {
+        m_matrixWidget->setIdleText(QString());
+    }
     m_matrixWidget->setActivity(activity);
 }
 
@@ -344,17 +351,50 @@ void DdspPanelWidget::updateStatus(const DeepDspController::Status &status)
     if (m_lblState != nullptr) {
         m_lblState->setText(T(status.stateText));
     }
+    const QString assist = status.assistMode.trimmed().toLower();
+    if (m_lblModeMeaning != nullptr) {
+        if (!status.enabled || assist == QStringLiteral("off")) {
+            m_lblModeMeaning->setText(T(QStringLiteral("Off: MIND is completely bypassed. Native decoders only, zero training/scoring overhead.")));
+        } else if (assist == QStringLiteral("shadow") || assist == QStringLiteral("training")) {
+            m_lblModeMeaning->setText(T(QStringLiteral("Training: MIND is learning from RX. It does not change the decoder output.")));
+        } else {
+            m_lblModeMeaning->setText(T(QStringLiteral("Active: MIND may help weak FT candidates, CW human-fist event timing and RTTY mark/space slicing. It never invents decoded text.")));
+        }
+    }
     const QString profile = effectiveProfile(status);
+    if (m_lblProfileMeaning != nullptr) {
+        if (profile == QStringLiteral("CW")) {
+            if (assist == QStringLiteral("assisted") || assist == QStringLiteral("active")) {
+                const QString state = status.cwAssistReady
+                    ? T(QStringLiteral("CW Active: heavy human-fist assist ready. MIND steers dit/dah/gap timing and the native Morse event decoder; it does not invent callsigns."))
+                    : T(QStringLiteral("CW Active: not ready yet. Classic CW/ggmorse is used while MIND trains.")) + QStringLiteral(" ") + status.cwAssistReason;
+                m_lblProfileMeaning->setText(state);
+            } else {
+                m_lblProfileMeaning->setText(T(QStringLiteral("CW Training: MIND learns dit/dah/gap timing only. Active mode uses it heavily for human fist recovery.")));
+            }
+        } else if (profile == QStringLiteral("RTTY")) {
+            if (assist == QStringLiteral("assisted") || assist == QStringLiteral("active")) {
+                const QString state = status.rttyAssistReady
+                    ? T(QStringLiteral("RTTY Active: ready. MIND may correct only weak/borderline Mark/Space bits; text remains Baudot."))
+                    : T(QStringLiteral("RTTY Active: not ready yet. Classic RTTY is used while MIND trains.")) + QStringLiteral(" ") + status.rttyAssistReason;
+                m_lblProfileMeaning->setText(state);
+            } else {
+                m_lblProfileMeaning->setText(T(QStringLiteral("RTTY Training: MIND collects Mark/Space bit samples. It does not change decoding.")));
+            }
+        } else {
+            m_lblProfileMeaning->setText(T(QStringLiteral("FT MIND: ranks candidates and chooses where to spend ultra-deep recovery. CRC/parser still validate final messages.")));
+        }
+    }
     if (m_lblSamples != nullptr) {
         int shownSamples = status.sampleCount;
         if (profile == QStringLiteral("FT8")) shownSamples = status.ft8Samples;
         else if (profile == QStringLiteral("FT4")) shownSamples = status.ft4Samples;
         else if (profile == QStringLiteral("CW")) shownSamples = status.cwSamples;
         else if (profile == QStringLiteral("RTTY")) shownSamples = status.rttySamples;
-        m_lblSamples->setText(T(QStringLiteral("Samples")) + QStringLiteral(" %1: %2").arg(profile).arg(shownSamples));
+        m_lblSamples->setText(T(QStringLiteral("Training data")) + QStringLiteral(": %1 %2").arg(profile).arg(shownSamples));
     }
     if (m_lblBreakdown != nullptr) {
-        m_lblBreakdown->setText(QStringLiteral("FT8 %1 · FT4 %2 · RTTY %3 · CW %4")
+        m_lblBreakdown->setText(T(QStringLiteral("Data split")) + QStringLiteral(": FT8 %1 · FT4 %2 · RTTY %3 · CW %4")
                                     .arg(status.ft8Samples)
                                     .arg(status.ft4Samples)
                                     .arg(status.rttySamples)
@@ -362,54 +402,92 @@ void DdspPanelWidget::updateStatus(const DeepDspController::Status &status)
     }
     if (m_lblLoss != nullptr) {
         if (profile == QStringLiteral("CW")) {
-            m_lblLoss->setText(QStringLiteral("CW train %1 · Loss %2")
-                                   .arg(status.trainingRuns)
+            m_lblLoss->setText(T(QStringLiteral("CW event profile")) + QStringLiteral(" · ") + T(QStringLiteral("Loss")) + QStringLiteral(" %1")
+                                   .arg(status.lastLoss, 0, 'f', 5));
+        } else if (profile == QStringLiteral("RTTY")) {
+            m_lblLoss->setText(T(QStringLiteral("RTTY soft-slicer")) + QStringLiteral(" · ") + T(QStringLiteral("Loss")) + QStringLiteral(" %1")
                                    .arg(status.lastLoss, 0, 'f', 5));
         } else {
-            m_lblLoss->setText(QStringLiteral("Replay %1 · Batch %2 · %3 samp/s · Loss %4")
-                                   .arg(status.replayBufferSamples)
-                                   .arg(status.ftBatchSize)
-                                   .arg(status.trainSamplesPerSecond, 0, 'f', 0)
-                                   .arg(status.lastLoss, 0, 'f', 5));
+            const QString lossText = T(QStringLiteral("Replay")) + QStringLiteral(" %1 · ") +
+                                     T(QStringLiteral("Auto")) + QStringLiteral(" %2 ms/%3 · %4 ") +
+                                     T(QStringLiteral("samp/s")) + QStringLiteral(" · ") +
+                                     T(QStringLiteral("Loss")) + QStringLiteral(" %5");
+            m_lblLoss->setText(lossText.arg(status.replayBufferSamples)
+                                       .arg(status.adaptiveTrainingBudgetMs)
+                                       .arg(status.adaptiveBatchSize)
+                                       .arg(status.trainSamplesPerSecond, 0, 'f', 0)
+                                       .arg(status.lastLoss, 0, 'f', 5));
         }
     }
     if (m_lblArchitecture != nullptr) {
         QString arch = status.architectureText;
         if (profile == QStringLiteral("CW")) arch = QStringLiteral("256 → 96 → 48 → 6");
         else if (profile == QStringLiteral("RTTY")) arch = QStringLiteral("96 → 64 → 32 → 8");
-        else if (profile == QStringLiteral("FT4")) arch = QStringLiteral("464 → 128 → 64 → 174");
-        else if (profile == QStringLiteral("FT8")) arch = QStringLiteral("464 → 128 → 64 → 174");
-        m_lblArchitecture->setText(QStringLiteral("Net ") + profile + QStringLiteral(" ") + arch);
+        else if (profile == QStringLiteral("FT4")) arch = QStringLiteral("58×8 → Conv2D → sigmoid");
+        else if (profile == QStringLiteral("FT8")) arch = QStringLiteral("58×8 → Conv2D → sigmoid");
+        m_lblArchitecture->setText(T(QStringLiteral("Net")) + QStringLiteral(" ") + profile + QStringLiteral(": ") + arch);
     }
     if (m_lblBackend != nullptr) {
         m_lblBackend->setText(T(QStringLiteral("Backend")) + QStringLiteral(": ") + status.backendText);
-        m_lblBackend->setToolTip(T(QStringLiteral("MIND uses Eigen/OpenMP batched matrix-matrix training on the dedicated trainer thread. Batch and samples/second show whether CPU parallel training is active.")));
+        m_lblBackend->setToolTip(T(QStringLiteral("MIND uses Eigen/OpenMP batched matrix-matrix training on a low-priority autonomous trainer thread. The user cannot set a fixed trainer budget; MadModem adapts it from RX/TX, CW, FT timing and idle/configuration state.")));
+    }
+    if (m_lblModelState != nullptr) {
+        const QString modelText = T(status.modelStateText);
+        m_lblModelState->setText(T(QStringLiteral("Model")) + QStringLiteral(": ") + modelText +
+                                 QStringLiteral(" · ") + T(QStringLiteral("Dataset")) + QStringLiteral(" ") + QString::number(status.loadedGoldSamples) +
+                                 QStringLiteral(" · ") + status.lastCheckpointText);
+        m_lblModelState->setToolTip(T(QStringLiteral("Checkpoint")) + QStringLiteral(": ") + status.checkpointPath +
+                                    QStringLiteral("\n") + T(QStringLiteral("Stats")) + QStringLiteral(": ") + status.statsPath +
+                                    QStringLiteral("\n") + T(QStringLiteral("Gold dataset")) + QStringLiteral(": ") + status.goldDatasetPath);
     }
     constexpr int kUiMinValidation = 200;
     const bool warmup = status.validationCount < kUiMinValidation;
     if (m_lblTrainingCompletion != nullptr) {
         if (profile == QStringLiteral("CW")) {
-            m_lblTrainingCompletion->setText(T(QStringLiteral("Symbol")) + QStringLiteral(": ") +
-                                             QString::number(status.cwAccuracy, 'f', 1) + QStringLiteral(" %"));
+            m_lblTrainingCompletion->setText(T(QStringLiteral("CW assist")) + QStringLiteral(": ") +
+                                             (status.cwAssistReady ? T(QStringLiteral("ready")) : T(QStringLiteral("training"))) +
+                                             QStringLiteral(" · ") + T(QStringLiteral("batches")) + QStringLiteral(" ") + QString::number(status.cwTrainingRuns) +
+                                             QStringLiteral(" · ") + T(QStringLiteral("accuracy")) + QStringLiteral(" ") + QString::number(status.cwAccuracy, 'f', 1) + QStringLiteral(" %"));
+            m_lblTrainingCompletion->setToolTip(T(QStringLiteral("CW MIND is a heavy human-fist event/timing helper. In Active it can steer dit/dah/gap decisions and the native Morse stream, but it never invents callsigns or free text.")));
+        } else if (profile == QStringLiteral("RTTY")) {
+            m_lblTrainingCompletion->setText(T(QStringLiteral("RTTY assist")) + QStringLiteral(": ") +
+                                             (status.rttyAssistReady ? T(QStringLiteral("ready")) : T(QStringLiteral("training"))) +
+                                             QStringLiteral(" · ") + T(QStringLiteral("batches")) + QStringLiteral(" ") + QString::number(status.rttyTrainingRuns) +
+                                             QStringLiteral(" · ") + T(QStringLiteral("accuracy")) + QStringLiteral(" ") + QString::number(status.rttyAccuracy, 'f', 1) + QStringLiteral(" % · ") +
+                                             T(QStringLiteral("samples")) + QStringLiteral(" ") + QString::number(status.rttySamples));
+            m_lblTrainingCompletion->setToolTip(T(QStringLiteral("RTTY MIND classifies bit-level Mark/Space confidence. Active mode may override only low-confidence slicer decisions; it never generates text.")));
         } else {
             const QString msgPart = warmup
                 ? QStringLiteral("--")
                 : QString::number(status.messageAccuracy, 'f', 2) + QStringLiteral(" %");
-            m_lblTrainingCompletion->setText(T(QStringLiteral("Bit")) + QStringLiteral(": ") +
-                                             QString::number(status.bitAccuracy, 'f', 1) + QStringLiteral(" % · ") +
-                                             T(QStringLiteral("Best Bit")) + QStringLiteral(": ") +
-                                             QString::number(status.bestBitAccuracy, 'f', 1) + QStringLiteral(" % · ") +
-                                             T(QStringLiteral("Msg")) + QStringLiteral(": ") + msgPart);
+            const QString estPart = status.estimatedExactFrameAccuracy > 0.0
+                ? QString::number(status.estimatedExactFrameAccuracy, 'f', 1) + QStringLiteral(" %")
+                : QStringLiteral("--");
+            const QString bitPart = status.bitAccuracy > 0.0
+                ? QString::number(status.bitAccuracy, 'f', 1) + QStringLiteral(" %")
+                : QStringLiteral("--");
+            const QString bestPart = status.bestBitAccuracy > 0.0
+                ? QString::number(status.bestBitAccuracy, 'f', 1) + QStringLiteral(" %")
+                : QStringLiteral("--");
+            m_lblTrainingCompletion->setText(T(QStringLiteral("Ranker")) + QStringLiteral(": ") + bitPart + QStringLiteral(" · ") +
+                                             T(QStringLiteral("Best")) + QStringLiteral(": ") + bestPart + QStringLiteral(" · ") +
+                                             T(QStringLiteral("Val")) + QStringLiteral(": ") + msgPart +
+                                             QStringLiteral(" · ") + T(QStringLiteral("Pos/Neg")) + QStringLiteral(": ") + QString::number(status.rankerPositiveSamples) +
+                                             QStringLiteral("/") + QString::number(status.rankerNegativeSamples));
+            m_lblTrainingCompletion->setToolTip(T(QStringLiteral("MIND Ranker predicts candidate_success_probability for FT candidate ranking/pruning. Final FT text still requires classical LDPC, CRC, unpack and parser validation.")));
         }
     }
     if (m_progressAccuracy != nullptr) {
         m_progressAccuracy->setValue(qBound(0, static_cast<int>(status.trainingCompletionPercent + 0.5), 100));
         if (profile == QStringLiteral("CW")) {
             m_progressAccuracy->setFormat(T(QStringLiteral("CW %p%")));
-            m_progressAccuracy->setToolTip(T(QStringLiteral("CW training progress from the dedicated synthetic dit/dah/gap profile.")));
+            m_progressAccuracy->setToolTip(T(QStringLiteral("CW training progress from the dedicated keying-event profile.")));
+        } else if (profile == QStringLiteral("RTTY")) {
+            m_progressAccuracy->setFormat(T(QStringLiteral("RTTY %p%")));
+            m_progressAccuracy->setToolTip(T(QStringLiteral("RTTY training progress from the dedicated soft-slicer profile.")));
         } else {
             m_progressAccuracy->setFormat(T(QStringLiteral("MIND %p%")));
-            m_progressAccuracy->setToolTip(T(QStringLiteral("MIND progress uses the guarded readiness score. Bit and Best Bit show actual learning quality.")));
+            m_progressAccuracy->setToolTip(T(QStringLiteral("MIND progress measures candidate-ranker assist readiness, not direct message generation.")));
         }
     }
     applyProfileToMatrix(profile, status);
@@ -425,17 +503,20 @@ void DdspPanelWidget::updateStatus(const DeepDspController::Status &status)
         m_lblLastCheckpoint->setToolTip(T(QStringLiteral("Stats")) + QStringLiteral(": ") + status.statsPath +
                                         QStringLiteral("\n") + T(QStringLiteral("Gold dataset")) + QStringLiteral(": ") + status.goldDatasetPath);
     }
-    if (m_chkTraining != nullptr && m_chkTraining->isChecked() != status.enabled) {
-        m_chkTraining->blockSignals(true);
-        m_chkTraining->setChecked(status.enabled);
-        m_chkTraining->blockSignals(false);
-    }
-    if (m_chkAssist != nullptr) {
-        m_chkAssist->setEnabled(status.ready);
-        if (m_chkAssist->isChecked() != status.assistEnabled) {
-            m_chkAssist->blockSignals(true);
-            m_chkAssist->setChecked(status.assistEnabled);
-            m_chkAssist->blockSignals(false);
+    if (m_cmbAssistMode != nullptr) {
+        const QString mode = status.assistMode.trimmed().toLower().isEmpty()
+                             ? QStringLiteral("shadow")
+                             : status.assistMode.trimmed().toLower();
+        const int idx = m_cmbAssistMode->findData(mode);
+        if (idx >= 0 && m_cmbAssistMode->currentIndex() != idx) {
+            m_cmbAssistMode->blockSignals(true);
+            m_cmbAssistMode->setCurrentIndex(idx);
+            m_cmbAssistMode->blockSignals(false);
         }
+        const QString tip = status.assistRequested && !status.assistEnabled
+            ? T(QStringLiteral("Active is selected but will remain training-only until the MIND ranker assist-ready gate is reached. Final FT messages still require CRC/unpack/parser validation."))
+                  + QStringLiteral("\n") + status.readinessReason
+            : T(QStringLiteral("MIND Assist controls DNN helpers: FT ranker before LDPC, CW human-fist event timing, and RTTY mark/space slicing. It never accepts unvalidated FT text or invents callsigns."));
+        m_cmbAssistMode->setToolTip(tip);
     }
 }

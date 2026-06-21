@@ -1,3 +1,5 @@
+MIND autonomous trainer patch: removed user-facing trainer budget and model Save/Load/Reset controls. New visible strings are limited to MIND Assist and an autonomous-training explanatory label; runtime dictionaries should be refreshed with the normal translation audit script.
+
 # Translation audit
 
 Generated after MIND UI cleanup.

@@ -19,14 +19,28 @@ else
     echo "WARNING: Linux executable not found: dist/linux/bin/$APP_NAME" >&2
 fi
 
+# Windows executables.  The normal release package may contain two CPU builds:
+#   MadModem.exe        = AVX2/FMA optimized executable for modern CPUs.
+#   MadModem-Legacy.exe = portable executable for older CPUs without AVX/AVX2.
 if [[ -f "$ROOT_DIR/dist/windows/$APP_NAME.exe" ]]; then
     cp -f "$ROOT_DIR/dist/windows/$APP_NAME.exe" "$PACKAGE_DIR/$APP_NAME.exe"
+    copied_exe=$((copied_exe + 1))
+elif [[ -f "$ROOT_DIR/build-win64-static-avx2/$APP_NAME.exe" ]]; then
+    cp -f "$ROOT_DIR/build-win64-static-avx2/$APP_NAME.exe" "$PACKAGE_DIR/$APP_NAME.exe"
     copied_exe=$((copied_exe + 1))
 elif [[ -f "$ROOT_DIR/build-win64-static/$APP_NAME.exe" ]]; then
     cp -f "$ROOT_DIR/build-win64-static/$APP_NAME.exe" "$PACKAGE_DIR/$APP_NAME.exe"
     copied_exe=$((copied_exe + 1))
 else
-    echo "WARNING: Windows executable not found: dist/windows/$APP_NAME.exe" >&2
+    echo "WARNING: Windows AVX2 executable not found: dist/windows/$APP_NAME.exe" >&2
+fi
+
+if [[ -f "$ROOT_DIR/dist/windows/$APP_NAME-Legacy.exe" ]]; then
+    cp -f "$ROOT_DIR/dist/windows/$APP_NAME-Legacy.exe" "$PACKAGE_DIR/$APP_NAME-Legacy.exe"
+    copied_exe=$((copied_exe + 1))
+elif [[ -f "$ROOT_DIR/build-win64-static-legacy/$APP_NAME.exe" ]]; then
+    cp -f "$ROOT_DIR/build-win64-static-legacy/$APP_NAME.exe" "$PACKAGE_DIR/$APP_NAME-Legacy.exe"
+    copied_exe=$((copied_exe + 1))
 fi
 
 if [[ "$copied_exe" -eq 0 ]]; then
@@ -67,6 +81,8 @@ for wav_dir in \
     "$ROOT_DIR/dist/windows/tests/wav" \
     "$ROOT_DIR/build-linux/tests/wav" \
     "$ROOT_DIR/build-win64-static/tests/wav" \
+    "$ROOT_DIR/build-win64-static-avx2/tests/wav" \
+    "$ROOT_DIR/build-win64-static-legacy/tests/wav" \
     "$ROOT_DIR/tests/wav"; do
     if [[ -d "$wav_dir" ]]; then
         mkdir -p "$PACKAGE_DIR/tests/wav"
@@ -94,6 +110,8 @@ for lang in en it fr de no cs; do
     for qch in \
         "$ROOT_DIR/build-linux/docs/help/MM_${lang}.qch" \
         "$ROOT_DIR/build-win64-static/docs/help/MM_${lang}.qch" \
+        "$ROOT_DIR/build-win64-static-avx2/docs/help/MM_${lang}.qch" \
+        "$ROOT_DIR/build-win64-static-legacy/docs/help/MM_${lang}.qch" \
         "$ROOT_DIR/docs/help/MM_${lang}.qch"; do
         if [[ -f "$qch" ]]; then
             mkdir -p "$PACKAGE_DIR/help"

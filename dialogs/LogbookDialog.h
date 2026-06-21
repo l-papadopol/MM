@@ -57,6 +57,7 @@ private slots:
     void deleteSelectedRecords();
     void printLogbook();
     void savePdfLogbook();
+    void saveStatisticsPdf();
     void configureVisibleFields();
 
 private:
@@ -91,6 +92,8 @@ private:
     QString htmlForRecords(const QVector<LogbookEntry> &records,
                            const QString &scopeLabel,
                            QProgressDialog *progress = nullptr) const;
+    QString htmlForStatistics(const QVector<LogbookEntry> &records,
+                              const QString &scopeLabel) const;
     void adjustColumnWidths();
     QString L(const QString &source) const;
     void retranslateVisibleText();
@@ -100,6 +103,9 @@ private:
     bool saveRecordsToPdf(const QVector<LogbookEntry> &records,
                           const QString &scopeLabel,
                           const QString &defaultBaseName);
+    bool saveStatisticsToPdf(const QVector<LogbookEntry> &records,
+                             const QString &scopeLabel,
+                             const QString &defaultBaseName);
 
     AdifLogbook *m_logbook = nullptr;
     AppSettings *m_settings = nullptr;
@@ -119,7 +125,6 @@ private:
     QMenuBar *m_menuBar = nullptr;
     QToolBar *m_toolbar = nullptr;
     QStatusBar *m_statusBar = nullptr;
-    QCheckBox *m_workedStrikeCheck = nullptr;
     QAction *m_actImport = nullptr;
     QAction *m_actExportAll = nullptr;
     QAction *m_actExportResult = nullptr;
@@ -130,6 +135,7 @@ private:
     QAction *m_actDelete = nullptr;
     QAction *m_actPrint = nullptr;
     QAction *m_actPdf = nullptr;
+    QAction *m_actStatsPdf = nullptr;
     QAction *m_actRefresh = nullptr;
     QAction *m_actClearSearch = nullptr;
     QAction *m_actSelectAll = nullptr;
@@ -142,6 +148,7 @@ private:
     QPushButton *m_deleteSelectedButton = nullptr;
     QPushButton *m_printButton = nullptr;
     QPushButton *m_savePdfButton = nullptr;
+    QPushButton *m_statsPdfButton = nullptr;
     QPushButton *m_closeButton = nullptr;
     QVector<LogbookEntry> m_displayedRecords;
     QStringList m_adifExtraColumns;

@@ -1,6 +1,7 @@
 <!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><title>CW / Morse</title><link rel='stylesheet' href='../style.css'></head><body>
 <h1>CW / Morse</h1>
 <div class='nav'><strong>Contents:</strong> <a href='index.html'>MM Help</a> <a href='quickstart.html'>Quick start</a> <a href='audio_cat_ptt.html'>Audio, CAT and PTT</a> <a href='waterfall.html'>Waterfall and markers</a> <a href='text_modes.html'>Text modes</a> <a href='cw.html'>CW / Morse</a> <a href='ft8_ft4.html'>FT4 / FT8</a> <a href='scheduler.html'>Scheduler</a> <a href='evil_mode.html'>Evil mode / automation</a> <a href='logbook_map.html'>Logbook and map</a> <a href='troubleshooting.html'>Troubleshooting</a></div>
-<h2>CW / Morse</h2><p>CW uses a compact waterfall because the skimmer was removed. CW TX generates a clean sine, raised-cosine key shaping and a narrow band-pass around the tone to avoid harmonics and splatter.</p>
-<div class='footer'>MadModem 0.5.0 — Qt Help — English</div>
+<h2>CW / Morse</h2><p>CW uses a compact waterfall because the skimmer was removed. CW RX tuning is done from the waterfall tone marker. AFC can follow small drift, and Software AGC is now in the CW Mode settings under AFC for QSB or unstable input levels. CW TX generates a clean sine, raised-cosine key shaping and a narrow band-pass around the tone to avoid harmonics and splatter.</p>
+<p><strong>Human fist recovery:</strong> CW RX now uses robust moving-window WPM tracking, adaptive letter/word gap detection, selected-note ggmorse filtering and light radio-token spacing normalization for hand-sent Morse.</p>
+<div class='footer'>MadModem 0.5.10 — Qt Help — English</div>
 </body></html>

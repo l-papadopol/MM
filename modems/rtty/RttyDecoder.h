@@ -8,6 +8,7 @@
 #include <QObject>
 #include <QString>
 #include <QVector>
+#include <functional>
 
 /**
  * @brief Streaming AFSK RTTY decoder using ITA2/Baudot code.
@@ -23,6 +24,7 @@ class RttyDecoder : public QObject
     Q_OBJECT
 
 public:
+    using MindRttyClassifier = std::function<bool(const QVector<float> &, QVector<float> *, double *)>;
     /**
      * @brief Creates a decoder with common amateur RTTY defaults.
      */
@@ -95,6 +97,19 @@ public:
      */
     QString receivedText() const;
 
+    /**
+     * @brief Enables MIND Active soft-slicer assist for low-confidence RTTY bit decisions.
+     *
+     * Training mode still collects samples but cannot alter the classical decoder.
+     * Off keeps the decoder hard-bypassed from MIND.
+     */
+    void setMindSoftSlicerEnabled(bool enabled);
+
+    /**
+     * @brief Installs the MIND RTTY classifier callback.
+     */
+    void setMindSoftSlicerClassifier(MindRttyClassifier classifier);
+
 signals:
     /**
      * @brief Emits every decoded printable/control character.
@@ -120,6 +135,14 @@ signals:
      * @brief Emits live Mark/Space levels for the RTTY CRT tuning scope.
      */
     void tuningScopeChanged(double markLevel, double spaceLevel, double snrLike, bool locked);
+
+    /**
+     * @brief Emits RTTY bit-level samples for the dedicated MIND soft-slicer profile.
+     *
+     * The target is an 8-class one-hot vector: strong Mark, strong Space, weak Mark,
+     * weak Space, transition, carrier drop, reverse suspicion, noise/ambiguous.
+     */
+    void mindRttyBitSampleReady(const QVector<float> &input, const QVector<float> &target, const QString &label);
 
     /**
      * @brief Emits real crossed-ellipse Mark/Space CRT deflection samples.
@@ -175,6 +198,12 @@ private:
      */
     void maybeEmitStatus();
 
+    void updateMindFeatureWindow(double diffNorm, double bitQuality, double sumEnergy);
+    QVector<float> mindRttyFeature() const;
+    QVector<float> mindRttyTarget(bool bitIsMark, double bitQuality) const;
+    bool maybeApplyMindSoftSlicer(bool classicBitIsMark, double bitQuality);
+    void submitMindRttyBitSample(bool bitIsMark, double bitQuality);
+
 private:
     double m_baudRate = 45.45;
     double m_markHz = 2125.0;
@@ -222,6 +251,15 @@ private:
     int m_statusCounter = 0;
     int m_scopeDecimator = 0;
     QVector<QPointF> m_scopeTrace;
+
+    QVector<float> m_mindFeatureWindow;
+    int m_mindFeatureDecimator = 0;
+    bool m_mindSoftSlicerEnabled = false;
+    MindRttyClassifier m_mindClassifier;
+    int m_mindScored = 0;
+    int m_mindAssistedBits = 0;
+    int m_mindSamples = 0;
+
     QString m_text;
 };
 

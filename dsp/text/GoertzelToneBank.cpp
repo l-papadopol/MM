@@ -50,6 +50,7 @@ GoertzelToneBank::Result GoertzelToneBank::analyse(const QVector<double> &sample
         return result;
     }
 
+    result.energies.resize(m_toneCount);
     for (int tone = 0; tone < m_toneCount; ++tone) {
         const double coeff = m_coefficients.value(tone, 0.0);
         double q0 = 0.0;
@@ -63,6 +64,7 @@ GoertzelToneBank::Result GoertzelToneBank::analyse(const QVector<double> &sample
             q1 = q0;
         }
         const double power = (q1 * q1) + (q2 * q2) - (coeff * q1 * q2);
+        result.energies[tone] = power;
         if (power > result.bestPower) {
             result.secondPower = result.bestPower;
             result.bestPower = power;

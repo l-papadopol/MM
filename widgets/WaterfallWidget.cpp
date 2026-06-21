@@ -407,7 +407,10 @@ void WaterfallWidget::drawMarkers(QPainter &painter)
             }
             const int y = frequencyToY(marker.frequencyHz);
             QPen markerPen(marker.color);
-            markerPen.setWidth(2);
+            markerPen.setWidth(qMax(1, marker.width));
+            if (marker.dashed) {
+                markerPen.setStyle(Qt::DashLine);
+            }
             painter.setPen(markerPen);
             painter.drawLine(0, y, width(), y);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
@@ -453,7 +456,10 @@ void WaterfallWidget::drawMarkers(QPainter &painter)
         const int x = frequencyToX(marker.frequencyHz);
 
         QPen markerPen(marker.color);
-        markerPen.setWidth(2);
+        markerPen.setWidth(qMax(1, marker.width));
+        if (marker.dashed) {
+            markerPen.setStyle(Qt::DashLine);
+        }
         painter.setPen(markerPen);
         painter.drawLine(x, 0, x, height());
 

@@ -17,6 +17,8 @@ struct FrequencyMarker
     double frequencyHz = 0.0;
     QString label;
     QColor color = QColor(220, 0, 0);
+    bool dashed = false;
+    int width = 2;
 };
 
 #endif // FREQUENCYMARKER_H

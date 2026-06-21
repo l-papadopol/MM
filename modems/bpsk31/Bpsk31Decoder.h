@@ -77,6 +77,10 @@ private:
     void updateLockMetrics(double mag, double differentialConfidence);
     void handleVaricodeBit(bool bitOne);
     void finishVaricodeCharacter();
+    void maybeResyncSymbolClock(double mag);
+    bool effectiveInvertBits() const;
+    void noteDecodedQuality(const QString &decoded);
+    void maybeFlipPolarityFromQuality();
     QString decodeVaricode(const QString &bits) const;
     void maybeEmitStatus();
 
@@ -88,6 +92,7 @@ private:
     bool m_afcEnabled = true;
     double m_afcRangeHz = 20.0;
     bool m_invertBits = false;
+    bool m_autoInvertActive = false;
     bool m_qpskMode = false;
     bool m_coherentTrackingEnabled = true;
 
@@ -110,6 +115,9 @@ private:
 
     double m_i = 0.0;
     double m_q = 0.0;
+    double m_prevMag = 0.0;
+    double m_currMag = 0.0;
+    qint64 m_lastTimingSyncSample = -1000000;
     double m_accI = 0.0;
     double m_accQ = 0.0;
     int m_accCount = 0;
@@ -126,10 +134,16 @@ private:
     double m_noisePower = 1.0e-10;
     double m_snrLike = 1.0;
     double m_phaseConfidence = 0.0;
+    double m_varicodeLockScore = 0.0;
     bool m_locked = false;
 
     int m_decodedChars = 0;
     int m_badVaricode = 0;
+    int m_qualityChars = 0;
+    int m_qualitySpaces = 0;
+    int m_qualityAlphaNum = 0;
+    int m_qualitySuspicious = 0;
+    int m_autoPolarityFlips = 0;
     int m_statusCounter = 0;
     qint64 m_samplesProcessed = 0;
 };

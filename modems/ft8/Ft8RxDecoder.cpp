@@ -62,7 +62,7 @@ constexpr double kTwoPi = 6.283185307179586476925286766559;
 constexpr double kEps = 1.0e-18;
 
 /*
- * 0.5.0 GF(2) OSD lab primitives.  FT8 LDPC parity rows
+ * 0.5.1 GF(2) OSD lab primitives.  FT8 LDPC parity rows
  * are 174 bits wide, so three 64-bit words cover one row.  Gaussian
  * elimination then becomes row swaps plus three XORs per elimination,
  * with no heap allocation in the candidate hot path.
@@ -882,11 +882,35 @@ Ft8RxDecoder::Ft8RxDecoder(QObject *parent)
 Ft8RxDecoder::~Ft8RxDecoder()
 {
     m_shutdown.store(true);
+    {
+        std::lock_guard<std::mutex> lock(m_mindAssistMutex);
+        m_mindAssistCallback = nullptr;
+    }
     for (std::future<void> &task : m_decodeTasks) {
         if (task.valid()) {
             task.wait();
         }
     }
+}
+
+void Ft8RxDecoder::setMindAssistCallback(MindAssistCallback callback)
+{
+    std::lock_guard<std::mutex> lock(m_mindAssistMutex);
+    m_mindAssistCallback = std::move(callback);
+}
+
+void Ft8RxDecoder::setMindIntegrationState(bool bypassed,
+                                           bool scoringEnabled,
+                                           bool sampleExportEnabled,
+                                           bool ultraDeepAssistedEnabled)
+{
+    // This is intentionally atomic-only and lock-free.  The decoder checks it
+    // inside the candidate loop, where even touching the MIND mutex or building
+    // a 58x8 feature vector would pollute the native FT timing.
+    m_mindHardBypass.store(bypassed, std::memory_order_relaxed);
+    m_mindScoringEnabled.store(!bypassed && scoringEnabled, std::memory_order_relaxed);
+    m_mindSampleExportEnabled.store(!bypassed && sampleExportEnabled, std::memory_order_relaxed);
+    m_mindUltraDeepAssistedEnabled.store(!bypassed && ultraDeepAssistedEnabled, std::memory_order_relaxed);
 }
 
 void Ft8RxDecoder::reset()
@@ -1783,6 +1807,12 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     int diagOsdGf2BudgetSkips = 0;
     double diagOsdGf2TotalMs = 0.0;
 
+    std::mutex diagMindMutex;
+    int diagMindAssistTried = 0;
+    int diagMindAssistRecovered = 0;
+    int diagMindAssistUnavailable = 0;
+    double diagMindAssistConfidenceSum = 0.0;
+
     std::mutex diagQualityMutex;
     int diagDecodedQualityCount = 0;
     int diagLdpcFailureQualityCount = 0;
@@ -1846,6 +1876,26 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         diagOsdGf2TotalMs += quality.osdGf2TotalMs;
     };
 
+
+    auto noteMindQuality = [&diagMindMutex,
+                            &diagMindAssistTried,
+                            &diagMindAssistRecovered,
+                            &diagMindAssistUnavailable,
+                            &diagMindAssistConfidenceSum](const CandidateAttemptQuality &quality) {
+        if (quality.mindAssistTried <= 0 &&
+            quality.mindAssistRecovered <= 0 &&
+            quality.mindAssistUnavailable <= 0) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(diagMindMutex);
+        diagMindAssistTried += quality.mindAssistTried;
+        diagMindAssistRecovered += quality.mindAssistRecovered;
+        diagMindAssistUnavailable += quality.mindAssistUnavailable;
+        if (quality.mindAssistTried > 0) {
+            diagMindAssistConfidenceSum += quality.mindAssistConfidence;
+        }
+    };
+
     auto noteRejectReason = [&diagBoundaryRejects,
                              &diagSoftMetricRejects,
                              &diagSyncGateRejects,
@@ -1880,7 +1930,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         }
     };
 
-    auto decodeCandidateSet = [this, &slotStartUtc, &betterDecode, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality, &noteOsdQuality](const QVector<double> &slotSamples,
+    auto decodeCandidateSet = [this, &slotStartUtc, &betterDecode, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality, &noteOsdQuality, &noteMindQuality](const QVector<double> &slotSamples,
                                                                                                                const QVector<Candidate> &candidateSet,
                                                                                                                int *workerCountOut) {
         QVector<CandidateDecode> rawPairs;
@@ -1898,14 +1948,16 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         }
 
         /*
-         * 0.5.0: GF(2) OSD is now useful, but alpha24 proved
+         * 0.5.1: GF(2) OSD is now useful, but alpha24 proved
          * that unbounded OSD spends too much CPU. Keep it as a tactical
          * recovery pass: cap the number of OSD candidates and the summed
          * OSD worker time per candidate set. Parallel workers may overshoot
          * slightly, but the cap prevents alpha24-style 100+ ms bursts.
          */
-        const int osdGf2TryLimit = offline ? 16 : 8;
-        const int osdGf2BudgetTenthsMs = offline ? 600 : 250;
+        const bool mindUltraDeepSet = !m_mindHardBypass.load(std::memory_order_relaxed) &&
+                                      m_mindUltraDeepAssistedEnabled.load(std::memory_order_relaxed);
+        const int osdGf2TryLimit = mindUltraDeepSet ? (offline ? 42 : 16) : (offline ? 16 : 8);
+        const int osdGf2BudgetTenthsMs = mindUltraDeepSet ? (offline ? 1600 : 500) : (offline ? 600 : 250);
         std::atomic<int> osdGf2TriedInSet {0};
         std::atomic<int> osdGf2TenthsMsInSet {0};
 
@@ -1917,7 +1969,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         // highly variable cost; static chunks can leave one worker stuck on a
         // hard cluster while the others are idle.  This keeps the no-thread-churn
         // benefit while recovering the load balance of the old atomic scheduler.
-        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, osdGf2TryLimit, osdGf2BudgetTenthsMs](int, int) {
+        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &noteRejectReason, &noteQuality, &noteOsdQuality, &noteMindQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, osdGf2TryLimit, osdGf2BudgetTenthsMs](int, int) {
             QVector<CandidateDecode> localPairs;
             localPairs.reserve(8);
             int localAttempted = 0;
@@ -1926,6 +1978,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             QVector<CandidateAttemptQuality> localDecodedQualities;
             QVector<CandidateAttemptQuality> localLdpcFailureQualities;
             QVector<CandidateAttemptQuality> localOsdQualities;
+            QVector<CandidateAttemptQuality> localMindQualities;
             localRejects.reserve(64);
             for (;;) {
                 const int i = nextCandidate.fetch_add(1);
@@ -1964,6 +2017,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 if (quality.osdGf2Tried > 0 || quality.osdGf2BudgetSkips > 0) {
                     localOsdQualities.append(quality);
                 }
+                if (quality.mindAssistTried > 0 || quality.mindAssistRecovered > 0 || quality.mindAssistUnavailable > 0) {
+                    localMindQualities.append(quality);
+                }
                 if (decoded) {
                     localDecodedQualities.append(quality);
                     CandidateDecode pair;
@@ -1987,6 +2043,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 }
                 for (const CandidateAttemptQuality &q : localOsdQualities) {
                     noteOsdQuality(q);
+                }
+                for (const CandidateAttemptQuality &q : localMindQualities) {
+                    noteMindQuality(q);
                 }
                 for (const DecodeRejectReason reason : localRejects) {
                     noteRejectReason(reason);
@@ -2111,6 +2170,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     const bool liveRealtimeDecode = !offlineAnalysis &&
                                     (decodePhase.startsWith(QStringLiteral("wsjtx-gate")) ||
                                      decodePhase == QStringLiteral("boundary"));
+    const bool mindUltraDeepAssisted = !m_mindHardBypass.load(std::memory_order_relaxed) &&
+                                       m_mindUltraDeepAssistedEnabled.load(std::memory_order_relaxed);
 
     // v2.89: follow MSHV's practical live policy instead of doing blind rescue
     // passes. In decoderft8.cpp, subtraction/rescan passes are useful only after
@@ -2119,17 +2180,17 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     // regression-test path.
     const struct PassSpec { double threshold; int maxCandidates; int maxSubtract; } passes[4] = {
         offlineAnalysis
-            ? PassSpec{1.30, 900, 64}
+            ? (mindUltraDeepAssisted ? PassSpec{1.18, 1400, 96} : PassSpec{1.30, 900, 64})
             : (m_dspPlusDecodeEnabled
-                ? PassSpec{1.26, 340, 48}
+                ? (mindUltraDeepAssisted ? PassSpec{1.16, 520, 64} : PassSpec{1.26, 340, 48})
                 : (m_deepDecodeEnabled ? PassSpec{1.30, 300, 40} : PassSpec{1.44, 128, 0})),
         offlineAnalysis
-            ? PassSpec{1.18, 950, 0}
-            : (m_dspPlusDecodeEnabled ? PassSpec{1.03, 380, 0} : PassSpec{1.08, 340, 0}),
+            ? (mindUltraDeepAssisted ? PassSpec{1.02, 1600, 0} : PassSpec{1.18, 950, 0})
+            : (m_dspPlusDecodeEnabled ? (mindUltraDeepAssisted ? PassSpec{0.92, 620, 0} : PassSpec{1.03, 380, 0}) : PassSpec{1.08, 340, 0}),
         offlineAnalysis
-            ? PassSpec{1.10, 0, 0}
-            : PassSpec{0.99, 0, 0},
-        offlineAnalysis ? PassSpec{1.06, 0, 0} : PassSpec{0.98, 0, 0}
+            ? (mindUltraDeepAssisted ? PassSpec{0.94, 900, 0} : PassSpec{1.10, 0, 0})
+            : (mindUltraDeepAssisted ? PassSpec{0.88, 360, 0} : PassSpec{0.99, 0, 0}),
+        offlineAnalysis ? (mindUltraDeepAssisted ? PassSpec{0.90, 500, 0} : PassSpec{1.06, 0, 0}) : PassSpec{0.98, 0, 0}
     };
     // v4.13l: live RX is no longer "deep always" and no longer "fast only".
     // The first WSJT-X-gated pass stays as light as v4.13k, then a second
@@ -2137,8 +2198,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     // A) candidate pressure, B) overlap/pile-up, C) active-QSO context,
     // D) useful CQ/value context, E) real time budget.
     const int requestedPasses = offlineAnalysis
-        ? ((m_dspPlusDecodeEnabled || m_deepDecodeEnabled) ? 2 : 1)
-        : (liveRealtimeDecode ? 2 : 1);
+        ? (mindUltraDeepAssisted ? 3 : ((m_dspPlusDecodeEnabled || m_deepDecodeEnabled) ? 2 : 1))
+        : (liveRealtimeDecode ? (mindUltraDeepAssisted ? 3 : 2) : 1);
     int decodesBeforePass = 0;
     bool liveAdaptiveDeepTriggered = false;
     bool liveAllowResidual = false;
@@ -2158,7 +2219,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         // and prevents late live decodes from being biased toward speculative
         // candidates.
         if (pass > 0 && decodedSoFar.isEmpty()) {
-            if (!(liveRealtimeDecode && liveAdaptiveDeepTriggered && elapsedLiveMs() < kLiveAdaptiveBudgetMs)) {
+            if (!mindUltraDeepAssisted && !(liveRealtimeDecode && liveAdaptiveDeepTriggered && elapsedLiveMs() < kLiveAdaptiveBudgetMs)) {
                 break;
             }
         }
@@ -2376,7 +2437,10 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         subtractionMs += std::chrono::duration<double, std::milli>(subEnd - subStart).count();
 
         const auto searchStart = Clock::now();
-        QVector<Candidate> residualCandidates = findCandidates(residual, offlineAnalysis ? 1.10 : (liveAdaptiveResidual ? 1.12 : 1.04));
+        QVector<Candidate> residualCandidates = findCandidates(residual,
+                                                                 mindUltraDeepAssisted
+                                                                     ? (offlineAnalysis ? 0.90 : (liveAdaptiveResidual ? 0.96 : 0.92))
+                                                                     : (offlineAnalysis ? 1.10 : (liveAdaptiveResidual ? 1.12 : 1.04)));
         const auto searchEnd = Clock::now();
         searchMs += std::chrono::duration<double, std::milli>(searchEnd - searchStart).count();
 
@@ -2407,10 +2471,10 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         // v4.12: restore enough residual breadth to recover the second
         // overlapping test_21 signal lost in v4.11, but rely on residual reuse
         // above to avoid re-paying the full SIC cost.
-        const int residualCandidateCap = offlineAnalysis ? 56 : (liveAdaptiveResidual ? 18 : 34);
-        const int residualLdpcCap = offlineAnalysis ? 34 : (liveAdaptiveResidual ? 8 : 22);
-        const int residualHeavyMetricCap = offlineAnalysis ? 18 : (liveAdaptiveResidual ? 4 : 10);
-        const int residualNonProximityCap = offlineAnalysis ? 18 : (liveAdaptiveResidual ? 3 : 10);
+        const int residualCandidateCap = mindUltraDeepAssisted ? (offlineAnalysis ? 140 : (liveAdaptiveResidual ? 34 : 70)) : (offlineAnalysis ? 56 : (liveAdaptiveResidual ? 18 : 34));
+        const int residualLdpcCap = mindUltraDeepAssisted ? (offlineAnalysis ? 72 : (liveAdaptiveResidual ? 16 : 38)) : (offlineAnalysis ? 34 : (liveAdaptiveResidual ? 8 : 22));
+        const int residualHeavyMetricCap = mindUltraDeepAssisted ? (offlineAnalysis ? 42 : (liveAdaptiveResidual ? 8 : 22)) : (offlineAnalysis ? 18 : (liveAdaptiveResidual ? 4 : 10));
+        const int residualNonProximityCap = mindUltraDeepAssisted ? (offlineAnalysis ? 52 : (liveAdaptiveResidual ? 8 : 22)) : (offlineAnalysis ? 18 : (liveAdaptiveResidual ? 3 : 10));
         int residualLdpcUsed = 0;
         int residualTried = 0;
         int residualHeavyMetricUsed = 0;
@@ -2492,6 +2556,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
             if (quality.osdGf2Tried > 0 || quality.osdGf2BudgetSkips > 0) {
                 noteOsdQuality(quality);
+            }
+            if (quality.mindAssistTried > 0 || quality.mindAssistRecovered > 0 || quality.mindAssistUnavailable > 0) {
+                noteMindQuality(quality);
             }
 
             if (decoded) {
@@ -2584,6 +2651,12 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         stats->osdGf2PostCrcRejects = diagOsdGf2PostCrcRejects;
         stats->osdGf2BudgetSkips = diagOsdGf2BudgetSkips;
         stats->osdGf2TotalMs = diagOsdGf2TotalMs;
+        stats->mindAssistTried = diagMindAssistTried;
+        stats->mindAssistRecovered = diagMindAssistRecovered;
+        stats->mindAssistUnavailable = diagMindAssistUnavailable;
+        stats->mindAssistAvgConfidence = diagMindAssistTried > 0
+            ? diagMindAssistConfidenceSum / static_cast<double>(diagMindAssistTried)
+            : 0.0;
         stats->engineName = liveRealtimeDecode
             ? (liveAdaptiveDeepTriggered
                 ? QStringLiteral("FT8 Live Adaptive Residual")
@@ -3118,8 +3191,11 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
      * heuristic; it is the reference ft8b bail-out placed at the same point in
      * the MadModem pipeline: after symbol extraction, before LDPC.
      */
+    const bool mindUltraDeepCandidate = !m_mindHardBypass.load(std::memory_order_relaxed) &&
+                                        m_mindUltraDeepAssistedEnabled.load(std::memory_order_relaxed);
     constexpr int kWsjtxFt8HardSyncBailout = 6;
-    if (hardSyncCount <= kWsjtxFt8HardSyncBailout) {
+    const int hardSyncBailout = mindUltraDeepCandidate ? 5 : kWsjtxFt8HardSyncBailout;
+    if (hardSyncCount <= hardSyncBailout) {
         return reject(DecodeRejectReason::SyncGate);
     }
 
@@ -3135,9 +3211,11 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
      * above the WSJT-X nsync>6 gate and with very poor soft evidence.  Stronger
      * overlap/residual candidates still reach the normal and multi-metric paths.
      */
-    const bool ldpcGhostCandidate =
-            (hardSyncCount <= 8 && meanAbsLlr < 3.25) ||
-            (hardSyncCount == 9 && meanAbsLlr < 2.65);
+    const bool ldpcGhostCandidate = mindUltraDeepCandidate
+            ? ((hardSyncCount <= 7 && meanAbsLlr < 2.20) ||
+               (hardSyncCount == 8 && meanAbsLlr < 1.85))
+            : ((hardSyncCount <= 8 && meanAbsLlr < 3.25) ||
+               (hardSyncCount == 9 && meanAbsLlr < 2.65));
     if (ldpcGhostCandidate) {
         return reject(DecodeRejectReason::SoftMetric);
     }
@@ -3161,6 +3239,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         return 0;
     };
 
+    bool mindGuidedWeakRecovery = false;
+
     DecodeRejectReason bestFailure = DecodeRejectReason::Ldpc;
     auto rememberFailure = [&bestFailure, &rejectPriority](DecodeRejectReason reason) {
         if (rejectPriority(reason) > rejectPriority(bestFailure)) {
@@ -3176,16 +3256,19 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         int gf2OsdHitOrder = -1;
         if (!ldpcDecode174_91(candidateLlr, candidateBits, candidateIterations, &posterior)) {
             /*
-             * 0.5.0 GF(2) OSD pivot-completion lab: use a true systematic
+             * 0.5.1 GF(2) OSD pivot-completion lab: use a true systematic
              * OSD fallback only after BP/min-sum failed, and only for
              * candidates that are plausible enough to justify the extra
              * algebra.  The normal LDPC path and the v4.10 OSD-lite path
              * remain intact.
              */
+            const bool gf2BaseCandidate = hardSyncCount >= 10 && meanAbsLlr >= 3.8;
+            const bool gf2MindWeakCandidate = mindGuidedWeakRecovery &&
+                                              hardSyncCount >= 8 &&
+                                              meanAbsLlr >= 2.75;
             const bool gf2OsdCandidate = allowOsdLite && allowMetricRecovery &&
                                          m_dspPlusDecodeEnabled &&
-                                         hardSyncCount >= 10 &&
-                                         meanAbsLlr >= 3.8;
+                                         (gf2BaseCandidate || gf2MindWeakCandidate);
             const bool tryGf2Osd = gf2OsdCandidate && allowGf2Osd;
             if (gf2OsdCandidate && !allowGf2Osd && qualityOut != nullptr) {
                 ++qualityOut->osdGf2BudgetSkips;
@@ -3200,7 +3283,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                 bool rankFail = false;
                 int pivotSkips = 0;
                 /*
-                 * 0.5.0: alpha24/25 proved that order-2 is not useful
+                 * 0.5.1: alpha24/25 proved that order-2 is not useful
                  * on the current WAV set, while the lost recoveries are order-1.
                  * Run complete order-1 over all 91 information bits, keep order-2
                  * disabled, and let the per-slot OSD budget decide how many
@@ -3238,8 +3321,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                  */
                 const bool osdLiteAllowed = allowOsdLite && allowMetricRecovery &&
                                             m_dspPlusDecodeEnabled &&
-                                            hardSyncCount >= 13 &&
-                                            meanAbsLlr >= 4.8;
+                                            ((hardSyncCount >= 13 && meanAbsLlr >= 4.8) ||
+                                             (mindGuidedWeakRecovery && hardSyncCount >= 9 && meanAbsLlr >= 3.15));
                 if (!osdLiteAllowed || !osdLiteRepair174_91(posterior, candidateBits)) {
                     rememberFailure(DecodeRejectReason::Ldpc);
                     return false;
@@ -3286,6 +3369,134 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         return true;
     };
 
+    const bool mindHardBypass = m_mindHardBypass.load(std::memory_order_relaxed);
+    const bool mindScoringEnabled = !mindHardBypass && m_mindScoringEnabled.load(std::memory_order_relaxed);
+    const bool mindSampleExportEnabled = !mindHardBypass && m_mindSampleExportEnabled.load(std::memory_order_relaxed);
+
+    auto buildMindInput = [&dataMagnitudes]() {
+        QVector<float> raw;
+        raw.reserve(58 * 8);
+        QVector<double> finite;
+        finite.reserve(58 * 8);
+        for (const auto &row : dataMagnitudes) {
+            for (double v : row) {
+                const double x = std::isfinite(v) ? qMax(0.0, v) : 0.0;
+                raw.append(static_cast<float>(x));
+                finite.append(x);
+            }
+        }
+        if (raw.size() != 58 * 8 || finite.isEmpty()) {
+            return QVector<float>();
+        }
+
+        // Robust slot/candidate normalization for the ranker.  Max-only scaling
+        // is vulnerable to narrow-band QRM: one hot tone can compress the whole
+        // 58x8 matrix and make garbage look structured.  Median/MAD keeps the
+        // 8-FSK topology while reducing QRM bias.
+        std::sort(finite.begin(), finite.end());
+        const double median = finite.at(finite.size() / 2);
+        QVector<double> absdev;
+        absdev.reserve(finite.size());
+        for (double v : finite) {
+            absdev.append(std::abs(v - median));
+        }
+        std::sort(absdev.begin(), absdev.end());
+        double mad = absdev.at(absdev.size() / 2);
+        if (!(mad > 1.0e-9) || !std::isfinite(mad)) {
+            mad = qMax(1.0e-6, finite.constLast() - median);
+        }
+        const double scale = qMax(1.0e-6, 6.0 * mad);
+
+        QVector<float> mindInput;
+        mindInput.reserve(58 * 8);
+        for (float v : raw) {
+            const double z = (static_cast<double>(v) - median) / scale;
+            mindInput.append(static_cast<float>(qBound(0.0, z, 1.0)));
+        }
+        return mindInput;
+    };
+
+    auto emitMindRankerSample = [&](float label, const QString &tag) {
+        if (!mindSampleExportEnabled) {
+            return;
+        }
+        const QVector<float> mindInput = buildMindInput();
+        if (mindInput.size() != 464) {
+            return;
+        }
+        QVector<float> mindTarget;
+        mindTarget.reserve(1);
+        mindTarget.append(label >= 0.5f ? 1.0f : 0.0f);
+        const QString sampleLabel = QStringLiteral("%1 %2 %3Hz %4")
+            .arg(slotStartUtc.toString(QStringLiteral("yyyyMMddHHmmss")))
+            .arg(tag)
+            .arg(qRound(baseHz))
+            .arg(message);
+        emit nativeTrainingSampleReady(QStringLiteral("FT8"), mindInput, mindTarget, sampleLabel);
+    };
+
+    auto shouldExportNegative = [&]() {
+        // Forced but bounded failed-candidate injection.  Keep about 38% of
+        // plausible LDPC/CRC drops so the replay buffer learns pruning without
+        // being flooded by easy noise candidates.
+        const int key = std::abs((startSample / 60) * 131 + qRound(baseHz * 10.0) * 17 + hardSyncCount * 19);
+        return (key % 100) < 38;
+    };
+
+    bool mindRankerMayPrune = false;
+    auto mindCandidateProbability = [&]() {
+        if (!mindScoringEnabled) {
+            return -1.0;
+        }
+        MindAssistCallback callback;
+        {
+            std::lock_guard<std::mutex> lock(m_mindAssistMutex);
+            callback = m_mindAssistCallback;
+        }
+        if (!callback) {
+            return -1.0;
+        }
+        const QVector<float> mindInput = buildMindInput();
+        if (mindInput.size() != 464) {
+            return -1.0;
+        }
+        QVector<float> probabilityVector;
+        double probabilityPercent = 0.0;
+        if (!callback(mindInput, &probabilityVector, &probabilityPercent) || probabilityVector.isEmpty()) {
+            return -1.0;
+        }
+        const double p = qBound(0.0, static_cast<double>(probabilityVector.constFirst()), 1.0);
+        mindRankerMayPrune = probabilityVector.size() > 1 && probabilityVector.at(1) >= 0.5f;
+        if (qualityOut != nullptr) {
+            ++qualityOut->mindAssistTried;
+            qualityOut->mindAssistConfidence = 100.0 * p;
+        }
+        return p;
+    };
+
+    // MIND Ranker v1/v2: candidate_success_probability is evaluated before the
+    // expensive LDPC/min-sum stage.  In 0.5.6 Assisted is not a blind speed
+    // pruner: it promotes weak-but-structured candidates into the ultra-deep
+    // OSD/metric path and only prunes obvious spectral ghosts when the ranker is
+    // allowed to prune by its readiness gate.
+    const double mindProbability = mindCandidateProbability();
+    if (mindProbability >= 0.0) {
+        const bool rankerLikesCandidate = mindProbability >= 0.42;
+        const bool weakButPlausible = (hardSyncCount >= 8 && hardSyncCount <= 11 && meanAbsLlr >= 2.75) ||
+                                      (hardSyncCount >= 9 && meanAbsLlr >= 2.35);
+        mindGuidedWeakRecovery = mindUltraDeepCandidate && rankerLikesCandidate && weakButPlausible;
+
+        const bool obviousGhost = (hardSyncCount <= 7 && meanAbsLlr < 2.05) ||
+                                  (hardSyncCount <= 8 && meanAbsLlr < 1.65);
+        const bool extremelyLowProbability = mindProbability < 0.025;
+        if (mindRankerMayPrune && obviousGhost && extremelyLowProbability && allowMetricRecovery) {
+            if (qualityOut != nullptr) {
+                ++qualityOut->mindAssistRecovered; // legacy field now means ranker-pruned
+            }
+            return reject(DecodeRejectReason::SoftMetric);
+        }
+    }
+
     bool metricDecoded = tryDecodeMetric(llr, true);
 
     /*
@@ -3309,6 +3520,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
      * overlap/residual recovery that recovered test_21/test_05.
      */
     const bool promisingForMetricRecovery =
+            mindGuidedWeakRecovery ||
             hardSyncCount >= 10 ||
             (hardSyncCount >= 9 && meanAbsLlr >= 4.2);
     const bool allowFt8bMetricRecovery = allowMetricRecovery &&
@@ -3448,49 +3660,25 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     }
 
     if (!metricDecoded) {
+        if (shouldExportNegative() &&
+            (bestFailure == DecodeRejectReason::Ldpc ||
+             bestFailure == DecodeRejectReason::Crc ||
+             bestFailure == DecodeRejectReason::Unpack ||
+             bestFailure == DecodeRejectReason::Message)) {
+            emitMindRankerSample(0.0f, QStringLiteral("FAIL"));
+        }
         return reject(bestFailure);
     }
 
     /*
-     * MIND v2 native FT sample hook.
+     * MIND Ranker v1 native FT sample hook.
      *
-     * The old MIND lab used a global audio/text fingerprint, which is useless
-     * for real assisted decoding.  Here we export the actual candidate matrix
-     * seen by the FT8 demapper: 58 data symbols x 8 tones = 464 normalized
-     * magnitudes.  The target is the full validated LDPC codeword (174 bits).
-     * This signal is emitted only after LDPC+CRC+unpack+message sanity have
-     * already passed, so it is a gold-label training sample.  No neural work is
-     * performed inside the decoder thread.
+     * Export one positive binary sample only after the classical decoder has
+     * accepted LDPC+CRC+unpack+message sanity. Failed plausible LDPC/CRC drops
+     * are emitted earlier as negative samples. The target is not a 174-bit
+     * codeword anymore: it is candidate_success_probability, trained with BCE.
      */
-    {
-        QVector<float> mindInput;
-        QVector<float> mindTarget;
-        mindInput.reserve(58 * 8);
-        mindTarget.reserve(174);
-        double maxMag = 0.0;
-        for (const auto &row : dataMagnitudes) {
-            for (double v : row) {
-                if (std::isfinite(v)) {
-                    maxMag = std::max(maxMag, v);
-                }
-            }
-        }
-        if (maxMag > 0.0 && std::isfinite(maxMag)) {
-            const double inv = 1.0 / maxMag;
-            for (const auto &row : dataMagnitudes) {
-                for (double v : row) {
-                    const double x = std::isfinite(v) ? qBound(0.0, v * inv, 1.0) : 0.0;
-                    mindInput.append(static_cast<float>(x));
-                }
-            }
-            for (int i = 0; i < 174; ++i) {
-                mindTarget.append((bits[i] & 1) ? 1.0f : 0.0f);
-            }
-            if (mindInput.size() == 464 && mindTarget.size() == 174) {
-                emit nativeTrainingSampleReady(QStringLiteral("FT8"), mindInput, mindTarget, message);
-            }
-        }
-    }
+    emitMindRankerSample(1.0f, QStringLiteral("OK"));
 
     decodeOut.utc = slotStartUtc.time().toString(QStringLiteral("HHmmss"));
     decodeOut.slotStartUtcMs = slotStartUtc.toMSecsSinceEpoch();
@@ -4516,7 +4704,7 @@ bool Ft8RxDecoder::osdGf2Repair174_91(const std::array<double, 174> &posterior,
     }
 
     /*
-     * 0.5.0: pivot completion.  alpha23 forced the first 83
+     * 0.5.1: pivot completion.  alpha23 forced the first 83
      * least-reliable columns to become the systematic side and therefore
      * failed rank on all tested candidates.  Here columns are still tried in
      * reliability order, but a dependent column is skipped and a later column
@@ -4638,7 +4826,7 @@ bool Ft8RxDecoder::osdGf2Repair174_91(const std::array<double, 174> &posterior,
     }
 
     /*
-     * 0.5.0 fast budget: alpha24 proved that order-0 and
+     * 0.5.1 fast budget: alpha24 proved that order-0 and
      * order-1 recover the useful cases in the current WAV set, while
      * order-2 recovered nothing and consumed CPU. Keep the algebra
      * unchanged, but bound the pattern search. Depths are supplied by

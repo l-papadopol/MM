@@ -1,6 +1,6 @@
-# FT8 decoder baseline — MadModem 0.5.0
+# FT8 decoder baseline — MadModem 0.5.1
 
-MadModem 0.5.0 consolidates the validated FT8 decoder state from the `0.5.0-alpha.26` line.
+MadModem 0.5.1 consolidates the validated FT8 decoder state from the `0.5.1-alpha.26` line.
 
 Validated Auto Test baseline on the four bundled WAV files:
 

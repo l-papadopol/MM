@@ -108,6 +108,9 @@ void Bpsk31Decoder::reset()
     m_costasErrorAvg = 0.0;
     m_i = 0.0;
     m_q = 0.0;
+    m_prevMag = 0.0;
+    m_currMag = 0.0;
+    m_lastTimingSyncSample = -1000000;
     m_accI = 0.0;
     m_accQ = 0.0;
     m_accCount = 0;
@@ -116,14 +119,21 @@ void Bpsk31Decoder::reset()
     m_prevQ = 0.0;
     m_pendingZero = false;
     m_currentBits.clear();
+    m_autoInvertActive = false;
     m_text.clear();
     m_signalPower = 1.0e-10;
     m_noisePower = 1.0e-10;
     m_snrLike = 1.0;
     m_phaseConfidence = 0.0;
+    m_varicodeLockScore = 0.0;
     m_locked = false;
     m_decodedChars = 0;
     m_badVaricode = 0;
+    m_qualityChars = 0;
+    m_qualitySpaces = 0;
+    m_qualityAlphaNum = 0;
+    m_qualitySuspicious = 0;
+    m_autoPolarityFlips = 0;
     m_statusCounter = 0;
     m_samplesProcessed = 0;
     m_trackedToneHz = m_toneHz;
@@ -197,7 +207,18 @@ void Bpsk31Decoder::setAfcRangeHz(double rangeHz)
 
 void Bpsk31Decoder::setInvertBits(bool invert)
 {
+    if (m_invertBits == invert) {
+        return;
+    }
     m_invertBits = invert;
+    m_autoInvertActive = false;
+    m_qualityChars = 0;
+    m_qualitySpaces = 0;
+    m_qualityAlphaNum = 0;
+    m_qualitySuspicious = 0;
+    m_autoPolarityFlips = 0;
+    m_pendingZero = false;
+    m_currentBits.clear();
 }
 
 void Bpsk31Decoder::setCoherentTrackingEnabled(bool enabled)
@@ -310,20 +331,19 @@ void Bpsk31Decoder::processInternalSample(double sample)
     m_nco.mixDown(sample, &mixedI, &mixedQ, extraStep);
     m_channelFilter.process(mixedI, mixedQ, &m_i, &m_q);
 
+    const double basebandMag = qSqrt((m_i * m_i) + (m_q * m_q));
+    maybeResyncSymbolClock(basebandMag);
+
     updateCostasLoop(m_i, m_q);
 
-    m_accI += m_i;
-    m_accQ += m_q;
-    ++m_accCount;
-
+    /* fldigi-style BPSK sampling: do not average a whole symbol.
+     * Averaging across a PSK phase reversal smears the exact information that
+     * Varicode needs and was the main reason BPSK31/63 produced plausible but
+     * wrong text on standard test files.  The Costas/channel filters already
+     * provide the matched smoothing; the symbol decision must be taken at the
+     * recovered symbol centre. */
     if (m_symbolClock.tick()) {
-        if (m_accCount > 0) {
-            processSymbol(m_accI / static_cast<double>(m_accCount),
-                          m_accQ / static_cast<double>(m_accCount));
-        }
-        m_accI = 0.0;
-        m_accQ = 0.0;
-        m_accCount = 0;
+        processSymbol(m_i, m_q);
     }
 
     ++m_samplesProcessed;
@@ -431,9 +451,19 @@ void Bpsk31Decoder::processSymbol(double symbolI, double symbolQ)
         m_symbolClock.nudge(qBound(-0.35, -phaseError * 0.035, 0.35));
     }
 
-    if (m_locked) {
+    /*
+     * Do not require the old soft lock before feeding Varicode.  The previous
+     * implementation estimated the noise floor while unlocked; on a real PSK31
+     * carrier that made signal/noise converge to ~1 and the receiver never
+     * opened at all.  Instead we allow the slicer to build tentative Varicode
+     * once there is a plausible narrow PSK tone, and the Varicode parser itself
+     * acts as the final lock validator before text is emitted.
+     */
+    const bool plausiblePskSignal = m_locked ||
+                                    (m_signalPower > 8.0e-8 && m_phaseConfidence > 0.22);
+    if (plausiblePskSignal) {
         bool bitOne = dot >= 0.0; // PSK31: no phase reversal is bit 1.
-        if (m_invertBits) {
+        if (effectiveInvertBits()) {
             bitOne = !bitOne;
         }
         handleVaricodeBit(bitOne);
@@ -448,23 +478,40 @@ void Bpsk31Decoder::updateLockMetrics(double mag, double differentialConfidence)
     const double power = mag * mag;
     m_signalPower = (0.985 * m_signalPower) + (0.015 * power);
 
-    if (!m_locked || power < m_noisePower * 2.0) {
-        m_noisePower = (0.997 * m_noisePower) + (0.003 * qMax(power, 1.0e-10));
+    /*
+     * Keep a real floor estimate.  The previous logic updated noisePower for
+     * every symbol while unlocked, so a clean PSK31 carrier was learned as
+     * "noise" before the squelch could open.  Only fast-track the floor on
+     * weak/unstructured symbols; strong, phase-coherent symbols are treated as
+     * candidate signal and are not allowed to drag the floor up.
+     */
+    const bool structuredSymbol = differentialConfidence > 0.58 && power > qMax(2.0e-8, m_noisePower * 1.8);
+    if (!structuredSymbol || power < m_noisePower * 1.25) {
+        const double alpha = (power < m_noisePower) ? 0.030 : 0.0015;
+        const double boundedPower = qMin(qMax(power, 1.0e-12), qMax(1.0e-12, m_noisePower * 3.0));
+        m_noisePower = ((1.0 - alpha) * m_noisePower) + (alpha * boundedPower);
     } else {
-        m_noisePower = (0.9998 * m_noisePower) + (0.0002 * qMin(power, m_noisePower * 3.0));
+        m_noisePower = qMax(1.0e-12, m_noisePower * 0.9998);
     }
 
     m_snrLike = m_signalPower / qMax(m_noisePower, 1.0e-12);
     m_phaseConfidence = (0.94 * m_phaseConfidence) + (0.06 * differentialConfidence);
 
-    const bool carrierPresent = m_snrLike > 4.5;
-    const bool phaseStable = m_phaseConfidence > 0.56;
-    const bool costasQuiet = m_qpskMode || m_costasErrorAvg < 0.11 || m_samplesProcessed < 8000;
-    m_locked = m_lockSquelch.update(carrierPresent && phaseStable && costasQuiet);
+    const bool enoughLevel = m_signalPower > qMax(2.0e-7, m_noisePower * 2.4);
+    const bool phaseStable = m_phaseConfidence > 0.48;
+    const bool costasQuiet = m_qpskMode || m_costasErrorAvg < 0.16 || m_samplesProcessed < 12000;
+    const bool candidate = enoughLevel && phaseStable && costasQuiet;
+    m_locked = m_lockSquelch.update(candidate || m_varicodeLockScore > 0.34);
 
-    if (!m_locked) {
+    /*
+     * If there is clearly no PSK-like tone, clear tentative Varicode.  Do not
+     * clear it merely because the soft squelch is not open yet; doing so was
+     * the reason RX never emitted the first character on many real signals.
+     */
+    if (!candidate && !m_locked && m_signalPower < 8.0e-8) {
         m_pendingZero = false;
         m_currentBits.clear();
+        m_varicodeLockScore *= 0.92;
     }
 }
 
@@ -507,11 +554,28 @@ void Bpsk31Decoder::finishVaricodeCharacter()
     const QString decoded = decodeVaricode(m_currentBits);
     if (decoded.isEmpty()) {
         ++m_badVaricode;
-        if ((m_badVaricode % 5) == 0) {
+        ++m_qualitySuspicious;
+        m_varicodeLockScore *= 0.62;
+        maybeFlipPolarityFromQuality();
+        if ((m_badVaricode % 5) == 0 && m_locked) {
             m_lockSquelch.forceClosed();
             m_locked = false;
         }
         return;
+    }
+
+    noteDecodedQuality(decoded);
+
+    const bool printableOrSpace = decoded.at(0).isPrint() || decoded == QStringLiteral(" ") || decoded == QStringLiteral("\n") || decoded == QStringLiteral("\r") || decoded == QStringLiteral("\t");
+    if (printableOrSpace) {
+        m_varicodeLockScore = qMin(1.0, (0.84 * m_varicodeLockScore) + 0.22);
+    }
+
+    if (!m_locked) {
+        if (m_varicodeLockScore < 0.20 || m_signalPower < 1.5e-7 || m_phaseConfidence < 0.34) {
+            return;
+        }
+        m_locked = true;
     }
 
     m_text.append(decoded);
@@ -522,6 +586,105 @@ void Bpsk31Decoder::finishVaricodeCharacter()
     ++m_decodedChars;
     emit characterReceived(decoded);
     emit textUpdated(m_text);
+}
+
+
+void Bpsk31Decoder::maybeResyncSymbolClock(double mag)
+{
+    if (m_qpskMode || !m_coherentTrackingEnabled) {
+        m_prevMag = m_currMag;
+        m_currMag = mag;
+        return;
+    }
+
+    /* BPSK31/63 phase reversals produce a raised-cosine envelope dip at the
+     * symbol boundary.  A fixed symbol clock starting at arbitrary audio-block
+     * phase can sample near those dips and decode plausible but wrong Varicode.
+     * When a clear local minimum is seen on a strong carrier, align the next
+     * decision roughly half a symbol later.  This is conservative and only
+     * nudges during real PSK-like energy, so it does not make the receiver
+     * chatter on noise.
+     */
+    const double strong = qMax(4.0e-5, qSqrt(qMax(m_signalPower, m_noisePower * 2.0)) * 0.18);
+    const bool localDip = (m_currMag > 0.0 &&
+                           m_currMag < (m_prevMag * 0.82) &&
+                           m_currMag < (mag * 0.82));
+    const bool enoughSpacing = (m_samplesProcessed - m_lastTimingSyncSample) > static_cast<qint64>(m_symbolSamples * 0.42);
+    if (localDip && enoughSpacing && (m_prevMag > strong || mag > strong)) {
+        /* A BPSK phase reversal produces an envelope null close to a symbol
+         * boundary.  Fldigi's receiver keeps the sampling instant away from
+         * that null; reset half a symbol later so the next decision lands near
+         * the eye centre. */
+        m_symbolClock.reset(0.50);
+        m_lastTimingSyncSample = m_samplesProcessed;
+    }
+
+    m_prevMag = m_currMag;
+    m_currMag = mag;
+}
+
+bool Bpsk31Decoder::effectiveInvertBits() const
+{
+    return m_invertBits ^ m_autoInvertActive;
+}
+
+void Bpsk31Decoder::noteDecodedQuality(const QString &decoded)
+{
+    if (decoded.isEmpty()) {
+        return;
+    }
+
+    const QChar ch = decoded.at(0);
+    ++m_qualityChars;
+    if (decoded == QStringLiteral(" ") ||
+        decoded == QStringLiteral("\n") ||
+        decoded == QStringLiteral("\r") ||
+        decoded == QStringLiteral("\t")) {
+        ++m_qualitySpaces;
+        return;
+    }
+    if (ch.isLetterOrNumber()) {
+        ++m_qualityAlphaNum;
+        return;
+    }
+    if (!ch.isPrint() || QStringLiteral("{}[]<>^`~\\|").contains(ch)) {
+        ++m_qualitySuspicious;
+    }
+}
+
+void Bpsk31Decoder::maybeFlipPolarityFromQuality()
+{
+    if (m_qpskMode || m_autoPolarityFlips >= 1 || m_decodedChars > 48) {
+        return;
+    }
+
+    const int events = m_qualityChars + m_badVaricode;
+    if (events < 18) {
+        return;
+    }
+
+    const double alphaRatio = (m_qualityChars > 0)
+                                  ? static_cast<double>(m_qualityAlphaNum + m_qualitySpaces) / static_cast<double>(m_qualityChars)
+                                  : 0.0;
+    const bool tooManyBadCodes = m_badVaricode >= qMax(12, m_qualityChars * 2);
+    const bool uglyPrintable = (m_qualityChars >= 16 && alphaRatio < 0.58) || (m_qualitySuspicious >= 5 && m_qualitySuspicious > m_qualityAlphaNum);
+
+    if (!tooManyBadCodes && !uglyPrintable) {
+        return;
+    }
+
+    m_autoInvertActive = !m_autoInvertActive;
+    ++m_autoPolarityFlips;
+    m_pendingZero = false;
+    m_currentBits.clear();
+    m_varicodeLockScore = 0.0;
+    m_lockSquelch.forceClosed();
+    m_locked = false;
+    m_qualityChars = 0;
+    m_qualitySpaces = 0;
+    m_qualityAlphaNum = 0;
+    m_qualitySuspicious = 0;
+    m_badVaricode = 0;
 }
 
 QString Bpsk31Decoder::decodeVaricode(const QString &bits) const
@@ -552,6 +715,7 @@ void Bpsk31Decoder::maybeEmitStatus()
                            .arg(m_lockSquelch.score() * 100.0, 0, 'f', 0)
                            .arg(m_snrLike, 0, 'f', 1)
                            .arg(m_decodedChars)
-                           .arg(m_badVaricode));
+                           .arg(m_badVaricode)
+                           + (m_autoInvertActive ? QStringLiteral(", auto-invert") : QString()));
     emit markersChanged(frequencyMarkers(m_trackedToneHz, m_symbolRate, m_qpskMode));
 }

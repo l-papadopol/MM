@@ -103,3 +103,14 @@ MadModem internal code. No external neural-network runtime dependency is require
 Location: `third_party/eigen/`
 
 Eigen is bundled as header-only source for MIND matrix algebra. License files from the supplied Eigen source archive are preserved in the same directory.
+
+## gMFSK MFSK16 reference material
+
+MadModem's standard MFSK16 Varicode/FEC implementation was written for MadModem using the public gMFSK source as protocol reference for the IZ8BLY MFSK Varicode table, R=1/2 K=7 convolutional FEC polynomials, and the 10-stage diagonal interleaver/deinterleaver behaviour. gMFSK is GPL-2.0-or-later; MadModem is GPL-3.0, which is compatible with GPL-2.0-or-later code and protocol-table reuse.
+
+Referenced components include gMFSK `mfsk.h`, `mfskrx.c`, `mfsktx.c`, `interleave.c`, and `varicode.c`.
+
+
+## fldigi GPL reference core
+
+MadModem 0.5.27 uses fldigi source code supplied by the user as a GPL reference for text-mode DSP behaviour. The integrated changes are Qt/C++ MadModem code, but PSK symbol sampling/Varicode handling, MFSK16 softdecode/FEC/interleaver structure, Feld Hell raster orientation and CW timing strategy were compared against fldigi's GPL sources under `src/psk`, `src/mfsk`, `src/feld` and `src/cw_rtty`.

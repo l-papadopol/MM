@@ -148,7 +148,9 @@ public:
             return;
         }
         painter->save();
-        painter->setPen(QPen(QColor(220, 0, 0), 2));
+        QPen pen(QColor(220, 0, 0), 2);
+        pen.setStyle(Qt::DashLine);
+        painter->setPen(pen);
         QRect r = option.rect.adjusted(1, 1, -1, -1);
         painter->drawLine(r.topLeft(), r.topRight());
         painter->drawLine(r.bottomLeft(), r.bottomRight());
@@ -1142,6 +1144,36 @@ QString ft8PrimaryCallsignForDisplay(const ParsedFt8Message &parsed, const QStri
     return call.trimmed().toUpper();
 }
 
+QStringList ft8HighlightCandidateCallsigns(const ParsedFt8Message &parsed, const QString &myCall)
+{
+    const QString my = myCall.trimmed().toUpper();
+    QStringList calls;
+    auto addCall = [&](QString call) {
+        call = call.trimmed().toUpper();
+        if (call.isEmpty() || !isFt8CallsignToken(call) || FtDecodedText::callMatches(call, my)) {
+            return;
+        }
+        for (const QString &existing : calls) {
+            if (FtDecodedText::callMatches(existing, call)) {
+                return;
+            }
+        }
+        calls << call;
+    };
+
+    if (parsed.cq) {
+        addCall(ft8CqCallsignFromMessage(parsed));
+    }
+    addCall(parsed.senderCall);
+    addCall(parsed.firstCall);
+    addCall(parsed.secondCall);
+    addCall(ft8PrimaryCallsignForDisplay(parsed, myCall));
+    for (const QString &part : parsed.parts) {
+        addCall(part);
+    }
+    return calls;
+}
+
 bool ft8GridIsDisplaySafe(const ParsedFt8Message &parsed)
 {
     const QString grid = parsed.grid.trimmed().left(4).toUpper();
@@ -1372,6 +1404,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_bpsk31Decoder(new Bpsk31Decoder(this)),
     m_mfskDecoder(new MfskDecoder(this)),
     m_cwDecoder(new CwDecoder(this)),
+    m_cwSecondaryDecoder(new CwDecoder(this)),
     m_hellDecoder(new HellschreiberDecoder(this)),
     m_ft8RxDecoder(new Ft8RxDecoder()),
     m_ft8RxThread(new QThread(this)),
@@ -1484,6 +1517,103 @@ MainWindow::MainWindow(QWidget *parent)
         ui->sideTabWidget->addTab(m_ddspPanelWidget, uiText("tab_ddsp", "MIND"));
         connect(m_ddspController, &DeepDspController::logMessage,
                 this, [this](const QString &message) { appendLog(message); });
+
+        auto syncMindDecoderIntegration = [this](const DeepDspController::Status &status) {
+            if (m_ft8RxDecoder == nullptr) {
+                return;
+            }
+            const QString assistMode = status.assistMode.trimmed().toLower();
+            const bool hardBypass = !status.enabled || assistMode == QStringLiteral("off");
+            const bool modelLoaded = status.modelStateText == QStringLiteral("Model loaded");
+            const bool assistedRequested = assistMode == QStringLiteral("assisted");
+            // Training and Active should both be able to score a loaded ranker.
+            // Only Active+ready may prune/drive ultra-deep scheduling; final FT text
+            // remains guarded by LDPC+CRC+unpack+parser inside the decoder.
+            const bool scoringEnabled = !hardBypass && modelLoaded &&
+                                        (assistMode == QStringLiteral("shadow") || assistedRequested);
+            const bool sampleExportEnabled = !hardBypass;
+            const bool ultraDeepAssistedEnabled = !hardBypass && assistedRequested && modelLoaded;
+            m_ft8RxDecoder->setMindIntegrationState(hardBypass,
+                                                    scoringEnabled,
+                                                    sampleExportEnabled,
+                                                    ultraDeepAssistedEnabled);
+            if (m_cwDecoder != nullptr) {
+                // CW Active uses MIND only as a low-level event/timing helper.
+                // Training mode still collects samples, but cannot alter the
+                // CW state machine.  Off remains hard-bypass.
+                m_cwDecoder->setMindEventAssistEnabled(!hardBypass && assistedRequested);
+                if (m_cwSecondaryDecoder != nullptr) {
+                    m_cwSecondaryDecoder->setMindEventAssistEnabled(!hardBypass && assistedRequested);
+                }
+            }
+            if (m_rttyDecoder != nullptr) {
+                // RTTY Active uses MIND as a conservative mark/space soft slicer
+                // for weak/borderline symbol decisions only. Training collects
+                // bit-level samples but cannot change decoded text.
+                m_rttyDecoder->setMindSoftSlicerEnabled(!hardBypass && assistedRequested);
+            }
+        };
+        syncMindDecoderIntegration(m_ddspController->status());
+        connect(m_ddspController, &DeepDspController::statusChanged,
+                this, syncMindDecoderIntegration,
+                Qt::QueuedConnection);
+
+        if (ui != nullptr && ui->cmbMode != nullptr) {
+            m_ddspController->setRuntimeMode(ui->cmbMode->currentText());
+        }
+        QPointer<DeepDspController> mindController(m_ddspController);
+        if (m_ft8RxDecoder != nullptr) {
+            m_ft8RxDecoder->setMindAssistCallback(
+                [mindController](const QVector<float> &candidateMagnitudes,
+                                 QVector<float> *predictedBits,
+                                 double *confidencePercent) {
+                    if (mindController.isNull()) {
+                        return false;
+                    }
+                    return mindController->scoreNativeFtCandidate(candidateMagnitudes,
+                                                                  predictedBits,
+                                                                  confidencePercent);
+                });
+        }
+        if (m_cwDecoder != nullptr) {
+            m_cwDecoder->setMindEventClassifier(
+                [mindController](const QVector<float> &eventFeature,
+                                 QVector<float> *eventProbabilities,
+                                 double *confidencePercent) {
+                    if (mindController.isNull()) {
+                        return false;
+                    }
+                    return mindController->scoreCwEventFeature(eventFeature,
+                                                               eventProbabilities,
+                                                               confidencePercent);
+                });
+        }
+        if (m_cwSecondaryDecoder != nullptr) {
+            m_cwSecondaryDecoder->setMindEventClassifier(
+                [mindController](const QVector<float> &eventFeature,
+                                 QVector<float> *eventProbabilities,
+                                 double *confidencePercent) {
+                    if (mindController.isNull()) {
+                        return false;
+                    }
+                    return mindController->scoreCwEventFeature(eventFeature,
+                                                               eventProbabilities,
+                                                               confidencePercent);
+                });
+        }
+        if (m_rttyDecoder != nullptr) {
+            m_rttyDecoder->setMindSoftSlicerClassifier(
+                [mindController](const QVector<float> &bitFeature,
+                                 QVector<float> *bitProbabilities,
+                                 double *confidencePercent) {
+                    if (mindController.isNull()) {
+                        return false;
+                    }
+                    return mindController->scoreRttyBitFeature(bitFeature,
+                                                               bitProbabilities,
+                                                               confidencePercent);
+                });
+        }
     }
     setupModeMenu();
     refreshQsoMaps();
@@ -1547,6 +1677,9 @@ MainWindow::~MainWindow()
     }
     if (m_cwDecoder != nullptr) {
         disconnect(m_cwDecoder, nullptr, this, nullptr);
+    }
+    if (m_cwSecondaryDecoder != nullptr) {
+        disconnect(m_cwSecondaryDecoder, nullptr, this, nullptr);
     }
     if (m_ft8RxDecoder != nullptr) {
         disconnect(m_ft8RxDecoder, nullptr, this, nullptr);
@@ -1824,7 +1957,7 @@ void MainWindow::setupCustomWidgets()
             // v1.18/v4.13ad: keep the side panel compact, but do not reserve a
             // separate global RX bar above the tabs.  RX/TX transport now lives
             // at the top of the Status tab, so all modes gain vertical room.
-            // 0.5.0 keeps diagnostic Runtime Log access only in FT Mode.
+            // 0.5.1 keeps diagnostic Runtime Log access only in FT Mode.
             sideContainer->setMinimumWidth(280);
             sideContainer->setMaximumWidth(340);
             sideContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
@@ -1846,7 +1979,9 @@ void MainWindow::setupCustomWidgets()
     setupMfskPage();
     setupCwPage();
     setupHellPage();
-    setupDspTab();
+    // DSP tab removed: useful per-mode conditioning now lives inside Mode pages.
+    // Keep the backend helpers for Software AGC and legacy settings migration.
+    // setupDspTab();
     setupFt8Page();
 
     m_grpTxImage = new QGroupBox(QString(), ui->tabModeSettings);
@@ -2857,6 +2992,8 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
         }
     }
 
+    recolorCwChannelPrefixes(terminal);
+
     QTextCursor restore(terminal->document());
     const int restoreEnd = safeDocumentEndPosition(terminal->document());
     const int safeCursorPosition = qBound(0, cursorPosition, restoreEnd);
@@ -2876,15 +3013,23 @@ void MainWindow::refreshFt8DecodeWorkedHighlights()
         if (messageItem == nullptr) {
             continue;
         }
-        const ParsedFt8Message parsed = parseFt8MessageText(messageItem->text().trimmed().toUpper(), myCall);
-        QString workedCall = parsed.senderCall;
-        if (parsed.cq) {
-            const QString cqCall = ft8CqCallsignFromMessage(parsed);
-            if (!cqCall.isEmpty()) {
-                workedCall = cqCall;
+        const QString storedMessage = messageItem->data(kFtOriginalMessageRole).toString().trimmed().toUpper();
+        const QString visibleMessage = messageItem->text().trimmed().toUpper();
+        const ParsedFt8Message parsed = parseFt8MessageText(storedMessage.isEmpty() ? visibleMessage : storedMessage, myCall);
+        const QStringList candidateCalls = ft8HighlightCandidateCallsigns(parsed, myCall);
+        QString workedCall;
+        QString neededCall;
+        for (const QString &call : candidateCalls) {
+            if (m_logbook.containsCallsign(call)) {
+                if (workedCall.isEmpty()) {
+                    workedCall = call;
+                }
+            } else if (neededCall.isEmpty()) {
+                neededCall = call;
             }
         }
-        const bool worked = !workedCall.isEmpty() && m_logbook.containsCallsign(workedCall);
+        const bool worked = !workedCall.isEmpty() && neededCall.isEmpty();
+        const bool needed = !neededCall.isEmpty();
         for (int col = 0; col < m_tableFt8Rx->columnCount(); ++col) {
             QTableWidgetItem *it = m_tableFt8Rx->item(row, col);
             if (it == nullptr) {
@@ -2893,9 +3038,17 @@ void MainWindow::refreshFt8DecodeWorkedHighlights()
             QFont f = it->font();
             f.setStrikeOut(worked && m_settings.logbookStrikeWorkedCalls);
             it->setFont(f);
+            const bool preserveNewCountryOutline = it->data(kFtRowRedOutlineRole).toBool() &&
+                                                   it->toolTip().startsWith(QStringLiteral("New DXCC country"));
+            // Do not draw the heavy red dashed outline for every merely-not-in-log station.
+            // That category is useful for AutoQSO/logbook logic, but red outline is reserved
+            // for high-priority new DXCC highlights so the FT table does not become all red.
+            it->setData(kFtRowRedOutlineRole, preserveNewCountryOutline);
             if (worked) {
                 it->setToolTip(QStringLiteral("Worked before: %1 is already in the ADIF logbook").arg(workedCall));
-            } else {
+            } else if (needed) {
+                it->setToolTip(QStringLiteral("Needed station: %1 is not in the ADIF logbook yet. You can call it after the current QSO/73, even if this line is not CQ.").arg(neededCall));
+            } else if (!preserveNewCountryOutline) {
                 it->setToolTip(QString());
             }
         }
@@ -2964,8 +3117,8 @@ void MainWindow::setupTextTerminalPages()
                                              &m_cwQsoForm);
 
     /*
-     * CW uses one direct RX decoder on the green marker and one simple TX
-     * entry box.  The broken full-passband CW candidate decoder was removed in v2.81:
+     * CW uses two direct RX decoders: RX A on the green marker and RX B on
+     * the blue marker. Left-click sets RX A; right-click sets/enables RX B.  The broken full-passband CW candidate decoder was removed in v2.81:
      * do not show the generic text-mode macro row or the three utility
      * buttons used by RTTY/PSK/MFSK.
      */
@@ -2983,7 +3136,7 @@ void MainWindow::setupTextTerminalPages()
         m_btnCwClearTx->setEnabled(false);
     }
     if (m_txtCwRx != nullptr) {
-        m_txtCwRx->setPlaceholderText("Decoded CW / Morse text appears here. TX text is echoed as TX> lines.");
+        m_txtCwRx->setPlaceholderText("Decoded CW text appears here. RX A is green; RX B is blue and appears as B> lines. TX text is echoed as TX> lines.");
     }
     if (m_txtCwTx != nullptr) {
         m_txtCwTx->setPlaceholderText("Type CW text to transmit, then press ➤.");
@@ -3017,14 +3170,14 @@ void MainWindow::setupTextTerminalPages()
     m_lblHellRaster = new QLabel(m_hellDisplayPage);
     m_lblHellRaster->setObjectName("hellPaperLabel");
     m_lblHellRaster->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    m_lblHellRaster->setMinimumSize(760, 190);
+    m_lblHellRaster->setMinimumSize(760, 104);
     m_lblHellRaster->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     m_lblHellRaster->setScaledContents(false);
 
     m_scrollHellRaster = new QScrollArea(m_hellDisplayPage);
     m_scrollHellRaster->setWidget(m_lblHellRaster);
     m_scrollHellRaster->setWidgetResizable(false);
-    m_scrollHellRaster->setMinimumHeight(145);
+    m_scrollHellRaster->setMinimumHeight(88);
     m_scrollHellRaster->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     m_scrollHellRaster->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     m_scrollHellRaster->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -3121,12 +3274,12 @@ void MainWindow::updateCentralDisplayForMode(const QString &modeName)
     // CW skimmer has been removed, CW no longer needs the extra-tall waterfall:
     // keep the terminal/QSO area dominant and use a compact tuning waterfall.
     if (ui->grpWaterfall != nullptr) {
-        ui->grpWaterfall->setMinimumHeight(cwMode ? 220 : (textMode ? 230 : 185));
+        ui->grpWaterfall->setMinimumHeight(modeName == HellschreiberDecoder::modeName() ? 135 : (cwMode ? 220 : (textMode ? 230 : 185)));
         ui->grpWaterfall->setMaximumHeight(QWIDGETSIZE_MAX);
         ui->grpWaterfall->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
     if (ui->frameWaterfall != nullptr) {
-        ui->frameWaterfall->setMinimumHeight(cwMode ? 200 : (textMode ? 210 : 165));
+        ui->frameWaterfall->setMinimumHeight(modeName == HellschreiberDecoder::modeName() ? 115 : (cwMode ? 200 : (textMode ? 210 : 165)));
         ui->frameWaterfall->setMaximumHeight(QWIDGETSIZE_MAX);
         ui->frameWaterfall->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
@@ -3386,12 +3539,7 @@ void MainWindow::loadRttySettingsToUi()
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
         m_chkRttyAfc == nullptr ||
-        m_spinRttyAfcRangeHz == nullptr ||
-        m_chkRttyMultiDecode == nullptr ||
-        m_chkRttyOverlayCallsigns == nullptr ||
-        m_chkRttyContestEnhanced == nullptr ||
-        m_chkRttySecondPass == nullptr ||
-        m_spinRttyMaxDecoders == nullptr) {
+        m_spinRttyAfcRangeHz == nullptr) {
         return;
     }
 
@@ -3420,15 +3568,15 @@ void MainWindow::loadRttySettingsToUi()
     m_chkRttyReverse->setChecked(customPreset ? m_settings.rttyReverse : preset.reverse);
     m_chkRttyAfc->setChecked(m_settings.rttyAfcEnabled);
     m_spinRttyAfcRangeHz->setValue(qBound(5, m_settings.rttyAfcRangeHz, 100));
-    m_chkRttyMultiDecode->setChecked(m_settings.rttyMultiDecodeEnabled);
-    m_chkRttyOverlayCallsigns->setChecked(m_settings.rttyOverlayCallsignsEnabled);
-    m_chkRttyContestEnhanced->setChecked(m_settings.rttyContestEnhancedEnabled);
-    m_chkRttySecondPass->setChecked(m_settings.rttySecondPassEnabled);
-    m_spinRttyMaxDecoders->setValue(qBound(2, m_settings.rttyMaxParallelDecoders, 32));
-    m_chkRttyOverlayCallsigns->setEnabled(m_settings.rttyMultiDecodeEnabled);
-    m_chkRttyContestEnhanced->setEnabled(m_settings.rttyMultiDecodeEnabled);
-    m_chkRttySecondPass->setEnabled(m_settings.rttyMultiDecodeEnabled);
-    m_spinRttyMaxDecoders->setEnabled(m_settings.rttyMultiDecodeEnabled);
+    if (m_chkRttyMultiDecode != nullptr) m_chkRttyMultiDecode->setChecked(m_settings.rttyMultiDecodeEnabled);
+    if (m_chkRttyOverlayCallsigns != nullptr) m_chkRttyOverlayCallsigns->setChecked(m_settings.rttyOverlayCallsignsEnabled);
+    if (m_chkRttyContestEnhanced != nullptr) m_chkRttyContestEnhanced->setChecked(m_settings.rttyContestEnhancedEnabled);
+    if (m_chkRttySecondPass != nullptr) m_chkRttySecondPass->setChecked(m_settings.rttySecondPassEnabled);
+    if (m_spinRttyMaxDecoders != nullptr) m_spinRttyMaxDecoders->setValue(qBound(2, m_settings.rttyMaxParallelDecoders, 32));
+    if (m_chkRttyOverlayCallsigns != nullptr) m_chkRttyOverlayCallsigns->setEnabled(m_settings.rttyMultiDecodeEnabled);
+    if (m_chkRttyContestEnhanced != nullptr) m_chkRttyContestEnhanced->setEnabled(m_settings.rttyMultiDecodeEnabled);
+    if (m_chkRttySecondPass != nullptr) m_chkRttySecondPass->setEnabled(m_settings.rttyMultiDecodeEnabled);
+    if (m_spinRttyMaxDecoders != nullptr) m_spinRttyMaxDecoders->setEnabled(m_settings.rttyMultiDecodeEnabled);
 
     m_cmbRttyPreset->setToolTip(preset.details);
     m_cmbRttyPreset->setStatusTip(preset.details);
@@ -3552,7 +3700,7 @@ void MainWindow::setupMfskPage()
     m_spinMfskCenterHz->setSuffix(" Hz");
 
     m_chkMfskAfc = new QCheckBox("AFC", settingsGroup);
-    m_chkMfskAfc->setToolTip("Enable the fldigi-inspired tone-bank AFC for the experimental MFSK receiver.");
+    m_chkMfskAfc->setToolTip("Enable slow AFC for the MFSK tone-bank receiver.");
     m_spinMfskAfcRangeHz = new QSpinBox(settingsGroup);
     m_spinMfskAfcRangeHz->setRange(5, 200);
     m_spinMfskAfcRangeHz->setSingleStep(5);
@@ -3568,7 +3716,7 @@ void MainWindow::setupMfskPage()
     grid->addWidget(m_spinMfskAfcRangeHz, 2, 2);
     grid->setColumnStretch(1, 1);
 
-    setHelpText(settingsGroup, uiText("mfsk_settings_tooltip", "Select MFSK speed, audio center tone and AFC range. The RX terminal, TX box and macros are shown in the central text area above the waterfall."));
+    setHelpText(settingsGroup, uiText("mfsk_settings_tooltip", "MFSK16 uses standard Varicode/FEC. MFSK32 is still a legacy experimental mode."));
 
     outerLayout->addWidget(settingsGroup);
     outerLayout->addStretch(1);
@@ -3629,6 +3777,13 @@ void MainWindow::setupCwPage()
     m_chkCwAutoWpm = new QCheckBox(uiText("cw_auto_wpm", "Auto WPM"), settingsGroup);
     m_lblCwTrackedWpm = new QLabel(uiText("cw_tracked_wpm", "Tracked: -- WPM"), settingsGroup);
     m_lblCwTrackedWpm->setStyleSheet(QStringLiteral("font-weight: bold;"));
+    m_lblCwDualRx = new QLabel(uiText("cw_dual_rx_status", "RX A: left click · RX B: right click on waterfall"), settingsGroup);
+    m_lblCwDualRx->setWordWrap(true);
+    m_lblCwDualRx->setStyleSheet(QStringLiteral("color: #2368b8; font-weight: bold;"));
+
+    m_btnCwDisableSecondary = new QPushButton(uiText("cw_disable_rx_b", "Disable RX B"), settingsGroup);
+    m_btnCwDisableSecondary->setToolTip(uiText("cw_disable_rx_b_tooltip", "Remove the blue secondary CW marker and stop decoder B."));
+    connect(m_btnCwDisableSecondary, &QPushButton::clicked, this, &MainWindow::disableCwSecondaryRx);
 
     m_spinCwBandwidthHz = new QSpinBox(settingsGroup);
     m_chkCwAfc = new QCheckBox("AFC", settingsGroup);
@@ -3642,6 +3797,9 @@ void MainWindow::setupCwPage()
     m_spinCwAfcRangeHz->setPrefix(QString::fromUtf8("±"));
     m_spinCwAfcRangeHz->setSuffix(" Hz");
 
+    m_chkCwSoftwareAgc = new QCheckBox(uiText("dsp_software_agc", "Software AGC"), settingsGroup);
+    m_chkCwSoftwareAgc->setToolTip(uiText("cw_software_agc_tooltip", "Slow RX audio normalizer for CW. Useful with QSB or unstable input level; it never touches TX audio."));
+
     grid->addWidget(new QLabel("Tone", settingsGroup), 0, 0);
     grid->addWidget(m_spinCwToneHz, 0, 1, 1, 2);
     grid->addWidget(new QLabel("Speed", settingsGroup), 1, 0);
@@ -3653,9 +3811,12 @@ void MainWindow::setupCwPage()
     grid->addWidget(m_chkCwAfc, 4, 0, 1, 1);
     grid->addWidget(new QLabel("AFC range", settingsGroup), 4, 1);
     grid->addWidget(m_spinCwAfcRangeHz, 4, 2);
+    grid->addWidget(m_chkCwSoftwareAgc, 5, 0, 1, 3);
+    grid->addWidget(m_lblCwDualRx, 6, 0, 1, 2);
+    grid->addWidget(m_btnCwDisableSecondary, 6, 2);
     grid->setColumnStretch(1, 1);
 
-    QLabel *hint = new QLabel("CW RX: click the waterfall to set the tone. Enable Auto WPM to let MadModem lock onto the sender speed from dot/dash timing; disable it for strict manual WPM.", m_pageCwSettings);
+    QLabel *hint = new QLabel(uiText("cw_dual_rx_hint", "CW RX: left click sets green RX A; right click sets blue RX B. Each decoder has its own AFC/Auto-WPM tracking internally. Yellow dashed lines show the active CW filter passband around each selected tone."), m_pageCwSettings);
     hint->setWordWrap(true);
 
     outerLayout->addWidget(settingsGroup);
@@ -3674,7 +3835,8 @@ void MainWindow::loadCwSettingsToUi()
         m_chkCwAutoWpm == nullptr ||
         m_spinCwBandwidthHz == nullptr ||
         m_chkCwAfc == nullptr ||
-        m_spinCwAfcRangeHz == nullptr) {
+        m_spinCwAfcRangeHz == nullptr ||
+        m_chkCwSoftwareAgc == nullptr) {
         return;
     }
 
@@ -3684,8 +3846,12 @@ void MainWindow::loadCwSettingsToUi()
     const QSignalBlocker blockBandwidth(m_spinCwBandwidthHz);
     const QSignalBlocker blockAfc(m_chkCwAfc);
     const QSignalBlocker blockAfcRange(m_spinCwAfcRangeHz);
+    const QSignalBlocker blockAgc(m_chkCwSoftwareAgc);
 
     m_spinCwToneHz->setValue(qBound(250, m_settings.cwToneHz, 2500));
+    m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
+    m_cwSecondaryToneHz = qBound(250, m_settings.cwSecondaryToneHz, 2500);
+    updateCwDualRxStatusLabel();
     m_spinCwWpm->setValue(qBound(5, m_settings.cwWpm, 60));
     m_chkCwAutoWpm->setChecked(m_settings.cwAutoWpm);
     m_spinCwWpm->setEnabled(!m_settings.cwAutoWpm);
@@ -3695,6 +3861,7 @@ void MainWindow::loadCwSettingsToUi()
     m_spinCwBandwidthHz->setValue(qBound(40, m_settings.cwBandwidthHz, 500));
     m_chkCwAfc->setChecked(m_settings.cwAfcEnabled);
     m_spinCwAfcRangeHz->setValue(qBound(5, m_settings.cwAfcRangeHz, 100));
+    m_chkCwSoftwareAgc->setChecked(m_settings.cwAgcEnabled);
 }
 
 
@@ -4458,13 +4625,13 @@ void MainWindow::setupHelpTooltips()
 
     if (m_spinMfskCenterHz != nullptr) {
         if (m_cmbMfskVariant != nullptr) {
-            setHelpText(m_cmbMfskVariant, "Select experimental MFSK16 or MFSK32. These are self-contained MadModem test modes in this release.");
+            setHelpText(m_cmbMfskVariant, "Select standard MFSK16 Varicode/FEC or legacy experimental MFSK32.");
         }
         setHelpText(m_spinMfskCenterHz, "Center frequency of the MFSK tone set. Click the waterfall to retune it directly.");
         setHelpText(m_chkMfskAfc, "Enable slow AFC on the MFSK tone bank to follow small audio-frequency offsets.");
         setHelpText(m_spinMfskAfcRangeHz, "Maximum MFSK tone-bank AFC correction range around the selected center frequency.");
-        setHelpText(m_txtMfskRx, "Decoded experimental MFSK text.");
-        setHelpText(m_txtMfskTx, "Text to transmit with the experimental framed-ASCII MFSK16/MFSK32 modem.");
+        setHelpText(m_txtMfskRx, "Received MFSK text. MFSK16 uses standard Varicode/FEC; MFSK32 remains experimental.");
+        setHelpText(m_txtMfskTx, "Text to transmit. MFSK16 uses standard Varicode/FEC; MFSK32 uses the legacy experimental path.");
         setHelpText(m_btnMfskClearRx, "Clear the received MFSK text window.");
         setHelpText(m_btnMfskLoadTxText, "Load plain text for MFSK transmission.");
         setHelpText(m_btnMfskClearTx, "Clear the MFSK transmission text.");
@@ -4714,6 +4881,13 @@ void MainWindow::setupProcessingConnections()
                     m_ddspController->submitConfirmedText(QStringLiteral("RTTY"), text);
                 },
                 Qt::QueuedConnection);
+        connect(m_rttyDecoder, &RttyDecoder::mindRttyBitSampleReady,
+                this, [this](const QVector<float> &input, const QVector<float> &target, const QString &label) {
+                    if (m_ddspController != nullptr) {
+                        m_ddspController->submitRttyBitSample(input, target, label);
+                    }
+                },
+                Qt::QueuedConnection);
     }
 
     connect(m_rttyDecoder, &RttyDecoder::statusChanged,
@@ -4817,27 +4991,39 @@ void MainWindow::setupProcessingConnections()
     connect(m_cwDecoder, &CwDecoder::characterReceived,
             this, &MainWindow::handleCwTextUpdated,
             Qt::QueuedConnection);
-    // Do not feed every raw CW character directly into MIND as a truth label:
-    // CW has no CRC/parity, so automatic character-level labels can teach the
-    // neural net decoder mistakes.  CW training is intentionally manual/high
-    // confidence through the MIND panel until a proper token-confidence gate is
-    // implemented.
+    // Do not feed every raw CW character directly into MIND as final text truth:
+    // CW has no CRC/parity.  The MIND CW profile is an event/timing helper
+    // (key-down, dit, dah and gaps), not an audio-to-text generator.
+    connect(m_cwDecoder, &CwDecoder::mindEventSampleReady,
+            this, [this](const QVector<float> &input, const QVector<float> &target, const QString &label) {
+                if (m_ddspController != nullptr) {
+                    m_ddspController->submitCwEventSample(input, target, label);
+                }
+            },
+            Qt::QueuedConnection);
 
     connect(m_cwDecoder, &CwDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
 
     connect(m_cwDecoder, &CwDecoder::markersChanged,
-            this, [this](const QVector<FrequencyMarker> &markers) {
+            this, [this](const QVector<FrequencyMarker> &) {
                 if (m_waterfallWidget != nullptr && ui != nullptr && ui->cmbMode != nullptr &&
                     ui->cmbMode->currentText() == CwDecoder::modeName()) {
-                    m_waterfallWidget->setMarkers(markers);
+                    updateWaterfallMarkers();
+                    updateCwDualRxStatusLabel();
                 }
             });
 
     connect(m_cwDecoder, &CwDecoder::speedEstimateChanged,
             this, [this](double wpm) {
+                m_cwTrackedWpmA = wpm;
                 if (m_lblCwTrackedWpm != nullptr) {
-                    m_lblCwTrackedWpm->setText(QString("%1 %2 WPM").arg(uiText("tracked", "Tracked:")).arg(wpm, 0, 'f', 1));
+                    const QString text = m_cwSecondaryEnabled
+                                             ? uiText("cw_tracked_ab", "Tracked A: %1 WPM · B: %2 WPM")
+                                                   .arg(m_cwTrackedWpmA, 0, 'f', 1)
+                                                   .arg(m_cwTrackedWpmB > 0.1 ? QString::number(m_cwTrackedWpmB, 'f', 1) : QStringLiteral("--"))
+                                             : QString("%1 %2 WPM").arg(uiText("tracked", "Tracked:")).arg(wpm, 0, 'f', 1);
+                    m_lblCwTrackedWpm->setText(text);
                 }
                 if (m_chkCwAutoWpm != nullptr && m_chkCwAutoWpm->isChecked() && m_spinCwWpm != nullptr) {
                     const int rounded = qBound(5, static_cast<int>(std::lround(wpm)), 60);
@@ -4845,7 +5031,58 @@ void MainWindow::setupProcessingConnections()
                     m_spinCwWpm->setValue(rounded);
                     m_settings.cwWpm = rounded;
                 }
+                updateCwDualRxStatusLabel();
+                updateWaterfallMarkers();
             });
+
+    connect(m_cwSecondaryDecoder, &CwDecoder::characterReceived,
+            this, [this](const QString &text) {
+                if (!m_cwSecondaryEnabled) {
+                    return;
+                }
+                appendCwDecoderText(QStringLiteral("B"), text, QColor("#0069d9"), &m_cwSecondaryLineOpen);
+            },
+            Qt::QueuedConnection);
+
+    connect(m_cwSecondaryDecoder, &CwDecoder::mindEventSampleReady,
+            this, [this](const QVector<float> &input, const QVector<float> &target, const QString &label) {
+                if (m_ddspController != nullptr && m_cwSecondaryEnabled) {
+                    m_ddspController->submitCwEventSample(input, target, QStringLiteral("B/") + label);
+                }
+            },
+            Qt::QueuedConnection);
+
+    connect(m_cwSecondaryDecoder, &CwDecoder::statusChanged,
+            this, [this](const QString &status) {
+                if (m_cwSecondaryEnabled) {
+                    handleWeatherFaxStatus(QStringLiteral("CW B: ") + status);
+                }
+            });
+
+    connect(m_cwSecondaryDecoder, &CwDecoder::speedEstimateChanged,
+            this, [this](double wpm) {
+                if (!m_cwSecondaryEnabled) {
+                    return;
+                }
+                m_cwTrackedWpmB = wpm;
+                if (m_lblCwTrackedWpm != nullptr) {
+                    m_lblCwTrackedWpm->setText(uiText("cw_tracked_ab", "Tracked A: %1 WPM · B: %2 WPM")
+                                                   .arg(m_cwTrackedWpmA > 0.1 ? QString::number(m_cwTrackedWpmA, 'f', 1) : QStringLiteral("--"))
+                                                   .arg(m_cwTrackedWpmB, 0, 'f', 1));
+                }
+                updateCwDualRxStatusLabel();
+                updateWaterfallMarkers();
+            });
+
+    connect(m_cwSecondaryDecoder, &CwDecoder::markersChanged,
+            this, [this](const QVector<FrequencyMarker> &) {
+                if (m_waterfallWidget != nullptr && ui != nullptr && ui->cmbMode != nullptr &&
+                    ui->cmbMode->currentText() == CwDecoder::modeName()) {
+                    updateWaterfallMarkers();
+                    updateCwDualRxStatusLabel();
+                }
+            });
+
 
     connect(m_hellDecoder, &HellschreiberDecoder::imageUpdated,
             this, [this](const QImage &image) {
@@ -5925,6 +6162,11 @@ void MainWindow::setupUiConnections()
                 this, [this](int) { applyCwSettings(); });
     }
 
+    if (m_chkCwSoftwareAgc != nullptr) {
+        connect(m_chkCwSoftwareAgc, &QCheckBox::toggled,
+                this, [this](bool) { applyCwSettings(); });
+    }
+
     if (m_btnCwClearRx != nullptr) {
         connect(m_btnCwClearRx, &QPushButton::clicked,
                 this, &MainWindow::clearCwRxText);
@@ -6406,6 +6648,14 @@ void MainWindow::applyPersistentSettingsToRuntime()
     m_cwDecoder->setAutoWpm(m_settings.cwAutoWpm);
     m_cwDecoder->setWpm(static_cast<double>(m_settings.cwWpm));
     m_cwDecoder->setBandwidthHz(static_cast<double>(m_settings.cwBandwidthHz));
+    if (m_cwSecondaryDecoder != nullptr) {
+        m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
+        m_cwSecondaryToneHz = m_settings.cwSecondaryToneHz;
+        m_cwSecondaryDecoder->setToneHz(static_cast<double>(m_cwSecondaryToneHz));
+        m_cwSecondaryDecoder->setAutoWpm(m_settings.cwAutoWpm);
+        m_cwSecondaryDecoder->setWpm(static_cast<double>(m_settings.cwWpm));
+        m_cwSecondaryDecoder->setBandwidthHz(static_cast<double>(m_settings.cwBandwidthHz));
+    }
     m_hellDecoder->setVariant(HellschreiberDecoder::variantFromKey(m_settings.hellVariant));
     m_hellDecoder->setToneHz(static_cast<double>(m_settings.hellToneHz));
     m_hellDecoder->setColumnRate(m_settings.hellColumnRate);
@@ -6562,12 +6812,43 @@ bool MainWindow::ensureStationIdentityForTx(const QString &modeLabel)
         return true;
     }
 
-    const QString title = uiText("station_identity_required", "Station identity required");
-    const QString message = uiText("station_identity_required_text",
-                                   "Set a valid My Call and My Locator in Settings -> User/QTH before any TX, PTT test, Tune, or rotator movement.");
     appendLog(QStringLiteral("%1 blocked: %2").arg(modeLabel, reason));
-    QMessageBox::warning(this, title, message + QStringLiteral("\n\n") + reason);
+    showTxBlockedWarning(modeLabel,
+                         reason,
+                         AppSettingsDialog::InitialPage::UserQthMacros,
+                         uiText("open_user_qth_settings", "Open User/QTH settings"));
     return false;
+}
+
+void MainWindow::showTxBlockedWarning(const QString &modeLabel,
+                                      const QString &reason,
+                                      AppSettingsDialog::InitialPage settingsPage,
+                                      const QString &openSettingsText)
+{
+    const QString cleanMode = modeLabel.trimmed().isEmpty() ? QStringLiteral("TX/PTT") : modeLabel.trimmed();
+    const QString cleanReason = reason.trimmed().isEmpty()
+        ? uiText("tx_blocked_unknown_reason", "MadModem blocked TX/PTT for safety, but no detailed reason was returned.")
+        : reason.trimmed();
+
+    QMessageBox box(this);
+    box.setIcon(QMessageBox::Warning);
+    box.setWindowTitle(uiText("tx_blocked_title", "TX/PTT blocked"));
+    box.setText(uiText("tx_blocked_message", "%1 cannot transmit because a required safety/configuration check failed.").arg(cleanMode));
+    box.setInformativeText(cleanReason + QStringLiteral("\n\n") +
+                           uiText("tx_blocked_fix_hint",
+                                  "Open Settings, correct the highlighted station/PTT/CAT configuration, then try TX again."));
+
+    QPushButton *openButton = box.addButton(openSettingsText.trimmed().isEmpty()
+                                                ? uiText("open_settings", "Open Settings")
+                                                : openSettingsText.trimmed(),
+                                            QMessageBox::ActionRole);
+    box.addButton(uiText("cancel_tx", "Cancel TX"), QMessageBox::RejectRole);
+    box.setDefaultButton(openButton);
+    box.exec();
+
+    if (box.clickedButton() == openButton) {
+        showAppSettingsDialogPage(settingsPage);
+    }
 }
 
 QString MainWindow::bandFromFrequencyHz(double frequencyHz) const
@@ -6785,113 +7066,10 @@ void MainWindow::updateBandSchedulerTabForMode(const QString &modeName)
 
 void MainWindow::setupDspTab()
 {
-    if (ui == nullptr || ui->sideTabWidget == nullptr || m_tabDspSettings != nullptr) {
-        return;
-    }
-
-    m_tabDspSettings = new QWidget(ui->sideTabWidget);
-    QVBoxLayout *root = new QVBoxLayout(m_tabDspSettings);
-    root->setContentsMargins(8, 8, 8, 8);
-    root->setSpacing(8);
-
-    m_lblDspMode = new QLabel(m_tabDspSettings);
-    m_lblDspMode->setWordWrap(true);
-    root->addWidget(m_lblDspMode);
-
-    m_grpDspCore = new QGroupBox(uiText("dsp_core_group", "Common RX conditioning"), m_tabDspSettings);
-    QVBoxLayout *coreLayout = new QVBoxLayout(m_grpDspCore);
-    coreLayout->setContentsMargins(8, 8, 8, 8);
-    coreLayout->setSpacing(4);
-    m_chkDspSoftwareAgc = new QCheckBox(uiText("dsp_software_agc", "Software AGC"), m_grpDspCore);
-    m_chkDspSoftwareAgc->setToolTip(uiText("dsp_software_agc_tooltip", "Slow audio normalizer before the active decoder. Useful with QSB or unstable input levels; it never changes transmit audio."));
-    m_chkDspNoiseReduction = new QCheckBox(uiText("dsp_noise_reduction", "Noise reduction"), m_grpDspCore);
-    m_chkDspNoiseReduction->setToolTip(uiText("dsp_noise_reduction_tooltip", "Gentle adaptive soft noise reducer before the active decoder. It estimates the idle noise floor and attenuates hiss without hard squelching."));
-    m_chkDspAdaptiveLineEnhancer = new QCheckBox(uiText("dsp_adaptive_line_enhancer", "Adaptive line enhancer (LMS)"), m_grpDspCore);
-    m_chkDspAdaptiveLineEnhancer->setToolTip(uiText("dsp_adaptive_line_enhancer_tooltip", "LMS adaptive tone enhancer for narrowband deterministic signals. Useful for CW and RTTY tones with QSB/drift; leave it off if it makes keyed edges too soft."));
-    coreLayout->addWidget(m_chkDspSoftwareAgc);
-    coreLayout->addWidget(m_chkDspNoiseReduction);
-    coreLayout->addWidget(m_chkDspAdaptiveLineEnhancer);
-    root->addWidget(m_grpDspCore);
-
-    m_grpDspRtty = new QGroupBox(uiText("dsp_rtty_group", "RTTY contest DSP"), m_tabDspSettings);
-    QGridLayout *rttyLayout = new QGridLayout(m_grpDspRtty);
-    rttyLayout->setContentsMargins(8, 8, 8, 8);
-    rttyLayout->setHorizontalSpacing(8);
-    rttyLayout->setVerticalSpacing(4);
-    m_chkDspRttyMatchedFilter = new QCheckBox(uiText("dsp_rtty_matched_filter", "Matched Mark/Space filters"), m_grpDspRtty);
-    m_chkDspRttyMatchedFilter->setToolTip(uiText("dsp_rtty_matched_filter_tooltip", "Adds narrow Mark and Space matched filters before the RTTY slicer. Helps contest signals in noise, but may need retuning if the signal is badly off-frequency."));
-    m_chkDspRttyMarkSpaceEnhancer = new QCheckBox(uiText("dsp_rtty_mark_space_enhancer", "Adaptive Mark/Space enhancer"), m_grpDspRtty);
-    m_chkDspRttyMarkSpaceEnhancer->setToolTip(uiText("dsp_rtty_mark_space_enhancer_tooltip", "Normalizes the two RTTY tones after the matched filters to reduce selective fading between Mark and Space."));
-    m_chkRttyMultiDecode = new QCheckBox(uiText("rtty_multi_decode", "Multi-decode RTTY waterfall"), m_grpDspRtty);
-    m_chkRttyMultiDecode->setToolTip(uiText("rtty_multi_decode_tooltip", "Runs lightweight parallel shadow decoders over the whole waterfall while the main terminal stays tuned to the selected signal."));
-    m_chkRttyOverlayCallsigns = new QCheckBox(uiText("rtty_overlay_callsigns", "Show CQ/callsign labels on waterfall"), m_grpDspRtty);
-    m_chkRttyOverlayCallsigns->setToolTip(uiText("rtty_overlay_callsigns_tooltip", "When multi-decode finds CQ or a callsign, show a small label above that RTTY trace in the waterfall."));
-    m_chkRttyContestEnhanced = new QCheckBox(uiText("rtty_contest_enhanced", "Contest enhanced RX"), m_grpDspRtty);
-    m_chkRttyContestEnhanced->setToolTip(uiText("rtty_contest_enhanced_tooltip", "Uses a slower but more selective scan for the shadow RTTY decoders. Enable it only when the CPU has margin."));
-    m_chkRttySecondPass = new QCheckBox(uiText("rtty_second_pass", "Second-pass strong-signal scan"), m_grpDspRtty);
-    m_chkRttySecondPass->setToolTip(uiText("rtty_second_pass_tooltip", "Optional contest mode: after detecting strong RTTY traces, run a second scan looking for weaker nearby signals. This is the heaviest RTTY option."));
-    m_spinRttyMaxDecoders = new QSpinBox(m_grpDspRtty);
-    m_spinRttyMaxDecoders->setRange(2, 32);
-    m_spinRttyMaxDecoders->setSuffix(uiText("rtty_decoders_suffix", " decoders"));
-    m_spinRttyMaxDecoders->setToolTip(uiText("rtty_max_decoders_tooltip", "Maximum number of parallel shadow RTTY decoders. Lower values reduce CPU load on older computers."));
-    rttyLayout->addWidget(m_chkDspRttyMatchedFilter, 0, 0, 1, 2);
-    rttyLayout->addWidget(m_chkDspRttyMarkSpaceEnhancer, 1, 0, 1, 2);
-    rttyLayout->addWidget(m_chkRttyMultiDecode, 2, 0, 1, 2);
-    rttyLayout->addWidget(m_chkRttyOverlayCallsigns, 3, 0, 1, 2);
-    rttyLayout->addWidget(m_chkRttyContestEnhanced, 4, 0, 1, 2);
-    rttyLayout->addWidget(m_chkRttySecondPass, 5, 0, 1, 2);
-    rttyLayout->addWidget(new QLabel(uiText("rtty_max_parallel_decoders", "Maximum parallel decoders"), m_grpDspRtty), 6, 0);
-    rttyLayout->addWidget(m_spinRttyMaxDecoders, 6, 1);
-    rttyLayout->setColumnStretch(1, 1);
-    root->addWidget(m_grpDspRtty);
-
-    m_grpDspBpsk = new QGroupBox(uiText("dsp_psk_group", "PSK coherent tracking"), m_tabDspSettings);
-    QVBoxLayout *bpskLayout = new QVBoxLayout(m_grpDspBpsk);
-    bpskLayout->setContentsMargins(8, 8, 8, 8);
-    m_chkDspBpskCoherentTracking = new QCheckBox(uiText("dsp_bpsk_coherent_tracking", "Costas + timing tracking"), m_grpDspBpsk);
-    m_chkDspBpskCoherentTracking->setToolTip(uiText("dsp_bpsk_coherent_tracking_tooltip", "Keeps the PSK Costas carrier loop and decision-directed symbol timing nudge active. Disable only for comparison/debugging."));
-    bpskLayout->addWidget(m_chkDspBpskCoherentTracking);
-    root->addWidget(m_grpDspBpsk);
-
-    m_grpDspImage = new QGroupBox(uiText("dsp_image_group", "Image-mode denoise"), m_tabDspSettings);
-    QVBoxLayout *imageLayout = new QVBoxLayout(m_grpDspImage);
-    imageLayout->setContentsMargins(8, 8, 8, 8);
-    m_chkDspImageWaveletDenoise = new QCheckBox(uiText("dsp_wavelet_denoise", "Wavelet-style soft denoise"), m_grpDspImage);
-    m_chkDspImageWaveletDenoise->setToolTip(uiText("dsp_wavelet_denoise_tooltip", "Gentle Haar soft-threshold denoise for WEFAX/SSTV audio before image decoding. It can reduce grain but may soften very weak details."));
-    imageLayout->addWidget(m_chkDspImageWaveletDenoise);
-    root->addWidget(m_grpDspImage);
-
-    root->addStretch(1);
-
-    const QList<QAbstractButton *> toggles = {
-        m_chkDspSoftwareAgc,
-        m_chkDspNoiseReduction,
-        m_chkDspAdaptiveLineEnhancer,
-        m_chkDspRttyMatchedFilter,
-        m_chkDspRttyMarkSpaceEnhancer,
-        m_chkRttyMultiDecode,
-        m_chkRttyOverlayCallsigns,
-        m_chkRttyContestEnhanced,
-        m_chkRttySecondPass,
-        m_chkDspBpskCoherentTracking,
-        m_chkDspImageWaveletDenoise
-    };
-    for (QAbstractButton *button : toggles) {
-        if (button != nullptr) {
-            connect(button, &QAbstractButton::toggled, this, [this](bool) { applyDspTabSettings(); });
-        }
-    }
-    if (m_spinRttyMaxDecoders != nullptr) {
-        connect(m_spinRttyMaxDecoders, QOverload<int>::of(&QSpinBox::valueChanged), this, [this](int) { applyDspTabSettings(); });
-    }
-
-    const int modeIndex = (ui->tabModeSettings != nullptr) ? ui->sideTabWidget->indexOf(ui->tabModeSettings) : -1;
-    const int insertIndex = modeIndex >= 0 ? modeIndex + 1 : ui->sideTabWidget->count();
-    ui->sideTabWidget->insertTab(insertIndex, m_tabDspSettings, uiText("tab_dsp", "DSP"));
-
-    loadRttySettingsToUi();
-    updateDspTabForMode(ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
+    // Removed by design: the generic DSP tab exposed mostly ineffective controls.
+    // Keep useful RX conditioning in the relevant Mode pages instead.
 }
+
 
 void MainWindow::updateDspTabForMode(const QString &modeName)
 {
@@ -7517,10 +7695,10 @@ void MainWindow::setReceiverRunning(bool running)
             const bool monitorConfigurable = !m_txRunning && !m_offlineAnalysisActive;
             const bool monitorEnabled = monitorConfigurable && m_chkRttyMultiDecode->isChecked();
             m_chkRttyMultiDecode->setEnabled(monitorConfigurable);
-            m_chkRttyOverlayCallsigns->setEnabled(monitorEnabled);
-            m_chkRttyContestEnhanced->setEnabled(monitorEnabled);
-            m_chkRttySecondPass->setEnabled(monitorEnabled);
-            m_spinRttyMaxDecoders->setEnabled(monitorEnabled);
+            if (m_chkRttyOverlayCallsigns != nullptr) m_chkRttyOverlayCallsigns->setEnabled(monitorEnabled);
+            if (m_chkRttyContestEnhanced != nullptr) m_chkRttyContestEnhanced->setEnabled(monitorEnabled);
+            if (m_chkRttySecondPass != nullptr) m_chkRttySecondPass->setEnabled(monitorEnabled);
+            if (m_spinRttyMaxDecoders != nullptr) m_spinRttyMaxDecoders->setEnabled(monitorEnabled);
         }
         m_txtRttyTx->setEnabled(!m_offlineAnalysisActive);
         m_txtRttyTx->setReadOnly(m_txRunning || m_offlineAnalysisActive);
@@ -7564,6 +7742,7 @@ void MainWindow::setReceiverRunning(bool running)
         m_spinCwBandwidthHz->setEnabled(configurable);
         m_chkCwAfc->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         m_spinCwAfcRangeHz->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
+        if (m_chkCwSoftwareAgc != nullptr) m_chkCwSoftwareAgc->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         m_btnCwClearRx->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         if (m_txtCwTx != nullptr) {
             m_txtCwTx->setEnabled(!m_offlineAnalysisActive);
@@ -7806,6 +7985,9 @@ void MainWindow::finishPendingModeChange()
 
 void MainWindow::handleModeChanged(const QString &modeName)
 {
+    if (m_ddspController != nullptr) {
+        m_ddspController->setRuntimeMode(modeName);
+    }
     updateCentralDisplayForMode(modeName);
     populateQsoFormDefaults(activeQsoForm(), modeName);
     updateBandSchedulerTabForMode(modeName);
@@ -7963,8 +8145,48 @@ void MainWindow::updateWaterfallMarkers()
     }
 
     if (mode == CwDecoder::modeName()) {
-        const double tone = (m_spinCwToneHz != nullptr) ? m_spinCwToneHz->value() : 700.0;
-        m_waterfallWidget->setMarkers(CwDecoder::frequencyMarkers(tone));
+        const double toneA = (m_cwDecoder != nullptr)
+                                 ? m_cwDecoder->toneHz()
+                                 : ((m_spinCwToneHz != nullptr) ? m_spinCwToneHz->value() : 700.0);
+        const double toneB = (m_cwSecondaryDecoder != nullptr)
+                                 ? m_cwSecondaryDecoder->toneHz()
+                                 : static_cast<double>(m_cwSecondaryToneHz);
+        const double bandwidth = (m_spinCwBandwidthHz != nullptr)
+                                     ? static_cast<double>(m_spinCwBandwidthHz->value())
+                                     : static_cast<double>(m_settings.cwBandwidthHz);
+        const double halfBw = qMax(10.0, bandwidth * 0.5);
+
+        QVector<FrequencyMarker> markers;
+        auto appendCwMarkerSet = [&](double center, const QString &label, const QColor &centerColor) {
+            FrequencyMarker primary;
+            primary.frequencyHz = center;
+            primary.label = label;
+            primary.color = centerColor;
+            primary.width = 2;
+            markers.append(primary);
+
+            FrequencyMarker low;
+            low.frequencyHz = qMax(0.0, center - halfBw);
+            low.label = uiText("cw_filter_low", "CW filter low");
+            low.color = QColor(255, 210, 0);
+            low.dashed = true;
+            low.width = 1;
+            markers.append(low);
+
+            FrequencyMarker high;
+            high.frequencyHz = center + halfBw;
+            high.label = uiText("cw_filter_high", "CW filter high");
+            high.color = QColor(255, 210, 0);
+            high.dashed = true;
+            high.width = 1;
+            markers.append(high);
+        };
+
+        appendCwMarkerSet(toneA, uiText("cw_rx_a_marker", "CW RX A"), QColor(80, 255, 120));
+        if (m_cwSecondaryEnabled) {
+            appendCwMarkerSet(toneB, uiText("cw_rx_b_marker", "CW RX B"), QColor(80, 170, 255));
+        }
+        m_waterfallWidget->setMarkers(markers);
         return;
     }
 
@@ -8067,13 +8289,31 @@ void MainWindow::handleWaterfallFrequencyClicked(double frequencyHz, Qt::MouseBu
         const int newTone = qBound(m_spinCwToneHz->minimum(),
                                    roundedHz,
                                    m_spinCwToneHz->maximum());
+        if (button == Qt::RightButton) {
+            m_cwSecondaryEnabled = true;
+            m_cwSecondaryToneHz = newTone;
+            m_settings.cwSecondaryEnabled = true;
+            m_settings.cwSecondaryToneHz = newTone;
+            if (m_cwSecondaryDecoder != nullptr) {
+                m_cwSecondaryDecoder->setToneHz(static_cast<double>(newTone));
+                m_cwSecondaryDecoder->reset();
+            }
+            m_cwTrackedWpmB = 0.0;
+            updateCwDualRxStatusLabel();
+            savePersistentSettings();
+            updateWaterfallMarkers();
+            appendLog(QString("CW RX B from waterfall: %1 Hz.").arg(newTone));
+            return;
+        }
+
         {
             const QSignalBlocker blockTone(m_spinCwToneHz);
             m_spinCwToneHz->setValue(newTone);
         }
 
         applyCwSettings();
-        appendLog(QString("CW tone from waterfall: %1 Hz.").arg(newTone));
+        updateCwDualRxStatusLabel();
+        appendLog(QString("CW RX A from waterfall: %1 Hz.").arg(newTone));
         return;
     }
 
@@ -8422,7 +8662,12 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
     }
 
     if (modeName == CwDecoder::modeName()) {
-        m_cwDecoder->processAudioBlock(conditionedBlock);
+        if (m_cwDecoder != nullptr) {
+            m_cwDecoder->processAudioBlock(conditionedBlock);
+        }
+        if (m_cwSecondaryEnabled && m_cwSecondaryDecoder != nullptr) {
+            m_cwSecondaryDecoder->processAudioBlock(conditionedBlock);
+        }
         return;
     }
 
@@ -8493,6 +8738,7 @@ void MainWindow::applyWeatherFaxSettings()
     updateLinePresetSelectionFromCurrentValues();
     m_settings.weatherFaxLinePreset = ui->cmbFaxLinePreset->currentData().toString();
     savePersistentSettings();
+    updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
 }
@@ -8523,6 +8769,7 @@ void MainWindow::applySstvSettings()
     m_settings.sstvBlueShiftPixels = blueShiftPixels;
 
     savePersistentSettings();
+    updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
 }
@@ -8536,12 +8783,7 @@ void MainWindow::applyRttySettings()
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
         m_chkRttyAfc == nullptr ||
-        m_spinRttyAfcRangeHz == nullptr ||
-        m_chkRttyMultiDecode == nullptr ||
-        m_chkRttyOverlayCallsigns == nullptr ||
-        m_chkRttyContestEnhanced == nullptr ||
-        m_chkRttySecondPass == nullptr ||
-        m_spinRttyMaxDecoders == nullptr) {
+        m_spinRttyAfcRangeHz == nullptr) {
         return;
     }
 
@@ -8555,11 +8797,21 @@ void MainWindow::applyRttySettings()
     const bool reverse = m_chkRttyReverse->isChecked();
     const bool afc = (m_chkRttyAfc != nullptr) ? m_chkRttyAfc->isChecked() : true;
     const int afcRangeHz = (m_spinRttyAfcRangeHz != nullptr) ? m_spinRttyAfcRangeHz->value() : 20;
-    const bool multiDecode = m_chkRttyMultiDecode->isChecked();
-    const bool overlayCallsigns = m_chkRttyOverlayCallsigns->isChecked();
-    const bool contestEnhanced = m_chkRttyContestEnhanced->isChecked();
-    const bool secondPass = m_chkRttySecondPass->isChecked();
-    const int maxDecoders = m_spinRttyMaxDecoders->value();
+    const bool multiDecode = (m_chkRttyMultiDecode != nullptr)
+                                 ? m_chkRttyMultiDecode->isChecked()
+                                 : m_settings.rttyMultiDecodeEnabled;
+    const bool overlayCallsigns = (m_chkRttyOverlayCallsigns != nullptr)
+                                      ? m_chkRttyOverlayCallsigns->isChecked()
+                                      : m_settings.rttyOverlayCallsignsEnabled;
+    const bool contestEnhanced = (m_chkRttyContestEnhanced != nullptr)
+                                     ? m_chkRttyContestEnhanced->isChecked()
+                                     : m_settings.rttyContestEnhancedEnabled;
+    const bool secondPass = (m_chkRttySecondPass != nullptr)
+                                ? m_chkRttySecondPass->isChecked()
+                                : m_settings.rttySecondPassEnabled;
+    const int maxDecoders = (m_spinRttyMaxDecoders != nullptr)
+                                ? m_spinRttyMaxDecoders->value()
+                                : m_settings.rttyMaxParallelDecoders;
 
     m_rttyDecoder->setBaudRate(baud);
     m_rttyDecoder->setTones(static_cast<double>(markHz), static_cast<double>(spaceHz));
@@ -8587,6 +8839,7 @@ void MainWindow::applyRttySettings()
     if (m_spinRttyMaxDecoders != nullptr) m_spinRttyMaxDecoders->setEnabled(multiDecode);
 
     savePersistentSettings();
+    updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
 }
@@ -8749,6 +9002,7 @@ void MainWindow::applyBpsk31Settings()
     m_settings.bpsk31CoherentTrackingEnabled = coherentTracking;
 
     savePersistentSettings();
+    updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
 }
@@ -8856,6 +9110,7 @@ void MainWindow::applyMfskSettings()
     m_settings.mfskAfcRangeHz = afcRangeHz;
 
     savePersistentSettings();
+    updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
 }
@@ -8938,7 +9193,8 @@ void MainWindow::applyCwSettings()
         m_chkCwAutoWpm == nullptr ||
         m_spinCwBandwidthHz == nullptr ||
         m_chkCwAfc == nullptr ||
-        m_spinCwAfcRangeHz == nullptr) {
+        m_spinCwAfcRangeHz == nullptr ||
+        m_chkCwSoftwareAgc == nullptr) {
         return;
     }
 
@@ -8948,6 +9204,7 @@ void MainWindow::applyCwSettings()
     const int bandwidthHz = m_spinCwBandwidthHz->value();
     const bool afc = m_chkCwAfc->isChecked();
     const int afcRangeHz = m_spinCwAfcRangeHz->value();
+    const bool softwareAgc = m_chkCwSoftwareAgc->isChecked();
 
     m_cwDecoder->setToneHz(static_cast<double>(toneHz));
     m_cwDecoder->setAutoWpm(autoWpm);
@@ -8955,14 +9212,29 @@ void MainWindow::applyCwSettings()
     m_cwDecoder->setBandwidthHz(static_cast<double>(bandwidthHz));
     m_cwDecoder->setAfcEnabled(afc);
     m_cwDecoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
+    if (m_cwSecondaryDecoder != nullptr) {
+        m_cwSecondaryDecoder->setToneHz(static_cast<double>(m_cwSecondaryToneHz));
+        m_cwSecondaryDecoder->setAutoWpm(autoWpm);
+        m_cwSecondaryDecoder->setWpm(static_cast<double>(wpm));
+        m_cwSecondaryDecoder->setBandwidthHz(static_cast<double>(bandwidthHz));
+        m_cwSecondaryDecoder->setAfcEnabled(afc);
+        m_cwSecondaryDecoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
+    }
     m_settings.cwToneHz = toneHz;
+    m_settings.cwSecondaryEnabled = m_cwSecondaryEnabled;
+    m_settings.cwSecondaryToneHz = m_cwSecondaryToneHz;
     m_settings.cwWpm = wpm;
     m_settings.cwAutoWpm = autoWpm;
     m_settings.cwBandwidthHz = bandwidthHz;
     m_settings.cwAfcEnabled = afc;
     m_settings.cwAfcRangeHz = afcRangeHz;
+    if (m_settings.cwAgcEnabled != softwareAgc) {
+        m_settings.cwAgcEnabled = softwareAgc;
+        m_decoderConditioner.reset();
+    }
 
     savePersistentSettings();
+    updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
 }
@@ -8972,6 +9244,12 @@ void MainWindow::clearCwRxText()
     if (m_cwDecoder != nullptr) {
         m_cwDecoder->reset();
     }
+    if (m_cwSecondaryDecoder != nullptr) {
+        m_cwSecondaryDecoder->reset();
+    }
+    m_cwPrimaryLineOpen = false;
+    m_cwSecondaryLineOpen = false;
+    m_cwCurrentLineChannel.clear();
     if (m_txtCwRx != nullptr) {
         m_txtCwRx->clear();
     }
@@ -9035,11 +9313,155 @@ void MainWindow::sendCwTxText()
 
 void MainWindow::handleCwTextUpdated(const QString &text)
 {
+    appendCwDecoderText(QStringLiteral("A"), text, QColor("#118a2a"), &m_cwPrimaryLineOpen);
+}
+
+void MainWindow::appendCwDecoderText(const QString &channel, const QString &text, const QColor &color, bool *lineOpen)
+{
     if (m_txtCwRx == nullptr || text.isEmpty()) {
         return;
     }
 
-    appendTextTerminal(m_txtCwRx, QString(), text);
+    QString normalized = text;
+    normalized.replace("\r\n", "\n");
+    normalized.replace('\r', '\n');
+    normalized.remove(QChar('\a'));
+    if (normalized.isEmpty()) {
+        return;
+    }
+
+    QTextCursor cursor = m_txtCwRx->textCursor();
+    cursor.movePosition(QTextCursor::End);
+
+    QTextCharFormat prefixFormat;
+    prefixFormat.setForeground(color);
+    prefixFormat.setFontWeight(QFont::Bold);
+
+    QTextCharFormat bodyFormat;
+    bodyFormat.setForeground(QColor("#111111"));
+
+    bool open = (lineOpen != nullptr) ? *lineOpen : false;
+    auto ensurePrefix = [&]() {
+        if (open && m_cwCurrentLineChannel == channel) {
+            return;
+        }
+        const QString existing = m_txtCwRx->toPlainText();
+        if (!existing.isEmpty() && !existing.endsWith('\n')) {
+            cursor.insertText(QStringLiteral("\n"), bodyFormat);
+        }
+        cursor.insertText(channel + QStringLiteral("> "), prefixFormat);
+        open = true;
+        m_cwCurrentLineChannel = channel;
+    };
+
+    for (QChar ch : normalized) {
+        if (ch == QChar('\n')) {
+            cursor.insertText(QStringLiteral("\n"), bodyFormat);
+            open = false;
+            if (m_cwCurrentLineChannel == channel) {
+                m_cwCurrentLineChannel.clear();
+            }
+            continue;
+        }
+        ensurePrefix();
+        cursor.insertText(QString(ch), bodyFormat);
+    }
+
+    if (lineOpen != nullptr) {
+        *lineOpen = open;
+    }
+
+    m_txtCwRx->setTextCursor(cursor);
+    m_txtCwRx->ensureCursorVisible();
+    highlightCallsignsInTerminal(m_txtCwRx);
+}
+
+void MainWindow::recolorCwChannelPrefixes(QPlainTextEdit *terminal)
+{
+    if (terminal != m_txtCwRx || terminal == nullptr || terminal->document() == nullptr) {
+        return;
+    }
+
+    const QString text = terminal->toPlainText();
+    if (text.isEmpty()) {
+        return;
+    }
+
+    QTextCursor cursor(terminal->document());
+    const QRegularExpression prefixRe(QStringLiteral("(^|\n)([AB]> )"));
+    QRegularExpressionMatchIterator it = prefixRe.globalMatch(text);
+    while (it.hasNext()) {
+        const QRegularExpressionMatch match = it.next();
+        const QString channel = match.captured(2).left(1);
+        const int start = match.capturedStart(2);
+        const int end = match.capturedEnd(2);
+        if (!selectDocumentRange(cursor, start, end)) {
+            continue;
+        }
+        QTextCharFormat fmt;
+        fmt.setForeground(channel == QLatin1String("A") ? QColor("#118a2a") : QColor("#0069d9"));
+        fmt.setFontWeight(QFont::Bold);
+        fmt.setFontUnderline(false);
+        fmt.setUnderlineStyle(QTextCharFormat::NoUnderline);
+        cursor.mergeCharFormat(fmt);
+    }
+}
+
+void MainWindow::updateCwDualRxStatusLabel()
+{
+    if (m_lblCwDualRx == nullptr) {
+        return;
+    }
+
+    const double toneA = (m_cwDecoder != nullptr)
+                             ? m_cwDecoder->toneHz()
+                             : static_cast<double>(m_settings.cwToneHz);
+    const double toneB = (m_cwSecondaryDecoder != nullptr)
+                             ? m_cwSecondaryDecoder->toneHz()
+                             : static_cast<double>(m_cwSecondaryToneHz);
+    const QString wpmA = (m_cwTrackedWpmA > 0.1)
+                             ? QString::number(m_cwTrackedWpmA, 'f', 1)
+                             : QStringLiteral("--");
+    const QString wpmB = (m_cwTrackedWpmB > 0.1)
+                             ? QString::number(m_cwTrackedWpmB, 'f', 1)
+                             : QStringLiteral("--");
+
+    if (m_cwSecondaryEnabled) {
+        m_lblCwDualRx->setText(uiText("cw_dual_rx_status_enabled",
+                                      "A green: %1 Hz / %2 WPM · B blue: %3 Hz / %4 WPM")
+                                   .arg(qRound(toneA)).arg(wpmA)
+                                   .arg(qRound(toneB)).arg(wpmB));
+    } else {
+        m_lblCwDualRx->setText(uiText("cw_dual_rx_status",
+                                      "A green: left click on CW tone · B blue: right click to enable"));
+    }
+
+    if (m_btnCwDisableSecondary != nullptr) {
+        m_btnCwDisableSecondary->setEnabled(m_cwSecondaryEnabled);
+    }
+}
+
+void MainWindow::disableCwSecondaryRx()
+{
+    if (!m_cwSecondaryEnabled) {
+        updateCwDualRxStatusLabel();
+        return;
+    }
+
+    m_cwSecondaryEnabled = false;
+    m_settings.cwSecondaryEnabled = false;
+    m_cwSecondaryLineOpen = false;
+    if (m_cwCurrentLineChannel == QLatin1String("B")) {
+        m_cwCurrentLineChannel.clear();
+    }
+    m_cwTrackedWpmB = 0.0;
+    if (m_cwSecondaryDecoder != nullptr) {
+        m_cwSecondaryDecoder->reset();
+    }
+    savePersistentSettings();
+    updateCwDualRxStatusLabel();
+    updateWaterfallMarkers();
+    appendLog(uiText("log.cw_rx_b_disabled", "CW RX B disabled."));
 }
 
 
@@ -9076,6 +9498,7 @@ void MainWindow::applyHellSettings()
     m_settings.hellAfcRangeHz = afcRangeHz;
 
     savePersistentSettings();
+    updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
 }
@@ -10165,6 +10588,14 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                       .arg(stats.osdGf2PostCrcRejects)
                       .arg(stats.osdGf2BudgetSkips)
                       .arg(stats.osdGf2TotalMs, 0, 'f', 1));
+    }
+
+    if (stats.mindAssistTried > 0 || stats.mindAssistRecovered > 0 || stats.mindAssistUnavailable > 0) {
+        appendLog(QStringLiteral("FT MIND Ranker: scored %1, pruned %2, unavailable %3, avg success %4%")
+                      .arg(stats.mindAssistTried)
+                      .arg(stats.mindAssistRecovered)
+                      .arg(stats.mindAssistUnavailable)
+                      .arg(stats.mindAssistAvgConfidence, 0, 'f', 1));
     }
 
     if (!stats.offline && !m_ft8RecentLiveDecodeMs.isEmpty()) {
@@ -12509,12 +12940,23 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             workedCall = cqCall;
         }
     }
-    const bool workedBefore = !workedCall.isEmpty() && m_logbook.containsCallsign(workedCall);
+    const QStringList highlightCandidateCalls = ft8HighlightCandidateCallsigns(parsed, myCall);
+    if (workedCall.isEmpty() && !highlightCandidateCalls.isEmpty()) {
+        workedCall = highlightCandidateCalls.constFirst();
+    }
+    QString neededCall;
+    for (const QString &call : highlightCandidateCalls) {
+        if (!m_logbook.containsCallsign(call)) {
+            neededCall = call;
+            break;
+        }
+    }
+    const bool workedBefore = !workedCall.isEmpty() && m_logbook.containsCallsign(workedCall) && neededCall.isEmpty();
     const QString primaryCallForDisplay = ft8PrimaryCallsignForDisplay(parsed, myCall);
     const Ft8DecodeDisplayInfo displayInfo = makeFt8DecodeDisplayInfo(parsed, myCall,
                                                                        primaryCallForDisplay.isEmpty() ? QString() : m_ftSession.knownGridFor(primaryCallForDisplay));
 
-    QStringList callsForFilters;
+    QStringList callsForFilters = highlightCandidateCalls;
     if (!parsed.senderCall.isEmpty()) callsForFilters << parsed.senderCall;
     if (!workedCall.isEmpty()) callsForFilters << workedCall;
     if (!primaryCallForDisplay.isEmpty()) callsForFilters << primaryCallForDisplay;
@@ -12528,6 +12970,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             watchedDecode = true;
         }
     }
+    const bool neededStationForLog = !blacklistedDecode && !neededCall.isEmpty() && !m_logbook.containsCallsign(neededCall);
     runFtAutoQsoFlowShadowForDecode(decode, blacklistedDecode, watchedDecode);
 
     if (blacklistedDecode) {
@@ -12679,9 +13122,15 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             messageItem->setData(kFtOriginalMessageRole, decode.message.trimmed().toUpper());
         }
         if (newCountryForLog) {
+            const QString neededTip = QStringLiteral("New DXCC country not present in logbook: %1").arg(displayInfo.country);
             for (QTableWidgetItem *item : items) {
                 item->setData(kFtRowRedOutlineRole, true);
-                item->setToolTip(QStringLiteral("New DXCC country not present in logbook: %1").arg(displayInfo.country));
+                item->setToolTip(neededTip);
+            }
+        } else if (neededStationForLog) {
+            const QString neededTip = QStringLiteral("Needed station: %1 is not in the ADIF logbook yet. You can call it after the current QSO/73, even if this line is not CQ.").arg(neededCall);
+            for (QTableWidgetItem *item : items) {
+                item->setToolTip(neededTip);
             }
         }
         if (QTableWidgetItem *bearingItem = items.value(7, nullptr)) {
@@ -12746,6 +13195,12 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             }
             item->setFont(font);
             item->setToolTip(QStringLiteral("Worked before: %1 is already in the ADIF logbook").arg(workedCall));
+        }
+    } else if (neededStationForLog) {
+        for (QTableWidgetItem *item : items) {
+            if (item->toolTip().trimmed().isEmpty()) {
+                item->setToolTip(QStringLiteral("Needed station: %1 is not in the ADIF logbook yet. You can call it after the current QSO/73, even if this line is not CQ.").arg(neededCall));
+            }
         }
     }
 
@@ -14010,18 +14465,40 @@ void MainWindow::runFtAutoTest()
         m_ftAutoTestQueue.append(unified);
     }
 
+    const DeepDspController::Status mindStatusForReport = m_ddspController != nullptr
+        ? m_ddspController->status()
+        : DeepDspController::Status();
+    const QString mindAssistModeForReport = mindStatusForReport.assistMode.trimmed().toLower();
+    const QString mindAssistDisplayForReport = (mindAssistModeForReport == QStringLiteral("shadow"))
+        ? QStringLiteral("training")
+        : (mindAssistModeForReport == QStringLiteral("assisted") ? QStringLiteral("active") : mindAssistModeForReport);
+    const QString mindBenchmarkStatus = (mindAssistModeForReport == QStringLiteral("off") || !mindStatusForReport.enabled)
+        ? QStringLiteral("bypassed")
+        : (mindStatusForReport.modelStateText == QStringLiteral("Model loaded")
+               ? QStringLiteral("model loaded")
+               : QStringLiteral("model missing (data collection)"));
     m_ftAutoTestReportLines << QStringLiteral("MadModem FT8 Auto test report")
                             << QStringLiteral("UTC: %1").arg(m_ftAutoTestStartedUtc)
                             << QStringLiteral("WAV directory: %1").arg(wavDir)
+                            << QStringLiteral("MIND Assist: %1").arg(mindAssistDisplayForReport)
+                            << QStringLiteral("MIND status: %1").arg(mindBenchmarkStatus)
+                            << QStringLiteral("MIND deferral: native candidate cooldown, no AutoTest-only freeze")
+                            << QStringLiteral("MIND ultra-deep: Active opens wider weak/overlap candidate gates; Off remains bypassed")
+                            << QStringLiteral("MIND model: %1").arg(mindStatusForReport.modelStateText)
+                            << QStringLiteral("MIND ranker samples pos/neg: %1/%2")
+                                   .arg(mindStatusForReport.rankerPositiveSamples)
+                                   .arg(mindStatusForReport.rankerNegativeSamples)
                             << QStringLiteral("")
-                            << QStringLiteral("File	Mode	OK	Reference	Decodes	Delta	Result	Candidates	Passes	Search ms	LDPC ms	Subtract ms	Total ms	Attempted	Sync gate	LDPC tried	LDPC fail	LDPC fail %	CRC fail	Unpack fail	Unpack fail %	Msg reject	Dedup drop	Unresolved hash	Visible hash calls	OK sync	LDPC-fail sync	OK hard	LDPC-fail hard	OK LLR	LDPC-fail LLR	OSD GF2 tried	OSD GF2 recovered	OSD GF2 rank fail	OSD GF2 pivot skips	OSD GF2 O0	OSD GF2 O1	OSD GF2 O2	OSD GF2 postCRC	OSD GF2 budget skip	OSD GF2 ms	Summary");
+                            << QStringLiteral("File	Mode	OK	Reference	Decodes	Delta	Result	Candidates	Passes	Search ms	LDPC ms	Subtract ms	Total ms	Attempted	Sync gate	LDPC tried	LDPC fail	LDPC fail %	CRC fail	Unpack fail	Unpack fail %	Msg reject	Dedup drop	Unresolved hash	Visible hash calls	OK sync	LDPC-fail sync	OK hard	LDPC-fail hard	OK LLR	LDPC-fail LLR	OSD GF2 tried	OSD GF2 recovered	OSD GF2 rank fail	OSD GF2 pivot skips	OSD GF2 O0	OSD GF2 O1	OSD GF2 O2	OSD GF2 postCRC	OSD GF2 budget skip	OSD GF2 ms	MIND scored	MIND pruned	MIND unavailable	MIND avg success %	Summary");
 
     appendLog(QStringLiteral("FT Auto test started: %1 file(s), Unified adaptive engine, WAV directory %2")
                   .arg(wavFiles.size())
                   .arg(wavDir));
 
     if (m_ddspController != nullptr) {
-        m_ddspController->setDecodeCritical(true);
+        m_ddspController->setRuntimeMode(QStringLiteral("FT8"));
+        // Do not freeze MIND specifically for AutoTest.  The benchmark must
+        // exercise the normal native candidate-driven cooldown/deferral path.
     }
 
     runNextFtAutoTestStep();
@@ -14133,10 +14610,6 @@ void MainWindow::finishFtAutoTest()
     applyFt8Settings();
 
     setReceiverRunning(false);
-
-    if (m_ddspController != nullptr) {
-        m_ddspController->setDecodeCritical(false);
-    }
 
     if (!wasRunning) {
         return;
@@ -14274,7 +14747,7 @@ void MainWindow::openFtWavFile()
     // MIND v2 learns from native FT candidate matrices emitted by Ft8RxDecoder.
     // No global WAV/audio fingerprint priming is used.
     if (m_ddspController != nullptr) {
-        m_ddspController->setDecodeCritical(true);
+        m_ddspController->setRuntimeMode(QStringLiteral("FT8"));
     }
 
     if (m_ft8RxDecoder != nullptr) {
@@ -14283,9 +14756,6 @@ void MainWindow::openFtWavFile()
                                   Qt::QueuedConnection,
                                   Q_ARG(QString, fileName));
     } else {
-        if (m_ddspController != nullptr) {
-            m_ddspController->setDecodeCritical(false);
-        }
         m_offlineAnalysisActive = false;
         setReceiverRunning(false);
     }
@@ -14336,11 +14806,15 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
         const int osdGf2PostCrcRejects = haveStats ? m_lastFt8PerfStats.osdGf2PostCrcRejects : 0;
         const int osdGf2BudgetSkips = haveStats ? m_lastFt8PerfStats.osdGf2BudgetSkips : 0;
         const double osdGf2Ms = haveStats ? m_lastFt8PerfStats.osdGf2TotalMs : 0.0;
+        const int mindScored = haveStats ? m_lastFt8PerfStats.mindAssistTried : 0;
+        const int mindPruned = haveStats ? m_lastFt8PerfStats.mindAssistRecovered : 0;
+        const int mindUnavailable = haveStats ? m_lastFt8PerfStats.mindAssistUnavailable : 0;
+        const double mindAvg = haveStats ? m_lastFt8PerfStats.mindAssistAvgConfidence : 0.0;
         const int expected = ftAutoTestExpectedDecodes(item.fileName);
         const int delta = (expected > 0) ? (decodeCount - expected) : 0;
         const QString result = ftAutoTestResultLabel(ok, decodeCount, expected);
         const QString compactMessage = message.simplified();
-        const QString line = QStringLiteral("%1	%2	%3	%4	%5	%6	%7	%8	%9	%10	%11	%12	%13	%14	%15	%16	%17	%18	%19	%20	%21	%22	%23	%24	%25	%26	%27	%28	%29	%30	%31	%32	%33	%34	%35	%36	%37	%38	%39	%40	%41	%42")
+        const QString line = QStringLiteral("%1	%2	%3	%4	%5	%6	%7	%8	%9	%10	%11	%12	%13	%14	%15	%16	%17	%18	%19	%20	%21	%22	%23	%24	%25	%26	%27	%28	%29	%30	%31	%32	%33	%34	%35	%36	%37	%38	%39	%40	%41	%42	%43	%44	%45	%46")
                                  .arg(item.fileName)
                                  .arg(item.depthLabel)
                                  .arg(ok ? QStringLiteral("YES") : QStringLiteral("NO"))
@@ -14382,6 +14856,10 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
                                  .arg(osdGf2PostCrcRejects)
                                   .arg(osdGf2BudgetSkips)
                                   .arg(QString::number(osdGf2Ms, 'f', 1))
+                                  .arg(mindScored)
+                                  .arg(mindPruned)
+                                  .arg(mindUnavailable)
+                                  .arg(QString::number(mindAvg, 'f', 1))
                                   .arg(compactMessage);
         m_ftAutoTestReportLines << line;
         appendLog(QStringLiteral("FT Auto test result: %1").arg(line));
@@ -14396,9 +14874,6 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
     Q_UNUSED(decodeCount)
     m_offlineAnalysisActive = false;
     setReceiverRunning(false);
-    if (m_ddspController != nullptr) {
-        m_ddspController->setDecodeCritical(false);
-    }
     ui->lblAppStatus->setText(ok ? uiText("ready", "Ready") : uiText("ft_wav_failed", "FT WAV failed"));
 
     if (ok) {
@@ -15584,7 +16059,14 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
         }
     });
 
-    if (dialog.exec() != QDialog::Accepted) {
+    if (m_ddspController != nullptr) {
+        m_ddspController->setActivityHint(QStringLiteral("settings"));
+    }
+    const int settingsResult = dialog.exec();
+    if (m_ddspController != nullptr) {
+        m_ddspController->setActivityHint(QStringLiteral("normal"));
+    }
+    if (settingsResult != QDialog::Accepted) {
         appendLog("Settings cancelled; restoring runtime configuration.");
         applyPersistentSettingsToRuntime();
         return;
@@ -16018,7 +16500,13 @@ void MainWindow::showLogbookDialog()
                 refreshQsoMaps();
                 appendLog(QString("Logbook updated: %1 QSOs.").arg(m_logbook.count()));
             });
+    if (m_ddspController != nullptr) {
+        m_ddspController->setActivityHint(QStringLiteral("logbook"));
+    }
     dialog.exec();
+    if (m_ddspController != nullptr) {
+        m_ddspController->setActivityHint(QStringLiteral("normal"));
+    }
     refreshLogbookHighlights();
     refreshQsoMaps();
 }
@@ -16056,7 +16544,7 @@ void MainWindow::showAboutMadModem()
     header->addWidget(icon, 0, Qt::AlignTop);
 
     QLabel *title = new QLabel(QStringLiteral(
-        "<b>MadModem 0.5.0</b><br>"
+        "<b>MadModem 0.5.10</b><br>"
         "Amateur radio digital modem for HF RX/TX."), &dialog);
     title->setTextFormat(Qt::RichText);
     title->setWordWrap(true);
@@ -16108,7 +16596,16 @@ void MainWindow::showRuntimeLogDialog()
         buttons->addWidget(close);
         layout->addLayout(buttons);
         connect(clear, &QPushButton::clicked, m_runtimeLogText, &QPlainTextEdit::clear);
-        connect(close, &QPushButton::clicked, m_runtimeLogDialog, &QDialog::hide);
+        connect(close, &QPushButton::clicked, this, [this]() {
+            if (m_runtimeLogDialog != nullptr) m_runtimeLogDialog->hide();
+            if (m_ddspController != nullptr) m_ddspController->setActivityHint(QStringLiteral("normal"));
+        });
+        connect(m_runtimeLogDialog, &QDialog::finished, this, [this](int) {
+            if (m_ddspController != nullptr) m_ddspController->setActivityHint(QStringLiteral("normal"));
+        });
+    }
+    if (m_ddspController != nullptr) {
+        m_ddspController->setActivityHint(QStringLiteral("logbook"));
     }
     m_runtimeLogDialog->show();
     m_runtimeLogDialog->raise();
@@ -16381,6 +16878,12 @@ void MainWindow::startRx()
         }
     } else if (modeName == CwDecoder::modeName()) {
         m_cwDecoder->reset();
+        if (m_cwSecondaryDecoder != nullptr) {
+            m_cwSecondaryDecoder->reset();
+        }
+        m_cwPrimaryLineOpen = false;
+        m_cwSecondaryLineOpen = false;
+        m_cwCurrentLineChannel.clear();
         if (!preserveTextTerminal && m_txtCwRx != nullptr) {
             m_txtCwRx->clear();
         }
@@ -17143,9 +17646,7 @@ void MainWindow::updateTxControlState()
 
 bool MainWindow::keyPttForTx()
 {
-    QString identityReason;
-    if (!stationIdentityReady(&identityReason)) {
-        appendLog(QStringLiteral("TX/PTT blocked: %1").arg(identityReason));
+    if (!ensureStationIdentityForTx(QStringLiteral("TX/PTT"))) {
         return false;
     }
 
@@ -17159,11 +17660,27 @@ bool MainWindow::keyPttForTx()
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
     if (pttViaRigController) {
         if (m_rigController == nullptr) {
-            appendLog("TX PTT failed: Hamlib controller is not available.");
+            const QString reason = uiText("tx_ptt_hamlib_controller_missing",
+                                          "CAT/Hamlib PTT is selected, but the Hamlib controller is not available. Check Settings -> Audio/PTT + CAT, radio model, CAT port and PTT method.");
+            appendLog("TX PTT failed: " + reason);
+            showTxBlockedWarning(QStringLiteral("TX/PTT"),
+                                 reason,
+                                 AppSettingsDialog::InitialPage::RadioCat,
+                                 uiText("open_audio_cat_settings", "Open Audio/PTT + CAT settings"));
             return false;
         }
         if (!invokeRigPttBlocking(true)) {
-            appendLog("TX PTT failed: Hamlib CAT PTT could not be keyed.");
+            const QString detail = m_rigController->lastStatus().trimmed();
+            const QString reason = detail.isEmpty()
+                ? uiText("tx_ptt_hamlib_key_failed",
+                         "CAT/Hamlib PTT is selected, but the radio did not accept the TX/PTT command. Check the rig model, serial port, baud rate, CAT connection and PTT method.")
+                : uiText("tx_ptt_hamlib_key_failed_detail",
+                         "CAT/Hamlib PTT is selected, but the radio did not accept the TX/PTT command: %1").arg(detail);
+            appendLog("TX PTT failed: " + reason);
+            showTxBlockedWarning(QStringLiteral("TX/PTT"),
+                                 reason,
+                                 AppSettingsDialog::InitialPage::RadioCat,
+                                 uiText("open_audio_cat_settings", "Open Audio/PTT + CAT settings"));
             return false;
         }
         appendLog(QString("Hamlib CAT PTT ON (%1).").arg(m_settings.hamlibTxAudioRoute.isEmpty() ? QStringLiteral("default") : m_settings.hamlibTxAudioRoute));
@@ -17179,8 +17696,14 @@ bool MainWindow::keyPttForTx()
     const QString portName = pttPort;
 
     if (portName.isEmpty()) {
-        appendLog(QString("TX PTT: no serial port selected; transmitting audio without %1 PTT.").arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS")));
-        return true;
+        const QString reason = uiText("tx_ptt_serial_port_missing",
+                                      "Serial PTT is selected, but no RTS/DTR serial port is configured. Select a serial PTT port in Settings, or set PTT method to None only if you intentionally want audio-only TX.");
+        appendLog("TX PTT failed: " + reason);
+        showTxBlockedWarning(QStringLiteral("TX/PTT"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
+        return false;
     }
 
     if (m_pttSerial.isOpen()) {
@@ -17197,14 +17720,27 @@ bool MainWindow::keyPttForTx()
     m_pttSerial.setFlowControl(QSerialPort::NoFlowControl);
 
     if (!m_pttSerial.open(QIODevice::ReadWrite)) {
-        appendLog("TX PTT open failed on " + portName + ": " + m_pttSerial.errorString());
+        const QString reason = uiText("tx_ptt_serial_open_failed",
+                                      "Serial PTT could not open %1: %2").arg(portName, m_pttSerial.errorString());
+        appendLog("TX PTT failed: " + reason);
+        showTxBlockedWarning(QStringLiteral("TX/PTT"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         return false;
     }
 
     const bool ok = useDtr ? m_pttSerial.setDataTerminalReady(true)
                            : m_pttSerial.setRequestToSend(true);
     if (!ok) {
-        appendLog(QString("TX %1 ON failed: %2").arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), m_pttSerial.errorString()));
+        const QString reason = uiText("tx_ptt_serial_line_failed",
+                                      "Serial PTT could not assert %1 on %2: %3")
+            .arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), portName, m_pttSerial.errorString());
+        appendLog("TX PTT failed: " + reason);
+        showTxBlockedWarning(QStringLiteral("TX/PTT"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         m_pttSerial.close();
         return false;
     }
@@ -17512,7 +18048,13 @@ void MainWindow::startImageTx()
         m_returnToRxAfterTx = false;
         m_currentTxIsTextMode = false;
         setReceiverRunning(false);
-        appendLog("TX start failed.");
+        const QString reason = uiText("tx_audio_start_failed",
+                                      "TX audio output could not be started. Check Settings -> Audio/PTT, the selected TX audio device and operating-system audio permissions.");
+        appendLog("TX start failed: " + reason);
+        showTxBlockedWarning(QStringLiteral("TX"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         if (restartRx) {
             QTimer::singleShot(250, this, [this]() { startRx(); });
         }
@@ -17695,7 +18237,13 @@ void MainWindow::startFtPreparedSlotTransmit()
         m_pendingFt8PttPrearmed = false;
         m_pendingFt8PttKeyed = false;
         setReceiverRunning(false);
-        appendLog("FT TX start failed.");
+        const QString reason = uiText("ft_tx_audio_start_failed",
+                                      "FT TX audio output could not be started. Check Settings -> Audio/PTT, the selected TX audio device and operating-system audio permissions.");
+        appendLog("FT TX start failed: " + reason);
+        showTxBlockedWarning(profile.shortLabel,
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         if (restartRx) {
             QTimer::singleShot(0, this, [this]() { startRx(); });
         }
@@ -17997,12 +18545,22 @@ void MainWindow::testPtt()
     }
 
     if (m_rxRunning) {
-        appendLog("PTT test blocked: RX is running.");
+        const QString reason = uiText("ptt_test_rx_running", "PTT test is blocked while RX is running. Stop RX first, then try the PTT test again.");
+        appendLog("PTT test blocked: " + reason);
+        showTxBlockedWarning(QStringLiteral("PTT TEST"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         return;
     }
 
     if (m_txRunning) {
-        appendLog("PTT test blocked: TX/PTT is already active.");
+        const QString reason = uiText("ptt_test_tx_running", "PTT test is blocked because TX/PTT is already active.");
+        appendLog("PTT test blocked: " + reason);
+        showTxBlockedWarning(QStringLiteral("PTT TEST"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         return;
     }
 
@@ -18016,7 +18574,15 @@ void MainWindow::testPtt()
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
     if (pttViaRigController) {
         if (m_rigController == nullptr || !invokeRigPttBlocking(true)) {
-            appendLog("PTT test failed: Hamlib CAT PTT could not be keyed.");
+            const QString detail = (m_rigController != nullptr) ? m_rigController->lastStatus().trimmed() : QString();
+            const QString reason = detail.isEmpty()
+                ? uiText("ptt_test_hamlib_failed", "PTT test failed: CAT/Hamlib PTT could not be keyed. Check radio model, CAT serial/TCP endpoint, baud rate and PTT method.")
+                : uiText("ptt_test_hamlib_failed_detail", "PTT test failed: CAT/Hamlib PTT could not be keyed: %1").arg(detail);
+            appendLog(reason);
+            showTxBlockedWarning(QStringLiteral("PTT TEST"),
+                                 reason,
+                                 AppSettingsDialog::InitialPage::RadioCat,
+                                 uiText("open_audio_cat_settings", "Open Audio/PTT + CAT settings"));
             return;
         }
         m_offlineAnalysisActive = false;
@@ -18027,7 +18593,12 @@ void MainWindow::testPtt()
         return;
     }
     if (pttMethod == QStringLiteral("none")) {
-        appendLog("PTT test skipped: PTT method is disabled/audio only.");
+        const QString reason = uiText("ptt_test_disabled", "PTT test skipped: PTT method is set to None/audio only. Select CAT/Hamlib, RTS or DTR if the radio must be keyed by MadModem.");
+        appendLog(reason);
+        showTxBlockedWarning(QStringLiteral("PTT TEST"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         return;
     }
     const bool useDtr = (pttMethod == QStringLiteral("serial_dtr"));
@@ -18035,7 +18606,12 @@ void MainWindow::testPtt()
     const QString portName = pttPort;
 
     if (portName.isEmpty()) {
-        appendLog("PTT test failed: no serial port selected.");
+        const QString reason = uiText("ptt_test_serial_port_missing", "PTT test failed: serial RTS/DTR PTT is selected, but no serial PTT port is configured.");
+        appendLog(reason);
+        showTxBlockedWarning(QStringLiteral("PTT TEST"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         return;
     }
 
@@ -18053,14 +18629,25 @@ void MainWindow::testPtt()
     m_pttSerial.setFlowControl(QSerialPort::NoFlowControl);
 
     if (!m_pttSerial.open(QIODevice::ReadWrite)) {
-        appendLog("PTT test failed on " + portName + ": " + m_pttSerial.errorString());
+        const QString reason = uiText("ptt_test_serial_open_failed", "PTT test failed on %1: %2").arg(portName, m_pttSerial.errorString());
+        appendLog(reason);
+        showTxBlockedWarning(QStringLiteral("PTT TEST"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         return;
     }
 
     const bool ok = useDtr ? m_pttSerial.setDataTerminalReady(true)
                            : m_pttSerial.setRequestToSend(true);
     if (!ok) {
-        appendLog(QString("PTT %1 ON failed: %2").arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), m_pttSerial.errorString()));
+        const QString reason = uiText("ptt_test_serial_line_failed", "PTT %1 ON failed on %2: %3")
+            .arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), portName, m_pttSerial.errorString());
+        appendLog(reason);
+        showTxBlockedWarning(QStringLiteral("PTT TEST"),
+                             reason,
+                             AppSettingsDialog::InitialPage::AudioPtt,
+                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         m_pttSerial.close();
         return;
     }

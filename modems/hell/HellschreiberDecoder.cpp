@@ -406,7 +406,13 @@ void HellschreiberDecoder::writePixel(double level)
 
     const int gray = grayFromLevel(level);
     const int x = qBound(0, m_column, kPaperWidth - 1);
-    const int y = qBound(0, currentPaperTop() + (m_row * kVerticalScale), kPaperHeight - 1);
+    /* Feld Hell rows are transmitted bottom-to-top in the practical visual
+     * raster used by common generators.  The old renderer wrote row 0 at the
+     * top of the paper, so letters appeared vertically mirrored.  Keep the
+     * modem timing unchanged and only flip the visual Y coordinate.
+     */
+    const int visualRow = (kLogicalRasterHeight - 1) - m_row;
+    const int y = qBound(0, currentPaperTop() + (visualRow * kVerticalScale), kPaperHeight - 1);
 
     /* Enlarge the visual paper row only.  The modem timing remains based on
      * kLogicalRasterHeight, so 17.5 columns/s is not slowed down.

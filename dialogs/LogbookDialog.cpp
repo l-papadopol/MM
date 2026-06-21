@@ -46,10 +46,12 @@
 #include <QVBoxLayout>
 
 #include <utility>
+#include <algorithm>
 
 #include <QPrintDialog>
 #include <QPrinter>
 #include <QProgressDialog>
+#include <QRegularExpression>
 
 LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidget *parent)
     : QDialog(parent),
@@ -81,6 +83,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     m_actDelete = new QAction(style()->standardIcon(QStyle::SP_TrashIcon), L("Delete selected rows"), this);
     m_actPrint = new QAction(style()->standardIcon(QStyle::SP_FileDialogDetailedView), L("Print..."), this);
     m_actPdf = new QAction(style()->standardIcon(QStyle::SP_FileDialogContentsView), L("Save PDF..."), this);
+    m_actStatsPdf = new QAction(style()->standardIcon(QStyle::SP_FileDialogDetailedView), L("Save statistics PDF..."), this);
     m_actRefresh = new QAction(style()->standardIcon(QStyle::SP_BrowserReload), L("Refresh"), this);
     m_actClearSearch = new QAction(style()->standardIcon(QStyle::SP_DialogResetButton), L("Clear search"), this);
     m_actSelectAll = new QAction(L("Select all rows"), this);
@@ -98,6 +101,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     fileMenu->addSeparator();
     fileMenu->addAction(m_actPrint);
     fileMenu->addAction(m_actPdf);
+    fileMenu->addAction(m_actStatsPdf);
     fileMenu->addSeparator();
     fileMenu->addAction(L("Close"), this, &LogbookDialog::accept);
 
@@ -115,6 +119,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     QMenu *toolsMenu = m_menuBar->addMenu(L("Tools"));
     toolsMenu->addAction(m_actRefresh);
     toolsMenu->addAction(m_actColumns);
+    toolsMenu->addAction(m_actStatsPdf);
     mainLayout->setMenuBar(m_menuBar);
 
     m_toolbar = new QToolBar(this);
@@ -134,13 +139,9 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     m_toolbar->addSeparator();
     m_toolbar->addAction(m_actPrint);
     m_toolbar->addAction(m_actPdf);
+    m_toolbar->addAction(m_actStatsPdf);
     m_toolbar->addSeparator();
     m_toolbar->addAction(m_actColumns);
-    m_toolbar->addSeparator();
-    m_workedStrikeCheck = new QCheckBox(L("Strike through worked calls"), this);
-    m_workedStrikeCheck->setToolTip(L("Mark callsigns already present in the ADIF log with a strike-through line in RX/decode views."));
-    m_workedStrikeCheck->setChecked(m_settings == nullptr ? true : m_settings->logbookStrikeWorkedCalls);
-    m_toolbar->addWidget(m_workedStrikeCheck);
     mainLayout->addWidget(m_toolbar);
 
     QGroupBox *searchGroup = new QGroupBox(L("Advanced search"), this);
@@ -251,6 +252,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     m_deleteSelectedButton->setToolTip(L("Delete the selected QSO records from the ADIF logbook after confirmation."));
     m_printButton = new QPushButton(L("Print..."), this);
     m_savePdfButton = new QPushButton(L("Save PDF..."), this);
+    m_statsPdfButton = new QPushButton(L("Statistics PDF..."), this);
     m_closeButton = new QPushButton(L("Close"), this);
 
     buttonLayout->addWidget(m_importButton);
@@ -262,6 +264,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     buttonLayout->addSpacing(12);
     buttonLayout->addWidget(m_printButton);
     buttonLayout->addWidget(m_savePdfButton);
+    buttonLayout->addWidget(m_statsPdfButton);
     buttonLayout->addStretch(1);
     buttonLayout->addWidget(m_summaryLabel);
     buttonLayout->addWidget(m_closeButton);
@@ -270,7 +273,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     // Legacy push buttons are kept alive for signal compatibility but not shown.
     for (QPushButton *button : {m_importButton, m_exportAllButton, m_exportResultButton,
                                 m_exportSelectedButton, m_deleteSelectedButton,
-                                m_printButton, m_savePdfButton, m_closeButton}) {
+                                m_printButton, m_savePdfButton, m_statsPdfButton, m_closeButton}) {
         if (button != nullptr) {
             button->setVisible(false);
         }
@@ -317,6 +320,8 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
             this, &LogbookDialog::printLogbook);
     connect(m_savePdfButton, &QPushButton::clicked,
             this, &LogbookDialog::savePdfLogbook);
+    connect(m_statsPdfButton, &QPushButton::clicked,
+            this, &LogbookDialog::saveStatisticsPdf);
     connect(m_closeButton, &QPushButton::clicked,
             this, &LogbookDialog::accept);
 
@@ -339,13 +344,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
                 this, &LogbookDialog::updateSelectionActions);
     }
     connect(m_actPdf, &QAction::triggered, this, &LogbookDialog::savePdfLogbook);
-    connect(m_workedStrikeCheck, &QCheckBox::toggled, this, [this](bool checked) {
-        if (m_settings != nullptr) {
-            m_settings->logbookStrikeWorkedCalls = checked;
-            m_settings->save();
-        }
-        emit logbookChanged();
-    });
+    connect(m_actStatsPdf, &QAction::triggered, this, &LogbookDialog::saveStatisticsPdf);
 
     m_statusBar = new QStatusBar(this);
     m_statusBar->setSizeGripEnabled(false);
@@ -789,6 +788,7 @@ void LogbookDialog::showTableContextMenu(const QPoint &pos)
     menu.addSeparator();
     menu.addAction(m_actSelectAll);
     menu.addAction(m_actColumns);
+    menu.addAction(m_actStatsPdf);
     menu.addAction(m_actDelete);
     menu.exec(m_table->viewport()->mapToGlobal(pos));
 }
@@ -1542,6 +1542,266 @@ bool LogbookDialog::printRecordsToPrinter(const QVector<LogbookEntry> &records,
     return true;
 }
 
+
+QString LogbookDialog::htmlForStatistics(const QVector<LogbookEntry> &records,
+                                         const QString &scopeLabel) const
+{
+    auto value = [](const LogbookEntry &entry, const QString &key) -> QString {
+        const QString k = key.trimmed().toUpper();
+        if (k == QStringLiteral("CALL")) return entry.callsign;
+        if (k == QStringLiteral("BAND")) return entry.band;
+        if (k == QStringLiteral("MODE")) return entry.mode;
+        if (k == QStringLiteral("GRIDSQUARE")) return entry.grid;
+        if (k == QStringLiteral("COUNTRY")) return entry.country;
+        if (k == QStringLiteral("FREQ")) return entry.freq;
+        return entry.adifFields.value(k);
+    };
+
+    auto normalized = [](QString text, const QString &fallback = QStringLiteral("—")) -> QString {
+        text = text.trimmed();
+        return text.isEmpty() ? fallback : text;
+    };
+
+    auto bandFromFrequency = [](double mhz) -> QString {
+        if (mhz >= 1.8 && mhz < 2.0) return QStringLiteral("160m");
+        if (mhz >= 3.5 && mhz < 4.0) return QStringLiteral("80m");
+        if (mhz >= 5.0 && mhz < 5.5) return QStringLiteral("60m");
+        if (mhz >= 7.0 && mhz < 7.3) return QStringLiteral("40m");
+        if (mhz >= 10.1 && mhz < 10.15) return QStringLiteral("30m");
+        if (mhz >= 14.0 && mhz < 14.35) return QStringLiteral("20m");
+        if (mhz >= 18.068 && mhz < 18.168) return QStringLiteral("17m");
+        if (mhz >= 21.0 && mhz < 21.45) return QStringLiteral("15m");
+        if (mhz >= 24.89 && mhz < 24.99) return QStringLiteral("12m");
+        if (mhz >= 28.0 && mhz < 29.7) return QStringLiteral("10m");
+        if (mhz >= 50.0 && mhz < 54.0) return QStringLiteral("6m");
+        if (mhz >= 70.0 && mhz < 71.0) return QStringLiteral("4m");
+        if (mhz >= 144.0 && mhz < 148.0) return QStringLiteral("2m");
+        if (mhz >= 430.0 && mhz < 440.0) return QStringLiteral("70cm");
+        if (mhz >= 1240.0 && mhz < 1300.0) return QStringLiteral("23cm");
+        return QStringLiteral("Other");
+    };
+
+    auto bandForEntry = [&](const LogbookEntry &entry) -> QString {
+        QString band = value(entry, QStringLiteral("BAND")).trimmed().toLower();
+        if (!band.isEmpty()) {
+            return band;
+        }
+        bool ok = false;
+        const double mhz = value(entry, QStringLiteral("FREQ")).toDouble(&ok);
+        return ok ? bandFromFrequency(mhz) : QStringLiteral("Other");
+    };
+
+    auto inc = [](QMap<QString, int> *map, const QString &key) {
+        if (map == nullptr) return;
+        (*map)[key] = map->value(key) + 1;
+    };
+
+    auto callBase = [](QString call) -> QString {
+        call = AdifLogbook::normalizeCallsign(call);
+        const QStringList parts = call.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        QString best = call;
+        for (const QString &part : parts) {
+            if (part.contains(QRegularExpression(QStringLiteral("\\d")))) {
+                best = part;
+                break;
+            }
+        }
+        return best;
+    };
+
+    QMap<QString, int> byMode;
+    QMap<QString, int> byBand;
+    QMap<QString, int> byCountry;
+    QMap<QString, int> byDxcc;
+    QMap<QString, int> byGrid;
+    QMap<QString, int> byYear;
+    QMap<QString, int> byMonth;
+    QSet<QString> uniqueCalls;
+    QSet<QString> uniqueCountries;
+    QSet<QString> uniqueDxcc;
+    QSet<QString> uniqueGrids;
+    QDateTime firstUtc;
+    QDateTime lastUtc;
+
+    for (const LogbookEntry &entry : records) {
+        const QString call = callBase(entry.callsign);
+        if (!call.isEmpty()) uniqueCalls.insert(call);
+
+        inc(&byMode, normalized(entry.mode.toUpper(), L("Unknown")));
+        inc(&byBand, normalized(bandForEntry(entry), L("Other")));
+
+        const QString country = normalized(value(entry, QStringLiteral("COUNTRY")), L("Unknown"));
+        inc(&byCountry, country);
+        if (country != L("Unknown")) uniqueCountries.insert(country);
+
+        const QString dxcc = normalized(entry.adifFields.value(QStringLiteral("DXCC")), country);
+        inc(&byDxcc, dxcc);
+        if (dxcc != L("Unknown") && dxcc != QStringLiteral("—")) uniqueDxcc.insert(dxcc);
+
+        const QString grid = normalized(entry.grid.left(6).toUpper(), L("Unknown"));
+        inc(&byGrid, grid);
+        if (grid != L("Unknown")) uniqueGrids.insert(grid);
+
+        const QDateTime utc = entry.utc.toUTC();
+        if (utc.isValid() && !utc.isNull()) {
+            if (!firstUtc.isValid() || utc < firstUtc) firstUtc = utc;
+            if (!lastUtc.isValid() || utc > lastUtc) lastUtc = utc;
+            inc(&byYear, utc.date().toString(QStringLiteral("yyyy")));
+            inc(&byMonth, utc.date().toString(QStringLiteral("yyyy-MM")));
+        }
+    }
+
+    auto sortedRows = [](const QMap<QString, int> &map, int limit = 0) -> QVector<QPair<QString, int>> {
+        QVector<QPair<QString, int>> rows;
+        rows.reserve(map.size());
+        for (auto it = map.constBegin(); it != map.constEnd(); ++it) {
+            rows.append(qMakePair(it.key(), it.value()));
+        }
+        std::sort(rows.begin(), rows.end(), [](const QPair<QString, int> &a, const QPair<QString, int> &b) {
+            if (a.second != b.second) return a.second > b.second;
+            return a.first < b.first;
+        });
+        if (limit > 0 && rows.size() > limit) rows.resize(limit);
+        return rows;
+    };
+
+    auto maxCount = [](const QVector<QPair<QString, int>> &rows) -> int {
+        int maxValue = 0;
+        for (const auto &row : rows) maxValue = qMax(maxValue, row.second);
+        return qMax(1, maxValue);
+    };
+
+    auto tableHtml = [&](const QString &title, const QString &leftHeader, const QVector<QPair<QString, int>> &rows) -> QString {
+        const int maxValue = maxCount(rows);
+        QString html;
+        html += QStringLiteral("<div class='panel'><h2>%1</h2>").arg(title.toHtmlEscaped());
+        if (rows.isEmpty()) {
+            html += QStringLiteral("<p class='muted'>%1</p></div>").arg(L("No data").toHtmlEscaped());
+            return html;
+        }
+        html += QStringLiteral("<table><tr><th>%1</th><th class='num'>%2</th><th></th></tr>")
+                    .arg(leftHeader.toHtmlEscaped(), L("QSO").toHtmlEscaped());
+        for (const auto &row : rows) {
+            const int width = qRound((100.0 * row.second) / double(maxValue));
+            html += QStringLiteral("<tr><td>%1</td><td class='num'>%2</td><td><div class='bar'><span style='width:%3%'></span></div></td></tr>")
+                        .arg(row.first.toHtmlEscaped())
+                        .arg(row.second)
+                        .arg(qBound(1, width, 100));
+        }
+        html += QStringLiteral("</table></div>");
+        return html;
+    };
+
+    const int total = records.size();
+    const QString firstText = firstUtc.isValid() ? firstUtc.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")) : QStringLiteral("—");
+    const QString lastText = lastUtc.isValid() ? lastUtc.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")) : QStringLiteral("—");
+
+    QString html;
+    html += QStringLiteral("<html><head><meta charset='utf-8'><style>");
+    html += QStringLiteral("@page{size:A4;margin:10mm;}body{font-family:sans-serif;font-size:8.5pt;color:#1d2733;}h1{font-size:20pt;margin:0 0 2mm 0;}h2{font-size:11pt;margin:0 0 2mm 0;}p{margin:1mm 0;}table{border-collapse:collapse;width:100%;table-layout:fixed;}th,td{border:0.45pt solid #c8ced8;padding:2.5px;text-align:left;vertical-align:middle;}th{background:#eef2f7;font-weight:700;}.num{text-align:right;width:18mm}.muted{color:#657386}.kpi{display:block;margin:4mm 0 4mm 0}.kpi table td{border:0.7pt solid #b8c0cc;padding:5px}.big{font-size:16pt;font-weight:700}.panel{margin:0 0 4mm 0;page-break-inside:avoid}.twocol{width:100%}.twocol td{width:50%;vertical-align:top;border:0;padding:0 2mm 0 0}.bar{height:6pt;background:#e7e7e7;border-radius:3px;overflow:hidden}.bar span{display:block;height:6pt;background:#2f7fc0}.foot{margin-top:3mm;font-size:7.2pt;color:#657386}");
+    html += QStringLiteral("</style></head><body>");
+    html += QStringLiteral("<h1>%1</h1>").arg(L("MadModem logbook statistics").toHtmlEscaped());
+    html += QStringLiteral("<p>%1: <b>%2</b> &nbsp;&nbsp; %3: %4 UTC</p>")
+                .arg(L("Scope").toHtmlEscaped())
+                .arg(scopeLabel.toHtmlEscaped())
+                .arg(L("Generated").toHtmlEscaped())
+                .arg(QDateTime::currentDateTimeUtc().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")).toHtmlEscaped());
+
+    html += QStringLiteral("<div class='kpi'><table><tr>");
+    html += QStringLiteral("<td><span class='muted'>%1</span><br><span class='big'>%2</span></td>").arg(L("QSO total").toHtmlEscaped()).arg(total);
+    html += QStringLiteral("<td><span class='muted'>%1</span><br><span class='big'>%2</span></td>").arg(L("Unique calls").toHtmlEscaped()).arg(uniqueCalls.size());
+    html += QStringLiteral("<td><span class='muted'>%1</span><br><span class='big'>%2</span></td>").arg(L("Unique DXCC/countries").toHtmlEscaped()).arg(qMax(uniqueDxcc.size(), uniqueCountries.size()));
+    html += QStringLiteral("<td><span class='muted'>%1</span><br><span class='big'>%2</span></td>").arg(L("Unique grids").toHtmlEscaped()).arg(uniqueGrids.size());
+    html += QStringLiteral("</tr><tr>");
+    html += QStringLiteral("<td colspan='2'><span class='muted'>%1</span><br><b>%2</b></td>").arg(L("First QSO").toHtmlEscaped(), firstText.toHtmlEscaped());
+    html += QStringLiteral("<td colspan='2'><span class='muted'>%1</span><br><b>%2</b></td>").arg(L("Last QSO").toHtmlEscaped(), lastText.toHtmlEscaped());
+    html += QStringLiteral("</tr></table></div>");
+
+    html += QStringLiteral("<table class='twocol'><tr><td>%1</td><td>%2</td></tr></table>")
+                .arg(tableHtml(L("Distribution by mode"), L("Mode"), sortedRows(byMode)),
+                     tableHtml(L("Distribution by band"), L("Band"), sortedRows(byBand)));
+    html += tableHtml(L("Top 10 countries"), L("Country"), sortedRows(byCountry, 10));
+    html += QStringLiteral("<table class='twocol'><tr><td>%1</td><td>%2</td></tr></table>")
+                .arg(tableHtml(L("Top 10 grids"), L("Grid"), sortedRows(byGrid, 10)),
+                     tableHtml(L("QSOs by year"), L("Year"), sortedRows(byYear)));
+    html += tableHtml(L("QSOs by month"), L("Month"), sortedRows(byMonth, 24));
+    html += QStringLiteral("<p class='foot'>%1</p>").arg(L("Statistics are computed from the selected ADIF records. Unsupported ADIF fields are preserved but may not contribute to every chart.").toHtmlEscaped());
+    html += QStringLiteral("</body></html>");
+    return html;
+}
+
+bool LogbookDialog::saveStatisticsToPdf(const QVector<LogbookEntry> &records,
+                                        const QString &scopeLabel,
+                                        const QString &defaultBaseName)
+{
+    if (records.isEmpty()) {
+        QMessageBox::information(this, L("Save statistics PDF"), L("No QSO records to save."));
+        return false;
+    }
+
+    QString defaultName = defaultBaseName.isEmpty() ? QStringLiteral("MadModem_logbook") : defaultBaseName;
+    if (defaultName.endsWith(QStringLiteral(".pdf"), Qt::CaseInsensitive)) {
+        defaultName.chop(4);
+    }
+    if (!defaultName.endsWith(QStringLiteral("_statistics"), Qt::CaseInsensitive)) {
+        defaultName += QStringLiteral("_statistics");
+    }
+    defaultName += QStringLiteral(".pdf");
+
+    QString fileName = QFileDialog::getSaveFileName(
+        this,
+        L("Save logbook statistics PDF"),
+        defaultName,
+        L("PDF document (*.pdf);;All files (*)"));
+    if (fileName.isEmpty()) {
+        return false;
+    }
+    if (!fileName.endsWith(QStringLiteral(".pdf"), Qt::CaseInsensitive)) {
+        fileName += QStringLiteral(".pdf");
+    }
+
+    QPrinter printer(QPrinter::HighResolution);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    printer.setPageOrientation(QPageLayout::Portrait);
+#else
+    printer.setOrientation(QPrinter::Portrait);
+#endif
+    printer.setOutputFormat(QPrinter::PdfFormat);
+    printer.setOutputFileName(fileName);
+    printer.setDocName(L("MadModem logbook statistics") + QStringLiteral(" - ") + scopeLabel);
+
+    QProgressDialog progress(L("Preparing statistics PDF..."), L("Cancel"), 0, 0, this);
+    progress.setWindowTitle(L("Save statistics PDF"));
+    progress.setWindowModality(Qt::ApplicationModal);
+    progress.setMinimumDuration(250);
+    progress.setAutoClose(false);
+    progress.setAutoReset(false);
+    progress.show();
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+
+    QTextDocument document;
+    const QRectF pageRect = printer.pageRect(QPrinter::Point);
+    if (pageRect.isValid()) {
+        document.setPageSize(pageRect.size());
+        document.setTextWidth(pageRect.width());
+    }
+    document.setHtml(htmlForStatistics(records, scopeLabel));
+    progress.setLabelText(L("Rendering statistics PDF..."));
+    QApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+    if (progress.wasCanceled()) {
+        progress.close();
+        return false;
+    }
+    document.print(&printer);
+    progress.close();
+
+    QMessageBox::information(this,
+                             L("Save statistics PDF"),
+                             L("Statistics PDF saved successfully (%1 QSO records).")
+                                 .arg(records.size()));
+    return true;
+}
+
 bool LogbookDialog::saveRecordsToPdf(const QVector<LogbookEntry> &records,
                                      const QString &scopeLabel,
                                      const QString &defaultBaseName)
@@ -1638,3 +1898,18 @@ void LogbookDialog::savePdfLogbook()
     }
     saveRecordsToPdf(records, scopeLabel, defaultBaseName);
 }
+
+
+void LogbookDialog::saveStatisticsPdf()
+{
+    QString scopeLabel;
+    QString defaultBaseName;
+    const QVector<LogbookEntry> records = chooseOutputRecords("Save logbook statistics PDF",
+                                                              &scopeLabel,
+                                                              &defaultBaseName);
+    if (records.isEmpty()) {
+        return;
+    }
+    saveStatisticsToPdf(records, scopeLabel, defaultBaseName);
+}
+

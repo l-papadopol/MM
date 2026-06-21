@@ -6,13 +6,10 @@
 #include <QWidget>
 #include <QString>
 
-class QCheckBox;
 class QComboBox;
 class QLabel;
 class QLineEdit;
 class QProgressBar;
-class QPushButton;
-class QSpinBox;
 class NeuralMatrixWidget;
 
 class DdspPanelWidget : public QWidget
@@ -34,10 +31,13 @@ private:
 
     QLabel *m_lblState = nullptr;
     QLabel *m_lblSamples = nullptr;
+    QLabel *m_lblModeMeaning = nullptr;
+    QLabel *m_lblProfileMeaning = nullptr;
     QLabel *m_lblBreakdown = nullptr;
     QLabel *m_lblLoss = nullptr;
     QLabel *m_lblArchitecture = nullptr;
     QLabel *m_lblBackend = nullptr;
+    QLabel *m_lblModelState = nullptr;
     QLabel *m_lblTrainingCompletion = nullptr;
     QComboBox *m_cmbProfileView = nullptr;
     QLabel *m_lblCheckpoint = nullptr;
@@ -47,14 +47,7 @@ private:
     QLabel *m_lblManualHint = nullptr;
     QProgressBar *m_progressAccuracy = nullptr;
     NeuralMatrixWidget *m_matrixWidget = nullptr;
-    QCheckBox *m_chkTraining = nullptr;
-    QCheckBox *m_chkAssist = nullptr;
-    QSpinBox *m_spinBudget = nullptr;
-    QPushButton *m_btnReset = nullptr;
-    QPushButton *m_btnSave = nullptr;
-    QPushButton *m_btnLoad = nullptr;
-    QPushButton *m_btnTeachManual = nullptr;
-    QPushButton *m_btnCwBootcamp = nullptr;
+    QComboBox *m_cmbAssistMode = nullptr;
 };
 
 #endif // DDSPPANELWIDGET_H

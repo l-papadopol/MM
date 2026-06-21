@@ -14,6 +14,14 @@ MADMODEM_CREATE_MM_ZIP="${MADMODEM_CREATE_MM_ZIP:-on}"
 MADMODEM_PACKAGE_DIR="${MADMODEM_PACKAGE_DIR:-$PWD/MM}"
 MADMODEM_PACKAGE_ZIP="${MADMODEM_PACKAGE_ZIP:-$PWD/mm.zip}"
 
+# Windows CPU policy:
+#   on  = build both public executables:
+#         dist/windows/MadModem.exe        -> AVX2/FMA build for modern CPUs
+#         dist/windows/MadModem-Legacy.exe -> portable x86-64 build for older CPUs
+#   off = build only one Windows executable in build-win64-static.
+MADMODEM_WINDOWS_DUAL_CPU_BUILDS="${MADMODEM_WINDOWS_DUAL_CPU_BUILDS:-on}"
+MADMODEM_WINDOWS_SINGLE_AVX2="${MADMODEM_WINDOWS_SINGLE_AVX2:-off}"
+
 if [[ -z "${MXE_ROOT:-}" ]]; then
     if [[ -d "/home/iz6nnh/mxe" ]]; then
         MXE_ROOT="/home/iz6nnh/mxe"
@@ -71,18 +79,40 @@ if [[ "$MADMODEM_BUILD_WINDOWS" != "off" ]]; then
     HAMLIB_PREFIX="$HAMLIB_WIN_PREFIX" JOBS="$JOBS" \
         "$PWD/third_party/hamlib_lgpl/build_hamlib_mxe.sh"
 
-    printf '\n==> Building %s for Windows via MXE with bundled Hamlib (%s)\n' "$APP_NAME" "$BUILD_TYPE"
     export PATH="$MXE_ROOT/usr/bin:$PATH"
-    "$MXE_CMAKE" -S . -B build-win64-static \
-        -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-        -DHAMLIB_ROOT="$HAMLIB_WIN_PREFIX" \
-        -DPKG_CONFIG_EXECUTABLE="$MXE_ROOT/usr/bin/$MXE_TARGET-pkg-config" \
-        -DMADMODEM_REQUIRE_HAMLIB=ON
-    cmake --build build-win64-static -j"$JOBS"
-
-    printf '\n==> Installing Windows all-in-one tree to dist/windows\n'
     mkdir -p "$PWD/dist/windows"
-    cp -f "build-win64-static/${APP_NAME}.exe" "$PWD/dist/windows/${APP_NAME}.exe"
+
+    build_windows_variant() {
+        local variant_name="$1"
+        local build_dir="$2"
+        local avx2_flag="$3"
+        local output_exe="$4"
+
+        printf '\n==> Building %s for Windows via MXE: %s (%s, MADMODEM_AVX2_BUILD=%s)\n' \
+            "$APP_NAME" "$variant_name" "$BUILD_TYPE" "$avx2_flag"
+        "$MXE_CMAKE" -S . -B "$build_dir" \
+            -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+            -DHAMLIB_ROOT="$HAMLIB_WIN_PREFIX" \
+            -DPKG_CONFIG_EXECUTABLE="$MXE_ROOT/usr/bin/$MXE_TARGET-pkg-config" \
+            -DMADMODEM_REQUIRE_HAMLIB=ON \
+            -DMADMODEM_AVX2_BUILD="$avx2_flag"
+        cmake --build "$build_dir" -j"$JOBS"
+        cp -f "$build_dir/${APP_NAME}.exe" "$PWD/dist/windows/$output_exe"
+    }
+
+    if [[ "$MADMODEM_WINDOWS_DUAL_CPU_BUILDS" != "off" ]]; then
+        # Public Windows package policy:
+        #   MadModem.exe        = AVX2/FMA optimized executable for modern CPUs.
+        #   MadModem-Legacy.exe = portable executable for older CPUs such as Xeon X5680.
+        build_windows_variant "AVX2/FMA" "build-win64-static-avx2" ON "${APP_NAME}.exe"
+        build_windows_variant "Legacy portable" "build-win64-static-legacy" OFF "${APP_NAME}-Legacy.exe"
+    else
+        if [[ "$MADMODEM_WINDOWS_SINGLE_AVX2" == "on" ]]; then
+            build_windows_variant "single AVX2/FMA" "build-win64-static" ON "${APP_NAME}.exe"
+        else
+            build_windows_variant "single portable" "build-win64-static" OFF "${APP_NAME}.exe"
+        fi
+    fi
 fi
 
 if [[ "$MADMODEM_CREATE_MM_ZIP" != "off" ]]; then
@@ -96,5 +126,12 @@ fi
 
 printf '\nBuild complete.\n'
 [[ "$MADMODEM_BUILD_LINUX" == "off" ]] || printf 'Linux:   dist/linux/bin/%s\n' "$APP_NAME"
-[[ "$MADMODEM_BUILD_WINDOWS" == "off" ]] || printf 'Windows: dist/windows/%s.exe\n' "$APP_NAME"
+if [[ "$MADMODEM_BUILD_WINDOWS" != "off" ]]; then
+    if [[ "$MADMODEM_WINDOWS_DUAL_CPU_BUILDS" != "off" ]]; then
+        printf 'Windows: dist/windows/%s.exe        (AVX2/FMA)\n' "$APP_NAME"
+        printf 'Windows: dist/windows/%s-Legacy.exe (portable legacy CPU)\n' "$APP_NAME"
+    else
+        printf 'Windows: dist/windows/%s.exe\n' "$APP_NAME"
+    fi
+fi
 [[ "$MADMODEM_CREATE_MM_ZIP" == "off" ]] || printf 'Package: %s\n' "$MADMODEM_PACKAGE_ZIP"

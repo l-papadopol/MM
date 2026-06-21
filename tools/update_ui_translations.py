@@ -149,7 +149,7 @@ def harvest_keys() -> OrderedDict[str, str]:
     ]
 
     def plausible_user_text(src: str) -> bool:
-        if src in {"MadModem 0.5.0"}:
+        if src in {"MadModem 0.5.1"}:
             return False
         if not src or len(src) > 180:
             return False

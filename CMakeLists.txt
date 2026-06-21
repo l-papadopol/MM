@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.5.0
+    VERSION 0.5.27
     LANGUAGES CXX
 )
 
@@ -31,8 +31,8 @@ option(MADMODEM_MIND_OPENMP
     "Require OpenMP and enable Eigen/OpenMP parallel MIND training."
     ON)
 option(MADMODEM_AVX2_BUILD
-    "Build the optimized x86_64 MIND/DSP target with AVX2/FMA/SSE4.2 baseline."
-    ON)
+    "Build an AVX2/FMA/SSE4.2-only binary. OFF keeps Windows packages portable; FT8 still uses runtime AVX2 dispatch where safe."
+    OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -57,11 +57,14 @@ if(MADMODEM_NATIVE_OPTIMIZE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 if(MADMODEM_AVX2_BUILD AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64|i[3-6]86")
+    message(WARNING "MADMODEM_AVX2_BUILD=ON creates an AVX2/FMA-only executable. Do not use it for generic Windows 10 packages or older CPUs.")
     if(MSVC)
         add_compile_options($<$<CONFIG:Release>:/arch:AVX2>)
     elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         add_compile_options($<$<CONFIG:Release>:-mavx2> $<$<CONFIG:Release>:-mfma> $<$<CONFIG:Release>:-msse4.2>)
     endif()
+else()
+    message(STATUS "MadModem portable CPU baseline: global AVX2/FMA disabled; runtime-dispatched kernels may still use AVX2 on capable CPUs.")
 endif()
 
 if(MADMODEM_MIND_OPENMP)

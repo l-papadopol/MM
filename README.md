@@ -1,8 +1,86 @@
+## 0.5.25 - fldigi-aligned text modem core pass
+
+MadModem 0.5.25 applies a single consolidated text-mode DSP pass using fldigi as the GPL reference. PSK31/63 no longer averages a whole symbol across phase reversals and now samples at the recovered symbol eye centre with a stronger envelope-dip clock resync and corrected Varicode quality/inversion feedback. MFSK16 soft decisions now follow fldigi's softdecode more closely: full-scale soft bits, hard-symbol vote weighting and persistent single-tone CWI avoidance feed the existing R=1/2 K=7 FEC/Varicode path. Feld Hell keeps the corrected bottom-to-top visual raster orientation and compact paper scaling. CW keeps the heavy MIND human-fist path while preserving the fldigi/ggmorse-style timing, adaptive WPM, gap tracking and native event decoder.
+
+## 0.5.24 - CW heavy MIND human-fist recovery
+
+MadModem 0.5.24 makes CW MIND Active materially affect CW copy. In Active mode ggmorse remains available for speed/cost estimation, but its text stream is suppressed and the MIND-biased native Morse event decoder becomes the output path. MIND can now steer dit/dah, intra-letter, letter-gap and word-gap decisions with lower confidence thresholds designed for human straight-key timing, while Training remains non-invasive and Off remains hard-bypass. CW profile training is allowed to run in very small low-priority slices during live CW so the event profile becomes usable while the user is actually copying.
+
+## 0.5.23 - Hell orientation and visible CW/RTTY MIND assist
+
+MadModem 0.5.23 keeps the 0.5.22 standard MFSK16 work and fixes the Feld Hell visual paper orientation: received Hell glyphs are no longer drawn upside-down. It also makes CW/RTTY MIND behaviour explicit and useful: CW/RTTY profile training now catches up during safe idle gaps instead of waiting only for heavy settings/logbook idle, Active shows ready/training state, and low-level CW/RTTY assist becomes available once the small profile validation gate is reached. Training mode remains non-invasive and Off remains a hard bypass.
+
+## 0.5.22 - Standard MFSK16 Varicode/FEC
+
+MadModem 0.5.22 keeps the validated 0.5.19/0.5.21 baseline and replaces the old internal/framed MFSK16 receiver with a standard MFSK16 text pipeline: 16 tones at 15.625 baud, Gray tone weighting, IZ8BLY/gMFSK-style Varicode, R=1/2 K=7 convolutional FEC and the 10-stage 4x4 diagonal deinterleaver. MFSK16 TX now uses the same standard chain. MFSK32 remains marked legacy/experimental until a matching standard path is added.
+
+## MadModem 0.5.21
+
+MadModem 0.5.21 returns to the validated 0.5.19 baseline and focuses on text-mode receive cleanup. BPSK31/BPSK63 RX adds conservative symbol-clock reacquisition from PSK envelope dips and early auto-polarity recovery for inverted Varicode streams. Feld Hell now uses the standard 14-row raster timing with a half-height paper view and a more compact waterfall layout. RTTY remains unchanged because the supplied 170 Hz / 45.45 baud test is already decoding. The MFSK16 receiver is still marked experimental: it is a framed internal receiver, not yet a fldigi-compatible MFSK16 Varicode/FEC decoder.
+
+## MadModem 0.5.19
+
+MadModem 0.5.19 improves CW dual-RX usability. The CW terminal now tags decoder A and B lines explicitly (`A>` / `B>`) and colours the channel prefixes so it is clear which marker produced each text stream. The Mode panel gains a `Disable RX B` button to remove the blue secondary CW marker/decoder. CW waterfall markers now show yellow dashed low/high filter cutoff lines around each selected tone, and the status label reports A/B tone plus tracked WPM. RX B uses the same CW bandwidth/AFC/Auto-WPM settings but tracks its own tone and WPM internally.
+
+
+## MadModem 0.5.18
+
+- Fix PSK/BPSK31 receive lock acquisition: the decoder no longer learns a clean PSK carrier as noise before opening squelch.
+- Varicode validity is now used as an additional PSK lock validator before text is emitted, reducing blank RX terminals on valid BPSK31 signals.
+- Keep Windows dual CPU builds from 0.5.11 and all 0.5.17 Settings/User-QTH fixes.
+
+## MadModem 0.5.17
+
+MadModem 0.5.17 fixes the User / QTH / Macros Settings tab by rebuilding it as a native Settings page rather than embedding the older standalone dialog. This preserves the 0.5.11 behaviour while keeping the newer rotator/PTT, dual Windows build, logbook, CW/RTTY/MIND and FT fixes.
+
 # MadModem (MM)
 
 **English** | [Italiano](#madmodem-mm-italiano)
 
-Current version: **0.5.0**
+Current version: **0.5.14**
+
+
+#
+### Windows serial/PTT/rotator note
+
+MadModem 0.5.16 fixes an embedded Settings-page regression where the User / QTH / Macros tab could appear blank after the unified Settings dialog converted child dialogs into tab pages. It keeps the 0.5.15 CatRotator/PTT serial conflict fix and the dual Windows CPU build support.
+
+## 0.5.14 CW dual RX and MIND panel cleanup
+
+CW mode now has two selectable RX markers: left click on the waterfall sets RX A/green and right click sets RX B/blue. RX B runs a separate decoder and prints `B>` lines in the CW terminal. The MIND panel now explains Off, Training and Active in plain language, and each profile says what MIND actually assists.
+
+### 0.5.12 logbook statistics PDF
+
+The Logbook toolbar no longer contains the worked-call strike-through checkbox. That preference is now in Settings -> Logbook / FT colours -> Logbook display. The Logbook window adds Save statistics PDF..., which generates a printable MyQSO-style summary for selected QSOs, the current search result, or the full ADIF logbook.
+
+### 0.5.11 dual Windows CPU builds
+
+The Windows build script now produces two executables by default. `MadModem.exe` is the AVX2/FMA build for modern CPUs. `MadModem-Legacy.exe` is the portable x86-64 build for older Windows 10 machines without AVX/AVX2, such as Xeon X5680 systems. The final `mm.zip` package includes both executables when both builds succeed.
+
+### 0.5.10 Windows portable CPU hotfix
+
+This maintenance release fixes a Windows 10 startup crash caused by a non-portable AVX2/FMA global build baseline. Windows packages now default to a portable x86-64 CPU baseline; AVX2/FMA remains available only through runtime-dispatched kernels or explicit developer-only builds. This prevents illegal-instruction failures on older Windows 10 PCs while keeping the validated FT/CW/MIND code path intact.
+
+### 0.5.9 CW Active Event Assist
+
+This release improves CW receive robustness for hand-sent Morse. The CW detector now uses a robust moving-window dot tracker, adaptive gap classification for character/word spacing, ggmorse note filtering, asymmetric envelope attack/release, and conservative radio-token spacing normalization. These changes are aimed at typical failures such as split callsigns (`IZ6NN H`) and glued procedure/callsign text (`DEIW6DRH`, `CQIZ6NNH`).
+
+### 0.5.6 MIND UI terminology and layout cleanup
+
+MIND operator modes are now named `Off`, `Training` and `Active`. `Training` replaces the older `Shadow` label and means that MIND learns/scores without changing decoding. `Active` replaces the older `Assisted` label and means MIND may drive ranking, promotion and guarded helpers while final text remains produced by the classical decoders. The MIND panel status area was reorganized into wrapped single-column rows so narrow side panels no longer clip model, backend, replay and ranker labels. Runtime translations were refreshed for IT/EN/FR/DE/NO/CZ.
+
+### 0.5.6 MIND Multi-Mode Assist Foundation
+
+MIND is no longer treated as a normal-speed FT8 shortcut. In Active mode it is a weak-signal/QRM budget dispatcher: it can rank candidates, promote weak-but-structured signals into deeper OSD/metric/residual recovery, and prune only obvious ghosts when the ranker is ready. MIND Off remains a structural bypass for baseline timing and sensitivity checks. Two additional FT8 WAV files are bundled in `tests/wav/` for weak/stress regression.
+
+
+### 0.5.11 doppia build CPU Windows
+
+Lo script di build Windows ora genera due eseguibili di default. `MadModem.exe` è la build AVX2/FMA per CPU moderne. `MadModem-Legacy.exe` è la build x86-64 portabile per macchine Windows 10 più vecchie senza AVX/AVX2, per esempio sistemi Xeon X5680. Il package finale `mm.zip` include entrambi gli eseguibili quando entrambe le build vanno a buon fine.
+
+### 0.5.10 hotfix Windows CPU portabile
+
+Questa manutenzione corregge un crash all’avvio su Windows 10 causato da una baseline globale AVX2/FMA non portabile. I pacchetti Windows ora compilano di default con una baseline x86-64 portabile; AVX2/FMA resta disponibile solo tramite kernel dispatchati a runtime o build sviluppatore esplicitamente AVX2.
 
 MadModem, usually called **MM**, is an amateur-radio digital-mode application for Linux and Windows.
 
@@ -221,13 +299,22 @@ Full Linux + Windows build:
 ./build_all.sh
 ```
 
+By default, the Windows part now builds two CPU variants:
+
+```text
+dist/windows/MadModem.exe        AVX2/FMA build for modern CPUs
+dist/windows/MadModem-Legacy.exe portable build for older CPUs without AVX/AVX2
+```
+
 Useful switches:
 
 ```bash
-MADMODEM_BUILD_LINUX=off ./build_all.sh      # Windows only
-MADMODEM_BUILD_WINDOWS=off ./build_all.sh    # Linux only
-MADMODEM_CREATE_MM_ZIP=off ./build_all.sh    # build without final package
-JOBS=8 ./build_all.sh                        # manual parallelism
+MADMODEM_BUILD_LINUX=off ./build_all.sh                  # Windows only
+MADMODEM_BUILD_WINDOWS=off ./build_all.sh                # Linux only
+MADMODEM_CREATE_MM_ZIP=off ./build_all.sh                # build without final package
+MADMODEM_WINDOWS_DUAL_CPU_BUILDS=off ./build_all.sh      # build one Windows exe only
+MADMODEM_WINDOWS_SINGLE_AVX2=on MADMODEM_WINDOWS_DUAL_CPU_BUILDS=off ./build_all.sh
+JOBS=8 ./build_all.sh                                    # manual parallelism
 ```
 
 ---
@@ -249,9 +336,14 @@ Do not remove upstream notices or license files when redistributing source or bi
 
 # MadModem (MM) Italiano
 
-Versione corrente: **0.5.0**
+Versione corrente: **0.5.14**
 
 MadModem, di solito abbreviato in **MM**, è un programma radioamatoriale per modi digitali, Linux e Windows.
+
+### 0.5.12 PDF statistiche logbook
+
+La toolbar del Logbook non contiene più la checkbox per barrare i nominativi già lavorati: l’opzione è stata spostata in Impostazioni -> Logbook / colori FT -> Visualizzazione logbook. Nel Logbook è stato aggiunto il comando Salva PDF statistiche..., che genera un riepilogo stampabile in stile MyQSO per i QSO selezionati, il risultato della ricerca corrente o l’intero log ADIF.
+
 
 Integra modem RX/TX, audio, waterfall, CAT/PTT, logbook, mappa QSO, automazione FT4/FT8 e controllo rotore in una singola applicazione Qt Widgets. Il progetto è ancora in alpha, ma è già usabile per test radio reali.
 
@@ -468,13 +560,22 @@ Build completa Linux + Windows:
 ./build_all.sh
 ```
 
+Di default, la parte Windows produce due varianti CPU:
+
+```text
+dist/windows/MadModem.exe        build AVX2/FMA per CPU moderne
+dist/windows/MadModem-Legacy.exe build portabile per CPU vecchie senza AVX/AVX2
+```
+
 Switch utili:
 
 ```bash
-MADMODEM_BUILD_LINUX=off ./build_all.sh      # solo Windows
-MADMODEM_BUILD_WINDOWS=off ./build_all.sh    # solo Linux
-MADMODEM_CREATE_MM_ZIP=off ./build_all.sh    # build senza package finale
-JOBS=8 ./build_all.sh                        # parallelismo manuale
+MADMODEM_BUILD_LINUX=off ./build_all.sh                  # solo Windows
+MADMODEM_BUILD_WINDOWS=off ./build_all.sh                # solo Linux
+MADMODEM_CREATE_MM_ZIP=off ./build_all.sh                # build senza package finale
+MADMODEM_WINDOWS_DUAL_CPU_BUILDS=off ./build_all.sh      # una sola exe Windows
+MADMODEM_WINDOWS_SINGLE_AVX2=on MADMODEM_WINDOWS_DUAL_CPU_BUILDS=off ./build_all.sh
+JOBS=8 ./build_all.sh                                    # parallelismo manuale
 ```
 
 ---
@@ -496,7 +597,7 @@ Non rimuovere notice o licenze upstream quando redistribuisci sorgente o binari.
 
 This source package includes the MIND shadow-learning laboratory. MIND uses MadModem's own minimal C++/Eigen neural engine instead of bundling external neural runtime as an active dependency. The model observes FT8/FT4, RTTY and CW receive audio and trains only from text already accepted by the classic decoders or manually confirmed by the user.
 
-The feature is fail-closed by design: MIND does not replace FT8/FT4, RTTY or CW decoders, does not key PTT, does not drive CAT, and does not feed AutoQSO. Assisted decoding remains unavailable until the validation window is perfect.
+The feature is fail-closed by design: MIND does not replace FT8/FT4, RTTY or CW decoders, does not key PTT, does not drive CAT, and does not feed AutoQSO. Active decoding remains unavailable until the validation window is perfect.
 
 
 ### MIND Eigen update
@@ -516,19 +617,21 @@ MIND currently uses the bundled Eigen header-only CPU backend only. GPU/OpenCL t
 - MIND remains shadow-only and cannot key TX, CAT, PTT or AutoQSO.
 
 
-### MIND CW bootcamp
-The MIND panel includes a **Run CW bootcamp** button. It queues synthetic CW dit/dah/gap/noise training samples for the dedicated CW profile (`256 -> 96 -> 48 -> 6`). This is a shadow-learning laboratory feature and does not drive TX, CAT/PTT, AutoQSO or live decode output.
+### MIND CW status
+The visible CW teaching/bootcamp controls are removed from the production UI. CW MIND plumbing may remain internally for future assisted CW work, but the active trainer backs off during CW operation so it does not make the UI or decoder choppy.
 
 ### MIND shadow training notes
 
-MIND remains a shadow-learning lab: it never keys TX, never controls CAT/PTT and never drives AutoQSO. Native FT gold samples that pass LDPC/CRC/unpack validation are stored in the persistent FT replay buffer `mind_ft_gold_samples_v1.dat` under the MadModem MIND application-data directory. Training runs from a dedicated low-priority thread so UI, audio, FT decode and CAT timing stay isolated.
+MIND remains fail-closed: it never keys TX, never controls CAT/PTT and never drives AutoQSO. Native FT gold samples that pass LDPC/CRC/unpack validation are stored in the persistent FT replay buffer `mind_ft_gold_samples_v1.dat` under the MadModem MIND application-data directory. Training runs from a dedicated low-priority adaptive trainer so UI, audio, FT decode, CW operation and CAT timing stay isolated.
 
 
-### MIND dedicated full-speed trainer
-MIND training uses a dedicated CPU/Eigen trainer thread. The trainer budget controls how much work that thread may do per cycle. Higher values speed up offline training without moving training onto the UI/audio/CAT/PTT threads.
+### MIND autonomous trainer
+MIND training uses a dedicated low-priority CPU/Eigen trainer thread with an internal adaptive budget. The user cannot set a manual training budget or manually save/load/reset the model from the normal UI. MadModem automatically checkpoints and throttles MIND work: zero while explicit FT critical guards or native candidate-cooldown windows are active, zero during active CW operation, tiny slices during realtime receive, and larger slices while the user is in non-critical workflows such as settings, logbook or runtime-log consultation.
 
 
 ### MIND Eigen/OpenMP optimized training
 
-The MIND FT-native trainer uses Eigen with OpenMP and batched matrix-matrix updates. The optimized build requires OpenMP and targets modern x86_64 CPUs with AVX2/FMA/SSE4.2. The training remains isolated in the dedicated MIND trainer thread; FT8/FT4 decoder, TX, CAT/PTT and AutoQSO are not changed by this optimization.
+The MIND FT-native trainer uses Eigen with OpenMP and batched matrix-matrix updates. Windows packages now ship two CPU variants: the default `MadModem.exe` AVX2/FMA executable for modern CPUs and `MadModem-Legacy.exe` for older x86-64 CPUs without AVX/AVX2. The training remains isolated in the dedicated MIND trainer thread; FT8/FT4 decoder, TX, CAT/PTT and AutoQSO are not changed by this packaging policy.
 
+### MIND autonomous trainer note
+MIND training is automatic and latency-first. User-facing training budget/save/load/reset controls are intentionally not exposed. The trainer backs off during FT decode windows, TX, CW realtime operation, and UI interaction; the MIND panel only reports status, model/dataset paths, and Assist mode.

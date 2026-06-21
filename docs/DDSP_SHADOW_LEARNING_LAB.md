@@ -1,4 +1,4 @@
-# MIND shadow-learning lab
+# MIND training-learning lab
 
 MIND is an experimental background learner based on MadModem's internal MIND Eigen MLP engine. It is intentionally fail-closed.
 
@@ -9,7 +9,7 @@ Current phase:
 - When the classic decoder emits confirmed text, MIND uses that text as a training label.
 - The model trains only in short idle slices.
 - A checkpoint is saved under the application data directory.
-- MIND Assist is unavailable until the local validation window is perfect.
+- MIND Assist is selectable as `Off`, `Training` or `Active`; `Active` remains fail-closed and never accepts FT text without CRC/unpack/parser validation.
 
 This version does not inject AI-only decodes into the QSO list, AutoQSO, logbook or TX scheduler. The next phase can add guarded AI-assisted candidate proposals after we have validation reports from real radio and WAV tests.
 
@@ -32,7 +32,7 @@ The MIND tab shows a rectangular live activity map. Each 3x3 pixel square repres
 
 ## Training completion
 
-The progress bar reports validation decode-success percentage over the rolling validation window. MIND Assist remains locked until the model reaches 100% validation success with enough validation samples.
+The progress bar reports validation decode-success percentage over the rolling validation window. `Active` mode may be selected by the operator, but it remains guarded by model-readiness checks and the deterministic FT validation chain.
 
 ## Persistent MIND model
 

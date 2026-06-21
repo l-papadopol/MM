@@ -9,6 +9,7 @@
 #include <QString>
 #include <QVector>
 
+#include <functional>
 #include <memory>
 
 class GGMorse;
@@ -51,6 +52,8 @@ public:
     void setBandwidthHz(double bandwidthHz);
     void setAfcEnabled(bool enabled);
     void setAfcRangeHz(double rangeHz);
+    void setMindEventAssistEnabled(bool enabled);
+    void setMindEventClassifier(std::function<bool(const QVector<float> &, QVector<float> *, double *)> classifier);
 
     double toneHz() const;
     double wpm() const;
@@ -65,6 +68,14 @@ signals:
     void statusChanged(const QString &status);
     void markersChanged(const QVector<FrequencyMarker> &markers);
     void speedEstimateChanged(double wpm);
+    /**
+     * @brief Real CW event/timing sample for MIND Training/Active.
+     *
+     * The CW decoder remains the authoritative text path.  These samples teach
+     * MIND the local tone envelope/timing classes: dit, dah, intra-letter gap,
+     * letter gap, word gap, or noise/ambiguous.
+     */
+    void mindEventSampleReady(const QVector<float> &input, const QVector<float> &target, const QString &label);
 
 private:
     void configureForSampleRate(int sampleRate);
@@ -83,6 +94,16 @@ private:
     void handleToneStarted();
     void handleToneEnded();
     void querySilenceDecoder();
+    double adaptiveLetterGapThreshold(bool realtimeToneStart) const;
+    double adaptiveWordGapThreshold(bool realtimeToneStart) const;
+    void rememberGap(double silenceSeconds);
+    QVector<float> makeMindEventFeature() const;
+    void emitMindEventSample(int klass, const QString &label);
+    int mindSuggestedEventClass(const QVector<float> &feature, double *confidence, QVector<float> *probabilities = nullptr) const;
+    bool mindEventAssistActive() const;
+    bool mindHeavyHumanFistAssistActive() const;
+    double mindEventProbability(const QVector<float> &probabilities, int klass) const;
+    double robustDotFromRecentElements() const;
     void finishCurrentCharacter();
     QString decodeMorse(const QString &pattern) const;
     QString decodeMorseFuzzy(const QVector<double> &durations, QString *winningPattern = nullptr,
@@ -157,7 +178,19 @@ private:
 
     QString m_currentPattern;
     QVector<double> m_currentDurations;
+    QVector<double> m_recentElements;
+    QVector<double> m_recentGaps;
+    QVector<double> m_mindEnvelopeHistory;
     QString m_text;
+
+    // MIND CW Active integration.  The neural profile never produces final text;
+    // it may only bias low-level event/timing decisions when explicitly Active.
+    bool m_mindEventAssistEnabled = false;
+    std::function<bool(const QVector<float> &, QVector<float> *, double *)> m_mindEventClassifier;
+    int m_mindAssistUsed = 0;
+    int m_mindAssistDisagreed = 0;
+    int m_mindNativeChars = 0;
+    int m_mindGgmorseSuppressedChars = 0;
 
     double m_dotSeconds = 0.060; // 20 WPM: 1.2 / WPM.
     double m_trackingDotSeconds = 0.060;

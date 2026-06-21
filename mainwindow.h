@@ -447,6 +447,11 @@ private slots:
     void handleCwTextUpdated(const QString &text);
 
     /**
+     * @brief Disables the secondary CW RX marker/decoder.
+     */
+    void disableCwSecondaryRx();
+
+    /**
      * @brief Sends the pending Feld Hell input line.
      */
     void sendHellTxText();
@@ -1221,6 +1226,10 @@ private:
     QString stationLocator() const;
     bool stationIdentityReady(QString *reason = nullptr) const;
     bool ensureStationIdentityForTx(const QString &modeLabel);
+    void showTxBlockedWarning(const QString &modeLabel,
+                              const QString &reason,
+                              AppSettingsDialog::InitialPage settingsPage,
+                              const QString &openSettingsText = QString());
     QString formatRigFrequency(double frequencyHz) const;
 
     /**
@@ -1373,6 +1382,9 @@ private:
      * @brief Appends local TX echo text into the current text terminal.
      */
     void appendTextTerminal(QPlainTextEdit *terminal, const QString &prefix, const QString &text);
+    void appendCwDecoderText(const QString &channel, const QString &text, const QColor &color, bool *lineOpen);
+    void recolorCwChannelPrefixes(QPlainTextEdit *terminal);
+    void updateCwDualRxStatusLabel();
 
     /**
      * @brief Prepares the active text TX editor for progress highlighting.
@@ -1487,6 +1499,14 @@ private:
     Bpsk31Decoder *m_bpsk31Decoder = nullptr;
     MfskDecoder *m_mfskDecoder = nullptr;
     CwDecoder *m_cwDecoder = nullptr;
+    CwDecoder *m_cwSecondaryDecoder = nullptr;
+    bool m_cwPrimaryLineOpen = false;
+    QString m_cwCurrentLineChannel;
+    bool m_cwSecondaryEnabled = false;
+    bool m_cwSecondaryLineOpen = false;
+    int m_cwSecondaryToneHz = 1400;
+    double m_cwTrackedWpmA = 0.0;
+    double m_cwTrackedWpmB = 0.0;
     HellschreiberDecoder *m_hellDecoder = nullptr;
     Ft8RxDecoder *m_ft8RxDecoder = nullptr;
     QThread *m_ft8RxThread = nullptr;
@@ -1598,9 +1618,12 @@ private:
     QSpinBox *m_spinCwWpm = nullptr;
     QCheckBox *m_chkCwAutoWpm = nullptr;
     QLabel *m_lblCwTrackedWpm = nullptr;
+    QLabel *m_lblCwDualRx = nullptr;
+    QPushButton *m_btnCwDisableSecondary = nullptr;
     QSpinBox *m_spinCwBandwidthHz = nullptr;
     QCheckBox *m_chkCwAfc = nullptr;
     QSpinBox *m_spinCwAfcRangeHz = nullptr;
+    QCheckBox *m_chkCwSoftwareAgc = nullptr;
     QPlainTextEdit *m_txtCwRx = nullptr;
     QPlainTextEdit *m_txtCwTx = nullptr;
     QPushButton *m_btnCwClearRx = nullptr;

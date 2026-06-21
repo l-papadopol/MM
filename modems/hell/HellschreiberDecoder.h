@@ -214,12 +214,12 @@ private:
      * virtual printer tape much easier to read without changing the actual
      * modem column rate.
      */
-    static constexpr int kLogicalRasterHeight = 28;
-    static constexpr int kVerticalScale = 4;
+    static constexpr int kLogicalRasterHeight = 14;
+    static constexpr int kVerticalScale = 2;
     static constexpr int kRasterHeight = kLogicalRasterHeight * kVerticalScale;
-    static constexpr int kLineGap = 16;
+    static constexpr int kLineGap = 4;
     static constexpr int kPaperWidth = 1120;
-    static constexpr int kVisibleRows = 5;
+    static constexpr int kVisibleRows = 6;
     static constexpr int kPaperHeight = (kRasterHeight + kLineGap) * kVisibleRows;
 
     Variant m_variant = Variant::FeldHell;

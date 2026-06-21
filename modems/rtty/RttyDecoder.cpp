@@ -101,6 +101,11 @@ void RttyDecoder::reset()
     m_scopeDecimator = 0;
     m_scopeTrace.clear();
     m_autoInvert = false;
+    m_mindFeatureWindow.clear();
+    m_mindFeatureDecimator = 0;
+    m_mindScored = 0;
+    m_mindAssistedBits = 0;
+    m_mindSamples = 0;
     m_text.clear();
 
     if (m_sampleRate > 0) {
@@ -177,6 +182,16 @@ QString RttyDecoder::receivedText() const
     return m_text;
 }
 
+void RttyDecoder::setMindSoftSlicerEnabled(bool enabled)
+{
+    m_mindSoftSlicerEnabled = enabled;
+}
+
+void RttyDecoder::setMindSoftSlicerClassifier(MindRttyClassifier classifier)
+{
+    m_mindClassifier = std::move(classifier);
+}
+
 void RttyDecoder::processAudioBlock(const AudioBlock &block)
 {
     if (block.samples.isEmpty() || block.sampleRate <= 0) {
@@ -216,6 +231,7 @@ void RttyDecoder::processAudioBlock(const AudioBlock &block)
         const double sumEnergy = markEnergy + spaceEnergy + 1.0e-14;
         const double diffNorm = (markEnergy - spaceEnergy) / sumEnergy;
         const double bitQuality = qAbs(diffNorm);
+        updateMindFeatureWindow(diffNorm, bitQuality, sumEnergy);
 
         ++m_scopeDecimator;
         if (m_scopeDecimator >= 24) {
@@ -414,7 +430,9 @@ void RttyDecoder::advanceSymbolClock(bool bitIsMark, double bitQuality)
     case RxState::ValidateStart:
         m_samplesToNextDecision -= 1.0;
         if (m_samplesToNextDecision <= 0.0) {
-            if (!bitIsMark && bitQuality >= kMinStartQuality && m_carrierOpen) {
+            const bool sampledBitIsMark = maybeApplyMindSoftSlicer(bitIsMark, bitQuality);
+            submitMindRttyBitSample(sampledBitIsMark, bitQuality);
+            if (!sampledBitIsMark && bitQuality >= kMinStartQuality && m_carrierOpen) {
                 m_state = RxState::DataBits;
                 m_samplesToNextDecision = m_symbolSamples;
                 m_dataBitIndex = 0;
@@ -435,7 +453,9 @@ void RttyDecoder::advanceSymbolClock(bool bitIsMark, double bitQuality)
                 break;
             }
 
-            if (bitIsMark) {
+            const bool sampledBitIsMark = maybeApplyMindSoftSlicer(bitIsMark, bitQuality);
+            submitMindRttyBitSample(sampledBitIsMark, bitQuality);
+            if (sampledBitIsMark) {
                 m_currentCode |= (1 << m_dataBitIndex);
             }
             ++m_dataBitIndex;
@@ -451,7 +471,9 @@ void RttyDecoder::advanceSymbolClock(bool bitIsMark, double bitQuality)
     case RxState::StopBits:
         m_samplesToNextDecision -= 1.0;
         if (m_samplesToNextDecision <= 0.0) {
-            if (bitIsMark && bitQuality >= kMinStopQuality && m_carrierOpen) {
+            const bool sampledBitIsMark = maybeApplyMindSoftSlicer(bitIsMark, bitQuality);
+            submitMindRttyBitSample(sampledBitIsMark, bitQuality);
+            if (sampledBitIsMark && bitQuality >= kMinStopQuality && m_carrierOpen) {
                 ++m_goodFrames;
                 handleCode(m_currentCode);
                 resetFrame();
@@ -507,6 +529,115 @@ QString RttyDecoder::decodeCode(int code) const
     return figuresForCode(code);
 }
 
+
+void RttyDecoder::updateMindFeatureWindow(double diffNorm, double bitQuality, double sumEnergy)
+{
+    const int stride = qMax(1, static_cast<int>(m_symbolSamples / 48.0));
+    ++m_mindFeatureDecimator;
+    if (m_mindFeatureDecimator < stride) {
+        return;
+    }
+    m_mindFeatureDecimator = 0;
+
+    const double energyRatio = sumEnergy / qMax(m_noiseFloor, 1.0e-12);
+    const float polarity = static_cast<float>(qBound(0.0, 0.5 + 0.5 * diffNorm, 1.0));
+    const float confidence = static_cast<float>(qBound(0.0, bitQuality, 1.0));
+    const float strength = static_cast<float>(qBound(0.0, qLn(1.0 + energyRatio) / qLn(1.0 + 40.0), 1.0));
+
+    // 96 values = 32 compact time samples × 3 features:
+    // mark/space polarity, instantaneous bit confidence and carrier strength.
+    m_mindFeatureWindow.append(polarity);
+    m_mindFeatureWindow.append(confidence);
+    m_mindFeatureWindow.append(strength);
+    while (m_mindFeatureWindow.size() > 96) {
+        m_mindFeatureWindow.remove(0, m_mindFeatureWindow.size() - 96);
+    }
+}
+
+QVector<float> RttyDecoder::mindRttyFeature() const
+{
+    QVector<float> out(96, 0.0f);
+    const int copy = qMin(out.size(), m_mindFeatureWindow.size());
+    const int dstOffset = out.size() - copy;
+    const int srcOffset = m_mindFeatureWindow.size() - copy;
+    for (int i = 0; i < copy; ++i) {
+        out[dstOffset + i] = m_mindFeatureWindow.at(srcOffset + i);
+    }
+    return out;
+}
+
+QVector<float> RttyDecoder::mindRttyTarget(bool bitIsMark, double bitQuality) const
+{
+    QVector<float> target(8, 0.0f);
+    int klass = 7; // noise/ambiguous
+    if (!m_carrierOpen) {
+        klass = 5; // carrier drop
+    } else if (bitQuality < 0.025) {
+        klass = 4; // transition/uncertain zero crossing
+    } else if (bitIsMark) {
+        klass = (bitQuality >= 0.18) ? 0 : 2; // strong/weak mark
+    } else {
+        klass = (bitQuality >= 0.18) ? 1 : 3; // strong/weak space
+    }
+    target[klass] = 1.0f;
+    return target;
+}
+
+bool RttyDecoder::maybeApplyMindSoftSlicer(bool classicBitIsMark, double bitQuality)
+{
+    if (!m_mindSoftSlicerEnabled || !m_mindClassifier || m_mindFeatureWindow.size() < 48) {
+        return classicBitIsMark;
+    }
+
+    QVector<float> probs;
+    double confidence = 0.0;
+    if (!m_mindClassifier(mindRttyFeature(), &probs, &confidence) || probs.size() != 8) {
+        return classicBitIsMark;
+    }
+
+    ++m_mindScored;
+    int best = 0;
+    for (int i = 1; i < probs.size(); ++i) {
+        if (probs.at(i) > probs.at(best)) {
+            best = i;
+        }
+    }
+
+    const bool neuralHasBit = (best == 0 || best == 1 || best == 2 || best == 3);
+    if (!neuralHasBit) {
+        return classicBitIsMark;
+    }
+    const bool neuralBitIsMark = (best == 0 || best == 2);
+
+    // Conservative policy: strong classical bit wins.  MIND only fixes weak or
+    // borderline slicer decisions where the RTTY profile is very confident.
+    const bool lowClassicalConfidence = bitQuality < 0.095;
+    const bool veryHighNeuralConfidence = confidence >= 86.0;
+    const bool highNeuralConfidence = confidence >= 74.0;
+    if ((lowClassicalConfidence && highNeuralConfidence) || veryHighNeuralConfidence) {
+        if (neuralBitIsMark != classicBitIsMark) {
+            ++m_mindAssistedBits;
+        }
+        return neuralBitIsMark;
+    }
+
+    return classicBitIsMark;
+}
+
+void RttyDecoder::submitMindRttyBitSample(bool bitIsMark, double bitQuality)
+{
+    if (m_mindFeatureWindow.size() < 48) {
+        return;
+    }
+    const QVector<float> input = mindRttyFeature();
+    const QVector<float> target = mindRttyTarget(bitIsMark, bitQuality);
+    const QString label = bitIsMark
+        ? (bitQuality >= 0.18 ? QStringLiteral("strong-mark") : QStringLiteral("weak-mark"))
+        : (bitQuality >= 0.18 ? QStringLiteral("strong-space") : QStringLiteral("weak-space"));
+    ++m_mindSamples;
+    emit mindRttyBitSampleReady(input, target, label);
+}
+
 void RttyDecoder::maybeEmitStatus()
 {
     ++m_statusCounter;
@@ -527,7 +658,10 @@ void RttyDecoder::maybeEmitStatus()
                            .arg(m_goodFrames)
                            .arg(m_badFrames)
                            .arg(m_decodedChars)
-                           .arg(m_autoInvert ? ", auto-rev" : ""));
+                           .arg(m_autoInvert ? ", auto-rev" : "") +
+                       QStringLiteral(", MIND %1/%2")
+                           .arg(m_mindAssistedBits)
+                           .arg(m_mindScored));
     const bool scopeLocked = m_carrierOpen && (m_confidence > 0.20);
     emit tuningScopeChanged(markLevel, spaceLevel, m_energySnr, scopeLocked);
     emit tuningScopeTraceChanged(m_scopeTrace, m_energySnr, scopeLocked);

@@ -80,7 +80,7 @@ def main() -> int:
         "Az Park", "El Park", "Az", "El", "Az %1° / El %2°",
         "QSO: %1 %2 — %3° — %4 km", "● TX", "… WAV", "■ RX",
         "▶ RX", "■ TX", "6m", "2m", ":</td><td>",
-        "MeteoFax / HF WEFAX RX", "MadModem 0.5.0", "𝑥 Variable",
+        "MeteoFax / HF WEFAX RX", "MadModem 0.5.1", "𝑥 Variable",
         "R skew", "B skew", "Antenna", "Macro %1", "Macros",
         "{MYCALL}, {MYNAME}, {MYQTH}, {LOC}, {CALL}, {NAME}, {QTH}, {RST},",
     }

@@ -7,9 +7,14 @@
 #include <QImage>
 #include <QString>
 #include <QVector>
+#include <memory>
 
 /**
- * @brief Experimental self-contained MFSK16/MFSK32 text transmitter.
+ * @brief MFSK16/MFSK32 text transmitter.
+ *
+ * MFSK16 now uses the standard IZ8BLY Varicode + R=1/2 K=7 FEC + diagonal
+ * interleaver chain.  MFSK32 remains the old internal/framed experimental
+ * path until a standard MFSK32 core is added.
  */
 class MfskTransmitter : public TxModulator
 {
@@ -18,6 +23,7 @@ public:
                     int sampleRate,
                     double centerHz,
                     MfskDecoder::Variant variant);
+    ~MfskTransmitter() override;
 
     int sampleRate() const override;
     int generate(float *output, int sampleCount) override;
@@ -29,12 +35,18 @@ public:
     static QImage previewTextImage(const QString &text, MfskDecoder::Variant variant);
 
 private:
+    class DiagonalInterleaver;
+
     int toneCount() const;
     double symbolRate() const;
     double toneSpacingHz() const;
     double firstToneHz() const;
     void buildTones(const QString &text);
-    void appendCharacter(QChar ch);
+    void buildStandardMfsk16Tones(const QString &text);
+    void appendStandardCharacter(QChar ch);
+    void appendStandardBit(int bit);
+    void appendLegacyCharacter(QChar ch);
+    void appendTone(int toneIndex);
     double frequencyForTone(int toneIndex) const;
 
 private:
@@ -49,6 +61,11 @@ private:
     double m_carrierPhase = 0.0;
     qint64 m_totalSamples = 0;
     qint64 m_generatedSamples = 0;
+
+    int m_convState = 0;
+    int m_bitState = 0;
+    int m_bitShiftRegister = 0;
+    std::unique_ptr<DiagonalInterleaver> m_interleaver;
 };
 
 #endif // MFSKTRANSMITTER_H

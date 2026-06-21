@@ -13,6 +13,7 @@
 #include <array>
 #include <atomic>
 #include <future>
+#include <functional>
 #include <mutex>
 #include <vector>
 
@@ -114,7 +115,7 @@ public:
         int osdAttempts = 0;
         int osdDecodes = 0;
 
-        // 0.5.0: GF(2) OSD fallback lab.  These are
+        // 0.5.1: GF(2) OSD fallback lab.  These are
         // diagnostic counters only; they do not drive candidate ranking or
         // scheduling decisions.
         int osdGf2Tried = 0;
@@ -130,10 +131,31 @@ public:
 
         int apHypotheses = 0;
         int apDecodes = 0;
+
+        // MIND Ranker diagnostics. The DNN may score/prune candidates before
+        // LDPC; final messages still require LDPC+CRC+unpack+parser.
+        int mindAssistTried = 0;       // scored candidates
+        int mindAssistRecovered = 0;   // legacy name: pruned candidates
+        int mindAssistUnavailable = 0;
+        double mindAssistAvgConfidence = 0.0; // average candidate_success_probability percent
     };
+
+    using MindAssistCallback = std::function<bool(const QVector<float> &candidateMagnitudes,
+                                                  QVector<float> *predictedBits,
+                                                  double *confidencePercent)>;
 
     explicit Ft8RxDecoder(QObject *parent = nullptr);
     ~Ft8RxDecoder() override;
+
+    void setMindAssistCallback(MindAssistCallback callback);
+    // Hard isolation switch for MIND.  When bypassed, the FT core must not
+    // allocate candidate-ranker features, acquire MIND locks or emit MIND
+    // training samples.  This preserves the native 0.5.x decoder timing when
+    // MIND Assist is Off.
+    void setMindIntegrationState(bool bypassed,
+                                 bool scoringEnabled,
+                                 bool sampleExportEnabled,
+                                 bool ultraDeepAssistedEnabled = false);
 
 public slots:
     void reset();
@@ -233,6 +255,11 @@ private:
         int osdGf2PostCrcRejects = 0;
         int osdGf2BudgetSkips = 0;
         double osdGf2TotalMs = 0.0;
+
+        int mindAssistTried = 0;       // scored candidates
+        int mindAssistRecovered = 0;   // legacy name: pruned candidates
+        int mindAssistUnavailable = 0;
+        double mindAssistConfidence = 0.0; // candidate_success_probability percent
     };
 
     bool decodeCandidate(const QVector<double> &samples,
@@ -319,6 +346,10 @@ private:
     bool m_deepDecodeEnabled = true; // v4.10 unified FT8 engine: adaptive baseline always enabled
     bool m_dspPlusDecodeEnabled = true; // v4.10: internal residual/AP-OSD lab stage, not an exposed UI mode
     std::atomic<bool> m_offlineAnalysisActive {false}; // true only while decoding user-loaded WAV files
+    std::atomic<bool> m_mindHardBypass {true};
+    std::atomic<bool> m_mindScoringEnabled {false};
+    std::atomic<bool> m_mindSampleExportEnabled {false};
+    std::atomic<bool> m_mindUltraDeepAssistedEnabled {false};
 
     int m_inputSampleRate = 0;
     double m_resamplePos = 0.0;
@@ -349,6 +380,8 @@ private:
     std::atomic<bool> m_shutdown {false};
     mutable std::mutex m_unpackMutex;
     mutable std::mutex m_emittedDecodeMutex;
+    mutable std::mutex m_mindAssistMutex;
+    MindAssistCallback m_mindAssistCallback;
     QSet<QString> m_emittedDecodeKeys;
     std::vector<std::future<void>> m_decodeTasks;
     GenFt8 m_unpacker;

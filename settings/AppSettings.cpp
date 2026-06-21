@@ -413,7 +413,15 @@ void AppSettings::load()
     mfskNoiseReductionEnabled = settings.value("MFSK/noiseReductionEnabled", mfskNoiseReductionEnabled).toBool();
     mfskAgcEnabled = settings.value("MFSK/agcEnabled", mfskAgcEnabled).toBool();
 
-    cwToneHz = 1000;
+    cwToneHz = settings.value("CW/toneHz", cwToneHz).toInt();
+    if (cwToneHz < 250 || cwToneHz > 2500) {
+        cwToneHz = 1000;
+    }
+    cwSecondaryToneHz = settings.value("CW/secondaryToneHz", cwSecondaryToneHz).toInt();
+    if (cwSecondaryToneHz < 250 || cwSecondaryToneHz > 2500) {
+        cwSecondaryToneHz = 1400;
+    }
+    cwSecondaryEnabled = settings.value("CW/secondaryEnabled", cwSecondaryEnabled).toBool();
     cwWpm = settings.value("CW/wpm", cwWpm).toInt();
     cwBandwidthHz = settings.value("CW/bandwidthHz", cwBandwidthHz).toInt();
     cwAfcEnabled = settings.value("CW/afcEnabled", cwAfcEnabled).toBool();
@@ -777,7 +785,9 @@ bool AppSettings::save() const
     settings.setValue("MFSK/noiseReductionEnabled", mfskNoiseReductionEnabled);
     settings.setValue("MFSK/agcEnabled", mfskAgcEnabled);
 
-    settings.remove("CW/toneHz");
+    settings.setValue("CW/toneHz", cwToneHz);
+    settings.setValue("CW/secondaryToneHz", cwSecondaryToneHz);
+    settings.setValue("CW/secondaryEnabled", cwSecondaryEnabled);
     settings.setValue("CW/wpm", cwWpm);
     settings.setValue("CW/bandwidthHz", cwBandwidthHz);
     settings.setValue("CW/afcEnabled", cwAfcEnabled);
