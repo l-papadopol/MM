@@ -1,14 +1,11 @@
 #ifndef DEEPDSPCONTROLLER_H
 #define DEEPDSPCONTROLLER_H
 
-#include "../audio/AudioBlock.h"
 #include "DeepDspTinyNet.h"
-#include "DeepDspProfileNet.h"
 
 #include <QObject>
 #include <QString>
 #include <QVector>
-#include <QHash>
 #include <QTimer>
 #include <QMutex>
 #include <QThread>
@@ -32,20 +29,10 @@ public:
         int ftSamples = 0;
         int ft8Samples = 0;
         int ft4Samples = 0;
-        int rttySamples = 0;
-        int cwSamples = 0;
         int trainingRuns = 0;
         int validationCount = 0;
         double bitAccuracy = 0.0;
         double bestBitAccuracy = 0.0;
-        double cwAccuracy = 0.0;
-        double rttyAccuracy = 0.0;
-        int cwTrainingRuns = 0;
-        int rttyTrainingRuns = 0;
-        bool cwAssistReady = false;
-        bool rttyAssistReady = false;
-        QString cwAssistReason;
-        QString rttyAssistReason;
         double messageAccuracy = 0.0;
         double validationAccuracy = 0.0;
         double trainingCompletionPercent = 0.0;
@@ -55,8 +42,6 @@ public:
         int replayBufferSamples = 0;
         QVector<float> neuralActivity;
         QVector<float> ftActivity;
-        QVector<float> cwActivity;
-        QVector<float> rttyActivity;
         QString stateText;
         QString checkpointPath;
         QString statsPath;
@@ -88,12 +73,6 @@ public:
     bool scoreNativeFtCandidate(const QVector<float> &candidateMagnitudes,
                                 QVector<float> *predictedBits,
                                 double *confidencePercent);
-    bool scoreCwEventFeature(const QVector<float> &eventFeature,
-                             QVector<float> *eventProbabilities,
-                             double *confidencePercent);
-    bool scoreRttyBitFeature(const QVector<float> &bitFeature,
-                             QVector<float> *bitProbabilities,
-                             double *confidencePercent);
 
 public slots:
     void setEnabled(bool enabled);
@@ -109,10 +88,7 @@ public slots:
      * measure the same asynchronous deferral policy used in live operation.
      */
     void setDecodeCritical(bool active);
-    void observeAudioBlock(const QString &mode, const AudioBlock &block);
-    void submitConfirmedText(const QString &mode, const QString &text);
-    void submitCwEventSample(const QVector<float> &input, const QVector<float> &target, const QString &label);
-    void submitRttyBitSample(const QVector<float> &input, const QVector<float> &target, const QString &label);
+    void observeFtActivity(const QString &mode);
     void submitNativeFtSample(const QString &mode,
                               const QVector<float> &candidateMagnitudes,
                               const QVector<float> &targetBits,
@@ -120,7 +96,6 @@ public slots:
     void resetModel();
     void saveCheckpoint();
     void loadCheckpoint();
-    void runCwBootcamp();
 
 signals:
     void statusChanged(const DeepDspController::Status &status);
@@ -139,21 +114,6 @@ private:
         bool nativeFt = false;
     };
 
-    struct ProfileSample
-    {
-        QVector<float> input;
-        QVector<float> target;
-        QString mode;
-        QString label;
-    };
-
-    QVector<float> audioFeatures(const AudioBlock &block) const;
-    QVector<float> targetFingerprint(const QString &mode, const QString &text) const;
-    QVector<ProfileSample> generateCwBootcampSamples(int count) const;
-    QVector<float> makeCwFeature(const QString &token, int klass, quint32 seed) const;
-    QVector<float> makeOneHot(int n, int index) const;
-    QVector<float> resampleFeatureVector(const QVector<float> &input, int n) const;
-    QVector<float> makeRttyTarget(const QString &text) const;
     void appendSample(const Sample &sample);
     void updateValidation(const QVector<float> &prediction, const QVector<float> &target);
     void emitStatus();
@@ -164,8 +124,6 @@ private:
     bool saveGoldDataset();
     bool loadGoldDataset();
     double trainOnSamples(const QVector<Sample> &batch);
-    double trainCwSamples(const QVector<ProfileSample> &batch);
-    double trainRttySamples(const QVector<ProfileSample> &batch);
     QVector<float> predict(const QVector<float> &input);
     int adaptiveTrainingBudgetMs(qint64 nowMs, int *batchCap) const;
     QString autonomousStateText(int budgetMs) const;
@@ -187,15 +145,8 @@ private:
     int m_ftSamples = 0;
     int m_ft8Samples = 0;
     int m_ft4Samples = 0;
-    int m_rttySamples = 0;
-    int m_cwSamples = 0;
     int m_nativeFtSamples = 0;
     int m_manualSamples = 0;
-    int m_cwBootcampSamples = 0;
-    int m_cwTrainingRuns = 0;
-    int m_rttyTrainingRuns = 0;
-    double m_cwLastLoss = 0.0;
-    double m_rttyLastLoss = 0.0;
     QString m_activeProfile = QStringLiteral("FT8");
     double m_lastLoss = 0.0;
     qint64 m_lastStatusEmitMs = 0;
@@ -205,14 +156,9 @@ private:
     bool m_statsDirty = false;
     mutable Status m_cachedStatus;
     QTimer *m_trainTimer = nullptr;
-    QHash<QString, QVector<float>> m_lastFeaturesByMode;
     std::deque<Sample> m_samples;          // persistent FT gold replay buffer
     std::deque<bool> m_validationWindow;
     std::deque<double> m_bitAccuracyWindow;
-    std::deque<double> m_cwAccuracyWindow;
-    std::deque<double> m_rttyAccuracyWindow;
-    std::deque<ProfileSample> m_cwSamplesQueue;
-    std::deque<ProfileSample> m_rttySamplesQueue;
     int m_replayCursor = 0;
     int m_loadedGoldSamples = 0;
     double m_loadedBitAccuracyPercent = 0.0;
@@ -230,8 +176,6 @@ private:
     mutable QMutex m_mutex;
     QThread m_trainingThread;
     DeepDspTinyNet *m_network = nullptr;
-    DeepDspProfileNet *m_cwNetwork = nullptr;
-    DeepDspProfileNet *m_rttyNetwork = nullptr;
 };
 
 Q_DECLARE_METATYPE(DeepDspController::Status)

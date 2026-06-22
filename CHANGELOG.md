@@ -1,3 +1,27 @@
+## 0.5.42
+
+- Removed the fake rotator LED/status lamp from the Rotator tab.
+- Kept scheduler controls limited to WEFAX/MeteoFax and RTTY.
+- No decoder, CAT/PTT, CW, Feld Hell, RTTY, FT8/FT4, MFSK, logbook, map, or rotator-control logic changes.
+
+## 0.5.39
+
+- Fixed RTTY Auto polarity link error by adding the missing `RttyDecoder::setAutoReverseEnabled(bool)` and `autoReverseEnabled()` definitions.
+- No functional changes outside the RTTY auto-polarity compile/link fix.
+
+## 0.5.37
+
+- Feld Hell: paper zoom now preserves glyph aspect ratio by scaling both X and Y.
+- Feld Hell: existing paper pixels are preserved during zoom changes.
+
+
+## 0.5.36
+
+- Feld Hell paper height is now a pure display zoom: changing it preserves already received/transmitted paper pixels instead of clearing the paper.
+- Feld Hell local TX is appended in red to the same paper tape instead of replacing the paper with a separate TX preview.
+- Renamed the Hell column-rate control to Paper speed, keeping 17.5 col/s as the standard default for Feld Hell/FSK-105.
+- Preserved the stable 0.5.33/0.5.35 RX vertical orientation.
+
 ## 0.5.25 - fldigi-aligned text modem core pass
 
 MadModem 0.5.25 applies a single consolidated text-mode DSP pass using fldigi as the GPL reference. PSK31/63 no longer averages a whole symbol across phase reversals and now samples at the recovered symbol eye centre with a stronger envelope-dip clock resync and corrected Varicode quality/inversion feedback. MFSK16 soft decisions now follow fldigi's softdecode more closely: full-scale soft bits, hard-symbol vote weighting and persistent single-tone CWI avoidance feed the existing R=1/2 K=7 FEC/Varicode path. Feld Hell keeps the corrected bottom-to-top visual raster orientation and compact paper scaling. CW keeps the heavy MIND human-fist path while preserving the fldigi/ggmorse-style timing, adaptive WPM, gap tracking and native event decoder.
@@ -322,3 +346,13 @@ MIND Eigen rename/update:
 - Added explicit model/dataset state in the MIND panel and clearer matrix idle text.
 - Suppressed trainer-thread status repaint churn during FT AutoTest/decode-critical windows.
 - Updated realtime activity tracking so autonomous training backs off correctly during live RX, especially CW.
+
+## 0.5.35
+
+- Feld Hell: preserve the stable RX paper Y orientation from 0.5.33 while retaining the new shared paper-height slider.
+
+### 0.5.44 - VU meter margin hotfix
+
+- Adjusted the compact vertical LED VU meter width and internal margins so the dB readout is not clipped.
+- No decoder, CAT/PTT, CW, RTTY, Feld Hell, FT8/FT4, scheduler, map or logbook changes.
+

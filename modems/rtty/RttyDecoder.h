@@ -8,7 +8,6 @@
 #include <QObject>
 #include <QString>
 #include <QVector>
-#include <functional>
 
 /**
  * @brief Streaming AFSK RTTY decoder using ITA2/Baudot code.
@@ -24,7 +23,6 @@ class RttyDecoder : public QObject
     Q_OBJECT
 
 public:
-    using MindRttyClassifier = std::function<bool(const QVector<float> &, QVector<float> *, double *)>;
     /**
      * @brief Creates a decoder with common amateur RTTY defaults.
      */
@@ -73,6 +71,21 @@ public:
     void setReverse(bool reverse);
 
     /**
+     * @brief Enables decoder-driven polarity recommendation.
+     *
+     * When enabled, the decoder may ask the UI to flip Reverse polarity
+     * after detecting a stable carrier whose UART start/stop framing is
+     * consistently inverted.  The final switch is still performed by the UI
+     * so the user-visible Reverse checkbox remains the single manual state.
+     */
+    void setAutoReverseEnabled(bool enabled);
+
+    /**
+     * @brief Returns whether automatic reverse-polarity requests are enabled.
+     */
+    bool autoReverseEnabled() const;
+
+    /**
      * @brief Returns baud rate.
      */
     double baudRate() const;
@@ -96,19 +109,6 @@ public:
      * @brief Returns accumulated received text.
      */
     QString receivedText() const;
-
-    /**
-     * @brief Enables MIND Active soft-slicer assist for low-confidence RTTY bit decisions.
-     *
-     * Training mode still collects samples but cannot alter the classical decoder.
-     * Off keeps the decoder hard-bypassed from MIND.
-     */
-    void setMindSoftSlicerEnabled(bool enabled);
-
-    /**
-     * @brief Installs the MIND RTTY classifier callback.
-     */
-    void setMindSoftSlicerClassifier(MindRttyClassifier classifier);
 
 signals:
     /**
@@ -137,14 +137,6 @@ signals:
     void tuningScopeChanged(double markLevel, double spaceLevel, double snrLike, bool locked);
 
     /**
-     * @brief Emits RTTY bit-level samples for the dedicated MIND soft-slicer profile.
-     *
-     * The target is an 8-class one-hot vector: strong Mark, strong Space, weak Mark,
-     * weak Space, transition, carrier drop, reverse suspicion, noise/ambiguous.
-     */
-    void mindRttyBitSampleReady(const QVector<float> &input, const QVector<float> &target, const QString &label);
-
-    /**
      * @brief Emits real crossed-ellipse Mark/Space CRT deflection samples.
      *
      * The points are generated from measured Mark/Space envelopes plus live
@@ -152,6 +144,11 @@ signals:
      * vertical ellipse, mixed/incorrect tuning = diagonal smear.
      */
     void tuningScopeTraceChanged(const QVector<QPointF> &tracePoints, double snrLike, bool locked);
+
+    /**
+     * @brief Requests that the UI flips the persistent Reverse polarity flag.
+     */
+    void reversePolarityRequested(bool reverse);
 
 private:
     enum class RxState
@@ -198,17 +195,12 @@ private:
      */
     void maybeEmitStatus();
 
-    void updateMindFeatureWindow(double diffNorm, double bitQuality, double sumEnergy);
-    QVector<float> mindRttyFeature() const;
-    QVector<float> mindRttyTarget(bool bitIsMark, double bitQuality) const;
-    bool maybeApplyMindSoftSlicer(bool classicBitIsMark, double bitQuality);
-    void submitMindRttyBitSample(bool bitIsMark, double bitQuality);
-
 private:
     double m_baudRate = 45.45;
     double m_markHz = 2125.0;
     double m_spaceHz = 2295.0;
     bool m_reverse = false;
+    bool m_autoReverseEnabled = true;
 
     int m_sampleRate = 0;
     double m_symbolSamples = 1056.0;
@@ -239,6 +231,8 @@ private:
     int m_markRunSamples = 0;
     int m_spaceRunSamples = 0;
     bool m_autoInvert = false;
+    bool m_autoReverseRequestPending = false;
+    int m_framingFailureStreak = 0;
     int m_dataBitIndex = 0;
     int m_currentCode = 0;
     bool m_lettersShift = true;
@@ -251,14 +245,6 @@ private:
     int m_statusCounter = 0;
     int m_scopeDecimator = 0;
     QVector<QPointF> m_scopeTrace;
-
-    QVector<float> m_mindFeatureWindow;
-    int m_mindFeatureDecimator = 0;
-    bool m_mindSoftSlicerEnabled = false;
-    MindRttyClassifier m_mindClassifier;
-    int m_mindScored = 0;
-    int m_mindAssistedBits = 0;
-    int m_mindSamples = 0;
 
     QString m_text;
 };

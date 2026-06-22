@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.5.27
+    VERSION 0.5.29
     LANGUAGES CXX
 )
 
@@ -183,9 +183,9 @@ endif()
 # -------------------------------------------------------------------------
 # Bundled MIT ggmorse CW decoder
 # -------------------------------------------------------------------------
-# ggmorse is used as the primary robust CW RX timing/speed estimator while the
-# native MadModem/fldigi-like detector still drives marker/status and fallback
-# diagnostics.  Build it as a static in-tree library; do not build its examples.
+# ggmorse is the single production CW RX text decoder. MadModem wraps it
+# only for tone/WPM/AFC/UI integration. Build it as a static in-tree library;
+# do not build its examples.
 set(GGMORSE_BUILD_EXAMPLES OFF CACHE BOOL "ggmorse examples" FORCE)
 set(GGMORSE_BUILD_TESTS OFF CACHE BOOL "ggmorse tests" FORCE)
 set(GGMORSE_SUPPORT_SDL2 OFF CACHE BOOL "ggmorse SDL examples" FORCE)
@@ -223,8 +223,6 @@ add_executable(MadModem
     ai/DeepDspController.cpp
     ai/DeepDspTinyNet.h
     ai/DeepDspTinyNet.cpp
-    ai/DeepDspProfileNet.h
-    ai/DeepDspProfileNet.cpp
     utils/RuntimeI18n.h
     utils/RuntimeI18n.cpp
     dsp/DspEngine.h

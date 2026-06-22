@@ -28,7 +28,8 @@ public:
                              double toneHz,
                              double columnRate,
                              HellschreiberDecoder::Variant variant = HellschreiberDecoder::Variant::FeldHell,
-                             double fskShiftHz = 55.0);
+                             double fskShiftHz = 55.0,
+                             int displayScale = 4);
 
     int sampleRate() const override;
     int generate(float *output, int sampleCount) override;
@@ -38,11 +39,18 @@ public:
     QString description() const override;
 
     /**
+     * @brief Builds the unscaled 14-row raster used by both TX audio and the paper echo.
+     */
+    static QImage transmitRasterImage(const QString &text,
+                                      HellschreiberDecoder::Variant variant = HellschreiberDecoder::Variant::FeldHell);
+
+    /**
      * @brief Builds a readable preview for the outgoing Hellschreiber raster.
      */
     static QImage previewTextImage(const QString &text,
                                    HellschreiberDecoder::Variant variant = HellschreiberDecoder::Variant::FeldHell,
-                                   double columnRate = 17.5);
+                                   double columnRate = 17.5,
+                                   int displayScale = 4);
 
 private:
     /**
@@ -66,6 +74,7 @@ private:
     double m_pixelRate = 245.0;
     double m_samplesPerPixel = 195.9;
     HellschreiberDecoder::Variant m_variant = HellschreiberDecoder::Variant::FeldHell;
+    int m_displayScale = 4;
 
     QImage m_raster;
     QImage m_preview;

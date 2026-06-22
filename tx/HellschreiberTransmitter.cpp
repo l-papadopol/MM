@@ -222,13 +222,15 @@ HellschreiberTransmitter::HellschreiberTransmitter(const QString &text,
                                                    double toneHz,
                                                    double columnRate,
                                                    HellschreiberDecoder::Variant variant,
-                                                   double fskShiftHz)
+                                                   double fskShiftHz,
+                                                   int displayScale)
     : m_text(normalizedHellText(text)),
       m_sampleRate(qBound(8000, sampleRate, 192000)),
       m_toneHz(qBound(250.0, toneHz, 3500.0)),
       m_columnRate(qBound(2.0, columnRate, 80.0)),
       m_fskShiftHz(qBound(20.0, fskShiftHz, 300.0)),
-      m_variant(variant)
+      m_variant(variant),
+      m_displayScale(qBound(1, displayScale, 12))
 {
     m_pixelRate = m_columnRate * static_cast<double>(kRasterHeight);
     m_raster = buildTransmitRaster(m_text);
@@ -240,7 +242,7 @@ HellschreiberTransmitter::HellschreiberTransmitter(const QString &text,
                                    m_fskShiftHz,
                                    kRasterHeight,
                                    &m_samplesPerPixel);
-    m_preview = previewTextImage(m_text, m_variant, m_columnRate);
+    m_preview = previewTextImage(m_text, m_variant, m_columnRate, m_displayScale);
     m_totalSamples = m_waveform.size();
 }
 
@@ -304,15 +306,22 @@ QString HellschreiberTransmitter::description() const
         .arg(m_text.size());
 }
 
-QImage HellschreiberTransmitter::previewTextImage(const QString &text,
-                                                  HellschreiberDecoder::Variant variant,
-                                                  double columnRate)
+QImage HellschreiberTransmitter::transmitRasterImage(const QString &text,
+                                                     HellschreiberDecoder::Variant variant)
 {
     const QString normalized = normalizedHellText(text);
-    const QImage raster = buildHellRasterImage(normalized, variant, kRasterHeight);
+    return buildHellRasterImage(normalized, variant, kRasterHeight);
+}
+
+QImage HellschreiberTransmitter::previewTextImage(const QString &text,
+                                                  HellschreiberDecoder::Variant variant,
+                                                  double columnRate,
+                                                  int displayScale)
+{
+    const QImage raster = transmitRasterImage(text, variant);
 
     const int xScale = 6;
-    const int yScale = 10;
+    const int yScale = qBound(1, displayScale, 12);
     const int leftMargin = 18;
     const int rightMargin = 18;
     const int topMargin = 18;
@@ -360,8 +369,7 @@ QImage HellschreiberTransmitter::previewTextImage(const QString &text,
 
 QImage HellschreiberTransmitter::buildTransmitRaster(const QString &text) const
 {
-    const QString normalized = normalizedHellText(text);
-    return buildHellRasterImage(normalized, m_variant, kRasterHeight);
+    return transmitRasterImage(text, m_variant);
 }
 
 bool HellschreiberTransmitter::pixelOn(int column, int row) const

@@ -8,7 +8,6 @@
 
 class QComboBox;
 class QLabel;
-class QLineEdit;
 class QProgressBar;
 class NeuralMatrixWidget;
 
@@ -20,9 +19,7 @@ public:
 
 private slots:
     void updateStatus(const DeepDspController::Status &status);
-    void teachManualLabel();
     void profileSelectionChanged(int index);
-    void runCwBootcamp();
 
 private:
     DeepDspController *m_controller = nullptr;
@@ -42,9 +39,6 @@ private:
     QComboBox *m_cmbProfileView = nullptr;
     QLabel *m_lblCheckpoint = nullptr;
     QLabel *m_lblLastCheckpoint = nullptr;
-    QComboBox *m_cmbManualMode = nullptr;
-    QLineEdit *m_editManualLabel = nullptr;
-    QLabel *m_lblManualHint = nullptr;
     QProgressBar *m_progressAccuracy = nullptr;
     NeuralMatrixWidget *m_matrixWidget = nullptr;
     QComboBox *m_cmbAssistMode = nullptr;

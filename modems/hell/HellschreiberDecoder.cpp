@@ -134,14 +134,7 @@ void HellschreiberDecoder::reset()
     m_samplesProcessed = 0;
     m_statusCounter = 0;
 
-    m_image = QImage(kPaperWidth, kPaperHeight, QImage::Format_RGB32);
-    m_image.fill(Qt::white);
-
-    QPainter painter(&m_image);
-    painter.setPen(QColor(225, 225, 225));
-    for (int y = kRasterHeight; y < kPaperHeight; y += (kRasterHeight + kLineGap)) {
-        painter.drawLine(0, y + (kLineGap / 2), kPaperWidth - 1, y + (kLineGap / 2));
-    }
+    resetPaperImage();
 
     if (m_sampleRate > 0) {
         configureForSampleRate(m_sampleRate);
@@ -233,6 +226,64 @@ void HellschreiberDecoder::setFskShiftHz(double shiftHz)
         configureForSampleRate(m_sampleRate);
     }
     emitCurrentMarkers();
+}
+
+void HellschreiberDecoder::setVerticalScale(int scale)
+{
+    const int bounded = qBound(1, scale, 12);
+    if (m_verticalScale == bounded) {
+        return;
+    }
+
+    /* Paper zoom is pure display scaling.  Do not reset DSP state, current
+     * column or old pixels: rebuild the scaled image from the unscaled paper.
+     * The same zoom is applied horizontally and vertically so Feld Hell glyphs
+     * keep their original paper aspect ratio.
+     */
+    m_verticalScale = bounded;
+    rebuildDisplayImageFromLogical();
+    emit imageUpdated(m_image);
+}
+
+void HellschreiberDecoder::appendTransmitRaster(const QImage &raster)
+{
+    if (raster.isNull()) {
+        return;
+    }
+
+    if (m_logicalImage.isNull() || m_image.isNull()) {
+        resetPaperImage();
+    }
+
+    const QColor txInk(205, 0, 0);
+    const int columns = raster.width();
+    const int rows = qMin(kLogicalRasterHeight, raster.height());
+
+    /* Keep transmitted text on the same paper tape as RX, instead of replacing
+     * the paper with a separate preview page.  White raster pixels simply
+     * advance the paper column; black pixels are drawn in red.
+     */
+    for (int x = 0; x < columns; ++x) {
+        if (m_column >= kPaperWidth) {
+            finishPaperRow();
+        }
+
+        for (int y = 0; y < rows; ++y) {
+            if (raster.constScanLine(y)[x] < 128) {
+                setPaperPixel(m_column, m_paperRow, y, txInk);
+            }
+        }
+
+        ++m_column;
+        ++m_columnsWritten;
+    }
+
+    emit imageUpdated(m_image);
+}
+
+int HellschreiberDecoder::verticalScale() const
+{
+    return m_verticalScale;
 }
 
 HellschreiberDecoder::Variant HellschreiberDecoder::variant() const
@@ -400,29 +451,21 @@ double HellschreiberDecoder::updateSignalGate(double observedLevel)
 
 void HellschreiberDecoder::writePixel(double level)
 {
-    if (m_image.isNull()) {
+    if (m_logicalImage.isNull() || m_image.isNull()) {
         return;
+    }
+
+    if (m_column >= kPaperWidth) {
+        finishPaperRow();
     }
 
     const int gray = grayFromLevel(level);
     const int x = qBound(0, m_column, kPaperWidth - 1);
-    /* Feld Hell rows are transmitted bottom-to-top in the practical visual
-     * raster used by common generators.  The old renderer wrote row 0 at the
-     * top of the paper, so letters appeared vertically mirrored.  Keep the
-     * modem timing unchanged and only flip the visual Y coordinate.
+    /* Keep the proven Feld Hell RX orientation used by the stable 0.5.33
+     * receiver.  The scan order is flipped into the visible 14-row paper cell.
      */
     const int visualRow = (kLogicalRasterHeight - 1) - m_row;
-    const int y = qBound(0, currentPaperTop() + (visualRow * kVerticalScale), kPaperHeight - 1);
-
-    /* Enlarge the visual paper row only.  The modem timing remains based on
-     * kLogicalRasterHeight, so 17.5 columns/s is not slowed down.
-     */
-    for (int dy = 0; dy < kVerticalScale; ++dy) {
-        const int yy = y + dy;
-        if (yy >= 0 && yy < kPaperHeight) {
-            m_image.setPixelColor(x, yy, QColor(gray, gray, gray));
-        }
-    }
+    setPaperPixel(x, m_paperRow, visualRow, QColor(gray, gray, gray));
 
     ++m_row;
     if (m_row >= kLogicalRasterHeight) {
@@ -452,22 +495,136 @@ void HellschreiberDecoder::finishPaperRow()
     ++m_paperRow;
 
     if (m_paperRow >= kVisibleRows) {
-        const int shift = kRasterHeight + kLineGap;
-        QPainter painter(&m_image);
-        painter.drawImage(QPoint(0, -shift), m_image);
-        painter.fillRect(0, kPaperHeight - shift, kPaperWidth, shift, Qt::white);
-        painter.setPen(QColor(225, 225, 225));
-        painter.drawLine(0,
-                         kPaperHeight - (kLineGap / 2),
-                         kPaperWidth - 1,
-                         kPaperHeight - (kLineGap / 2));
+        const int shift = kLogicalRasterHeight + kLineGap;
+        const int height = logicalPaperHeight();
+        QPainter logicalPainter(&m_logicalImage);
+        logicalPainter.drawImage(QPoint(0, -shift), m_logicalImage);
+        logicalPainter.fillRect(0, height - shift, kPaperWidth, shift, Qt::white);
+        logicalPainter.end();
+        drawLogicalSeparators();
         m_paperRow = kVisibleRows - 1;
+        rebuildDisplayImageFromLogical();
     }
 }
 
-int HellschreiberDecoder::currentPaperTop() const
+int HellschreiberDecoder::paperZoom() const
 {
-    return m_paperRow * (kRasterHeight + kLineGap);
+    return qMax(1, m_verticalScale);
+}
+
+int HellschreiberDecoder::paperWidth() const
+{
+    return kPaperWidth * paperZoom();
+}
+
+int HellschreiberDecoder::paperHeight() const
+{
+    return logicalPaperHeight() * paperZoom();
+}
+
+int HellschreiberDecoder::displayYForLogicalRow(int paperRow, int logicalRow) const
+{
+    const int boundedPaperRow = qBound(0, paperRow, kVisibleRows - 1);
+    const int boundedLogicalRow = qBound(0, logicalRow, kLogicalRasterHeight - 1);
+    const int logicalY = (boundedPaperRow * (kLogicalRasterHeight + kLineGap)) + boundedLogicalRow;
+    return logicalY * paperZoom();
+}
+
+int HellschreiberDecoder::currentLogicalPaperTop() const
+{
+    return m_paperRow * (kLogicalRasterHeight + kLineGap);
+}
+
+int HellschreiberDecoder::logicalPaperHeight() const
+{
+    return (kLogicalRasterHeight + kLineGap) * kVisibleRows;
+}
+
+void HellschreiberDecoder::setPaperPixel(int column, int paperRow, int logicalRow, const QColor &color)
+{
+    const int x = qBound(0, column, kPaperWidth - 1);
+    const int boundedPaperRow = qBound(0, paperRow, kVisibleRows - 1);
+    const int boundedLogicalRow = qBound(0, logicalRow, kLogicalRasterHeight - 1);
+    const int logicalY = (boundedPaperRow * (kLogicalRasterHeight + kLineGap)) + boundedLogicalRow;
+
+    if (!m_logicalImage.isNull() && logicalY >= 0 && logicalY < m_logicalImage.height()) {
+        m_logicalImage.setPixelColor(x, logicalY, color);
+    }
+
+    if (m_image.isNull()) {
+        return;
+    }
+
+    const int zoom = paperZoom();
+    const int displayX = x * zoom;
+    const int displayY = displayYForLogicalRow(boundedPaperRow, boundedLogicalRow);
+    for (int dx = 0; dx < zoom; ++dx) {
+        const int xx = displayX + dx;
+        if (xx < 0 || xx >= m_image.width()) {
+            continue;
+        }
+        for (int dy = 0; dy < zoom; ++dy) {
+            const int yy = displayY + dy;
+            if (yy >= 0 && yy < m_image.height()) {
+                m_image.setPixelColor(xx, yy, color);
+            }
+        }
+    }
+}
+
+void HellschreiberDecoder::rebuildDisplayImageFromLogical()
+{
+    const int zoom = paperZoom();
+    m_image = QImage(paperWidth(), paperHeight(), QImage::Format_RGB32);
+    m_image.fill(Qt::white);
+
+    if (m_logicalImage.isNull()) {
+        return;
+    }
+
+    for (int sourceY = 0; sourceY < m_logicalImage.height(); ++sourceY) {
+        const int destY = sourceY * zoom;
+        for (int x = 0; x < kPaperWidth; ++x) {
+            const QColor color = m_logicalImage.pixelColor(x, sourceY);
+            const int destX = x * zoom;
+            for (int dx = 0; dx < zoom; ++dx) {
+                const int xx = destX + dx;
+                if (xx < 0 || xx >= m_image.width()) {
+                    continue;
+                }
+                for (int dy = 0; dy < zoom; ++dy) {
+                    const int yy = destY + dy;
+                    if (yy >= 0 && yy < m_image.height()) {
+                        m_image.setPixelColor(xx, yy, color);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void HellschreiberDecoder::drawLogicalSeparators()
+{
+    if (m_logicalImage.isNull()) {
+        return;
+    }
+
+    QPainter painter(&m_logicalImage);
+    painter.setPen(QColor(225, 225, 225));
+    for (int row = 1; row < kVisibleRows; ++row) {
+        const int y = (row * (kLogicalRasterHeight + kLineGap)) - (kLineGap / 2);
+        if (y >= 0 && y < m_logicalImage.height()) {
+            painter.drawLine(0, y, kPaperWidth - 1, y);
+        }
+    }
+}
+
+void HellschreiberDecoder::resetPaperImage()
+{
+    m_logicalImage = QImage(kPaperWidth, logicalPaperHeight(), QImage::Format_RGB32);
+    m_logicalImage.fill(Qt::white);
+    drawLogicalSeparators();
+    rebuildDisplayImageFromLogical();
 }
 
 void HellschreiberDecoder::maybeEmitStatus()

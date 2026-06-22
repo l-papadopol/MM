@@ -192,19 +192,12 @@ void AppSettings::load()
     logbookVisibleFields = settings.value("Logbook/visibleFields", logbookVisibleFields).toStringList();
     for (QString &field : logbookVisibleFields) { field = field.trimmed().toUpper(); }
     logbookVisibleFields.removeAll(QString());
-    waterfallColorScalePercent = settings.value("Display/waterfallColorScalePercent", waterfallColorScalePercent).toInt();
-    if (waterfallColorScalePercent < 0 || waterfallColorScalePercent > 100) {
-        waterfallColorScalePercent = 100;
-    }
-    waterfallPalette = settings.value("Display/waterfallPalette", waterfallPalette).toString().trimmed().toLower();
-    if (waterfallPalette == "default" || waterfallPalette == "wsjt-x") {
-        waterfallPalette = "wsjtx";
-    }
-    if (waterfallPalette != "madmodem" && waterfallPalette != "wsjtx" &&
-        waterfallPalette != "mshv" && waterfallPalette != "fldigi" &&
-        waterfallPalette != "raptor" && waterfallPalette != "grayscale") {
-        waterfallPalette = "madmodem";
-    }
+    // UI cleanup: keep one fixed waterfall appearance instead of exposing
+    // palette/contrast distractions in the side panel.
+    Q_UNUSED(settings.value("Display/waterfallColorScalePercent"));
+    Q_UNUSED(settings.value("Display/waterfallPalette"));
+    waterfallColorScalePercent = 80;
+    waterfallPalette = "madmodem";
     audioRxClockPpm = settings.value("Audio/rxClockPpm", audioRxClockPpm).toDouble();
     audioTxClockPpm = settings.value("Audio/txClockPpm", audioTxClockPpm).toDouble();
     if (audioRxClockPpm < -5000.0 || audioRxClockPpm > 5000.0) {
@@ -358,6 +351,7 @@ void AppSettings::load()
     rttyShiftHz = settings.value("RTTY/shiftHz", rttyShiftHz).toInt();
     rttyMarkHz = 2125;
     rttyReverse = settings.value("RTTY/reverse", rttyReverse).toBool();
+    rttyAutoReverseEnabled = settings.value("RTTY/autoReverse", rttyAutoReverseEnabled).toBool();
     rttyAfcEnabled = settings.value("RTTY/afcEnabled", rttyAfcEnabled).toBool();
     rttyAfcRangeHz = settings.value("RTTY/afcRangeHz", rttyAfcRangeHz).toInt();
     rttyNoiseReductionEnabled = settings.value("RTTY/noiseReductionEnabled", rttyNoiseReductionEnabled).toBool();
@@ -451,6 +445,10 @@ void AppSettings::load()
     hellAfcRangeHz = settings.value("Hell/afcRangeHz", hellAfcRangeHz).toInt();
     if (hellAfcRangeHz < 5 || hellAfcRangeHz > 100) {
         hellAfcRangeHz = 20;
+    }
+    hellPaperScale = settings.value("Hell/paperScale", hellPaperScale).toInt();
+    if (hellPaperScale < 1 || hellPaperScale > 12) {
+        hellPaperScale = 4;
     }
     hellNoiseReductionEnabled = settings.value("Hell/noiseReductionEnabled", hellNoiseReductionEnabled).toBool();
     hellAgcEnabled = settings.value("Hell/agcEnabled", hellAgcEnabled).toBool();
@@ -756,6 +754,7 @@ bool AppSettings::save() const
     settings.setValue("RTTY/shiftHz", rttyShiftHz);
     settings.remove("RTTY/markHz");
     settings.setValue("RTTY/reverse", rttyReverse);
+    settings.setValue("RTTY/autoReverse", rttyAutoReverseEnabled);
     settings.setValue("RTTY/afcEnabled", rttyAfcEnabled);
     settings.setValue("RTTY/afcRangeHz", rttyAfcRangeHz);
     settings.setValue("RTTY/noiseReductionEnabled", rttyNoiseReductionEnabled);
@@ -803,6 +802,7 @@ bool AppSettings::save() const
     settings.setValue("Hell/bandwidthHz", hellBandwidthHz);
     settings.setValue("Hell/afcEnabled", hellAfcEnabled);
     settings.setValue("Hell/afcRangeHz", hellAfcRangeHz);
+    settings.setValue("Hell/paperScale", hellPaperScale);
     settings.setValue("Hell/noiseReductionEnabled", hellNoiseReductionEnabled);
     settings.setValue("Hell/agcEnabled", hellAgcEnabled);
 

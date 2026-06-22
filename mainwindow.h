@@ -74,6 +74,7 @@ class QTabWidget;
 class QCheckBox;
 class DeepDspController;
 class DdspPanelWidget;
+class LedVuMeterWidget;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -377,6 +378,16 @@ private slots:
     void applyHellSettings();
 
     /**
+     * @brief Returns the current Feld Hell paper vertical scale.
+     */
+    int hellPaperScale() const;
+
+    /**
+     * @brief Displays the Feld Hell paper/preview image with the active scale.
+     */
+    void updateHellRasterDisplay(const QImage &image);
+
+    /**
      * @brief Clears the received BPSK text buffer.
      */
     void clearBpsk31RxText();
@@ -465,11 +476,6 @@ private slots:
      * @brief Opens and analyzes an FT4/FT8 WAV test file through the isolated FT decoder worker.
      */
     void openFtWavFile();
-
-    /**
-     * @brief Feeds a lightweight offline WAV fingerprint to MIND before FT WAV decode results arrive.
-     */
-    void primeMINDFromWav(const QString &modeName, const QString &fileName);
 
     /**
      * @brief Runs the bundled FT8 WAV benchmark in Fast and Deep modes.
@@ -621,6 +627,12 @@ private slots:
      * @brief Shows the FT UTC clock only while an FT4/FT8 mode is selected.
      */
     void updateFtUtcClockVisibility(const QString &modeName = QString());
+
+    /**
+     * @brief MIND is user-visible and active only for FT4/FT8 candidate ranking.
+     */
+    bool modeSupportsMind(const QString &modeName) const;
+    void updateMindUiForMode(const QString &modeName = QString());
 
     void handleFtSlotUpdated(const QString &modeLabel,
                              int slotMs,
@@ -1207,8 +1219,6 @@ private:
     void updateRigControlStatusUi();
     void setupCatRotatorModule();
     void setupCatRotatorSideTab();
-    void setupRotatorStatusLamps();
-    void updateRotatorStatusLamps();
     void applyCatRotatorSettings();
     void updateCatRotatorQsoTarget(const QString &reason = QString());
     mm::CatRotatorController::Config catRotatorConfigFromSettings() const;
@@ -1567,6 +1577,7 @@ private:
     QSpinBox *m_spinRttyShiftHz = nullptr;
     QSpinBox *m_spinRttyMarkHz = nullptr;
     QCheckBox *m_chkRttyReverse = nullptr;
+    QCheckBox *m_chkRttyAutoReverse = nullptr;
     QCheckBox *m_chkRttyAfc = nullptr;
     QSpinBox *m_spinRttyAfcRangeHz = nullptr;
     QCheckBox *m_chkRttyMultiDecode = nullptr;
@@ -1640,6 +1651,8 @@ private:
     QSpinBox *m_spinHellBandwidthHz = nullptr;
     QCheckBox *m_chkHellAfc = nullptr;
     QSpinBox *m_spinHellAfcRangeHz = nullptr;
+    QSlider *m_sliderHellPaperScale = nullptr;
+    QLabel *m_lblHellPaperScale = nullptr;
     QPlainTextEdit *m_txtHellTx = nullptr;
     QPushButton *m_btnHellLoadTxText = nullptr;
     QPushButton *m_btnHellClearTx = nullptr;
@@ -1766,6 +1779,8 @@ private:
     QSlider *m_sliderWaterfallScale = nullptr;
     QLabel *m_lblWaterfallScale = nullptr;
     QComboBox *m_cmbWaterfallPalette = nullptr;
+    QLabel *m_lblVuMeterDb = nullptr;
+    LedVuMeterWidget *m_ledVuMeter = nullptr;
     QGroupBox *m_grpRigStatus = nullptr;
     QLabel *m_lblRigCatStatus = nullptr;
     QLabel *m_lblRigFrequency = nullptr;
@@ -1808,8 +1823,6 @@ private:
     mm::CatRotatorController *m_catRotatorController = nullptr;
     QWidget *m_tabCatRotator = nullptr;
     mm::CatRotatorPanel *m_catRotatorSidePanel = nullptr;
-    QLabel *m_lblRotatorMovingLamp = nullptr;
-    QLabel *m_lblRotatorReadyLamp = nullptr;
 
     struct Ft8WaterfallCallout
     {

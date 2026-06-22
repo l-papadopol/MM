@@ -102,6 +102,27 @@ public:
     void setBandwidthHz(double bandwidthHz);
 
     /**
+     * @brief Sets the visual vertical scale of the Hell paper.
+     *
+     * This affects only the displayed paper height.  Modem timing remains tied
+     * to the 14 logical Hell rows.
+     */
+    void setVerticalScale(int scale);
+
+    /**
+     * @brief Returns the visual vertical scale of the Hell paper.
+     */
+    int verticalScale() const;
+
+    /**
+     * @brief Appends locally transmitted Hell raster pixels to the same paper tape.
+     *
+     * TX is shown as red ink on the same virtual paper used for RX.  This is
+     * a display echo only; it does not change the generated audio waveform.
+     */
+    void appendTransmitRaster(const QImage &raster);
+
+    /**
      * @brief Sets the FSK-105 mark/space separation in Hz.
      */
     void setFskShiftHz(double shiftHz);
@@ -193,9 +214,54 @@ private:
     void finishPaperRow();
 
     /**
-     * @brief Returns the top Y coordinate of the current paper row.
+     * @brief Returns the display zoom applied to both X and Y paper pixels.
      */
-    int currentPaperTop() const;
+    int paperZoom() const;
+
+    /**
+     * @brief Returns the displayed paper width.
+     */
+    int paperWidth() const;
+
+    /**
+     * @brief Returns the displayed paper height.
+     */
+    int paperHeight() const;
+
+    /**
+     * @brief Returns the displayed paper Y coordinate for one logical raster row.
+     */
+    int displayYForLogicalRow(int paperRow, int logicalRow) const;
+
+    /**
+     * @brief Returns the top Y coordinate of the current unscaled paper row.
+     */
+    int currentLogicalPaperTop() const;
+
+    /**
+     * @brief Returns the unscaled paper height.
+     */
+    int logicalPaperHeight() const;
+
+    /**
+     * @brief Writes one pixel to the unscaled paper and the scaled display image.
+     */
+    void setPaperPixel(int column, int paperRow, int logicalRow, const QColor &color);
+
+    /**
+     * @brief Rebuilds the scaled display image from the unscaled paper image.
+     */
+    void rebuildDisplayImageFromLogical();
+
+    /**
+     * @brief Redraws separator lines on the unscaled paper background.
+     */
+    void drawLogicalSeparators();
+
+    /**
+     * @brief Clears and redraws the virtual paper background.
+     */
+    void resetPaperImage();
 
     /**
      * @brief Emits a periodic receive status string.
@@ -209,18 +275,17 @@ private:
 
 private:
     /*
-     * Hellschreiber timing stays tied to logical raster rows, while the
-     * on-screen paper enlarges each received row vertically.  This makes the
-     * virtual printer tape much easier to read without changing the actual
-     * modem column rate.
+     * Hellschreiber timing stays tied to logical raster rows.  The decoder
+     * keeps an unscaled paper image as the source of truth, then renders it
+     * using the selected paper zoom on both axes.  Changing zoom must never
+     * clear or re-time already received pixels.
      */
     static constexpr int kLogicalRasterHeight = 14;
-    static constexpr int kVerticalScale = 2;
-    static constexpr int kRasterHeight = kLogicalRasterHeight * kVerticalScale;
     static constexpr int kLineGap = 4;
     static constexpr int kPaperWidth = 1120;
     static constexpr int kVisibleRows = 6;
-    static constexpr int kPaperHeight = (kRasterHeight + kLineGap) * kVisibleRows;
+
+    int m_verticalScale = 4;
 
     Variant m_variant = Variant::FeldHell;
     double m_toneHz = 1000.0;
@@ -253,6 +318,7 @@ private:
     double m_lowEnvelope = 0.0;
     double m_highEnvelope = 0.0;
 
+    QImage m_logicalImage;
     QImage m_image;
     int m_column = 0;
     int m_row = 0;

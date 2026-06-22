@@ -110,6 +110,7 @@ public:
     int rttyShiftHz = 170;
     int rttyMarkHz = 2125;
     bool rttyReverse = false;
+    bool rttyAutoReverseEnabled = true;
     bool rttyAfcEnabled = true;
     int rttyAfcRangeHz = 20;
     bool rttyNoiseReductionEnabled = false;
@@ -159,6 +160,7 @@ public:
     int hellBandwidthHz = 245;
     bool hellAfcEnabled = true;
     int hellAfcRangeHz = 20;
+    int hellPaperScale = 4;
     bool hellNoiseReductionEnabled = false;
     bool hellAgcEnabled = true;
 

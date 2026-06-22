@@ -1,7 +1,6 @@
 #include "DeepDspController.h"
 
 #include <QCoreApplication>
-#include <QCryptographicHash>
 #include <QDataStream>
 #include <QDateTime>
 #include <QDir>
@@ -31,14 +30,11 @@ constexpr int kMinReadyValidation = 300;
 QString normalizedDomain(QString mode)
 {
     mode = mode.trimmed().toUpper();
-    if (mode == QStringLiteral("FT4") || mode == QStringLiteral("FT8") ||
-        mode == QStringLiteral("RTTY") || mode == QStringLiteral("CW")) {
+    if (mode == QStringLiteral("FT4") || mode == QStringLiteral("FT8")) {
         return mode;
     }
     if (mode.contains(QStringLiteral("FT4"))) return QStringLiteral("FT4");
     if (mode.contains(QStringLiteral("FT8"))) return QStringLiteral("FT8");
-    if (mode.contains(QStringLiteral("RTTY"))) return QStringLiteral("RTTY");
-    if (mode.contains(QStringLiteral("CW")) || mode.contains(QStringLiteral("MORSE"))) return QStringLiteral("CW");
     return QStringLiteral("OTHER");
 }
 
@@ -47,8 +43,6 @@ int domainIndex(const QString &mode)
     const QString d = normalizedDomain(mode);
     if (d == QStringLiteral("FT8")) return 0;
     if (d == QStringLiteral("FT4")) return 1;
-    if (d == QStringLiteral("RTTY")) return 2;
-    if (d == QStringLiteral("CW")) return 3;
     return -1;
 }
 
@@ -68,7 +62,6 @@ QString normalizedAssistMode(QString mode)
     }
     return QStringLiteral("shadow");
 }
-
 
 
 double estimatedExactFramePercent(double classifierAccuracyPercent)
@@ -107,31 +100,6 @@ QString mindAssistReadinessReason(int validationCount, int replaySamples, double
     return QStringLiteral("candidate ranker assist-ready");
 }
 
-bool mindProfileReady(int trainingRuns, int validationSamples, double accuracy)
-{
-    /* CW/RTTY MIND is not a text generator.  It assists low-level decisions.
-     * For CW Active, the user explicitly wants heavy human-fist recovery, so the
-     * profile must become usable quickly after the synthetic bootcamp and the
-     * first real-event validation decisions.  Conservative gates remain in the
-     * decoder itself: only event/timing decisions are affected.
-     */
-    return trainingRuns >= 1 && validationSamples >= 2 && accuracy >= 25.0;
-}
-
-QString mindProfileReason(const QString &profile, int trainingRuns, int validationSamples, double accuracy)
-{
-    if (trainingRuns < 1) {
-        return QStringLiteral("%1 waiting for first training batch").arg(profile);
-    }
-    if (validationSamples < 2) {
-        return QStringLiteral("%1 collecting first validation decisions").arg(profile);
-    }
-    if (accuracy < 25.0) {
-        return QStringLiteral("%1 waiting for usable event confidence").arg(profile);
-    }
-    return QStringLiteral("%1 low-level assist-ready").arg(profile);
-}
-
 QString madnnessBaseDir()
 {
     QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -157,16 +125,6 @@ QString defaultStatsPath()
 QString defaultGoldDatasetPath()
 {
     return QDir(madnnessBaseDir()).filePath(QStringLiteral("mind_ft_ranker_samples_v1.dat"));
-}
-
-QString defaultCwCheckpointPath()
-{
-    return QDir(madnnessBaseDir()).filePath(QStringLiteral("mind_cw_symbols_eigen_v1.model"));
-}
-
-QString defaultRttyCheckpointPath()
-{
-    return QDir(madnnessBaseDir()).filePath(QStringLiteral("mind_rtty_slicer_eigen_v1.model"));
 }
 
 bool writeJsonAtomically(const QString &path, const QJsonObject &obj)
@@ -200,19 +158,6 @@ DeepDspController::DeepDspController(QObject *parent)
     loadStats();
     loadGoldDataset();
 
-    // Multi-mode foundation: seed the CW event profile with synthetic dit/dah/gap
-    // examples so CW has a useful shadow model without exposing manual bootcamp
-    // buttons.  Training still runs only in the autonomous low-priority idle path.
-    if (m_cwBootcampSamples < 2400 && m_cwNetwork != nullptr) {
-        const QVector<ProfileSample> cwSeed = generateCwBootcampSamples(2400 - m_cwBootcampSamples);
-        for (const ProfileSample &sample : cwSeed) {
-            m_cwSamplesQueue.push_back(sample);
-        }
-        m_cwSamples += cwSeed.size();
-        m_cwBootcampSamples += cwSeed.size();
-        m_statsDirty = true;
-    }
-
     m_trainTimer = new QTimer();
     m_trainTimer->setInterval(80);
     m_trainTimer->moveToThread(&m_trainingThread);
@@ -235,8 +180,6 @@ DeepDspController::~DeepDspController()
     m_trainingThread.wait(3000);
     saveCheckpoint();
     delete m_network;
-    delete m_cwNetwork;
-    delete m_rttyNetwork;
 }
 
 DeepDspController::Status DeepDspController::status() const
@@ -250,8 +193,6 @@ DeepDspController::Status DeepDspController::status() const
     s.ftSamples = m_ftSamples;
     s.ft8Samples = m_ft8Samples;
     s.ft4Samples = m_ft4Samples;
-    s.rttySamples = m_rttySamples;
-    s.cwSamples = m_cwSamples;
     s.nativeFtSamples = m_nativeFtSamples;
     s.manualSamples = m_manualSamples;
     s.replayBufferSamples = static_cast<int>(m_samples.size());
@@ -263,7 +204,7 @@ DeepDspController::Status DeepDspController::status() const
     }
     s.rankerPositiveSamples = rankerPos;
     s.rankerNegativeSamples = rankerNeg;
-    s.sampleCount = qMax(static_cast<int>(m_samples.size()), m_ftSamples + m_rttySamples + m_cwSamples);
+    s.sampleCount = qMax(static_cast<int>(m_samples.size()), m_ftSamples);
     s.trainingRuns = m_trainingRuns;
     s.validationCount = static_cast<int>(m_validationWindow.size());
     int msgOk = 0;
@@ -276,45 +217,20 @@ DeepDspController::Status DeepDspController::status() const
     s.estimatedExactFrameAccuracy = estimatedExactFramePercent(s.bitAccuracy);
     s.assistReady = mindAssistReadyForFt(s.validationCount, s.replayBufferSamples, s.bitAccuracy, s.bestBitAccuracy);
     s.readinessReason = mindAssistReadinessReason(s.validationCount, s.replayBufferSamples, s.bitAccuracy, s.bestBitAccuracy);
-    double cwSum = 0.0;
-    for (double v : m_cwAccuracyWindow) cwSum += v;
-    s.cwAccuracy = !m_cwAccuracyWindow.empty() ? cwSum / static_cast<double>(m_cwAccuracyWindow.size()) : 0.0;
-    double rttySum = 0.0;
-    for (double v : m_rttyAccuracyWindow) rttySum += v;
-    s.rttyAccuracy = !m_rttyAccuracyWindow.empty() ? rttySum / static_cast<double>(m_rttyAccuracyWindow.size()) : 0.0;
-    s.cwTrainingRuns = m_cwTrainingRuns;
-    s.rttyTrainingRuns = m_rttyTrainingRuns;
-    s.cwAssistReady = mindProfileReady(m_cwTrainingRuns, static_cast<int>(m_cwAccuracyWindow.size()), s.cwAccuracy);
-    s.rttyAssistReady = mindProfileReady(m_rttyTrainingRuns, static_cast<int>(m_rttyAccuracyWindow.size()), s.rttyAccuracy);
-    s.cwAssistReason = mindProfileReason(QStringLiteral("CW"), m_cwTrainingRuns, static_cast<int>(m_cwAccuracyWindow.size()), s.cwAccuracy);
-    s.rttyAssistReason = mindProfileReason(QStringLiteral("RTTY"), m_rttyTrainingRuns, static_cast<int>(m_rttyAccuracyWindow.size()), s.rttyAccuracy);
     s.validationAccuracy = s.messageAccuracy;
     const double sampleReadiness = qMin(1.0, static_cast<double>(s.validationCount) / static_cast<double>(kMinReadyValidation));
     const double ftGoldReadiness = qMin(1.0, static_cast<double>(s.replayBufferSamples) / 768.0);
     const double classifierProgress = qBound(0.0, (s.bitAccuracy - 50.0) / 34.0, 1.0);
     s.trainingCompletionPercent = qMin(100.0, 100.0 * sampleReadiness * ftGoldReadiness * classifierProgress);
-    if (m_activeProfile == QStringLiteral("CW")) {
-        const double cwReadiness = qMin(1.0, static_cast<double>(m_cwBootcampSamples) / 5000.0);
-        s.trainingCompletionPercent = qMin(100.0, s.cwAccuracy * cwReadiness);
-    } else if (m_activeProfile == QStringLiteral("RTTY")) {
-        const double rttyReadiness = qMin(1.0, static_cast<double>(m_rttySamples) / 2000.0);
-        s.trainingCompletionPercent = qMin(100.0, s.rttyAccuracy * rttyReadiness);
-    }
-    if (m_activeProfile == QStringLiteral("CW")) s.lastLoss = m_cwLastLoss;
-    else if (m_activeProfile == QStringLiteral("RTTY")) s.lastLoss = m_rttyLastLoss;
-    else s.lastLoss = m_lastLoss;
+    s.lastLoss = m_lastLoss;
     s.ftActivity = m_network != nullptr ? m_network->lastActivity() : QVector<float>();
-    s.cwActivity = m_cwNetwork != nullptr ? m_cwNetwork->lastActivity() : QVector<float>();
-    s.rttyActivity = m_rttyNetwork != nullptr ? m_rttyNetwork->lastActivity() : QVector<float>();
-    if (m_activeProfile == QStringLiteral("CW") && !s.cwActivity.isEmpty()) s.neuralActivity = s.cwActivity;
-    else if (m_activeProfile == QStringLiteral("RTTY") && !s.rttyActivity.isEmpty()) s.neuralActivity = s.rttyActivity;
-    else s.neuralActivity = s.ftActivity;
+    s.neuralActivity = s.ftActivity;
     s.ready = s.assistReady;
     s.assistEnabled = s.assistReady && s.assistRequested;
     s.checkpointPath = checkpointPath();
     s.statsPath = statsPath();
     s.goldDatasetPath = goldDatasetPath();
-    s.architectureText = QStringLiteral("FT 58×8 Conv2D ranker · RTTY 96→64→32→8 soft slicer · CW 256→96→48→6 event model");
+    s.architectureText = QStringLiteral("FT 58×8 Conv2D ranker");
     s.activeProfile = m_activeProfile;
     s.eigenThreads = Eigen::nbThreads();
     s.ftBatchSize = m_lastFtBatchSize > 0 ? m_lastFtBatchSize : m_ftBatchSize;
@@ -324,7 +240,7 @@ DeepDspController::Status DeepDspController::status() const
     s.adaptiveBatchSize = m_lastAdaptiveBatchSize;
     s.loadedGoldSamples = m_loadedGoldSamples;
     s.activityHint = m_activityHint;
-    s.backendText = QStringLiteral("CPU low-priority multi-mode MIND (%1 Eigen thread%2)")
+    s.backendText = QStringLiteral("CPU low-priority FT MIND (%1 Eigen thread%2)")
                         .arg(s.eigenThreads)
                         .arg(s.eigenThreads == 1 ? QString() : QStringLiteral("s"));
     QFileInfo cpInfo(checkpointPath());
@@ -342,9 +258,9 @@ DeepDspController::Status DeepDspController::status() const
         s.stateText = s.ready ? QStringLiteral("Ready · Assist off")
                               : autonomousStateText(s.adaptiveTrainingBudgetMs);
     } else if (s.assistEnabled) {
-        s.stateText = QStringLiteral("MIND Active · ranker ready");
+        s.stateText = QStringLiteral("MIND Assist · ranker ready");
     } else if (s.assistRequested) {
-        s.stateText = QStringLiteral("Active queued · %1").arg(s.readinessReason);
+        s.stateText = QStringLiteral("Assist queued · %1").arg(s.readinessReason);
     } else if (s.ready) {
         s.stateText = QStringLiteral("Ranker ready · Training");
     } else {
@@ -411,9 +327,9 @@ void DeepDspController::setAssistMode(const QString &mode)
     } else if (clean == QStringLiteral("shadow")) {
         emit logMessage(QStringLiteral("MIND Assist mode: Training. MIND learns/scores but does not alter decoding."));
     } else if (queued) {
-        emit logMessage(QStringLiteral("MIND Assist mode: Active requested; staying training-only until the candidate ranker assist-ready gate is reached. Final FT messages remain CRC/unpack/parser guarded."));
+        emit logMessage(QStringLiteral("MIND Assist mode: Assist queued; ranker still training."));
     } else if (active) {
-        emit logMessage(QStringLiteral("MIND Assist mode: Active. MIND may rank/prioritize candidates, but final FT text remains CRC/unpack/parser guarded."));
+        emit logMessage(QStringLiteral("MIND Assist mode: Assist active."));
     }
     emitStatus();
 }
@@ -456,8 +372,7 @@ void DeepDspController::setActivityHint(const QString &hint)
 void DeepDspController::setRuntimeMode(const QString &mode)
 {
     const QString domain = normalizedDomain(mode);
-    if (domain != QStringLiteral("FT8") && domain != QStringLiteral("FT4") &&
-        domain != QStringLiteral("RTTY") && domain != QStringLiteral("CW")) {
+    if (domain != QStringLiteral("FT8") && domain != QStringLiteral("FT4")) {
         return;
     }
     bool changed = false;
@@ -500,133 +415,17 @@ void DeepDspController::setDecodeCritical(bool active)
     }
 }
 
-void DeepDspController::observeAudioBlock(const QString &mode, const AudioBlock &block)
+void DeepDspController::observeFtActivity(const QString &mode)
 {
     const QString domain = normalizedDomain(mode);
-    const int idx = domainIndex(domain);
-    if (idx < 0) return;
-    {
-        QMutexLocker locker(&m_mutex);
-        if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off")) {
-            return;
-        }
-    }
-    const QVector<float> features = audioFeatures(block);
+    if (domain != QStringLiteral("FT8") && domain != QStringLiteral("FT4")) return;
+
     QMutexLocker locker(&m_mutex);
     if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off")) return;
     m_activeProfile = domain;
-    m_lastFeaturesByMode.insert(domain, features);
     m_lastRealtimeActivityMs = QDateTime::currentMSecsSinceEpoch();
 }
 
-void DeepDspController::submitConfirmedText(const QString &mode, const QString &text)
-{
-    const QString domain = normalizedDomain(mode);
-    const int idx = domainIndex(domain);
-    if (idx < 0) return;
-    const QString label = text.trimmed();
-    if (label.isEmpty()) return;
-
-    {
-        QMutexLocker locker(&m_mutex);
-        if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off")) return;
-        const QVector<float> baseFeatures = m_lastFeaturesByMode.value(domain);
-        if (baseFeatures.size() != kInputCount) return;
-
-        m_activeProfile = domain;
-        if (domain == QStringLiteral("RTTY")) {
-            ProfileSample sample;
-            sample.input = resampleFeatureVector(baseFeatures, 96);
-            sample.target = makeRttyTarget(label);
-            sample.mode = domain;
-            sample.label = label;
-            if (sample.input.size() == 96 && sample.target.size() == 8) {
-                m_rttySamplesQueue.push_back(sample);
-                while (m_rttySamplesQueue.size() > 8000) m_rttySamplesQueue.pop_front();
-                ++m_rttySamples;
-                ++m_manualSamples;
-                m_statsDirty = true;
-            }
-        } else if (domain == QStringLiteral("CW")) {
-            // CW decoded text is not used as final neural truth: CW Assist is an
-            // event detector (key-down / dit / dah / gaps), not an audio-to-text
-            // generator.  Keep lightweight profile accounting here; real event
-            // samples are generated by the synthetic bootcamp and future marker
-            // detector hooks.
-            ++m_cwSamples;
-            ++m_manualSamples;
-            m_statsDirty = true;
-        } else if (domain == QStringLiteral("FT8") || domain == QStringLiteral("FT4")) {
-            // Manual FT text is not a valid ranker label.  The FT ranker learns
-            // only from native CRC-valid positives and native LDPC/CRC/message
-            // drop negatives emitted by Ft8RxDecoder.
-            return;
-        }
-    }
-    emitStatusThrottled();
-}
-
-
-void DeepDspController::submitCwEventSample(const QVector<float> &input, const QVector<float> &target, const QString &label)
-{
-    if (input.size() != 256 || target.size() != 6) {
-        return;
-    }
-
-    {
-        QMutexLocker locker(&m_mutex);
-        if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off") || m_cwNetwork == nullptr) {
-            return;
-        }
-
-        ProfileSample sample;
-        sample.input = input;
-        sample.target = target;
-        sample.mode = QStringLiteral("CW");
-        sample.label = label.trimmed();
-        m_cwSamplesQueue.push_back(sample);
-        while (m_cwSamplesQueue.size() > 12000) {
-            m_cwSamplesQueue.pop_front();
-        }
-        ++m_cwSamples;
-        m_activeProfile = QStringLiteral("CW");
-        m_lastRealtimeActivityMs = QDateTime::currentMSecsSinceEpoch();
-        m_statsDirty = true;
-    }
-
-    emitStatusThrottled();
-}
-
-
-void DeepDspController::submitRttyBitSample(const QVector<float> &input, const QVector<float> &target, const QString &label)
-{
-    if (input.size() != 96 || target.size() != 8) {
-        return;
-    }
-
-    {
-        QMutexLocker locker(&m_mutex);
-        if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off") || m_rttyNetwork == nullptr) {
-            return;
-        }
-
-        ProfileSample sample;
-        sample.input = input;
-        sample.target = target;
-        sample.mode = QStringLiteral("RTTY");
-        sample.label = label.trimmed();
-        m_rttySamplesQueue.push_back(sample);
-        while (m_rttySamplesQueue.size() > 12000) {
-            m_rttySamplesQueue.pop_front();
-        }
-        ++m_rttySamples;
-        m_activeProfile = QStringLiteral("RTTY");
-        m_lastRealtimeActivityMs = QDateTime::currentMSecsSinceEpoch();
-        m_statsDirty = true;
-    }
-
-    emitStatusThrottled();
-}
 
 void DeepDspController::submitNativeFtSample(const QString &mode,
                                              const QVector<float> &candidateMagnitudes,
@@ -688,26 +487,13 @@ void DeepDspController::resetModel()
         m_ftSamples = 0;
         m_ft8Samples = 0;
         m_ft4Samples = 0;
-        m_rttySamples = 0;
-        m_cwSamples = 0;
         m_nativeFtSamples = 0;
         m_manualSamples = 0;
-        m_cwBootcampSamples = 0;
-        m_cwTrainingRuns = 0;
-        m_rttyTrainingRuns = 0;
-        m_cwLastLoss = 0.0;
-        m_rttyLastLoss = 0.0;
-        m_cwSamplesQueue.clear();
-        m_rttySamplesQueue.clear();
-        m_cwAccuracyWindow.clear();
-        m_rttyAccuracyWindow.clear();
         m_lastLoss = 0.0;
         m_bestBitAccuracy = 0.0;
         m_replayCursor = 0;
         m_loadedGoldSamples = 0;
         QFile::remove(checkpointPath());
-        QFile::remove(defaultCwCheckpointPath());
-        QFile::remove(defaultRttyCheckpointPath());
         QFile::remove(statsPath());
         QFile::remove(goldDatasetPath());
         m_statsDirty = false;
@@ -727,13 +513,11 @@ void DeepDspController::saveCheckpoint()
         QMutexLocker locker(&m_mutex);
         if (m_network == nullptr) return;
         modelOk = m_network->save(checkpointPath());
-        if (m_cwNetwork != nullptr) m_cwNetwork->save(defaultCwCheckpointPath());
-        if (m_rttyNetwork != nullptr) m_rttyNetwork->save(defaultRttyCheckpointPath());
         saveStats();
         m_statsDirty = false;
         m_goldDatasetDirty = false;
         m_lastStatsSaveMs = QDateTime::currentMSecsSinceEpoch();
-        m_lastStatsSavedSampleCount = m_nativeFtSamples + m_manualSamples + m_rttySamples + m_cwSamples + m_cwBootcampSamples;
+        m_lastStatsSavedSampleCount = m_nativeFtSamples + m_manualSamples;
     }
     if (modelOk) {
         emit logMessage(QStringLiteral("MIND ranker checkpoint and FT candidate replay buffer saved: %1").arg(checkpointPath()));
@@ -747,8 +531,6 @@ void DeepDspController::saveCheckpoint()
 void DeepDspController::loadCheckpoint()
 {
     bool ftLoaded = false;
-    bool cwLoaded = false;
-    bool rttyLoaded = false;
     {
         QMutexLocker locker(&m_mutex);
         if (m_network == nullptr) return;
@@ -761,26 +543,13 @@ void DeepDspController::loadCheckpoint()
             m_checkpointLoaded = false;
         }
 
-        QFileInfo cwInfo(defaultCwCheckpointPath());
-        if (m_cwNetwork != nullptr && cwInfo.exists() && cwInfo.size() > 0) {
-            cwLoaded = m_cwNetwork->load(defaultCwCheckpointPath());
-        }
-
-        QFileInfo rttyInfo(defaultRttyCheckpointPath());
-        if (m_rttyNetwork != nullptr && rttyInfo.exists() && rttyInfo.size() > 0) {
-            rttyLoaded = m_rttyNetwork->load(defaultRttyCheckpointPath());
-        }
-
         loadStats();
         loadGoldDataset();
     }
-    if (ftLoaded || cwLoaded || rttyLoaded) {
-        emit logMessage(QStringLiteral("MIND checkpoint loaded: FT %1, CW %2, RTTY %3")
-                        .arg(ftLoaded ? QStringLiteral("yes") : QStringLiteral("no"))
-                        .arg(cwLoaded ? QStringLiteral("yes") : QStringLiteral("no"))
-                        .arg(rttyLoaded ? QStringLiteral("yes") : QStringLiteral("no")));
+    if (ftLoaded) {
+        emit logMessage(QStringLiteral("MIND FT ranker checkpoint loaded."));
     } else {
-        emit logMessage(QStringLiteral("MIND checkpoints missing; starting with fresh FT/RTTY/CW models."));
+        emit logMessage(QStringLiteral("MIND FT ranker checkpoint missing; starting fresh."));
     }
     emitStatus();
 }
@@ -803,29 +572,14 @@ void DeepDspController::saveStats()
     const double bitAccuracy = !m_bitAccuracyWindow.empty()
         ? bitSum / static_cast<double>(m_bitAccuracyWindow.size())
         : 0.0;
-    double cwSum = 0.0;
-    for (double v : m_cwAccuracyWindow) cwSum += v;
-    const double cwAccuracy = !m_cwAccuracyWindow.empty()
-        ? cwSum / static_cast<double>(m_cwAccuracyWindow.size())
-        : 0.0;
-    double rttySum = 0.0;
-    for (double v : m_rttyAccuracyWindow) rttySum += v;
-    const double rttyAccuracy = !m_rttyAccuracyWindow.empty()
-        ? rttySum / static_cast<double>(m_rttyAccuracyWindow.size())
-        : 0.0;
     const double sampleReadiness = qMin(1.0, static_cast<double>(validationCount) / static_cast<double>(kMinReadyValidation));
     double readiness = qMin(100.0, (0.75 * bitAccuracy + 0.25 * messageAccuracy) * sampleReadiness);
-    if (m_activeProfile == QStringLiteral("CW")) {
-        const double cwReadiness = qMin(1.0, static_cast<double>(m_cwBootcampSamples) / 5000.0);
-        readiness = qMin(100.0, cwAccuracy * cwReadiness);
-    }
-
     QJsonObject obj;
     obj.insert(QStringLiteral("engine"), QStringLiteral("MIND"));
     obj.insert(QStringLiteral("version"), 11);
-    obj.insert(QStringLiteral("architecture"), QStringLiteral("multi_mode_ft_ranker_rtty_slicer_cw_event_v1"));
+    obj.insert(QStringLiteral("architecture"), QStringLiteral("ft_candidate_ranker_v1"));
     obj.insert(QStringLiteral("trainer_thread"), QStringLiteral("autonomous_low_priority_qthread"));
-    obj.insert(QStringLiteral("math_backend"), QStringLiteral("LowPriority CPU multi-mode MIND / Eigen threads capped during training"));
+    obj.insert(QStringLiteral("math_backend"), QStringLiteral("LowPriority CPU FT ranker / Eigen threads capped during training"));
     obj.insert(QStringLiteral("eigen_threads"), Eigen::nbThreads());
     obj.insert(QStringLiteral("ft_batch_size"), m_lastFtBatchSize > 0 ? m_lastFtBatchSize : m_ftBatchSize);
     obj.insert(QStringLiteral("train_steps_per_second"), m_trainStepsPerSecond);
@@ -841,15 +595,6 @@ void DeepDspController::saveStats()
     obj.insert(QStringLiteral("ft8_samples"), m_ft8Samples);
     obj.insert(QStringLiteral("ft4_samples"), m_ft4Samples);
     obj.insert(QStringLiteral("active_profile"), m_activeProfile);
-    obj.insert(QStringLiteral("rtty_samples"), m_rttySamples);
-    obj.insert(QStringLiteral("rtty_training_runs"), m_rttyTrainingRuns);
-    obj.insert(QStringLiteral("rtty_loss"), m_rttyLastLoss);
-    obj.insert(QStringLiteral("rtty_accuracy_percent"), rttyAccuracy);
-    obj.insert(QStringLiteral("cw_samples"), m_cwSamples);
-    obj.insert(QStringLiteral("cw_bootcamp_samples"), m_cwBootcampSamples);
-    obj.insert(QStringLiteral("cw_training_runs"), m_cwTrainingRuns);
-    obj.insert(QStringLiteral("cw_loss"), m_cwLastLoss);
-    obj.insert(QStringLiteral("cw_accuracy_percent"), cwAccuracy);
     obj.insert(QStringLiteral("native_ft_samples"), m_nativeFtSamples);
     obj.insert(QStringLiteral("manual_samples"), m_manualSamples);
     obj.insert(QStringLiteral("training_runs"), m_trainingRuns);
@@ -884,7 +629,7 @@ void DeepDspController::loadStats()
 
     const int version = obj.value(QStringLiteral("version")).toInt();
     const QString arch = obj.value(QStringLiteral("architecture")).toString();
-    if (version != 11 || arch != QStringLiteral("multi_mode_ft_ranker_rtty_slicer_cw_event_v1")) {
+    if (version != 11 || arch != QStringLiteral("ft_candidate_ranker_v1")) {
         const QString legacyPath = statsPath() + QStringLiteral(".legacy_v%1").arg(version);
         QFile::remove(legacyPath);
         QFile::rename(statsPath(), legacyPath);
@@ -900,18 +645,6 @@ void DeepDspController::loadStats()
     if (!loadedProfile.trimmed().isEmpty()) m_activeProfile = normalizedDomain(loadedProfile);
     m_assistMode = normalizedAssistMode(obj.value(QStringLiteral("mind_assist_mode")).toString(m_assistMode));
     m_assistEnabled = false;
-    m_rttySamples = obj.value(QStringLiteral("rtty_samples")).toInt(m_rttySamples);
-    m_rttyTrainingRuns = obj.value(QStringLiteral("rtty_training_runs")).toInt(m_rttyTrainingRuns);
-    m_rttyLastLoss = obj.value(QStringLiteral("rtty_loss")).toDouble(m_rttyLastLoss);
-    const double rttyLoadedAccuracy = obj.value(QStringLiteral("rtty_accuracy_percent")).toDouble(0.0);
-    if (rttyLoadedAccuracy > 0.0) {
-        m_rttyAccuracyWindow.clear();
-        m_rttyAccuracyWindow.push_back(rttyLoadedAccuracy);
-    }
-    m_cwSamples = obj.value(QStringLiteral("cw_samples")).toInt(m_cwSamples);
-    m_cwBootcampSamples = obj.value(QStringLiteral("cw_bootcamp_samples")).toInt(m_cwBootcampSamples);
-    m_cwTrainingRuns = obj.value(QStringLiteral("cw_training_runs")).toInt(m_cwTrainingRuns);
-    m_cwLastLoss = obj.value(QStringLiteral("cw_loss")).toDouble(m_cwLastLoss);
     m_nativeFtSamples = obj.value(QStringLiteral("native_ft_samples")).toInt(m_nativeFtSamples);
     m_manualSamples = obj.value(QStringLiteral("manual_samples")).toInt(m_manualSamples);
     m_trainingRuns = obj.value(QStringLiteral("training_runs")).toInt(m_trainingRuns);
@@ -942,7 +675,7 @@ void DeepDspController::loadStats()
         }
     }
 
-    m_lastStatsSavedSampleCount = m_nativeFtSamples + m_manualSamples + m_rttySamples + m_cwSamples + m_cwBootcampSamples;
+    m_lastStatsSavedSampleCount = m_nativeFtSamples + m_manualSamples;
     m_lastStatsSaveMs = QDateTime::currentMSecsSinceEpoch();
 }
 
@@ -1047,9 +780,6 @@ QString DeepDspController::autonomousStateText(int budgetMs) const
         return QStringLiteral("Autonomous · FT protected");
     }
     const QString profile = normalizedDomain(m_activeProfile);
-    if (profile == QStringLiteral("CW")) {
-        return QStringLiteral("Autonomous · CW protected");
-    }
     if (profile == QStringLiteral("FT8") || profile == QStringLiteral("FT4")) {
         return budgetMs > 0 ? QStringLiteral("Autonomous · FT idle training")
                             : QStringLiteral("Autonomous · FT idle");
@@ -1072,24 +802,10 @@ int DeepDspController::adaptiveTrainingBudgetMs(qint64 nowMs, int *batchCap) con
 
     const bool recentRealtime = (m_lastRealtimeActivityMs > 0) &&
                                 (nowMs - m_lastRealtimeActivityMs < 1500);
-    const bool activeCw = (m_activeProfile == QStringLiteral("CW"));
-    const bool activeTextProfile = activeCw || m_activeProfile == QStringLiteral("RTTY");
-
-    // CW/RTTY profile training is very small compared with FT candidate
-    // training.  Do not run it while fresh realtime audio is arriving, but do
-    // let it catch up a moment after RX activity stops; otherwise the panel
-    // shows samples forever and Active never becomes useful.
-    if (activeCw && recentRealtime) {
-        // CW event profile is tiny.  Let it keep up during real CW copy with a
-        // small low-priority slice; otherwise Active appears to do nothing while
-        // operators are actually sending.  FT decode-critical guards still win.
-        if (batchCap != nullptr) *batchCap = 8;
-        return 8;
-    }
 
     if (m_activityHint == QStringLiteral("idle_heavy")) {
-        budget = activeTextProfile ? 12 : 32;
-        cap = activeTextProfile ? 32 : m_ftBatchSize;
+        budget = 32;
+        cap = m_ftBatchSize;
     } else if (m_activityHint == QStringLiteral("interactive")) {
         budget = 0;
         cap = 0;
@@ -1097,8 +813,8 @@ int DeepDspController::adaptiveTrainingBudgetMs(qint64 nowMs, int *batchCap) con
         budget = 0;
         cap = 0;
     } else {
-        budget = activeTextProfile ? 8 : 12;
-        cap = activeTextProfile ? 24 : 64;
+        budget = 12;
+        cap = 64;
     }
 
     if (batchCap != nullptr) *batchCap = qBound(0, cap, m_ftBatchSize);
@@ -1112,8 +828,6 @@ void DeepDspController::trainIdleSlice()
     bool shouldEmit = false;
     bool checkpointSaved = false;
     int ftBatches = 0;
-    int cwBatches = 0;
-    int rttyBatches = 0;
 
     {
         QMutexLocker locker(&m_mutex);
@@ -1129,7 +843,7 @@ void DeepDspController::trainIdleSlice()
             // trainer tick.
             shouldEmit = changed;
         } else {
-            const int persistedSampleCount = m_nativeFtSamples + m_manualSamples + m_rttySamples + m_cwSamples + m_cwBootcampSamples;
+            const int persistedSampleCount = m_nativeFtSamples + m_manualSamples;
             const bool enoughStatsTime = (m_lastStatsSaveMs == 0) || (nowMs - m_lastStatsSaveMs >= 15000);
             const bool enoughNewSamples = (persistedSampleCount - m_lastStatsSavedSampleCount) >= 32;
 
@@ -1142,40 +856,6 @@ void DeepDspController::trainIdleSlice()
             qint64 elapsedMs = 0;
             while (budgetMs > 0 && elapsedMs <= budgetMs) {
                 bool trainedSomething = false;
-
-                if (!m_cwSamplesQueue.empty() && m_cwNetwork != nullptr &&
-                    m_activityHint != QStringLiteral("interactive") && budgetMs >= 8) {
-                    QVector<ProfileSample> cwBatch;
-                    const int take = qMin((m_activityHint == QStringLiteral("idle_heavy")) ? 64 : 24,
-                                          static_cast<int>(m_cwSamplesQueue.size()));
-                    cwBatch.reserve(take);
-                    for (int i = 0; i < take; ++i) {
-                        cwBatch.append(m_cwSamplesQueue.front());
-                        m_cwSamplesQueue.pop_front();
-                    }
-                    m_cwLastLoss = trainCwSamples(cwBatch);
-                    ++m_cwTrainingRuns;
-                    ++cwBatches;
-                    trainedSomething = true;
-                    m_statsDirty = true;
-                }
-
-                if (!m_rttySamplesQueue.empty() && m_rttyNetwork != nullptr &&
-                    m_activityHint != QStringLiteral("interactive") && budgetMs >= 8) {
-                    QVector<ProfileSample> rttyBatch;
-                    const int take = qMin((m_activityHint == QStringLiteral("idle_heavy")) ? 64 : 24,
-                                          static_cast<int>(m_rttySamplesQueue.size()));
-                    rttyBatch.reserve(take);
-                    for (int i = 0; i < take; ++i) {
-                        rttyBatch.append(m_rttySamplesQueue.front());
-                        m_rttySamplesQueue.pop_front();
-                    }
-                    m_rttyLastLoss = trainRttySamples(rttyBatch);
-                    ++m_rttyTrainingRuns;
-                    ++rttyBatches;
-                    trainedSomething = true;
-                    m_statsDirty = true;
-                }
 
                 if (m_samples.size() >= 8) {
                     // Replay buffer: keep training on the persistent FT gold dataset,
@@ -1235,18 +915,16 @@ void DeepDspController::trainIdleSlice()
             if (m_lastAutoCheckpointMs == 0) {
                 m_lastAutoCheckpointMs = QDateTime::currentMSecsSinceEpoch();
             }
-            if ((m_trainingRuns > 0 || m_cwTrainingRuns > 0 || m_rttyTrainingRuns > 0) &&
+            if ((m_trainingRuns > 0) &&
                 QDateTime::currentMSecsSinceEpoch() - m_lastAutoCheckpointMs >= 5 * 60 * 1000) {
                 if (m_network != nullptr) m_network->save(checkpointPath());
-                if (m_cwNetwork != nullptr) m_cwNetwork->save(defaultCwCheckpointPath());
-                if (m_rttyNetwork != nullptr) m_rttyNetwork->save(defaultRttyCheckpointPath());
                 saveStats();
                 m_statsDirty = false;
                 m_goldDatasetDirty = false;
                 m_lastAutoCheckpointMs = QDateTime::currentMSecsSinceEpoch();
                 checkpointSaved = true;
             }
-            shouldEmit = (ftBatches > 0 || cwBatches > 0 || rttyBatches > 0 || m_statsDirty);
+            shouldEmit = (ftBatches > 0 || m_statsDirty);
         }
     }
 
@@ -1254,215 +932,6 @@ void DeepDspController::trainIdleSlice()
         emit logMessage(QStringLiteral("MIND auto-checkpoint saved by dedicated trainer thread."));
     }
     if (shouldEmit) emitStatusThrottled();
-}
-
-
-QVector<float> DeepDspController::audioFeatures(const AudioBlock &block) const
-{
-    QVector<float> out(kInputCount, 0.0f);
-    if (block.samples.isEmpty()) return out;
-
-    double sum = 0.0;
-    double sum2 = 0.0;
-    double peak = 0.0;
-    int zeroCross = 0;
-    float last = block.samples.first();
-    for (float x : block.samples) {
-        sum += x;
-        sum2 += static_cast<double>(x) * static_cast<double>(x);
-        peak = std::max(peak, std::abs(static_cast<double>(x)));
-        if ((x >= 0.0f) != (last >= 0.0f)) ++zeroCross;
-        last = x;
-    }
-    const double n = static_cast<double>(block.samples.size());
-    const double mean = sum / n;
-    const double rms = std::sqrt(sum2 / n);
-    out[0] = static_cast<float>(qBound(0.0, rms * 8.0, 1.0));
-    out[1] = static_cast<float>(qBound(0.0, peak * 4.0, 1.0));
-    out[2] = static_cast<float>(qBound(0.0, std::abs(mean) * 16.0, 1.0));
-    out[3] = static_cast<float>(qBound(0.0, static_cast<double>(zeroCross) / n * 20.0, 1.0));
-
-    const int bins = kInputCount - 4;
-    for (int b = 0; b < bins; ++b) {
-        const int a = (block.samples.size() * b) / bins;
-        const int z = (block.samples.size() * (b + 1)) / bins;
-        double e = 0.0;
-        for (int i = a; i < z; ++i) {
-            const double x = block.samples[i];
-            e += x * x;
-        }
-        const int len = qMax(1, z - a);
-        out[4 + b] = static_cast<float>(qBound(0.0, std::sqrt(e / static_cast<double>(len)) * 10.0, 1.0));
-    }
-    return out;
-}
-
-QVector<float> DeepDspController::targetFingerprint(const QString &mode, const QString &text) const
-{
-    const QByteArray data = (normalizedDomain(mode) + QStringLiteral("|") + text.trimmed().toUpper()).toUtf8();
-    const QByteArray digest = QCryptographicHash::hash(data, QCryptographicHash::Sha256);
-    QVector<float> out;
-    out.reserve(kOutputCount);
-    for (int i = 0; i < kOutputCount; ++i) {
-        const int byte = static_cast<unsigned char>(digest.at(i % digest.size()));
-        out.append(((byte >> (i % 8)) & 0x01) ? 1.0f : 0.0f);
-    }
-    return out;
-}
-
-
-QVector<float> DeepDspController::makeOneHot(int n, int index) const
-{
-    QVector<float> out(qMax(1, n), 0.0f);
-    if (index >= 0 && index < out.size()) out[index] = 1.0f;
-    return out;
-}
-
-QVector<float> DeepDspController::resampleFeatureVector(const QVector<float> &input, int n) const
-{
-    QVector<float> out(qMax(1, n), 0.0f);
-    if (input.isEmpty()) return out;
-    if (out.size() == input.size()) return input;
-    for (int i = 0; i < out.size(); ++i) {
-        const int a = (input.size() * i) / out.size();
-        const int z = qMax(a + 1, (input.size() * (i + 1)) / out.size());
-        double sum = 0.0;
-        int count = 0;
-        for (int j = a; j < z && j < input.size(); ++j) {
-            sum += input[j];
-            ++count;
-        }
-        out[i] = static_cast<float>(qBound(0.0, count > 0 ? sum / static_cast<double>(count) : 0.0, 1.0));
-    }
-    return out;
-}
-
-QVector<float> DeepDspController::makeRttyTarget(const QString &text) const
-{
-    const QString t = text.trimmed().toUpper();
-    int klass = 7; // unknown/noise/other
-    if (t.isEmpty()) {
-        klass = 7;
-    } else {
-        const QChar c = t.at(0);
-        if (c.isLetter()) klass = 0;
-        else if (c.isDigit()) klass = 1;
-        else if (c.isSpace()) klass = 2;
-        else if (QStringLiteral(".,;:/?-_'").contains(c)) klass = 3;
-        else if (QStringLiteral("+=$@#&*!()").contains(c)) klass = 4;
-        else if (c == QChar(0x000A) || c == QChar(0x000D)) klass = 5;
-        else klass = 6;
-    }
-    return makeOneHot(8, klass);
-}
-
-QVector<float> DeepDspController::makeCwFeature(const QString &token, int klass, quint32 seed) const
-{
-    constexpr int kCwInput = 256;
-    QVector<float> out(kCwInput, 0.0f);
-    std::mt19937 rng(seed ^ static_cast<quint32>(token.size() * 2654435761u) ^ static_cast<quint32>(klass * 1013904223u));
-    std::uniform_real_distribution<float> uni(0.0f, 1.0f);
-    std::normal_distribution<float> noise(0.0f, 0.045f);
-
-    auto addPulse = [&](int start, int len, float level) {
-        const int a = qBound(0, start, kCwInput - 1);
-        const int z = qBound(0, start + len, kCwInput);
-        for (int i = a; i < z; ++i) {
-            const float edgeIn = qMin(1.0f, static_cast<float>(i - a + 1) / 8.0f);
-            const float edgeOut = qMin(1.0f, static_cast<float>(z - i) / 8.0f);
-            out[i] = qMax(out[i], level * qMin(edgeIn, edgeOut));
-        }
-    };
-
-    switch (klass) {
-    case 0: { // dit
-        const int len = 28 + static_cast<int>(uni(rng) * 18.0f);
-        const int start = 84 + static_cast<int>(uni(rng) * 28.0f);
-        addPulse(start, len, 0.82f + 0.16f * uni(rng));
-        break;
-    }
-    case 1: { // dah
-        const int len = 82 + static_cast<int>(uni(rng) * 36.0f);
-        const int start = 55 + static_cast<int>(uni(rng) * 32.0f);
-        addPulse(start, len, 0.82f + 0.16f * uni(rng));
-        break;
-    }
-    case 2: { // intra-character gap: short quiet notch between two elements
-        addPulse(24, 34 + static_cast<int>(uni(rng) * 18.0f), 0.65f);
-        addPulse(168, 34 + static_cast<int>(uni(rng) * 18.0f), 0.65f);
-        break;
-    }
-    case 3: { // letter gap: mostly quiet with weak shoulders
-        addPulse(4, 18 + static_cast<int>(uni(rng) * 10.0f), 0.35f);
-        addPulse(224, 20 + static_cast<int>(uni(rng) * 12.0f), 0.35f);
-        break;
-    }
-    case 4: { // word gap: quiet window
-        break;
-    }
-    default: { // noise/QRM
-        for (int k = 0; k < 3; ++k) {
-            if (uni(rng) < 0.55f) {
-                const int start = static_cast<int>(uni(rng) * 220.0f);
-                const int len = 8 + static_cast<int>(uni(rng) * 34.0f);
-                addPulse(start, len, 0.18f + 0.45f * uni(rng));
-            }
-        }
-        break;
-    }
-    }
-
-    // Add slow fading/AGC and realistic receiver noise.
-    const float gain = 0.75f + 0.5f * uni(rng);
-    const float floor = 0.015f + 0.025f * uni(rng);
-    for (int i = 0; i < kCwInput; ++i) {
-        const float fade = 0.90f + 0.10f * std::sin(6.2831853f * static_cast<float>(i) / static_cast<float>(kCwInput) + uni(rng));
-        float v = out[i] * gain * fade + floor + noise(rng);
-        out[i] = qBound(0.0f, v, 1.0f);
-    }
-    return out;
-}
-
-QVector<DeepDspController::ProfileSample> DeepDspController::generateCwBootcampSamples(int count) const
-{
-    QVector<ProfileSample> out;
-    out.reserve(qMax(1, count));
-    const QStringList tokens = {
-        QStringLiteral("CQ"), QStringLiteral("DE"), QStringLiteral("K"), QStringLiteral("KN"),
-        QStringLiteral("5NN"), QStringLiteral("599"), QStringLiteral("TU"), QStringLiteral("TNX"),
-        QStringLiteral("FER"), QStringLiteral("QSO"), QStringLiteral("73"), QStringLiteral("RST"),
-        QStringLiteral("NAME"), QStringLiteral("QTH"), QStringLiteral("PWR"), QStringLiteral("ANT")
-    };
-    for (int i = 0; i < count; ++i) {
-        const int klass = i % 6;
-        const QString token = tokens.at(i % tokens.size());
-        ProfileSample s;
-        s.input = makeCwFeature(token, klass, static_cast<quint32>(0xC0FFEEu + i * 7919u));
-        s.target = makeOneHot(6, klass);
-        s.mode = QStringLiteral("CW");
-        s.label = token;
-        out.append(s);
-    }
-    return out;
-}
-
-void DeepDspController::runCwBootcamp()
-{
-    const QVector<ProfileSample> generated = generateCwBootcampSamples(2400);
-    {
-        QMutexLocker locker(&m_mutex);
-        if (!m_enabled || m_cwNetwork == nullptr) return;
-        for (const ProfileSample &s : generated) {
-            m_cwSamplesQueue.push_back(s);
-            while (m_cwSamplesQueue.size() > 8000) m_cwSamplesQueue.pop_front();
-        }
-        m_cwSamples += generated.size();
-        m_cwBootcampSamples += generated.size();
-        m_activeProfile = QStringLiteral("CW");
-        m_statsDirty = true;
-    }
-    emit logMessage(QStringLiteral("MIND CW bootcamp queued: %1 synthetic symbol/gap sample(s).").arg(generated.size()));
-    emitStatus();
 }
 
 
@@ -1540,11 +1009,8 @@ void DeepDspController::rebuildNetwork()
     delete m_network;
     m_network = new DeepDspTinyNet();
     m_network->reset();
-    delete m_cwNetwork;
-    m_cwNetwork = new DeepDspProfileNet(QVector<int>{256, 96, 48, 6}, 1u);
-    delete m_rttyNetwork;
-    m_rttyNetwork = new DeepDspProfileNet(QVector<int>{96, 64, 32, 8}, 1u);
 }
+
 
 double DeepDspController::trainOnSamples(const QVector<Sample> &batch)
 {
@@ -1569,61 +1035,6 @@ double DeepDspController::trainOnSamples(const QVector<Sample> &batch)
     return m_network->trainBatch(inputs, targets, 0.003f);
 }
 
-
-double DeepDspController::trainCwSamples(const QVector<ProfileSample> &batch)
-{
-    if (batch.isEmpty() || m_cwNetwork == nullptr) return 0.0;
-    QVector<QVector<float>> inputs;
-    QVector<QVector<float>> targets;
-    inputs.reserve(batch.size());
-    targets.reserve(batch.size());
-    for (const ProfileSample &s : batch) {
-        if (s.input.size() == 256 && s.target.size() == 6) {
-            inputs.append(s.input);
-            targets.append(s.target);
-        }
-    }
-    if (inputs.isEmpty()) return 0.0;
-
-    const QVector<float> prediction = m_cwNetwork->predict(inputs.constFirst());
-    if (prediction.size() == targets.constFirst().size()) {
-        int bestP = 0;
-        int bestT = 0;
-        for (int i = 1; i < prediction.size(); ++i) if (prediction[i] > prediction[bestP]) bestP = i;
-        for (int i = 1; i < targets.constFirst().size(); ++i) if (targets.constFirst()[i] > targets.constFirst()[bestT]) bestT = i;
-        m_cwAccuracyWindow.push_back(bestP == bestT ? 100.0 : 0.0);
-        while (m_cwAccuracyWindow.size() > 1000) m_cwAccuracyWindow.pop_front();
-    }
-    return m_cwNetwork->trainBatch(inputs, targets, 0.006f);
-}
-
-
-double DeepDspController::trainRttySamples(const QVector<ProfileSample> &batch)
-{
-    if (batch.isEmpty() || m_rttyNetwork == nullptr) return 0.0;
-    QVector<QVector<float>> inputs;
-    QVector<QVector<float>> targets;
-    inputs.reserve(batch.size());
-    targets.reserve(batch.size());
-    for (const ProfileSample &s : batch) {
-        if (s.input.size() == 96 && s.target.size() == 8) {
-            inputs.append(s.input);
-            targets.append(s.target);
-        }
-    }
-    if (inputs.isEmpty()) return 0.0;
-
-    const QVector<float> prediction = m_rttyNetwork->predict(inputs.constFirst());
-    if (prediction.size() == targets.constFirst().size()) {
-        int bestP = 0;
-        int bestT = 0;
-        for (int i = 1; i < prediction.size(); ++i) if (prediction[i] > prediction[bestP]) bestP = i;
-        for (int i = 1; i < targets.constFirst().size(); ++i) if (targets.constFirst()[i] > targets.constFirst()[bestT]) bestT = i;
-        m_rttyAccuracyWindow.push_back(bestP == bestT ? 100.0 : 0.0);
-        while (m_rttyAccuracyWindow.size() > 1000) m_rttyAccuracyWindow.pop_front();
-    }
-    return m_rttyNetwork->trainBatch(inputs, targets, 0.005f);
-}
 
 QVector<float> DeepDspController::predict(const QVector<float> &input)
 {
@@ -1685,117 +1096,4 @@ bool DeepDspController::scoreNativeFtCandidate(const QVector<float> &candidateMa
     return true;
 }
 
-
-bool DeepDspController::scoreRttyBitFeature(const QVector<float> &bitFeature,
-                                           QVector<float> *bitProbabilities,
-                                           double *confidencePercent)
-{
-    if (bitProbabilities != nullptr) {
-        bitProbabilities->clear();
-    }
-    if (confidencePercent != nullptr) {
-        *confidencePercent = 0.0;
-    }
-    if (bitFeature.size() != 96) {
-        return false;
-    }
-
-    QMutexLocker locker(&m_mutex);
-    const QString mode = normalizedAssistMode(m_assistMode);
-    if (!m_enabled || mode != QStringLiteral("assisted") || m_rttyNetwork == nullptr) {
-        return false;
-    }
-
-    double rttyAccSum = 0.0;
-    for (double v : m_rttyAccuracyWindow) {
-        rttyAccSum += v;
-    }
-    const double rttyAccuracy = !m_rttyAccuracyWindow.empty()
-        ? rttyAccSum / static_cast<double>(m_rttyAccuracyWindow.size())
-        : 0.0;
-    if (!mindProfileReady(m_rttyTrainingRuns, static_cast<int>(m_rttyAccuracyWindow.size()), rttyAccuracy)) {
-        return false;
-    }
-
-    QVector<float> prediction = m_rttyNetwork->predict(bitFeature);
-    if (prediction.size() != 8) {
-        return false;
-    }
-
-    int best = 0;
-    for (int i = 1; i < prediction.size(); ++i) {
-        if (prediction.at(i) > prediction.at(best)) {
-            best = i;
-        }
-    }
-
-    if (bitProbabilities != nullptr) {
-        *bitProbabilities = prediction;
-    }
-    if (confidencePercent != nullptr) {
-        *confidencePercent = 100.0 * qBound(0.0, static_cast<double>(prediction.at(best)), 1.0);
-    }
-
-    m_activeProfile = QStringLiteral("RTTY");
-    m_lastRealtimeActivityMs = QDateTime::currentMSecsSinceEpoch();
-    return true;
-}
-
-bool DeepDspController::scoreCwEventFeature(const QVector<float> &eventFeature,
-                                          QVector<float> *eventProbabilities,
-                                          double *confidencePercent)
-{
-    if (eventProbabilities != nullptr) {
-        eventProbabilities->clear();
-    }
-    if (confidencePercent != nullptr) {
-        *confidencePercent = 0.0;
-    }
-    if (eventFeature.size() != 256) {
-        return false;
-    }
-
-    QMutexLocker locker(&m_mutex);
-    const QString mode = normalizedAssistMode(m_assistMode);
-    if (!m_enabled || mode != QStringLiteral("assisted") || m_cwNetwork == nullptr) {
-        return false;
-    }
-
-    // Do not let a random/untrained profile steer the CW state machine.  The
-    // synthetic bootcamp plus real event samples must have produced at least a
-    // small validation history.  Until then Active behaves like classic CW.
-    double cwAccSum = 0.0;
-    for (double v : m_cwAccuracyWindow) {
-        cwAccSum += v;
-    }
-    const double cwAccuracy = !m_cwAccuracyWindow.empty()
-        ? cwAccSum / static_cast<double>(m_cwAccuracyWindow.size())
-        : 0.0;
-    if (!mindProfileReady(m_cwTrainingRuns, static_cast<int>(m_cwAccuracyWindow.size()), cwAccuracy)) {
-        return false;
-    }
-
-    QVector<float> prediction = m_cwNetwork->predict(eventFeature);
-    if (prediction.size() != 6) {
-        return false;
-    }
-
-    int best = 0;
-    for (int i = 1; i < prediction.size(); ++i) {
-        if (prediction.at(i) > prediction.at(best)) {
-            best = i;
-        }
-    }
-
-    if (eventProbabilities != nullptr) {
-        *eventProbabilities = prediction;
-    }
-    if (confidencePercent != nullptr) {
-        *confidencePercent = 100.0 * qBound(0.0, static_cast<double>(prediction.at(best)), 1.0);
-    }
-
-    m_activeProfile = QStringLiteral("CW");
-    m_lastRealtimeActivityMs = QDateTime::currentMSecsSinceEpoch();
-    return true;
-}
 

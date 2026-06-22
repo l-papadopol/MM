@@ -1,3 +1,44 @@
+# MadModem 0.5.42
+
+UI cleanup hotfix: removed the fake rotator LED/status lamp from the Rotator tab. Rotator status is now handled by the actual rotator panel/log messages, not by decorative indicator widgets. Scheduler controls remain visible only for WEFAX/MeteoFax and RTTY. No decoder, CAT/PTT, CW, Feld Hell, RTTY, FT8/FT4, MFSK, logbook, map, or rotator-control logic was changed.
+
+# MadModem 0.5.39 - RTTY auto-polarity link fix
+
+- Fixes the missing `RttyDecoder::setAutoReverseEnabled(bool)` implementation introduced in 0.5.38.
+- Preserves the 0.5.37 Feld Hell continuous paper/aspect zoom changes and the 0.5.38 RTTY Auto polarity UI.
+- No CAT/PTT/TS-890, CW, FT8/FT4, MFSK, logbook, map, or rotator changes.
+
+## 0.5.37
+
+- Fixed Feld Hell paper zoom so the slider scales both axes and no longer makes glyphs tall and narrow.
+- Kept the 0.5.36 continuous RX/TX paper behavior: local TX is printed in red on the same paper.
+- Did not touch CW, RTTY, FT, CAT/PTT, logbook, map or rotator code.
+
+# MadModem 0.5.32 - CW ggmorse cleanup compile fix
+
+MadModem 0.5.32 fixes the 0.5.31 cleanup regression in `DeepDspController.cpp`: a dead CW event-scoring stub had been left without its function declaration after removing CW/MIND integration, causing a compile error near `double *confidencePercent`. The stub is now removed completely. MIND stats loading also accepts only the FT ranker architecture, not the old multi-mode CW/RTTY lab architecture. CW remains ggmorse-only for text output; CAT/PTT/TS-890, FT8/FT4, RTTY, MFSK, Hell, scheduler, logbook, map and rotator are untouched.
+
+# MadModem 0.5.27 - MIND FT ranker UI cleanup
+
+
+## 0.5.36
+
+- Feld Hell paper height is now a pure display zoom: changing it preserves already received/transmitted paper pixels instead of clearing the paper.
+- Feld Hell local TX is appended in red to the same paper tape instead of replacing the paper with a separate TX preview.
+- Renamed the Hell column-rate control to Paper speed, keeping 17.5 col/s as the standard default for Feld Hell/FSK-105.
+- Preserved the stable 0.5.33/0.5.35 RX vertical orientation.
+
+## 0.5.30 — CW ggmorse production cleanup
+
+- Keeps ggmorse/classical CW as the production text decoder.
+- Does not promote the native/fuzzy CW decoder to text authority after the 0.5.28 regression.
+- Removes the full-terminal CW regex normalization pass from the per-character append path.
+- Tightens native helper gap statistics so intra-letter gaps do not poison letter/word-gap estimates.
+- Keeps MIND out of CW and leaves CAT/PTT/TS-890/FT/RTTY/MFSK/Hell untouched.
+
+
+MadModem 0.5.27 restricts the production MIND UI and runtime to FT8/FT4. The side MIND tab is hidden automatically in CW, RTTY, PSK, MFSK, Hell, SSTV, WEFAX and all other non-FT modes; when a non-FT mode is selected, MIND is forced Off and no text-mode training or assist chain is active. CW text is produced only by the classical ggmorse/native path, and RTTY remains the classical matched-filter/Baudot decoder. FT8/FT4 keep the MIND candidate ranker as a priority/budget helper only; final message acceptance remains in the deterministic FT decoder. The visible UI is intentionally minimal: MIND appears only where it is useful and does not include technical explanations in the main panel.
+
 ## 0.5.25 - fldigi-aligned text modem core pass
 
 MadModem 0.5.25 applies a single consolidated text-mode DSP pass using fldigi as the GPL reference. PSK31/63 no longer averages a whole symbol across phase reversals and now samples at the recovered symbol eye centre with a stronger envelope-dip clock resync and corrected Varicode quality/inversion feedback. MFSK16 soft decisions now follow fldigi's softdecode more closely: full-scale soft bits, hard-symbol vote weighting and persistent single-tone CWI avoidance feed the existing R=1/2 K=7 FEC/Varicode path. Feld Hell keeps the corrected bottom-to-top visual raster orientation and compact paper scaling. CW keeps the heavy MIND human-fist path while preserving the fldigi/ggmorse-style timing, adaptive WPM, gap tracking and native event decoder.
@@ -214,11 +255,11 @@ This package keeps the CPU-only MIND shadow-learning laboratory but clarifies th
 
 ### MIND v2 native FT candidate training
 - Replaced the old FT audio/text fingerprint lab path with native FT8 candidate samples.
-- MIND now learns from `dataMagnitudes[58][8]` flattened to 464 inputs and the CRC-valid 174-bit LDPC codeword as target.
-- The checkpoint is now `mind_native_ft_eigen_v2.model`; old v1 fingerprint checkpoints are intentionally ignored.
-- UI now separates bit accuracy, message/codeword exact accuracy and readiness.
-- No MIND inference/training runs inside the FT decoder timing-critical path; the decoder only emits queued gold-label samples after LDPC+CRC+unpack succeeds.
-- MIND remains shadow-only and cannot key TX, CAT, PTT or AutoQSO.
+- MIND now learns from FT candidate-ranker samples.
+- The checkpoint is now `mind_ft_candidate_ranker_v1.model`.
+- The dataset is now `mind_ft_ranker_samples_v1.dat`.
+- UI shows compact FT ranker progress and positive/negative sample counts.
+- MIND cannot key TX, CAT, PTT or AutoQSO.
 
 - MIND v2 native FT follow-up: stale v1 stats files are now moved aside, v2 stats are saved soon after native FT gold samples arrive, and warm-up progress is based on validation samples rather than raw sample count.
 
@@ -249,3 +290,14 @@ This build keeps the Eigen/OpenMP batched MIND trainer but removes the visible C
 
 ### MIND autonomous latency/status fix
 This build keeps MIND training fully autonomous while making the runtime latency rules stricter. During FT candidate bursts the native cooldown defers trainer GEMM work, checkpointing and UI churn without applying an AutoTest-only freeze. The MIND panel now reports the loaded model/dataset state explicitly and follows the selected runtime mode instead of stale profile state.
+
+## 0.5.35
+
+- Feld Hell paper scale hotfix: preserves the proven 0.5.33 RX vertical orientation while keeping the shared RX/TX paper-height control from 0.5.34.
+- No CAT/PTT, CW, FT, RTTY, MFSK, Hell timing or transmitter waveform changes.
+
+### 0.5.44 - VU meter margin hotfix
+
+- Adjusted the compact vertical LED VU meter width and internal margins so the dB readout is not clipped.
+- No decoder, CAT/PTT, CW, RTTY, Feld Hell, FT8/FT4, scheduler, map or logbook changes.
+

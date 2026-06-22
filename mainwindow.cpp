@@ -68,6 +68,7 @@
 #include <QFileInfo>
 #include <QFrame>
 #include <QFont>
+#include <QFontMetrics>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <memory>
@@ -93,6 +94,7 @@
 #include <QPen>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QSerialPortInfo>
 #include <QSettings>
 #include <cmath>
@@ -130,6 +132,93 @@
 #include <QAudio>
 #include <QAudioDeviceInfo>
 #endif
+
+
+class LedVuMeterWidget final : public QWidget
+{
+public:
+    explicit LedVuMeterWidget(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setMinimumWidth(58);
+        setMaximumWidth(66);
+        setMinimumHeight(170);
+        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+    }
+
+    void setLevelPercent(int percent)
+    {
+        const int clamped = qBound(0, percent, 100);
+        if (m_percent == clamped) {
+            return;
+        }
+        m_percent = clamped;
+        update();
+    }
+
+    void setDbText(const QString &text)
+    {
+        if (m_dbText == text) {
+            return;
+        }
+        m_dbText = text;
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        Q_UNUSED(event)
+
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+
+        const QRect outer = rect().adjusted(0, 0, -1, -1);
+        painter.setPen(QPen(QColor(70, 70, 70), 1));
+        painter.setBrush(QColor(12, 12, 12));
+        painter.drawRoundedRect(outer, 4, 4);
+
+        QFont dbFont = painter.font();
+        dbFont.setPointSizeF(qMax(7.0, dbFont.pointSizeF() - 1.0));
+        painter.setFont(dbFont);
+        painter.setPen(QColor(225, 225, 225));
+        const QRect dbRect = outer.adjusted(3, 3, -3, 0);
+        painter.drawText(dbRect, Qt::AlignHCenter | Qt::AlignTop, m_dbText);
+
+        const int labelHeight = qMax(18, QFontMetrics(dbFont).height() + 5);
+        const QRect ledArea = outer.adjusted(7, labelHeight + 3, -7, -5);
+        constexpr int kSegments = 32;
+        constexpr int kGap = 2;
+        const int totalGap = (kSegments - 1) * kGap;
+        const int segmentHeight = qMax(2, (ledArea.height() - totalGap) / kSegments);
+        const int usedHeight = segmentHeight * kSegments + totalGap;
+        const int top = ledArea.bottom() - usedHeight + 1;
+        const int litSegments = qBound(0, qRound((m_percent / 100.0) * kSegments), kSegments);
+
+        for (int i = 0; i < kSegments; ++i) {
+            const bool lit = i < litSegments;
+            const int y = top + (kSegments - 1 - i) * (segmentHeight + kGap);
+            const QRect seg(ledArea.left(), y, ledArea.width(), segmentHeight);
+
+            QColor color;
+            if (i >= 23) {
+                color = lit ? QColor(240, 30, 30) : QColor(45, 14, 14);
+            } else if (i >= 18) {
+                color = lit ? QColor(255, 185, 30) : QColor(48, 35, 10);
+            } else {
+                color = lit ? QColor(20, 230, 60) : QColor(10, 42, 18);
+            }
+
+            painter.setPen(Qt::NoPen);
+            painter.setBrush(color);
+            painter.drawRoundedRect(seg, 1.5, 1.5);
+        }
+    }
+
+private:
+    int m_percent = 0;
+    QString m_dbText = QStringLiteral("-inf dB");
+};
 
 namespace {
 
@@ -1499,7 +1588,6 @@ MainWindow::MainWindow(QWidget *parent)
     loadUiTranslationFile(m_uiLanguageCode);
 
     setupUiState();
-    setupRotatorStatusLamps();
     setupCustomWidgets();
     // Do not globally scale the QMainWindow. The v1.45-v1.50 reference-screen
     // scaler was too aggressive for the main workspace: it modified many
@@ -1522,13 +1610,17 @@ MainWindow::MainWindow(QWidget *parent)
             if (m_ft8RxDecoder == nullptr) {
                 return;
             }
+            const QString currentMode = (ui != nullptr && ui->cmbMode != nullptr)
+                ? ui->cmbMode->currentText()
+                : QString();
+            const bool ftMindMode = modeSupportsMind(currentMode);
             const QString assistMode = status.assistMode.trimmed().toLower();
-            const bool hardBypass = !status.enabled || assistMode == QStringLiteral("off");
+            const bool hardBypass = !ftMindMode || !status.enabled || assistMode == QStringLiteral("off");
             const bool modelLoaded = status.modelStateText == QStringLiteral("Model loaded");
             const bool assistedRequested = assistMode == QStringLiteral("assisted");
-            // Training and Active should both be able to score a loaded ranker.
-            // Only Active+ready may prune/drive ultra-deep scheduling; final FT text
-            // remains guarded by LDPC+CRC+unpack+parser inside the decoder.
+
+            // MIND is FT-only.  Outside FT4/FT8 it must be visually hidden,
+            // runtime-bypassed, and disconnected from CW/RTTY/text decoders.
             const bool scoringEnabled = !hardBypass && modelLoaded &&
                                         (assistMode == QStringLiteral("shadow") || assistedRequested);
             const bool sampleExportEnabled = !hardBypass;
@@ -1537,30 +1629,12 @@ MainWindow::MainWindow(QWidget *parent)
                                                     scoringEnabled,
                                                     sampleExportEnabled,
                                                     ultraDeepAssistedEnabled);
-            if (m_cwDecoder != nullptr) {
-                // CW Active uses MIND only as a low-level event/timing helper.
-                // Training mode still collects samples, but cannot alter the
-                // CW state machine.  Off remains hard-bypass.
-                m_cwDecoder->setMindEventAssistEnabled(!hardBypass && assistedRequested);
-                if (m_cwSecondaryDecoder != nullptr) {
-                    m_cwSecondaryDecoder->setMindEventAssistEnabled(!hardBypass && assistedRequested);
-                }
-            }
-            if (m_rttyDecoder != nullptr) {
-                // RTTY Active uses MIND as a conservative mark/space soft slicer
-                // for weak/borderline symbol decisions only. Training collects
-                // bit-level samples but cannot change decoded text.
-                m_rttyDecoder->setMindSoftSlicerEnabled(!hardBypass && assistedRequested);
-            }
         };
         syncMindDecoderIntegration(m_ddspController->status());
         connect(m_ddspController, &DeepDspController::statusChanged,
                 this, syncMindDecoderIntegration,
                 Qt::QueuedConnection);
 
-        if (ui != nullptr && ui->cmbMode != nullptr) {
-            m_ddspController->setRuntimeMode(ui->cmbMode->currentText());
-        }
         QPointer<DeepDspController> mindController(m_ddspController);
         if (m_ft8RxDecoder != nullptr) {
             m_ft8RxDecoder->setMindAssistCallback(
@@ -1575,46 +1649,8 @@ MainWindow::MainWindow(QWidget *parent)
                                                                   confidencePercent);
                 });
         }
-        if (m_cwDecoder != nullptr) {
-            m_cwDecoder->setMindEventClassifier(
-                [mindController](const QVector<float> &eventFeature,
-                                 QVector<float> *eventProbabilities,
-                                 double *confidencePercent) {
-                    if (mindController.isNull()) {
-                        return false;
-                    }
-                    return mindController->scoreCwEventFeature(eventFeature,
-                                                               eventProbabilities,
-                                                               confidencePercent);
-                });
-        }
-        if (m_cwSecondaryDecoder != nullptr) {
-            m_cwSecondaryDecoder->setMindEventClassifier(
-                [mindController](const QVector<float> &eventFeature,
-                                 QVector<float> *eventProbabilities,
-                                 double *confidencePercent) {
-                    if (mindController.isNull()) {
-                        return false;
-                    }
-                    return mindController->scoreCwEventFeature(eventFeature,
-                                                               eventProbabilities,
-                                                               confidencePercent);
-                });
-        }
-        if (m_rttyDecoder != nullptr) {
-            m_rttyDecoder->setMindSoftSlicerClassifier(
-                [mindController](const QVector<float> &bitFeature,
-                                 QVector<float> *bitProbabilities,
-                                 double *confidencePercent) {
-                    if (mindController.isNull()) {
-                        return false;
-                    }
-                    return mindController->scoreRttyBitFeature(bitFeature,
-                                                               bitProbabilities,
-                                                               confidencePercent);
-                });
-        }
     }
+    updateMindUiForMode(ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
     setupModeMenu();
     refreshQsoMaps();
     setupLanguageMenu();
@@ -1885,7 +1921,21 @@ void MainWindow::setupCustomWidgets()
 {
     QHBoxLayout *waterfallLayout = new QHBoxLayout(ui->frameWaterfall);
     waterfallLayout->setContentsMargins(0, 0, 0, 0);
-    waterfallLayout->setSpacing(6);
+    waterfallLayout->setSpacing(2);
+
+    if (ui->progressAudioLevel != nullptr) {
+        // Replaced by a compact LED-style VU meter beside the waterfall.
+        ui->progressAudioLevel->setVisible(false);
+        ui->progressAudioLevel->setMaximumWidth(0);
+    }
+
+    m_lblVuMeterDb = new QLabel(QStringLiteral("-inf dB"), ui->frameWaterfall);
+    m_lblVuMeterDb->setVisible(false);
+    m_lblVuMeterDb->setMaximumSize(0, 0);
+
+    m_ledVuMeter = new LedVuMeterWidget(ui->frameWaterfall);
+    m_ledVuMeter->setToolTip(uiText("audio_vu_meter_tooltip", "Input audio level. Green is safe, yellow is strong, red is near clipping."));
+    waterfallLayout->addWidget(m_ledVuMeter, 0);
 
     m_waterfallWidget = new WaterfallWidget(ui->frameWaterfall);
     waterfallLayout->addWidget(m_waterfallWidget, 1);
@@ -1920,11 +1970,11 @@ void MainWindow::setupCustomWidgets()
     setSstvQsoMapVisible(false);
     m_mainDisplayStack->addWidget(m_imageDisplayPage);
 
-    if (ui->statusTabLayout != nullptr &&
-        ui->tabStatus != nullptr &&
+    if (ui->modeTabLayout != nullptr &&
+        ui->tabModeSettings != nullptr &&
         ui->btnStartRx != nullptr &&
         ui->btnTxTone != nullptr) {
-        QWidget *transportBar = new QWidget(ui->tabStatus);
+        QWidget *transportBar = new QWidget(ui->tabModeSettings);
         QHBoxLayout *transportLayout = new QHBoxLayout(transportBar);
         transportLayout->setContentsMargins(4, 4, 4, 4);
         transportLayout->setSpacing(6);
@@ -1945,7 +1995,7 @@ void MainWindow::setupCustomWidgets()
 
         transportLayout->addWidget(ui->btnStartRx, 1);
         transportLayout->addWidget(ui->btnTxTone, 1);
-        ui->statusTabLayout->insertWidget(0, transportBar, 0);
+        ui->modeTabLayout->insertWidget(0, transportBar, 0);
     }
 
     if (ui->mainHorizontalSplitter != nullptr &&
@@ -1991,15 +2041,20 @@ void MainWindow::setupCustomWidgets()
     txLayout->setVerticalSpacing(6);
 
     QLabel *txImageCaption = new QLabel("Image", m_grpTxImage);
+    txImageCaption->setVisible(false);
     m_lblTxImageName = new QLabel("No TX image loaded", m_grpTxImage);
     m_lblTxImageName->setWordWrap(true);
+    m_lblTxImageName->setVisible(false);
 
     QLabel *txModeCaption = new QLabel("TX mode", m_grpTxImage);
+    txModeCaption->setVisible(false);
     m_lblTxMode = new QLabel("--", m_grpTxImage);
     m_lblTxMode->setWordWrap(true);
+    m_lblTxMode->setVisible(false);
 
     m_lblSstvTxPreview = new QLabel(m_grpTxImage);
-    m_lblSstvTxPreview->setMinimumSize(280, 215);
+    m_lblSstvTxPreview->setMinimumSize(220, 110);
+    m_lblSstvTxPreview->setMaximumHeight(145);
     m_lblSstvTxPreview->setFrameShape(QFrame::StyledPanel);
     m_lblSstvTxPreview->setAlignment(Qt::AlignCenter);
     m_lblSstvTxPreview->setText("SSTV preview");
@@ -2024,28 +2079,26 @@ void MainWindow::setupCustomWidgets()
     m_editSstvTxQth->setPlaceholderText("QTH");
     m_editSstvTxReport->setPlaceholderText("Report / note");
 
-    txLayout->addWidget(txImageCaption, 0, 0);
-    txLayout->addWidget(m_lblTxImageName, 0, 1, 1, 2);
-    txLayout->addWidget(txModeCaption, 1, 0);
-    txLayout->addWidget(m_lblTxMode, 1, 1, 1, 2);
-    txLayout->addWidget(m_lblSstvTxPreview, 2, 0, 1, 3);
-    txLayout->addWidget(m_btnLoadTxImage, 3, 0, 1, 3);
-    txLayout->addWidget(m_btnSstvEditor, 4, 0, 1, 3);
+    Q_UNUSED(txImageCaption);
+    Q_UNUSED(txModeCaption);
+    txLayout->addWidget(m_btnLoadTxImage, 0, 0, 1, 2);
+    txLayout->addWidget(m_btnSstvEditor, 0, 2, 1, 1);
+    txLayout->addWidget(m_lblSstvTxPreview, 1, 0, 1, 3);
     m_lblSstvTxCall = new QLabel("Call", m_grpTxImage);
     m_lblSstvTxName = new QLabel("Name", m_grpTxImage);
     m_lblSstvTxQth = new QLabel("QTH", m_grpTxImage);
     m_lblSstvTxInfo = new QLabel("Info", m_grpTxImage);
-    txLayout->addWidget(m_lblSstvTxCall, 5, 0);
-    txLayout->addWidget(m_editSstvTxCall, 5, 1, 1, 2);
-    txLayout->addWidget(m_lblSstvTxName, 6, 0);
-    txLayout->addWidget(m_editSstvTxName, 6, 1, 1, 2);
-    txLayout->addWidget(m_lblSstvTxQth, 7, 0);
-    txLayout->addWidget(m_editSstvTxQth, 7, 1, 1, 2);
-    txLayout->addWidget(m_lblSstvTxInfo, 8, 0);
-    txLayout->addWidget(m_editSstvTxReport, 8, 1, 1, 2);
-    txLayout->addWidget(m_progressTx, 9, 0, 1, 3);
-    txLayout->addWidget(m_btnStartImageTx, 10, 0, 1, 2);
-    txLayout->addWidget(m_btnStopImageTx, 10, 2);
+    txLayout->addWidget(m_lblSstvTxCall, 2, 0);
+    txLayout->addWidget(m_editSstvTxCall, 2, 1, 1, 2);
+    txLayout->addWidget(m_lblSstvTxName, 3, 0);
+    txLayout->addWidget(m_editSstvTxName, 3, 1, 1, 2);
+    txLayout->addWidget(m_lblSstvTxQth, 4, 0);
+    txLayout->addWidget(m_editSstvTxQth, 4, 1, 1, 2);
+    txLayout->addWidget(m_lblSstvTxInfo, 5, 0);
+    txLayout->addWidget(m_editSstvTxReport, 5, 1, 1, 2);
+    txLayout->addWidget(m_progressTx, 6, 0, 1, 3);
+    txLayout->addWidget(m_btnStartImageTx, 7, 0, 1, 2);
+    txLayout->addWidget(m_btnStopImageTx, 7, 2);
     txLayout->setColumnStretch(1, 1);
 
     ui->modeTabLayout->addWidget(m_grpTxImage);
@@ -2058,11 +2111,8 @@ void MainWindow::setupCustomWidgets()
     }
 
     m_btnSstvForceRx = new QPushButton(uiText("button.forceSstvRx", "Force SSTV RX now"), ui->grpSstvSettings);
-    m_btnSstvForceRx->setMinimumHeight(34);
-    m_btnSstvForceRx->setToolTip(uiText("tooltip.forceSstvRx", "Start live RX and force SSTV into manual free-running reception with the selected SSTV mode."));
-    if (ui->sstvSettingsGridLayout != nullptr) {
-        ui->sstvSettingsGridLayout->addWidget(m_btnSstvForceRx, 12, 0, 1, 3);
-    }
+    m_btnSstvForceRx->setVisible(false);
+    m_btnSstvForceRx->setEnabled(false);
 
     // Keep the right-side tabs compact: Status holds live receiver/waterfall/clock
     // information, Mode contains only mode-specific controls.
@@ -2080,10 +2130,10 @@ void MainWindow::setupCustomWidgets()
         ui->statusTabLayout->setSpacing(12);
     }
     if (ui->grpStatusMeters != nullptr) {
-        ui->grpStatusMeters->setTitle(QString());
-        ui->grpStatusMeters->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
-        ui->grpStatusMeters->setMinimumHeight(190);
-        ui->grpStatusMeters->setMaximumHeight(250);
+        // The old Status page duplicated information and consumed too much space.
+        // Audio level is now the vertical VU meter beside the waterfall.
+        ui->grpStatusMeters->setVisible(false);
+        ui->grpStatusMeters->setMaximumHeight(0);
     }
     if (ui->statusGridLayout != nullptr) {
         ui->statusGridLayout->setContentsMargins(14, 16, 14, 16);
@@ -2118,8 +2168,8 @@ void MainWindow::setupCustomWidgets()
         ui->lblDecoderState->setToolTip(ui->lblDecoderState->text());
     }
     if (ui->progressAudioLevel != nullptr) {
-        ui->progressAudioLevel->setMinimumHeight(26);
-        ui->progressAudioLevel->setMaximumHeight(34);
+        ui->progressAudioLevel->setMinimumHeight(120);
+        ui->progressAudioLevel->setMaximumHeight(QWIDGETSIZE_MAX);
     }
 
     if (ui->modeTabLayout != nullptr && ui->stkModeSettings != nullptr && ui->stkModeSettings->parentWidget() != ui->tabModeSettings) {
@@ -2132,26 +2182,8 @@ void MainWindow::setupCustomWidgets()
         ui->modeTabLayout->addWidget(m_grpTxImage);
     }
 
-    if (ui->statusTabLayout != nullptr) {
-        m_grpRigStatus = new QGroupBox(uiText("rig_status_group", "Rig / CAT"), ui->tabStatus);
-        QVBoxLayout *rigLayout = new QVBoxLayout(m_grpRigStatus);
-        rigLayout->setContentsMargins(8, 8, 8, 8);
-        rigLayout->setSpacing(4);
-        m_lblRigCatStatus = new QLabel(uiText("rig_cat_disabled", "CAT: disabled"), m_grpRigStatus);
-        m_lblRigCatStatus->setWordWrap(true);
-        m_lblRigFrequency = new QLabel(uiText("rig_frequency", "Frequency") + QStringLiteral(": --"), m_grpRigStatus);
-        m_lblRigFrequency->setWordWrap(true);
-        m_lblRigFrequency->setStyleSheet(QStringLiteral("font-weight: bold;"));
-        m_lblRigPttStatus = new QLabel(uiText("rig_ptt", "PTT") + QStringLiteral(": --"), m_grpRigStatus);
-        m_lblRigPttStatus->setWordWrap(true);
-        rigLayout->addWidget(m_lblRigCatStatus);
-        rigLayout->addWidget(m_lblRigFrequency);
-        rigLayout->addWidget(m_lblRigPttStatus);
-        m_grpRigStatus->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
-        m_grpRigStatus->setMinimumHeight(116);
-        m_grpRigStatus->setMaximumHeight(145);
-        ui->statusTabLayout->addWidget(m_grpRigStatus, 0);
-    }
+    // Status tab cleanup: do not create the old Rig/CAT diagnostic block here.
+    // CAT/PTT diagnostics remain in Settings and the FT runtime log when needed.
 
     if (ui->modeTabLayout != nullptr) {
         m_btnShowRuntimeLog = new QPushButton(uiText("runtime_log_button", "Runtime log"), ui->tabModeSettings);
@@ -2163,47 +2195,11 @@ void MainWindow::setupCustomWidgets()
         m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName));
     }
 
-    if (ui->statusTabLayout != nullptr) {
-        m_grpWaterfallDisplay = new QGroupBox(ui->tabStatus);
-        m_grpWaterfallDisplay->setTitle(QString());
-        QVBoxLayout *wfDisplayLayout = new QVBoxLayout(m_grpWaterfallDisplay);
-        wfDisplayLayout->setContentsMargins(12, 12, 12, 12);
-        wfDisplayLayout->setSpacing(10);
-
-        m_lblWaterfallScale = new QLabel(m_grpWaterfallDisplay);
-        m_lblWaterfallScale->setWordWrap(true);
-        m_sliderWaterfallScale = new QSlider(Qt::Horizontal, m_grpWaterfallDisplay);
-        m_sliderWaterfallScale->setRange(0, 100);
-        m_sliderWaterfallScale->setSingleStep(5);
-        m_sliderWaterfallScale->setPageStep(10);
-        m_sliderWaterfallScale->setTickInterval(10);
-        m_sliderWaterfallScale->setTickPosition(QSlider::TicksBelow);
-        m_sliderWaterfallScale->setValue(qBound(0, m_settings.waterfallColorScalePercent, 100));
-        m_sliderWaterfallScale->setToolTip(uiText("waterfall_scale_tooltip", "Display contrast/gamma for the waterfall. Lower values push the noise floor down while strong signals still reach the hot colours."));
-
-        m_cmbWaterfallPalette = new QComboBox(m_grpWaterfallDisplay);
-        m_cmbWaterfallPalette->addItem(uiText("waterfall_palette_madmodem", "MadModem / WSJT-X default"), QStringLiteral("madmodem"));
-        m_cmbWaterfallPalette->addItem(uiText("waterfall_palette_wsjtx", "WSJT-X default"), QStringLiteral("wsjtx"));
-        m_cmbWaterfallPalette->addItem(uiText("waterfall_palette_mshv", "MSHV contrast"), QStringLiteral("mshv"));
-        m_cmbWaterfallPalette->addItem(uiText("waterfall_palette_fldigi", "fldigi colours"), QStringLiteral("fldigi"));
-        m_cmbWaterfallPalette->addItem(uiText("waterfall_palette_raptor", "Raptor green"), QStringLiteral("raptor"));
-        m_cmbWaterfallPalette->addItem(uiText("waterfall_palette_grayscale", "Grayscale"), QStringLiteral("grayscale"));
-        const int paletteIndex = m_cmbWaterfallPalette->findData(m_settings.waterfallPalette);
-        m_cmbWaterfallPalette->setCurrentIndex(paletteIndex >= 0 ? paletteIndex : 0);
-        m_cmbWaterfallPalette->setToolTip(uiText("waterfall_palette_tooltip", "Selects the waterfall colour palette. The default palette follows WSJT-X-style weak-signal contrast."));
-
-        wfDisplayLayout->addWidget(m_lblWaterfallScale);
-        wfDisplayLayout->addWidget(m_sliderWaterfallScale);
-        wfDisplayLayout->addWidget(new QLabel(uiText("waterfall_palette", "Palette") + QStringLiteral(":"), m_grpWaterfallDisplay));
-        wfDisplayLayout->addWidget(m_cmbWaterfallPalette);
-        m_grpWaterfallDisplay->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
-        m_grpWaterfallDisplay->setMaximumHeight(240);
-        ui->statusTabLayout->addWidget(m_grpWaterfallDisplay, 0);
-
-        if (m_waterfallWidget != nullptr) {
-            m_waterfallWidget->setColorScalePercent(m_settings.waterfallColorScalePercent);
-            m_waterfallWidget->setPaletteName(m_settings.waterfallPalette);
-        }
+    m_settings.waterfallColorScalePercent = 80;
+    m_settings.waterfallPalette = QStringLiteral("madmodem");
+    if (m_waterfallWidget != nullptr) {
+        m_waterfallWidget->setColorScalePercent(80);
+        m_waterfallWidget->setPaletteName(QStringLiteral("madmodem"));
     }
 
     if (ui->statusTabLayout != nullptr) {
@@ -2226,6 +2222,13 @@ void MainWindow::setupCustomWidgets()
             const int modeTabIndex = ui->sideTabWidget->indexOf(ui->tabModeSettings);
             if (modeTabIndex >= 0) {
                 ui->sideTabWidget->setTabText(modeTabIndex, uiText("tab_mode", "Mode"));
+                ui->sideTabWidget->setCurrentIndex(modeTabIndex);
+            }
+        }
+        if (ui->tabStatus != nullptr && ui->sideTabWidget->tabBar() != nullptr) {
+            const int statusIndex = ui->sideTabWidget->indexOf(ui->tabStatus);
+            if (statusIndex >= 0) {
+                ui->sideTabWidget->tabBar()->setTabVisible(statusIndex, false);
             }
         }
     }
@@ -3444,6 +3447,7 @@ void MainWindow::setupRttyPage()
     m_spinRttyShiftHz = new QSpinBox(settingsGroup);
     m_spinRttyMarkHz = new QSpinBox(settingsGroup);
     m_chkRttyReverse = new QCheckBox("Reverse polarity", settingsGroup);
+    m_chkRttyAutoReverse = new QCheckBox("Auto polarity", settingsGroup);
     m_chkRttyAfc = new QCheckBox("AFC", settingsGroup);
     m_spinRttyAfcRangeHz = new QSpinBox(settingsGroup);
 
@@ -3474,9 +3478,10 @@ void MainWindow::setupRttyPage()
     grid->addWidget(new QLabel("Mark", settingsGroup), 3, 0);
     grid->addWidget(m_spinRttyMarkHz, 3, 1, 1, 2);
     grid->addWidget(m_chkRttyReverse, 4, 0, 1, 3);
-    grid->addWidget(m_chkRttyAfc, 5, 0, 1, 1);
-    grid->addWidget(new QLabel("AFC range", settingsGroup), 5, 1);
-    grid->addWidget(m_spinRttyAfcRangeHz, 5, 2);
+    grid->addWidget(m_chkRttyAutoReverse, 5, 0, 1, 3);
+    grid->addWidget(m_chkRttyAfc, 6, 0, 1, 1);
+    grid->addWidget(new QLabel("AFC range", settingsGroup), 6, 1);
+    grid->addWidget(m_spinRttyAfcRangeHz, 6, 2);
     grid->setColumnStretch(1, 1);
 
     // RTTY contest/multi-decode DSP controls live in the dedicated DSP tab.
@@ -3538,6 +3543,7 @@ void MainWindow::loadRttySettingsToUi()
         m_spinRttyShiftHz == nullptr ||
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
+        m_chkRttyAutoReverse == nullptr ||
         m_chkRttyAfc == nullptr ||
         m_spinRttyAfcRangeHz == nullptr) {
         return;
@@ -3548,6 +3554,7 @@ void MainWindow::loadRttySettingsToUi()
     const QSignalBlocker blockShift(m_spinRttyShiftHz);
     const QSignalBlocker blockMark(m_spinRttyMarkHz);
     const QSignalBlocker blockReverse(m_chkRttyReverse);
+    const QSignalBlocker blockAutoReverse(m_chkRttyAutoReverse);
     const QSignalBlocker blockAfc(m_chkRttyAfc);
     const QSignalBlocker blockAfcRange(m_spinRttyAfcRangeHz);
     const QSignalBlocker blockMulti(m_chkRttyMultiDecode);
@@ -3565,7 +3572,8 @@ void MainWindow::loadRttySettingsToUi()
     m_spinRttyBaud->setValue(qBound(10.0, customPreset ? m_settings.rttyBaudRate : preset.baud, 300.0));
     m_spinRttyShiftHz->setValue(qBound(50, customPreset ? m_settings.rttyShiftHz : preset.shiftHz, 1200));
     m_spinRttyMarkHz->setValue(qBound(300, preset.markHz, 3500));
-    m_chkRttyReverse->setChecked(customPreset ? m_settings.rttyReverse : preset.reverse);
+    m_chkRttyReverse->setChecked(m_settings.rttyReverse);
+    m_chkRttyAutoReverse->setChecked(m_settings.rttyAutoReverseEnabled);
     m_chkRttyAfc->setChecked(m_settings.rttyAfcEnabled);
     m_spinRttyAfcRangeHz->setValue(qBound(5, m_settings.rttyAfcRangeHz, 100));
     if (m_chkRttyMultiDecode != nullptr) m_chkRttyMultiDecode->setChecked(m_settings.rttyMultiDecodeEnabled);
@@ -3797,8 +3805,9 @@ void MainWindow::setupCwPage()
     m_spinCwAfcRangeHz->setPrefix(QString::fromUtf8("±"));
     m_spinCwAfcRangeHz->setSuffix(" Hz");
 
-    m_chkCwSoftwareAgc = new QCheckBox(uiText("dsp_software_agc", "Software AGC"), settingsGroup);
-    m_chkCwSoftwareAgc->setToolTip(uiText("cw_software_agc_tooltip", "Slow RX audio normalizer for CW. Useful with QSB or unstable input level; it never touches TX audio."));
+    // CW uses ggmorse with bounded internal input leveling.
+    // The generic software AGC checkbox is intentionally not shown for CW.
+    m_chkCwSoftwareAgc = nullptr;
 
     grid->addWidget(new QLabel("Tone", settingsGroup), 0, 0);
     grid->addWidget(m_spinCwToneHz, 0, 1, 1, 2);
@@ -3811,12 +3820,11 @@ void MainWindow::setupCwPage()
     grid->addWidget(m_chkCwAfc, 4, 0, 1, 1);
     grid->addWidget(new QLabel("AFC range", settingsGroup), 4, 1);
     grid->addWidget(m_spinCwAfcRangeHz, 4, 2);
-    grid->addWidget(m_chkCwSoftwareAgc, 5, 0, 1, 3);
-    grid->addWidget(m_lblCwDualRx, 6, 0, 1, 2);
-    grid->addWidget(m_btnCwDisableSecondary, 6, 2);
+    grid->addWidget(m_lblCwDualRx, 5, 0, 1, 2);
+    grid->addWidget(m_btnCwDisableSecondary, 5, 2);
     grid->setColumnStretch(1, 1);
 
-    QLabel *hint = new QLabel(uiText("cw_dual_rx_hint", "CW RX: left click sets green RX A; right click sets blue RX B. Each decoder has its own AFC/Auto-WPM tracking internally. Yellow dashed lines show the active CW filter passband around each selected tone."), m_pageCwSettings);
+    QLabel *hint = new QLabel(uiText("cw_dual_rx_hint", "CW RX: left click sets green RX A; right click sets blue RX B. Each ggmorse decoder has its own Auto-WPM/AFC tracking. Yellow dashed lines show the active CW filter passband around each selected tone."), m_pageCwSettings);
     hint->setWordWrap(true);
 
     outerLayout->addWidget(settingsGroup);
@@ -3835,8 +3843,7 @@ void MainWindow::loadCwSettingsToUi()
         m_chkCwAutoWpm == nullptr ||
         m_spinCwBandwidthHz == nullptr ||
         m_chkCwAfc == nullptr ||
-        m_spinCwAfcRangeHz == nullptr ||
-        m_chkCwSoftwareAgc == nullptr) {
+        m_spinCwAfcRangeHz == nullptr) {
         return;
     }
 
@@ -3846,7 +3853,6 @@ void MainWindow::loadCwSettingsToUi()
     const QSignalBlocker blockBandwidth(m_spinCwBandwidthHz);
     const QSignalBlocker blockAfc(m_chkCwAfc);
     const QSignalBlocker blockAfcRange(m_spinCwAfcRangeHz);
-    const QSignalBlocker blockAgc(m_chkCwSoftwareAgc);
 
     m_spinCwToneHz->setValue(qBound(250, m_settings.cwToneHz, 2500));
     m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
@@ -3861,7 +3867,7 @@ void MainWindow::loadCwSettingsToUi()
     m_spinCwBandwidthHz->setValue(qBound(40, m_settings.cwBandwidthHz, 500));
     m_chkCwAfc->setChecked(m_settings.cwAfcEnabled);
     m_spinCwAfcRangeHz->setValue(qBound(5, m_settings.cwAfcRangeHz, 100));
-    m_chkCwSoftwareAgc->setChecked(m_settings.cwAgcEnabled);
+    m_settings.cwAgcEnabled = false;
 }
 
 
@@ -3909,20 +3915,32 @@ void MainWindow::setupHellPage()
     m_spinHellAfcRangeHz->setPrefix(QString::fromUtf8("±"));
     m_spinHellAfcRangeHz->setSuffix(" Hz");
 
+    m_sliderHellPaperScale = new QSlider(Qt::Horizontal, settingsGroup);
+    m_sliderHellPaperScale->setRange(1, 12);
+    m_sliderHellPaperScale->setSingleStep(1);
+    m_sliderHellPaperScale->setPageStep(1);
+    m_sliderHellPaperScale->setTickPosition(QSlider::TicksBelow);
+    m_sliderHellPaperScale->setTickInterval(1);
+    m_lblHellPaperScale = new QLabel(settingsGroup);
+    m_lblHellPaperScale->setMinimumWidth(46);
+
     grid->addWidget(new QLabel("Variant", settingsGroup), 0, 0);
     grid->addWidget(m_cmbHellVariant, 0, 1, 1, 2);
     grid->addWidget(new QLabel("Center tone", settingsGroup), 1, 0);
     grid->addWidget(m_spinHellToneHz, 1, 1, 1, 2);
-    grid->addWidget(new QLabel("Column rate", settingsGroup), 2, 0);
+    grid->addWidget(new QLabel("Paper speed", settingsGroup), 2, 0);
     grid->addWidget(m_spinHellColumnRate, 2, 1, 1, 2);
     grid->addWidget(new QLabel("Bandwidth", settingsGroup), 3, 0);
     grid->addWidget(m_spinHellBandwidthHz, 3, 1, 1, 2);
     grid->addWidget(m_chkHellAfc, 4, 0, 1, 1);
     grid->addWidget(new QLabel("AFC range", settingsGroup), 4, 1);
     grid->addWidget(m_spinHellAfcRangeHz, 4, 2);
+    grid->addWidget(new QLabel("Paper zoom", settingsGroup), 5, 0);
+    grid->addWidget(m_sliderHellPaperScale, 5, 1);
+    grid->addWidget(m_lblHellPaperScale, 5, 2);
     grid->setColumnStretch(1, 1);
 
-    QLabel *hint = new QLabel("Feld Hell and FSK-105 are read visually on the paper display in the main pane. Use the same macro and TX input workflow as RTTY/BPSK; click the waterfall to retune the center carrier for this session.", m_pageHellSettings);
+    QLabel *hint = new QLabel("Feld Hell and FSK-105 are read visually on the same paper display. Paper zoom is a zoom control; paper speed changes the Hell column rate. Local TX is printed in red on the same paper.", m_pageHellSettings);
     hint->setWordWrap(true);
 
     outerLayout->addWidget(settingsGroup);
@@ -3942,7 +3960,9 @@ void MainWindow::loadHellSettingsToUi()
         m_spinHellColumnRate == nullptr ||
         m_spinHellBandwidthHz == nullptr ||
         m_chkHellAfc == nullptr ||
-        m_spinHellAfcRangeHz == nullptr) {
+        m_spinHellAfcRangeHz == nullptr ||
+        m_sliderHellPaperScale == nullptr ||
+        m_lblHellPaperScale == nullptr) {
         return;
     }
 
@@ -3952,6 +3972,7 @@ void MainWindow::loadHellSettingsToUi()
     const QSignalBlocker blockBandwidth(m_spinHellBandwidthHz);
     const QSignalBlocker blockAfc(m_chkHellAfc);
     const QSignalBlocker blockAfcRange(m_spinHellAfcRangeHz);
+    const QSignalBlocker blockPaperScale(m_sliderHellPaperScale);
 
     const int variantIndex = m_cmbHellVariant->findData(m_settings.hellVariant);
     m_cmbHellVariant->setCurrentIndex(variantIndex >= 0 ? variantIndex : 0);
@@ -3960,6 +3981,9 @@ void MainWindow::loadHellSettingsToUi()
     m_spinHellBandwidthHz->setValue(qBound(40, m_settings.hellBandwidthHz, 800));
     m_chkHellAfc->setChecked(m_settings.hellAfcEnabled);
     m_spinHellAfcRangeHz->setValue(qBound(5, m_settings.hellAfcRangeHz, 100));
+    const int paperScale = qBound(1, m_settings.hellPaperScale, 12);
+    m_sliderHellPaperScale->setValue(paperScale);
+    m_lblHellPaperScale->setText(QStringLiteral("x%1").arg(paperScale));
 }
 
 
@@ -4491,6 +4515,32 @@ void MainWindow::setupHelpTooltips()
     ui->lblFaxHint->setVisible(false);
     ui->cmbSstvMode->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     ui->lblSstvHint->setVisible(false);
+    const QList<QWidget *> sstvAdvancedHidden = {
+        ui->lblSstvHorizontalShift,
+        ui->spinSstvHorizontalShift,
+        ui->lblSstvRedShift,
+        ui->spinSstvRedShift,
+        ui->lblSstvBlueShift,
+        ui->spinSstvBlueShift
+    };
+    for (QWidget *w : sstvAdvancedHidden) {
+        if (w != nullptr) {
+            w->setVisible(false);
+            w->setEnabled(false);
+        }
+    }
+    if (ui->sstvSettingsLayout != nullptr && ui->sstvSettingsLayout->count() > 1) {
+        if (QLayoutItem *item = ui->sstvSettingsLayout->itemAt(1)) {
+            if (QSpacerItem *spacer = item->spacerItem()) {
+                spacer->changeSize(0, 0, QSizePolicy::Minimum, QSizePolicy::Fixed);
+            }
+        }
+        ui->sstvSettingsLayout->setSpacing(4);
+        ui->sstvSettingsLayout->invalidate();
+    }
+    if (ui->pageSstvSettings != nullptr) {
+        ui->pageSstvSettings->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+    }
 
     const QString modeHelp = uiText("tooltip.mode_selector", "Select the active modem mode: MeteoFax/WEFAX, SSTV, RTTY, PSK/QPSK, MFSK, CW Morse, Feld Hell, FT4 or FT8.");
     setHelpText(ui->cmbMode, modeHelp);
@@ -4591,6 +4641,9 @@ void MainWindow::setupHelpTooltips()
         setHelpText(m_spinRttyShiftHz, "Frequency shift between mark and space tones. Common amateur narrow shift is 170 Hz; utility modes often use 425 or 850 Hz.");
         setHelpText(m_spinRttyMarkHz, "Audio mark tone in Hz. High-tone AFSK commonly uses 2125 Hz; low-tone AFSK often uses 1275 Hz. Waterfall click tuning sets this marker for the current session.");
         setHelpText(m_chkRttyReverse, "Invert mark/space logic. Enable when decoded text is garbage but the signal is otherwise strong and centered.");
+        if (m_chkRttyAutoReverse != nullptr) {
+            setHelpText(m_chkRttyAutoReverse, "Let the RTTY decoder flip Reverse polarity automatically when framing repeatedly looks inverted. Manual Reverse polarity remains available.");
+        }
         setHelpText(m_chkRttyAfc, "Enable narrow AFC around the current RTTY markers. Mark and Space are searched independently so each carrier can settle on its own local energy peak.");
         setHelpText(m_spinRttyAfcRangeHz, "Maximum AFC search window around each RTTY marker. Start with ±20 Hz; use smaller values for crowded contest bands.");
         setHelpText(m_chkRttyMultiDecode, "Run lightweight parallel RTTY shadow decoders over the waterfall while the main terminal remains tuned to the selected signal.");
@@ -4653,11 +4706,12 @@ void MainWindow::setupHelpTooltips()
     if (m_spinHellToneHz != nullptr) {
         setHelpText(m_cmbHellVariant, "Select classic keyed-amplitude Feld Hell or two-tone FSK-105 Hellschreiber.");
         setHelpText(m_spinHellToneHz, "Hellschreiber center carrier tone in Hz. Click the waterfall to retune this session-only marker directly.");
-        setHelpText(m_spinHellColumnRate, "Hellschreiber column rate. Classic Feld Hell and FSK-105 use 17.5 columns per second.");
+        setHelpText(m_spinHellColumnRate, "Paper speed / Hellschreiber column rate. Use this if received letters look horizontally compressed or stretched. Standard Feld Hell and FSK-105 use 17.5 columns per second.");
         setHelpText(m_spinHellBandwidthHz, "RX tone detector bandwidth for the visual Hell paper. FSK-105 uses two tones around the center marker.");
         setHelpText(m_chkHellAfc, "Enable narrow AFC around the Hellschreiber center marker. The paper follows the strongest local keyed-tone energy peak.");
         setHelpText(m_spinHellAfcRangeHz, "Maximum AFC search window around the Hellschreiber marker. ±10 to ±20 Hz is a good starting point.");
-        setHelpText(m_txtHellTx, "Text to transmit as Hellschreiber. The generated signal is also printed locally on the virtual paper.");
+        setHelpText(m_sliderHellPaperScale, "Zoom the Hellschreiber paper on both axes. Existing RX/TX pixels are preserved; only the display scale changes.");
+        setHelpText(m_txtHellTx, "Text to transmit as Hellschreiber. Local TX is printed in red on the same paper tape.");
         setHelpText(m_btnHellResetImage, "Clear the Hellschreiber virtual receive paper.");
         setHelpText(m_btnHellLoadTxText, "Load plain text for Hellschreiber transmission.");
         setHelpText(m_btnHellClearTx, "Clear the Hellschreiber transmission text.");
@@ -4875,23 +4929,28 @@ void MainWindow::setupProcessingConnections()
     connect(m_rttyDecoder, &RttyDecoder::characterReceived,
             this, &MainWindow::handleRttyTextUpdated,
             Qt::QueuedConnection);
-    if (m_ddspController != nullptr) {
-        connect(m_rttyDecoder, &RttyDecoder::characterReceived,
-                this, [this](const QString &text) {
-                    m_ddspController->submitConfirmedText(QStringLiteral("RTTY"), text);
-                },
-                Qt::QueuedConnection);
-        connect(m_rttyDecoder, &RttyDecoder::mindRttyBitSampleReady,
-                this, [this](const QVector<float> &input, const QVector<float> &target, const QString &label) {
-                    if (m_ddspController != nullptr) {
-                        m_ddspController->submitRttyBitSample(input, target, label);
-                    }
-                },
-                Qt::QueuedConnection);
-    }
+    // MIND is not part of the RTTY live chain.  RTTY remains a classical
+    // matched-filter/Baudot decoder; no RTTY text or bit samples are sent to MIND.
 
     connect(m_rttyDecoder, &RttyDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
+
+    connect(m_rttyDecoder, &RttyDecoder::reversePolarityRequested,
+            this, [this](bool reverse) {
+                if (m_chkRttyAutoReverse == nullptr || !m_chkRttyAutoReverse->isChecked() ||
+                    m_chkRttyReverse == nullptr || m_chkRttyReverse->isChecked() == reverse) {
+                    return;
+                }
+                {
+                    const QSignalBlocker blockReverse(m_chkRttyReverse);
+                    m_chkRttyReverse->setChecked(reverse);
+                }
+                applyRttySettings();
+                handleWeatherFaxStatus(reverse
+                                           ? QStringLiteral("RTTY: auto polarity enabled Reverse polarity")
+                                           : QStringLiteral("RTTY: auto polarity disabled Reverse polarity"));
+            },
+            Qt::QueuedConnection);
 
     connect(m_rttyDecoder, &RttyDecoder::tuningScopeChanged,
             this, [this](double markLevel, double spaceLevel, double snrLike, bool locked) {
@@ -4991,16 +5050,7 @@ void MainWindow::setupProcessingConnections()
     connect(m_cwDecoder, &CwDecoder::characterReceived,
             this, &MainWindow::handleCwTextUpdated,
             Qt::QueuedConnection);
-    // Do not feed every raw CW character directly into MIND as final text truth:
-    // CW has no CRC/parity.  The MIND CW profile is an event/timing helper
-    // (key-down, dit, dah and gaps), not an audio-to-text generator.
-    connect(m_cwDecoder, &CwDecoder::mindEventSampleReady,
-            this, [this](const QVector<float> &input, const QVector<float> &target, const QString &label) {
-                if (m_ddspController != nullptr) {
-                    m_ddspController->submitCwEventSample(input, target, label);
-                }
-            },
-            Qt::QueuedConnection);
+    // CW text is produced only by the bundled ggmorse decoder.
 
     connect(m_cwDecoder, &CwDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -5044,14 +5094,6 @@ void MainWindow::setupProcessingConnections()
             },
             Qt::QueuedConnection);
 
-    connect(m_cwSecondaryDecoder, &CwDecoder::mindEventSampleReady,
-            this, [this](const QVector<float> &input, const QVector<float> &target, const QString &label) {
-                if (m_ddspController != nullptr && m_cwSecondaryEnabled) {
-                    m_ddspController->submitCwEventSample(input, target, QStringLiteral("B/") + label);
-                }
-            },
-            Qt::QueuedConnection);
-
     connect(m_cwSecondaryDecoder, &CwDecoder::statusChanged,
             this, [this](const QString &status) {
                 if (m_cwSecondaryEnabled) {
@@ -5090,9 +5132,7 @@ void MainWindow::setupProcessingConnections()
                     return;
                 }
 
-                m_lblHellRaster->setPixmap(QPixmap::fromImage(image));
-                m_lblHellRaster->setMinimumSize(image.size());
-                m_lblHellRaster->resize(image.size());
+                updateHellRasterDisplay(image);
             });
 
     connect(m_hellDecoder, &HellschreiberDecoder::statusChanged,
@@ -5614,9 +5654,9 @@ void MainWindow::applyUiLanguage()
         m_cmbWaterfallPalette->setToolTip(uiText("waterfall_palette_tooltip", "Selects the waterfall colour palette. The default palette follows WSJT-X-style weak-signal contrast."));
     }
     if (ui->sideTabWidget != nullptr) {
-        if (ui->tabStatus != nullptr) {
+        if (ui->tabStatus != nullptr && ui->sideTabWidget->tabBar() != nullptr) {
             const int i = ui->sideTabWidget->indexOf(ui->tabStatus);
-            if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("tab_status", "Status"));
+            if (i >= 0) ui->sideTabWidget->tabBar()->setTabVisible(i, false);
         }
         if (ui->tabModeSettings != nullptr) {
             const int i = ui->sideTabWidget->indexOf(ui->tabModeSettings);
@@ -5630,7 +5670,12 @@ void MainWindow::applyUiLanguage()
             const int i = ui->sideTabWidget->indexOf(m_tabCatRotator);
             if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("tab_rotator", "Rotator"));
         }
+        if (m_ddspPanelWidget != nullptr) {
+            const int i = ui->sideTabWidget->indexOf(m_ddspPanelWidget);
+            if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("tab_ddsp", "MIND"));
+        }
     }
+    updateMindUiForMode(ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
     updateBandSchedulerTabForMode(ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
     updateDspTabForMode(ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
     updateFt8DecodePerformanceUi();
@@ -5965,6 +6010,11 @@ void MainWindow::setupUiConnections()
                 this, [this](bool) { applyRttySettings(); });
     }
 
+    if (m_chkRttyAutoReverse != nullptr) {
+        connect(m_chkRttyAutoReverse, &QCheckBox::toggled,
+                this, [this](bool) { applyRttySettings(); });
+    }
+
     if (m_chkRttyAfc != nullptr) {
         connect(m_chkRttyAfc, &QCheckBox::toggled,
                 this, [this](bool) { applyRttySettings(); });
@@ -6233,6 +6283,11 @@ void MainWindow::setupUiConnections()
 
     if (m_spinHellAfcRangeHz != nullptr) {
         connect(m_spinHellAfcRangeHz, QOverload<int>::of(&QSpinBox::valueChanged),
+                this, [this](int) { applyHellSettings(); });
+    }
+
+    if (m_sliderHellPaperScale != nullptr) {
+        connect(m_sliderHellPaperScale, &QSlider::valueChanged,
                 this, [this](int) { applyHellSettings(); });
     }
 
@@ -6629,6 +6684,7 @@ void MainWindow::applyPersistentSettingsToRuntime()
     m_rttyDecoder->setTones(static_cast<double>(m_settings.rttyMarkHz),
                             static_cast<double>(m_settings.rttyMarkHz + m_settings.rttyShiftHz));
     m_rttyDecoder->setReverse(m_settings.rttyReverse);
+    m_rttyDecoder->setAutoReverseEnabled(m_settings.rttyAutoReverseEnabled);
 
     m_bpsk31Decoder->setSymbolRate(bpskSymbolRateForVariant(m_settings.bpsk31Variant));
     m_bpsk31Decoder->setQpskMode(pskVariantIsQpsk(m_settings.bpsk31Variant));
@@ -6660,6 +6716,7 @@ void MainWindow::applyPersistentSettingsToRuntime()
     m_hellDecoder->setToneHz(static_cast<double>(m_settings.hellToneHz));
     m_hellDecoder->setColumnRate(m_settings.hellColumnRate);
     m_hellDecoder->setBandwidthHz(static_cast<double>(m_settings.hellBandwidthHz));
+    m_hellDecoder->setVerticalScale(m_settings.hellPaperScale);
     m_hellDecoder->setFskShiftHz(HellschreiberDecoder::fsk105ShiftHz());
 
     if (m_ft8RxDecoder != nullptr) {
@@ -7027,9 +7084,15 @@ void MainWindow::updateBandSchedulerTabForMode(const QString &modeName)
                                 ? ui->cmbMode->currentText()
                                 : modeName.trimmed();
     const QString group = schedulerModeGroup(currentMode);
-    const QString display = group == QStringLiteral("FT")
-                            ? uiText("scheduler_ft_group", "FT4/FT8")
-                            : (currentMode.isEmpty() ? uiText("none", "None") : currentMode);
+    if (m_tabBandScheduler != nullptr) {
+        m_tabBandScheduler->setVisible(!group.isEmpty());
+    }
+    if (group.isEmpty()) {
+        return;
+    }
+    const QString display = group == QStringLiteral("WEFAX")
+                            ? uiText("scheduler_wefax_group", "MeteoFax / HF WEFAX RX")
+                            : group;
 
     const bool enabledForMode = isBandSchedulerEnabledForMode(group);
     QString statusText;
@@ -7084,7 +7147,10 @@ void MainWindow::updateDspTabForMode(const QString &modeName)
     if (tabIndex >= 0) {
         ui->sideTabWidget->tabBar()->setTabVisible(tabIndex, showTab);
         if (!showTab && ui->sideTabWidget->currentIndex() == tabIndex) {
-            ui->sideTabWidget->setCurrentIndex(0);
+            const int modeIndex = ui->tabModeSettings != nullptr
+                ? ui->sideTabWidget->indexOf(ui->tabModeSettings)
+                : -1;
+            ui->sideTabWidget->setCurrentIndex(modeIndex >= 0 ? modeIndex : 0);
         }
     }
     if (!showTab) {
@@ -7330,12 +7396,15 @@ void MainWindow::setDspAgcEnabledForModeKey(const QString &modeKey, bool enabled
 QString MainWindow::schedulerModeGroup(const QString &modeName) const
 {
     const QString mode = modeName.trimmed();
-    if (mode.compare(QStringLiteral("FT4"), Qt::CaseInsensitive) == 0 ||
-        mode.compare(QStringLiteral("FT8"), Qt::CaseInsensitive) == 0 ||
-        Ft8Mode::isFamilyMode(mode)) {
-        return QStringLiteral("FT");
+    if (mode.compare(QStringLiteral("WEFAX"), Qt::CaseInsensitive) == 0 ||
+        mode.compare(QStringLiteral("MeteoFax / HF WEFAX"), Qt::CaseInsensitive) == 0 ||
+        mode.compare(QStringLiteral("MeteoFax / HF WEFAX RX"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("WEFAX");
     }
-    return mode;
+    if (mode.compare(QStringLiteral("RTTY"), Qt::CaseInsensitive) == 0) {
+        return QStringLiteral("RTTY");
+    }
+    return QString();
 }
 
 QString MainWindow::activeSchedulerModeGroup() const
@@ -7759,6 +7828,9 @@ void MainWindow::setReceiverRunning(bool running)
         m_spinHellToneHz->setEnabled(configurable);
         m_spinHellColumnRate->setEnabled(configurable);
         m_spinHellBandwidthHz->setEnabled(configurable);
+        if (m_sliderHellPaperScale != nullptr) {
+            m_sliderHellPaperScale->setEnabled(!m_offlineAnalysisActive);
+        }
         m_chkHellAfc->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         m_spinHellAfcRangeHz->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         m_txtHellTx->setEnabled(!m_offlineAnalysisActive);
@@ -7985,9 +8057,7 @@ void MainWindow::finishPendingModeChange()
 
 void MainWindow::handleModeChanged(const QString &modeName)
 {
-    if (m_ddspController != nullptr) {
-        m_ddspController->setRuntimeMode(modeName);
-    }
+    updateMindUiForMode(modeName);
     updateCentralDisplayForMode(modeName);
     populateQsoFormDefaults(activeQsoForm(), modeName);
     updateBandSchedulerTabForMode(modeName);
@@ -8043,9 +8113,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
 
         if (m_lblHellRaster != nullptr) {
             const QImage image = m_hellDecoder->currentImage();
-            m_lblHellRaster->setPixmap(QPixmap::fromImage(image));
-            m_lblHellRaster->setMinimumSize(image.size());
-            m_lblHellRaster->resize(image.size());
+            updateHellRasterDisplay(image);
         }
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         if (m_pageFt8Settings != nullptr) {
@@ -8066,6 +8134,50 @@ void MainWindow::handleModeChanged(const QString &modeName)
 
     updateWaterfallMarkers();
     updateTxPreview();
+}
+
+
+bool MainWindow::modeSupportsMind(const QString &modeName) const
+{
+    return Ft8Mode::isFamilyMode(modeName);
+}
+
+void MainWindow::updateMindUiForMode(const QString &modeName)
+{
+    const QString currentMode = modeName.trimmed().isEmpty() && ui != nullptr && ui->cmbMode != nullptr
+        ? ui->cmbMode->currentText()
+        : modeName.trimmed();
+    const bool ftMindMode = modeSupportsMind(currentMode);
+
+    if (m_ddspController != nullptr) {
+        if (ftMindMode) {
+            m_ddspController->setRuntimeMode(currentMode);
+        } else {
+            m_ddspController->setAssistMode(QStringLiteral("off"));
+        }
+    }
+
+    if (m_ft8RxDecoder != nullptr && !ftMindMode) {
+        m_ft8RxDecoder->setMindIntegrationState(true, false, false, false);
+    }
+    if (ui == nullptr || ui->sideTabWidget == nullptr || m_ddspPanelWidget == nullptr ||
+        ui->sideTabWidget->tabBar() == nullptr) {
+        return;
+    }
+
+    const int tabIndex = ui->sideTabWidget->indexOf(m_ddspPanelWidget);
+    if (tabIndex < 0) {
+        return;
+    }
+
+    ui->sideTabWidget->tabBar()->setTabVisible(tabIndex, ftMindMode);
+    m_ddspPanelWidget->setVisible(ftMindMode);
+    if (!ftMindMode && ui->sideTabWidget->currentIndex() == tabIndex) {
+        const int modeIndex = ui->tabModeSettings != nullptr
+            ? ui->sideTabWidget->indexOf(ui->tabModeSettings)
+            : -1;
+        ui->sideTabWidget->setCurrentIndex(modeIndex >= 0 ? modeIndex : 0);
+    }
 }
 
 void MainWindow::updateWaterfallMarkers()
@@ -8167,7 +8279,7 @@ void MainWindow::updateWaterfallMarkers()
 
             FrequencyMarker low;
             low.frequencyHz = qMax(0.0, center - halfBw);
-            low.label = uiText("cw_filter_low", "CW filter low");
+            low.label.clear();
             low.color = QColor(255, 210, 0);
             low.dashed = true;
             low.width = 1;
@@ -8175,7 +8287,7 @@ void MainWindow::updateWaterfallMarkers()
 
             FrequencyMarker high;
             high.frequencyHz = center + halfBw;
-            high.label = uiText("cw_filter_high", "CW filter high");
+            high.label.clear();
             high.color = QColor(255, 210, 0);
             high.dashed = true;
             high.width = 1;
@@ -8613,11 +8725,11 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
     }
 
     const QString modeName = ui->cmbMode->currentText();
-    if (m_ddspController != nullptr) {
-        m_ddspController->observeAudioBlock(modeName, block);
-    }
 
     if (Ft8Mode::isFamilyMode(modeName)) {
+        if (m_ddspController != nullptr) {
+            m_ddspController->observeFtActivity(modeName);
+        }
         if (Ft8Mode::profileForMode(modeName).interoperableCoreAvailable && m_ft8RxDecoder != nullptr) {
             // FT weak-signal RX follows the WSJT-X divide-et-impera pattern:
             // do not run per-block conditioner/AFC work in MainWindow.  Queue
@@ -8782,6 +8894,7 @@ void MainWindow::applyRttySettings()
         m_spinRttyShiftHz == nullptr ||
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
+        m_chkRttyAutoReverse == nullptr ||
         m_chkRttyAfc == nullptr ||
         m_spinRttyAfcRangeHz == nullptr) {
         return;
@@ -8795,6 +8908,7 @@ void MainWindow::applyRttySettings()
     const int markHz = m_spinRttyMarkHz->value();
     const int spaceHz = markHz + shiftHz;
     const bool reverse = m_chkRttyReverse->isChecked();
+    const bool autoReverse = (m_chkRttyAutoReverse != nullptr) ? m_chkRttyAutoReverse->isChecked() : true;
     const bool afc = (m_chkRttyAfc != nullptr) ? m_chkRttyAfc->isChecked() : true;
     const int afcRangeHz = (m_spinRttyAfcRangeHz != nullptr) ? m_spinRttyAfcRangeHz->value() : 20;
     const bool multiDecode = (m_chkRttyMultiDecode != nullptr)
@@ -8816,12 +8930,14 @@ void MainWindow::applyRttySettings()
     m_rttyDecoder->setBaudRate(baud);
     m_rttyDecoder->setTones(static_cast<double>(markHz), static_cast<double>(spaceHz));
     m_rttyDecoder->setReverse(reverse);
+    m_rttyDecoder->setAutoReverseEnabled(autoReverse);
 
     m_settings.rttyPreset = presetKey;
     m_settings.rttyBaudRate = baud;
     m_settings.rttyShiftHz = shiftHz;
     m_settings.rttyMarkHz = markHz;
     m_settings.rttyReverse = reverse;
+    m_settings.rttyAutoReverseEnabled = autoReverse;
     m_settings.rttyAfcEnabled = afc;
     m_settings.rttyAfcRangeHz = afcRangeHz;
     m_settings.rttyMultiDecodeEnabled = multiDecode;
@@ -8939,6 +9055,7 @@ void MainWindow::handleRttyPresetChanged(int index)
         m_spinRttyShiftHz == nullptr ||
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
+        m_chkRttyAutoReverse == nullptr ||
         m_chkRttyAfc == nullptr ||
         m_spinRttyAfcRangeHz == nullptr) {
         return;
@@ -9193,8 +9310,7 @@ void MainWindow::applyCwSettings()
         m_chkCwAutoWpm == nullptr ||
         m_spinCwBandwidthHz == nullptr ||
         m_chkCwAfc == nullptr ||
-        m_spinCwAfcRangeHz == nullptr ||
-        m_chkCwSoftwareAgc == nullptr) {
+        m_spinCwAfcRangeHz == nullptr) {
         return;
     }
 
@@ -9204,7 +9320,7 @@ void MainWindow::applyCwSettings()
     const int bandwidthHz = m_spinCwBandwidthHz->value();
     const bool afc = m_chkCwAfc->isChecked();
     const int afcRangeHz = m_spinCwAfcRangeHz->value();
-    const bool softwareAgc = m_chkCwSoftwareAgc->isChecked();
+    const bool softwareAgc = false;
 
     m_cwDecoder->setToneHz(static_cast<double>(toneHz));
     m_cwDecoder->setAutoWpm(autoWpm);
@@ -9465,6 +9581,40 @@ void MainWindow::disableCwSecondaryRx()
 }
 
 
+int MainWindow::hellPaperScale() const
+{
+    if (m_sliderHellPaperScale != nullptr) {
+        return qBound(1, m_sliderHellPaperScale->value(), 12);
+    }
+    return qBound(1, m_settings.hellPaperScale, 12);
+}
+
+void MainWindow::updateHellRasterDisplay(const QImage &image)
+{
+    if (m_lblHellRaster == nullptr || image.isNull()) {
+        return;
+    }
+
+    const QSize previousSize = m_lblHellRaster->size();
+
+    m_lblHellRaster->setPixmap(QPixmap::fromImage(image));
+    m_lblHellRaster->setMinimumSize(image.size());
+    m_lblHellRaster->resize(image.size());
+
+    /* Paper scale is a zoom, not a reset.  When the image changes size keep
+     * the visible tape anchored at the top/left instead of letting the scroll
+     * area appear to slide the text underneath the viewport.
+     */
+    if (m_scrollHellRaster != nullptr && !previousSize.isEmpty() && previousSize != image.size()) {
+        if (QScrollBar *bar = m_scrollHellRaster->verticalScrollBar()) {
+            bar->setValue(0);
+        }
+        if (QScrollBar *bar = m_scrollHellRaster->horizontalScrollBar()) {
+            bar->setValue(0);
+        }
+    }
+}
+
 void MainWindow::applyHellSettings()
 {
     if (m_hellDecoder == nullptr ||
@@ -9473,7 +9623,9 @@ void MainWindow::applyHellSettings()
         m_spinHellColumnRate == nullptr ||
         m_spinHellBandwidthHz == nullptr ||
         m_chkHellAfc == nullptr ||
-        m_spinHellAfcRangeHz == nullptr) {
+        m_spinHellAfcRangeHz == nullptr ||
+        m_sliderHellPaperScale == nullptr ||
+        m_lblHellPaperScale == nullptr) {
         return;
     }
 
@@ -9483,11 +9635,13 @@ void MainWindow::applyHellSettings()
     const int bandwidthHz = m_spinHellBandwidthHz->value();
     const bool afc = m_chkHellAfc->isChecked();
     const int afcRangeHz = m_spinHellAfcRangeHz->value();
+    const int paperScale = qBound(1, m_sliderHellPaperScale->value(), 12);
 
     m_hellDecoder->setVariant(variant);
     m_hellDecoder->setToneHz(static_cast<double>(toneHz));
     m_hellDecoder->setColumnRate(columnRate);
     m_hellDecoder->setBandwidthHz(static_cast<double>(bandwidthHz));
+    m_hellDecoder->setVerticalScale(paperScale);
     m_hellDecoder->setFskShiftHz(HellschreiberDecoder::fsk105ShiftHz());
 
     /* Tone is a waterfall marker and remains session-only per v0.50 policy. */
@@ -9496,6 +9650,8 @@ void MainWindow::applyHellSettings()
     m_settings.hellBandwidthHz = bandwidthHz;
     m_settings.hellAfcEnabled = afc;
     m_settings.hellAfcRangeHz = afcRangeHz;
+    m_settings.hellPaperScale = paperScale;
+    m_lblHellPaperScale->setText(QStringLiteral("x%1").arg(paperScale));
 
     savePersistentSettings();
     updateCwDualRxStatusLabel();
@@ -14253,7 +14409,7 @@ AudioBlock MainWindow::conditionAudioForActiveMode(const AudioBlock &block)
         config.profile = DspConditioner::Profile::Cw;
         config.modeBandpassEnabled = true;
         config.noiseReductionEnabled = m_settings.cwNoiseReductionEnabled;
-        config.agcEnabled = m_settings.cwAgcEnabled;
+        config.agcEnabled = false;
         config.adaptiveLineEnhancerEnabled = m_settings.cwAdaptiveLineEnhancerEnabled;
         const double tone = (m_spinCwToneHz != nullptr) ? m_spinCwToneHz->value() : 700.0;
         config.blackHz = tone;
@@ -14643,59 +14799,6 @@ void MainWindow::finishFtAutoTest()
                              uiText("ft_auto_test_done_message", "FT Auto test completed. The textual report was saved to:\n%1").arg(reportPath));
 }
 
-void MainWindow::primeMINDFromWav(const QString &modeName, const QString &fileName)
-{
-    if (m_ddspController == nullptr) {
-        return;
-    }
-
-    const QString domain = modeName.trimmed().toUpper();
-    if (!domain.contains(QStringLiteral("FT8")) && !domain.contains(QStringLiteral("FT4"))) {
-        return;
-    }
-
-    QFile file(fileName);
-    if (!file.open(QIODevice::ReadOnly)) {
-        appendLog(QStringLiteral("MIND WAV prime skipped: unable to open %1").arg(fileName));
-        return;
-    }
-
-    WavStreamFormat wav;
-    QString errorMessage;
-    if (!parseWavHeader(file, wav, errorMessage)) {
-        appendLog(QStringLiteral("MIND WAV prime skipped: %1").arg(errorMessage));
-        return;
-    }
-
-    const QByteArray raw = file.read(wav.dataSize);
-    const QVector<float> samples = convertWavBytesToMono(raw, wav);
-    if (samples.isEmpty()) {
-        appendLog(QStringLiteral("MIND WAV prime skipped: no audio samples in %1").arg(fileName));
-        return;
-    }
-
-    QVector<float> featureSamples;
-    constexpr int kMindPrimeMaxSamples = 8192;
-    if (samples.size() > kMindPrimeMaxSamples) {
-        featureSamples.reserve(kMindPrimeMaxSamples);
-        for (int i = 0; i < kMindPrimeMaxSamples; ++i) {
-            const int pos = static_cast<int>((static_cast<qint64>(i) * (samples.size() - 1)) / (kMindPrimeMaxSamples - 1));
-            featureSamples.append(samples[pos]);
-        }
-    } else {
-        featureSamples = samples;
-    }
-
-    AudioBlock block;
-    block.sampleRate = static_cast<int>(wav.sampleRate);
-    block.samples = featureSamples;
-    m_ddspController->observeAudioBlock(domain.contains(QStringLiteral("FT4")) ? QStringLiteral("FT4") : QStringLiteral("FT8"), block);
-    appendLog(QStringLiteral("MIND legacy WAV fingerprint prime: %1/%2 sample(s), %3 Hz")
-                  .arg(featureSamples.size())
-                  .arg(samples.size())
-                  .arg(wav.sampleRate));
-}
-
 void MainWindow::openFtWavFile()
 {
     if (!Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) {
@@ -14962,8 +15065,13 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
 
     m_weatherFaxDecoder->reset();
 
-    ui->progressAudioLevel->setValue(0);
-    ui->lblAudioLevelDb->setText("WAV");
+    if (ui->progressAudioLevel != nullptr) ui->progressAudioLevel->setValue(0);
+    if (m_ledVuMeter != nullptr) {
+        m_ledVuMeter->setLevelPercent(0);
+        m_ledVuMeter->setDbText(QStringLiteral("WAV"));
+    }
+    if (ui->lblAudioLevelDb != nullptr) ui->lblAudioLevelDb->setText("WAV");
+    if (m_lblVuMeterDb != nullptr) m_lblVuMeterDb->setText("WAV");
     ui->lblEstimatedFrequency->setText("Freq: -- Hz");
     ui->lblAppStatus->setText("WAV analysis");
 
@@ -15136,8 +15244,13 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
 
     m_sstvDecoder->reset();
 
-    ui->progressAudioLevel->setValue(0);
-    ui->lblAudioLevelDb->setText("WAV");
+    if (ui->progressAudioLevel != nullptr) ui->progressAudioLevel->setValue(0);
+    if (m_ledVuMeter != nullptr) {
+        m_ledVuMeter->setLevelPercent(0);
+        m_ledVuMeter->setDbText(QStringLiteral("WAV"));
+    }
+    if (ui->lblAudioLevelDb != nullptr) ui->lblAudioLevelDb->setText("WAV");
+    if (m_lblVuMeterDb != nullptr) m_lblVuMeterDb->setText("WAV");
     ui->lblEstimatedFrequency->setText("Freq: -- Hz");
     ui->lblAppStatus->setText("SSTV WAV analysis");
 
@@ -15513,11 +15626,9 @@ void MainWindow::setupCatRotatorModule()
             if (!text.trimmed().isEmpty()) {
                 appendLog(QStringLiteral("CatRotator: ") + text.trimmed());
             }
-            updateRotatorStatusLamps();
         });
         connect(m_catRotatorController, &mm::CatRotatorController::connectionChanged,
                 this, [this](bool connected) {
-            updateRotatorStatusLamps();
             if (m_settings.ftAutoQsoFlowShadowMode) {
                 appendLog(QStringLiteral("[Flow][eventbus] Event: rotator.connection -> %1")
                     .arg(connected ? QStringLiteral("connected") : QStringLiteral("disconnected")));
@@ -15525,7 +15636,6 @@ void MainWindow::setupCatRotatorModule()
         });
         connect(m_catRotatorController, &mm::CatRotatorController::positionChanged,
                 this, [this](double azimuthDeg, double elevationDeg) {
-            updateRotatorStatusLamps();
             if (m_settings.ftAutoQsoFlowShadowMode) {
                 static qint64 s_lastRotatorPositionLogMs = 0;
                 static double s_lastRotatorPositionLogAz = -9999.0;
@@ -15546,7 +15656,6 @@ void MainWindow::setupCatRotatorModule()
         });
         connect(m_catRotatorController, &mm::CatRotatorController::targetChanged,
                 this, [this](double azimuthDeg, double elevationDeg, const QString &reason) {
-            updateRotatorStatusLamps();
             if (m_settings.ftAutoQsoFlowShadowMode) {
                 appendLog(QStringLiteral("[Flow][eventbus] Event: rotator.target -> az %1°, el %2°%3")
                     .arg(QString::number(azimuthDeg, 'f', 1),
@@ -15556,7 +15665,6 @@ void MainWindow::setupCatRotatorModule()
         });
         connect(m_catRotatorController, &mm::CatRotatorController::motionChanged,
                 this, [this](bool moving) {
-            updateRotatorStatusLamps();
             if (m_settings.ftAutoQsoFlowShadowMode) {
                 appendLog(QStringLiteral("[Flow][eventbus] Event: rotator.motion -> %1")
                     .arg(moving ? QStringLiteral("moving") : QStringLiteral("stopped/ready")));
@@ -15564,7 +15672,6 @@ void MainWindow::setupCatRotatorModule()
         });
         connect(m_catRotatorController, &mm::CatRotatorController::calibrationProgress,
                 this, [this](int percent, const QString &message) {
-            updateRotatorStatusLamps();
             if (!message.trimmed().isEmpty()) {
                 appendLog(QStringLiteral("CatRotator calibration %1%: %2").arg(percent).arg(message.trimmed()));
             }
@@ -15581,7 +15688,6 @@ void MainWindow::setupCatRotatorModule()
             rp.calibrationStampUtc = cfg.calibrationStampUtc;
             savePersistentSettings();
             if (m_catRotatorSidePanel != nullptr) m_catRotatorSidePanel->applyConfig(cfg);
-            updateRotatorStatusLamps();
             if (!message.trimmed().isEmpty()) appendLog(QStringLiteral("CatRotator: ") + message.trimmed());
         });
     }
@@ -15617,91 +15723,6 @@ void MainWindow::setupCatRotatorSideTab()
 }
 
 
-void MainWindow::setupRotatorStatusLamps()
-{
-    if (m_lblRotatorMovingLamp != nullptr || ui == nullptr) {
-        return;
-    }
-
-    QWidget *parent = (ui->tabStatus != nullptr) ? ui->tabStatus : this;
-    QWidget *box = new QWidget(parent);
-    box->setObjectName(QStringLiteral("rotatorStatusLampBar"));
-    QHBoxLayout *row = new QHBoxLayout(box);
-    row->setContentsMargins(6, 4, 6, 4);
-    row->setSpacing(6);
-
-    auto makeLamp = [box](const QString &caption) -> QLabel * {
-        QLabel *lamp = new QLabel(box);
-        lamp->setFixedSize(18, 18);
-        lamp->setToolTip(caption);
-        return lamp;
-    };
-
-    QLabel *title = new QLabel(uiText("rotator_lamp_group", "Rotator"), box);
-    QFont titleFont = title->font();
-    titleFont.setBold(true);
-    title->setFont(titleFont);
-
-    m_lblRotatorMovingLamp = makeLamp(uiText("rotator_lamp_moving", "Rotor moving"));
-    QLabel *movingText = new QLabel(uiText("rotator_lamp_moving_short", "MOV"), box);
-    movingText->setToolTip(uiText("rotator_lamp_moving_tooltip", "Dark red means rotor not moving; bright red means the active rotator is moving."));
-    m_lblRotatorReadyLamp = makeLamp(uiText("rotator_lamp_ready", "Rotor ready"));
-    QLabel *readyText = new QLabel(uiText("rotator_lamp_ready_short", "RDY"), box);
-    readyText->setToolTip(uiText("rotator_lamp_ready_tooltip", "Dark green means rotator not ready; bright green means the active rotator is configured, connected and not moving."));
-
-    row->addWidget(title);
-    row->addStretch(1);
-    row->addWidget(m_lblRotatorMovingLamp);
-    row->addWidget(movingText);
-    row->addSpacing(8);
-    row->addWidget(m_lblRotatorReadyLamp);
-    row->addWidget(readyText);
-
-    if (ui->statusTabLayout != nullptr) {
-        ui->statusTabLayout->insertWidget(0, box, 0);
-    } else if (ui->mainVerticalLayout != nullptr) {
-        ui->mainVerticalLayout->insertWidget(0, box, 0);
-    } else {
-        box->setParent(this);
-    }
-    updateRotatorStatusLamps();
-}
-
-void MainWindow::updateRotatorStatusLamps()
-{
-    if (m_lblRotatorMovingLamp == nullptr || m_lblRotatorReadyLamp == nullptr) {
-        return;
-    }
-    const bool configured = (m_catRotatorController != nullptr && m_catRotatorController->config().enabled);
-    const bool connected = (m_catRotatorController != nullptr && m_catRotatorController->isConnected());
-    const bool moving = (m_catRotatorController != nullptr && m_catRotatorController->isMoving());
-    const bool ready = configured && connected && !moving;
-
-    auto styleFor = [](const QColor &fill, bool disabled = false) {
-        const QString border = disabled ? QStringLiteral("#777777") : QStringLiteral("#111111");
-        return QStringLiteral("QLabel { min-width: 18px; min-height: 18px; max-width: 18px; max-height: 18px; "
-                              "border: 1px solid %1; border-radius: 9px; background-color: %2; }")
-            .arg(border, fill.name());
-    };
-
-    if (!configured) {
-        m_lblRotatorMovingLamp->setStyleSheet(styleFor(QColor(95, 95, 95), true));
-        m_lblRotatorReadyLamp->setStyleSheet(styleFor(QColor(95, 95, 95), true));
-        m_lblRotatorMovingLamp->setToolTip(uiText("rotator_lamp_not_configured", "No rotator configured: moving indicator disabled."));
-        m_lblRotatorReadyLamp->setToolTip(uiText("rotator_lamp_not_configured", "No rotator configured: ready indicator disabled."));
-        return;
-    }
-
-    m_lblRotatorMovingLamp->setStyleSheet(styleFor(moving ? QColor(255, 0, 0) : QColor(55, 0, 0)));
-    m_lblRotatorReadyLamp->setStyleSheet(styleFor(ready ? QColor(0, 210, 0) : QColor(0, 45, 0)));
-    m_lblRotatorMovingLamp->setToolTip(moving
-        ? uiText("rotator_lamp_moving_on", "Rotor is moving.")
-        : uiText("rotator_lamp_moving_off", "Rotor is not moving."));
-    m_lblRotatorReadyLamp->setToolTip(ready
-        ? uiText("rotator_lamp_ready_on", "Rotator ready: configured, connected and stopped.")
-        : uiText("rotator_lamp_ready_off", "Rotator not ready or currently moving."));
-}
-
 void MainWindow::applyCatRotatorSettings()
 {
     if (m_catRotatorController == nullptr) {
@@ -15710,7 +15731,6 @@ void MainWindow::applyCatRotatorSettings()
     const mm::CatRotatorController::Config cfg = catRotatorConfigFromSettings();
     m_catRotatorController->configure(cfg);
     m_catRotatorController->setTrackingQsoTarget(cfg.trackSelectedQso);
-    updateRotatorStatusLamps();
     if (m_catRotatorSidePanel != nullptr) {
         m_catRotatorSidePanel->applyConfig(cfg);
     }
@@ -17005,8 +17025,13 @@ void MainWindow::handleAudioStopped()
         updateMainStateButton();
     }
 
-    ui->progressAudioLevel->setValue(0);
-    ui->lblAudioLevelDb->setText("-inf dB");
+    if (ui->progressAudioLevel != nullptr) ui->progressAudioLevel->setValue(0);
+    if (m_ledVuMeter != nullptr) {
+        m_ledVuMeter->setLevelPercent(0);
+        m_ledVuMeter->setDbText(QStringLiteral("-inf dB"));
+    }
+    if (ui->lblAudioLevelDb != nullptr) ui->lblAudioLevelDb->setText("-inf dB");
+    if (m_lblVuMeterDb != nullptr) m_lblVuMeterDb->setText("-inf dB");
     ui->lblEstimatedFrequency->setText("Freq: -- Hz");
 
     appendLog("RX stopped.");
@@ -17026,12 +17051,22 @@ void MainWindow::handleAudioLevel(int percent, double db, double rms)
 {
     Q_UNUSED(rms)
 
-    ui->progressAudioLevel->setValue(percent);
+    if (ui->progressAudioLevel != nullptr) {
+        ui->progressAudioLevel->setValue(percent);
+    }
+    const QString dbText = db <= -119.0
+                           ? QStringLiteral("-inf dB")
+                           : QStringLiteral("%1 dB").arg(db, 0, 'f', 1);
+    if (m_ledVuMeter != nullptr) {
+        m_ledVuMeter->setLevelPercent(percent);
+        m_ledVuMeter->setDbText(dbText);
+    }
 
-    if (db <= -119.0) {
-        ui->lblAudioLevelDb->setText("-inf dB");
-    } else {
-        ui->lblAudioLevelDb->setText(QString("%1 dB").arg(db, 0, 'f', 1));
+    if (ui->lblAudioLevelDb != nullptr) {
+        ui->lblAudioLevelDb->setText(dbText);
+    }
+    if (m_lblVuMeterDb != nullptr) {
+        m_lblVuMeterDb->setText(dbText);
     }
 }
 
@@ -17295,7 +17330,8 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
             m_spinHellToneHz != nullptr ? static_cast<double>(m_spinHellToneHz->value()) : 1000.0,
             m_spinHellColumnRate != nullptr ? m_spinHellColumnRate->value() : 17.5,
             variant,
-            HellschreiberDecoder::fsk105ShiftHz()
+            HellschreiberDecoder::fsk105ShiftHz(),
+            hellPaperScale()
             ));
     }
 
@@ -17432,8 +17468,10 @@ void MainWindow::updateTxPreview()
                                  .arg(HellschreiberDecoder::variantName(variant))
                                  .arg(tone)
                                  .arg(columnRate, 0, 'f', 2));
-        const QString text = (m_txtHellTx != nullptr) ? m_txtHellTx->toPlainText() : QString();
-        m_txPreparedImage = HellschreiberTransmitter::previewTextImage(text, variant, columnRate);
+        /* Hell TX no longer opens a separate preview page.  The actual local TX
+         * echo is appended in red to the same paper when TX starts.
+         */
+        m_txPreparedImage = QImage();
     } else if (modeName == CwDecoder::modeName()) {
         const int tone = m_spinCwToneHz != nullptr ? m_spinCwToneHz->value() : 700;
         const int wpm = m_spinCwWpm != nullptr ? m_spinCwWpm->value() : 20;
@@ -17550,7 +17588,7 @@ void MainWindow::updateTxControlState()
         m_btnSstvEditor->setEnabled(sstvMode && !m_txRunning);
     }
     if (m_lblSstvTxPreview != nullptr) {
-        m_lblSstvTxPreview->setVisible(sstvMode);
+        m_lblSstvTxPreview->setVisible(sstvMode && hasImage);
     }
     if (m_editSstvTxCall != nullptr) {
         m_editSstvTxCall->setVisible(sstvMode);
@@ -17987,10 +18025,12 @@ void MainWindow::startImageTx()
 
     m_txPreparedImage = modulator->previewImage();
 
-    if (hellMode && m_lblHellRaster != nullptr && !m_txPreparedImage.isNull()) {
-        m_lblHellRaster->setPixmap(QPixmap::fromImage(m_txPreparedImage));
-        m_lblHellRaster->setMinimumSize(m_txPreparedImage.size());
-        m_lblHellRaster->resize(m_txPreparedImage.size());
+    /* Hellschreiber uses one continuous paper tape.  Do not replace the RX
+     * paper with a separate TX preview; successful local TX is appended in red
+     * on the same paper after the TX audio path starts.
+     */
+    if (hellMode) {
+        m_txPreparedImage = QImage();
     }
 
     if (!textMode && m_faxImageWidget != nullptr) {
@@ -18058,6 +18098,12 @@ void MainWindow::startImageTx()
         if (restartRx) {
             QTimer::singleShot(250, this, [this]() { startRx(); });
         }
+    } else if (hellMode && m_hellDecoder != nullptr && m_txtHellTx != nullptr) {
+        const HellschreiberDecoder::Variant variant = (m_cmbHellVariant != nullptr)
+                                                         ? HellschreiberDecoder::variantFromKey(m_cmbHellVariant->currentData().toString())
+                                                         : HellschreiberDecoder::Variant::FeldHell;
+        const QImage txRaster = HellschreiberTransmitter::transmitRasterImage(m_txtHellTx->toPlainText(), variant);
+        m_hellDecoder->appendTransmitRaster(txRaster);
     }
 }
 
