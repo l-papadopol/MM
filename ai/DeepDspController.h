@@ -29,6 +29,7 @@ public:
         int ftSamples = 0;
         int ft8Samples = 0;
         int ft4Samples = 0;
+        int msk144Samples = 0;
         int trainingRuns = 0;
         int validationCount = 0;
         double bitAccuracy = 0.0;
@@ -61,6 +62,18 @@ public:
         int loadedGoldSamples = 0;
         int rankerPositiveSamples = 0;
         int rankerNegativeSamples = 0;
+        int mindExtraLastSlot = 0;
+        int mindExtraSession = 0;
+        int mindLdpcSkippedLastSlot = 0;
+        int mindLdpcSkippedSession = 0;
+        int mindScoredLastSlot = 0;
+        double mindAvgSuccessLastSlot = 0.0;
+        int activeProfileSamples = 0;
+        int activeProfileValidationCount = 0;
+        double activeProfileRankerAccuracy = 0.0;
+        double activeProfileBestRankerAccuracy = 0.0;
+        bool activeProfileAssistReady = false;
+        QString activeProfileReadinessReason;
     };
 
     explicit DeepDspController(QObject *parent = nullptr);
@@ -73,6 +86,9 @@ public:
     bool scoreNativeFtCandidate(const QVector<float> &candidateMagnitudes,
                                 QVector<float> *predictedBits,
                                 double *confidencePercent);
+    bool scoreMsk144Candidate(const QVector<float> &candidateFeatures,
+                              double *confidencePercent,
+                              bool *mayPromote);
 
 public slots:
     void setEnabled(bool enabled);
@@ -89,6 +105,10 @@ public slots:
      */
     void setDecodeCritical(bool active);
     void observeFtActivity(const QString &mode);
+    void observeMsk144Activity();
+    void submitNativeMsk144Sample(const QVector<float> &candidateFeatures,
+                                  bool decodeSucceeded,
+                                  const QString &message);
     void submitNativeFtSample(const QString &mode,
                               const QVector<float> &candidateMagnitudes,
                               const QVector<float> &targetBits,
@@ -96,6 +116,10 @@ public slots:
     void resetModel();
     void saveCheckpoint();
     void loadCheckpoint();
+    void updateFtMindGainStats(int extraDecodes,
+                               int ldpcSkipped,
+                               int scoredCandidates,
+                               double avgSuccessPercent);
 
 signals:
     void statusChanged(const DeepDspController::Status &status);
@@ -115,7 +139,7 @@ private:
     };
 
     void appendSample(const Sample &sample);
-    void updateValidation(const QVector<float> &prediction, const QVector<float> &target);
+    void updateValidation(const QVector<float> &prediction, const QVector<float> &target, const QString &mode);
     void emitStatus();
     void emitStatusThrottled();
     void rebuildNetwork();
@@ -145,6 +169,7 @@ private:
     int m_ftSamples = 0;
     int m_ft8Samples = 0;
     int m_ft4Samples = 0;
+    int m_msk144Samples = 0;
     int m_nativeFtSamples = 0;
     int m_manualSamples = 0;
     QString m_activeProfile = QStringLiteral("FT8");
@@ -159,12 +184,19 @@ private:
     std::deque<Sample> m_samples;          // persistent FT gold replay buffer
     std::deque<bool> m_validationWindow;
     std::deque<double> m_bitAccuracyWindow;
+    std::deque<QString> m_validationModeWindow;
     int m_replayCursor = 0;
     int m_loadedGoldSamples = 0;
     double m_loadedBitAccuracyPercent = 0.0;
     double m_loadedMessageAccuracyPercent = 0.0;
     bool m_goldDatasetDirty = false;
     double m_bestBitAccuracy = 0.0;
+    int m_mindExtraLastSlot = 0;
+    int m_mindExtraSession = 0;
+    int m_mindLdpcSkippedLastSlot = 0;
+    int m_mindLdpcSkippedSession = 0;
+    int m_mindScoredLastSlot = 0;
+    double m_mindAvgSuccessLastSlot = 0.0;
     int m_ftBatchSize = 128;
     int m_lastFtBatchSize = 0;
     qint64 m_trainedFtSamplesTotal = 0;

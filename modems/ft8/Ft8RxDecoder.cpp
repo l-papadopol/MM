@@ -1810,6 +1810,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     std::mutex diagMindMutex;
     int diagMindAssistTried = 0;
     int diagMindAssistRecovered = 0;
+    int diagMindAssistExtraDecodes = 0;
     int diagMindAssistUnavailable = 0;
     double diagMindAssistConfidenceSum = 0.0;
 
@@ -1880,16 +1881,19 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     auto noteMindQuality = [&diagMindMutex,
                             &diagMindAssistTried,
                             &diagMindAssistRecovered,
+                            &diagMindAssistExtraDecodes,
                             &diagMindAssistUnavailable,
                             &diagMindAssistConfidenceSum](const CandidateAttemptQuality &quality) {
         if (quality.mindAssistTried <= 0 &&
             quality.mindAssistRecovered <= 0 &&
+            quality.mindAssistExtraDecodes <= 0 &&
             quality.mindAssistUnavailable <= 0) {
             return;
         }
         std::lock_guard<std::mutex> lock(diagMindMutex);
         diagMindAssistTried += quality.mindAssistTried;
         diagMindAssistRecovered += quality.mindAssistRecovered;
+        diagMindAssistExtraDecodes += quality.mindAssistExtraDecodes;
         diagMindAssistUnavailable += quality.mindAssistUnavailable;
         if (quality.mindAssistTried > 0) {
             diagMindAssistConfidenceSum += quality.mindAssistConfidence;
@@ -2017,7 +2021,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 if (quality.osdGf2Tried > 0 || quality.osdGf2BudgetSkips > 0) {
                     localOsdQualities.append(quality);
                 }
-                if (quality.mindAssistTried > 0 || quality.mindAssistRecovered > 0 || quality.mindAssistUnavailable > 0) {
+                if (quality.mindAssistTried > 0 || quality.mindAssistRecovered > 0 || quality.mindAssistExtraDecodes > 0 || quality.mindAssistUnavailable > 0) {
                     localMindQualities.append(quality);
                 }
                 if (decoded) {
@@ -2557,7 +2561,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             if (quality.osdGf2Tried > 0 || quality.osdGf2BudgetSkips > 0) {
                 noteOsdQuality(quality);
             }
-            if (quality.mindAssistTried > 0 || quality.mindAssistRecovered > 0 || quality.mindAssistUnavailable > 0) {
+            if (quality.mindAssistTried > 0 || quality.mindAssistRecovered > 0 || quality.mindAssistExtraDecodes > 0 || quality.mindAssistUnavailable > 0) {
                 noteMindQuality(quality);
             }
 
@@ -2653,6 +2657,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         stats->osdGf2TotalMs = diagOsdGf2TotalMs;
         stats->mindAssistTried = diagMindAssistTried;
         stats->mindAssistRecovered = diagMindAssistRecovered;
+        stats->mindAssistExtraDecodes = diagMindAssistExtraDecodes;
         stats->mindAssistUnavailable = diagMindAssistUnavailable;
         stats->mindAssistAvgConfidence = diagMindAssistTried > 0
             ? diagMindAssistConfidenceSum / static_cast<double>(diagMindAssistTried)
@@ -3240,6 +3245,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     };
 
     bool mindGuidedWeakRecovery = false;
+    bool decodedViaMindExtraPath = false;
+    bool mindOpenedMetricRecovery = false;
 
     DecodeRejectReason bestFailure = DecodeRejectReason::Ldpc;
     auto rememberFailure = [&bestFailure, &rejectPriority](DecodeRejectReason reason) {
@@ -3269,6 +3276,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
             const bool gf2OsdCandidate = allowOsdLite && allowMetricRecovery &&
                                          m_dspPlusDecodeEnabled &&
                                          (gf2BaseCandidate || gf2MindWeakCandidate);
+            const bool gf2OpenedOnlyByMind = gf2MindWeakCandidate && !gf2BaseCandidate;
             const bool tryGf2Osd = gf2OsdCandidate && allowGf2Osd;
             if (gf2OsdCandidate && !allowGf2Osd && qualityOut != nullptr) {
                 ++qualityOut->osdGf2BudgetSkips;
@@ -3301,6 +3309,9 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                     osdSuccess = true;
                     decodedViaGf2Osd = true;
                     gf2OsdHitOrder = hitOrder;
+                    if (gf2OpenedOnlyByMind) {
+                        decodedViaMindExtraPath = true;
+                    }
                 } else if (rankFail && qualityOut != nullptr) {
                     ++qualityOut->osdGf2RankFails;
                 }
@@ -3319,13 +3330,17 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                  * fallback for the high-sync/high-LLR cases where it was
                  * already allowed.
                  */
+                const bool osdLiteBaseAllowed = hardSyncCount >= 13 && meanAbsLlr >= 4.8;
+                const bool osdLiteMindAllowed = mindGuidedWeakRecovery && hardSyncCount >= 9 && meanAbsLlr >= 3.15;
                 const bool osdLiteAllowed = allowOsdLite && allowMetricRecovery &&
                                             m_dspPlusDecodeEnabled &&
-                                            ((hardSyncCount >= 13 && meanAbsLlr >= 4.8) ||
-                                             (mindGuidedWeakRecovery && hardSyncCount >= 9 && meanAbsLlr >= 3.15));
+                                            (osdLiteBaseAllowed || osdLiteMindAllowed);
                 if (!osdLiteAllowed || !osdLiteRepair174_91(posterior, candidateBits)) {
-                    rememberFailure(DecodeRejectReason::Ldpc);
-                    return false;
+                     rememberFailure(DecodeRejectReason::Ldpc);
+                     return false;
+                 }
+                if (osdLiteMindAllowed && !osdLiteBaseAllowed) {
+                    decodedViaMindExtraPath = true;
                 }
             }
         }
@@ -3486,6 +3501,11 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                                       (hardSyncCount >= 9 && meanAbsLlr >= 2.35);
         mindGuidedWeakRecovery = mindUltraDeepCandidate && rankerLikesCandidate && weakButPlausible;
 
+        const bool classicPromisingForMetricRecoveryAtRank =
+            hardSyncCount >= 10 ||
+            (hardSyncCount >= 9 && meanAbsLlr >= 4.2);
+        mindOpenedMetricRecovery = mindGuidedWeakRecovery && !classicPromisingForMetricRecoveryAtRank;
+
         const bool obviousGhost = (hardSyncCount <= 7 && meanAbsLlr < 2.05) ||
                                   (hardSyncCount <= 8 && meanAbsLlr < 1.65);
         const bool extremelyLowProbability = mindProbability < 0.025;
@@ -3498,6 +3518,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     }
 
     bool metricDecoded = tryDecodeMetric(llr, true);
+    const bool legacyMetricDecoded = metricDecoded;
 
     /*
      * v3.33 synthesis: after the WSJT-X/MSHV hard Costas bail-out, use the
@@ -3657,6 +3678,11 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmetb, kFt8bMetricScale), false);
         if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmetc, kFt8bMetricScale), false);
         if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmetd, kFt8bMetricScale), false);
+    }
+
+    if (metricDecoded && qualityOut != nullptr &&
+        (decodedViaMindExtraPath || (!legacyMetricDecoded && mindOpenedMetricRecovery))) {
+        ++qualityOut->mindAssistExtraDecodes;
     }
 
     if (!metricDecoded) {

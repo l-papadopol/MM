@@ -381,7 +381,6 @@ EXACT: dict[str, dict[str, str]] = {
         "Search / LDPC": "Ricerca / LDPC",
         "Candidates / decodes": "Candidati / decodifiche",
         "Decodes used": "Decodifiche usate",
-        "Last slot": "Ultimo slot",
         "Decode latency": "Latenza decodifica",
         "Waterfall display": "Visualizzazione waterfall",
         "Colour scale": "Scala colori",

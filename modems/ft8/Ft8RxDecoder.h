@@ -136,6 +136,7 @@ public:
         // LDPC; final messages still require LDPC+CRC+unpack+parser.
         int mindAssistTried = 0;       // scored candidates
         int mindAssistRecovered = 0;   // legacy name: pruned candidates
+        int mindAssistExtraDecodes = 0; // CRC-valid decodes that used a MIND-opened recovery path
         int mindAssistUnavailable = 0;
         double mindAssistAvgConfidence = 0.0; // average candidate_success_probability percent
     };
@@ -258,6 +259,7 @@ private:
 
         int mindAssistTried = 0;       // scored candidates
         int mindAssistRecovered = 0;   // legacy name: pruned candidates
+        int mindAssistExtraDecodes = 0; // CRC-valid decodes that used a MIND-opened recovery path
         int mindAssistUnavailable = 0;
         double mindAssistConfidence = 0.0; // candidate_success_probability percent
     };

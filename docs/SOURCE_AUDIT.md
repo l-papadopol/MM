@@ -16,7 +16,7 @@ The following material is part of the current build path:
 - `third_party/mshv_gpl/port/`: FT8/FT4 protocol helpers, generators and related support. These files are listed in `CMakeLists.txt` and included by FT code.
 - `third_party/mshv_gpl/port/boost/`: small Boost compatibility headers included through the MSHV port.
 - `third_party/hamlib_lgpl/source/`: built by the bundled Hamlib build scripts and linked by MadModem for CAT/PTT/rotator control.
-- `third_party/ggmorse_mit/`: added through `add_subdirectory(third_party/ggmorse_mit)` and linked as `ggmorse`.
+- `modems/cw/skimmer/`: active CW RX path linked as `madmodem_cwskimmer`; old selected-tone CW decoder source was removed from the active tree.
 - `third_party/mmsstv_lgpl/MmsstvRxCore.h/.cpp`: listed in `CMakeLists.txt` and used by `modems/sstv/SstvDecoder.*`.
 - `third_party/decodium_gpl/port/NtpClient.hpp/.cpp`: listed in `CMakeLists.txt` and included by `mainwindow.*`.
 - `cty.csv`: copied next to the build executable and used by the DXCC/country loader.
@@ -38,9 +38,9 @@ In particular, QSSTV material is bundled as reference/attribution material. The 
 Observed direct includes:
 
 - `mainwindow.cpp/.h` include `third_party/decodium_gpl/port/NtpClient.hpp`;
-- `tx/Ft8Transmitter.cpp` includes MSHV FT generator headers;
+- `modems/ft8/tx/Ft8Transmitter.cpp` includes MSHV FT generator headers;
 - `modems/ft8/Ft8RxDecoder.*` includes MSHV FT support headers;
-- `modems/cw/CwDecoder.cpp` includes `ggmorse/ggmorse.h`;
+- `modems/cw/CwDecoder.cpp` uses `modems/cw/skimmer/CwSkimmerEngine.h`;
 - `modems/sstv/SstvDecoder.h` includes `third_party/mmsstv_lgpl/MmsstvRxCore.h`.
 
 No direct include of QSSTV source files was found in the current application sources.

@@ -137,7 +137,7 @@ void CatRotatorPanel::buildUi()
     m_btnConnect->setToolTip(MadModemI18n::text(QStringLiteral("Connect or disconnect the configured rotator backend.")));
     m_btnStop = new QPushButton(MadModemI18n::text(QStringLiteral("STOP")), this);
     m_btnStop->setToolTip(MadModemI18n::text(QStringLiteral("Stop the current rotator movement immediately.")));
-    m_btnStop->setStyleSheet(QStringLiteral("QPushButton { color: #b00020; font-weight: bold; }"));
+    m_btnStop->setStyleSheet(QStringLiteral("QPushButton { color: #ff3b55; font-weight: 500; }"));
 
     m_btnGo = new QPushButton(MadModemI18n::text(QStringLiteral("Go")), this);
     m_btnGo->setToolTip(MadModemI18n::text(QStringLiteral("Move the rotator to the manual Set Az / Set El values.")));
@@ -202,7 +202,7 @@ void CatRotatorPanel::buildUi()
     m_lblEta->setWordWrap(true);
     m_lblStatus = new QLabel(MadModemI18n::text(QStringLiteral("Rotator: not yet configured")), this);
     m_lblStatus->setWordWrap(true);
-    m_lblStatus->setStyleSheet(QStringLiteral("QLabel { font-weight: bold; }"));
+    m_lblStatus->setStyleSheet(QStringLiteral("QLabel { font-weight: 500; }"));
     outer->addWidget(m_lblTarget);
     outer->addWidget(m_lblQso);
     outer->addWidget(m_lblEta);

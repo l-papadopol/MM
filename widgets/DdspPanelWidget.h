@@ -10,6 +10,7 @@ class QComboBox;
 class QLabel;
 class QProgressBar;
 class NeuralMatrixWidget;
+class MindNixieGaugeWidget;
 
 class DdspPanelWidget : public QWidget
 {
@@ -41,6 +42,7 @@ private:
     QLabel *m_lblLastCheckpoint = nullptr;
     QProgressBar *m_progressAccuracy = nullptr;
     NeuralMatrixWidget *m_matrixWidget = nullptr;
+    MindNixieGaugeWidget *m_nixieGauge = nullptr;
     QComboBox *m_cmbAssistMode = nullptr;
 };
 

@@ -11,6 +11,7 @@
 
 #include <QCheckBox>
 #include <QColorDialog>
+#include <QCursor>
 #include <QDialogButtonBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -33,12 +34,14 @@
 #include <QRegularExpression>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QShowEvent>
 #include <QSizePolicy>
 #include <QStringList>
 #include <QSet>
 #include <QScreen>
 #include <QSpinBox>
 #include <QTabWidget>
+#include <QTabBar>
 #include <QTimer>
 #include <QWindow>
 #include <QVBoxLayout>
@@ -548,14 +551,28 @@ AppSettingsDialog::AppSettingsDialog(const AppSettings &settings,
       m_schedulerTranslator(std::move(schedulerTranslator))
 {
     setWindowTitle(L(QStringLiteral("Settings")));
-    resize(820, 588);
-    setMinimumSize(760, 525);
+    // Settings is a full-screen cockpit workbench, not a small floating panel.
+    // Use a real top-level window flag even though it is launched modally from
+    // MainWindow; otherwise some Linux window managers keep it constrained to
+    // the old 984x706 dialog geometry and showMaximized() is ignored.
+    setWindowFlag(Qt::Window, true);
+    setWindowFlag(Qt::FramelessWindowHint, true);
+    setWindowModality(Qt::ApplicationModal);
+    resize(984, 706); // harmless fallback before the first full-screen show
+    setMinimumSize(760, 500);
 
     QVBoxLayout *outer = new QVBoxLayout(this);
     outer->setContentsMargins(10, 10, 10, 10);
     outer->setSpacing(8);
 
     m_tabs = new QTabWidget(this);
+    m_tabs->setUsesScrollButtons(true);
+    if (QTabBar *bar = m_tabs->tabBar()) {
+        bar->setElideMode(Qt::ElideNone);
+        bar->setExpanding(false);
+        bar->setUsesScrollButtons(true);
+        bar->setDocumentMode(false);
+    }
     outer->addWidget(m_tabs, 1);
 
     m_tabs->addTab(makeAudioCatPage(), L(QStringLiteral("Audio / PTT / CAT")));
@@ -610,10 +627,34 @@ void AppSettingsDialog::prepareEmbeddedDialog(QDialog *dialog)
         return;
     }
 
+    // These pages are QDialog classes reused as widgets.  They must not receive
+    // the top-level cockpit dialog chrome: the title bar/close button looked like
+    // a red group collapse control and could hide the embedded page.
+    dialog->setProperty("cockpitEmbeddedDialog", true);
+    dialog->setProperty("cockpitDialog", false);
+    dialog->setProperty("cockpitInstrumentFrame", false);
     dialog->setWindowFlags(Qt::Widget);
     dialog->setModal(false);
     dialog->setMinimumSize(0, 0);
     dialog->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    const QList<QFrame *> oldChromeBars = dialog->findChildren<QFrame *>(QStringLiteral("cockpitTitleBar"));
+    for (QFrame *bar : oldChromeBars) {
+        if (bar != nullptr) {
+            bar->hide();
+            bar->setParent(nullptr);
+            bar->deleteLater();
+        }
+    }
+    const QList<QWidget *> oldBezels = dialog->findChildren<QWidget *>(QStringLiteral("cockpitBezelOverlay"));
+    for (QWidget *bezel : oldBezels) {
+        if (bezel != nullptr) {
+            bezel->hide();
+            bezel->setParent(nullptr);
+            bezel->deleteLater();
+        }
+    }
+
     compactEmbeddedSettingsWidgets(dialog);
 
     const QList<QDialogButtonBox *> buttonBoxes = dialog->findChildren<QDialogButtonBox *>();
@@ -1408,7 +1449,7 @@ QWidget *AppSettingsDialog::makeRotatorPage()
 
     m_lblRotatorEndpointWarning = new QLabel(page);
     m_lblRotatorEndpointWarning->setWordWrap(true);
-    m_lblRotatorEndpointWarning->setStyleSheet(QStringLiteral("QLabel { color: #b00020; font-weight: 600; }"));
+    m_lblRotatorEndpointWarning->setStyleSheet(QStringLiteral("QLabel { color: #b00020; font-weight: 500; }"));
     m_lblRotatorEndpointWarning->setVisible(false);
     outer->addWidget(m_lblRotatorEndpointWarning);
 
@@ -1440,6 +1481,55 @@ void AppSettingsDialog::setInitialPage(InitialPage page)
     }
 }
 
+
+void AppSettingsDialog::showEvent(QShowEvent *event)
+{
+    QDialog::showEvent(event);
+
+    // 0.5.70: be explicit.  "Maximized" was not enough with the custom
+    // frameless cockpit chrome on some WMs: the Settings dialog kept the old
+    // floating geometry.  Force a full-screen workbench on the active screen
+    // and repeat it once after the window has been polished by Qt/style code.
+    auto forceFullScreen = [this]() {
+        if (!isVisible()) {
+            return;
+        }
+        QRect target;
+        if (QWindow *handle = windowHandle()) {
+            if (QScreen *screen = handle->screen()) {
+                target = screen->geometry();
+            }
+        }
+        if (!target.isValid()) {
+            if (QScreen *screen = QGuiApplication::screenAt(QCursor::pos())) {
+                target = screen->geometry();
+            }
+        }
+        if (!target.isValid()) {
+            if (QScreen *screen = QGuiApplication::primaryScreen()) {
+                target = screen->geometry();
+            }
+        }
+        setWindowFlag(Qt::Window, true);
+        setWindowFlag(Qt::FramelessWindowHint, true);
+        setWindowModality(Qt::ApplicationModal);
+        if (target.isValid()) {
+            setGeometry(target);
+        }
+        setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowFullScreen);
+        showFullScreen();
+        raise();
+        activateWindow();
+    };
+
+    forceFullScreen();
+    if (!m_settingsFullscreenApplied) {
+        m_settingsFullscreenApplied = true;
+        QTimer::singleShot(0, this, forceFullScreen);
+        QTimer::singleShot(80, this, forceFullScreen);
+    }
+}
+
 void AppSettingsDialog::updateAutoQsoFlowWindowMode(int index)
 {
     if (m_tabs == nullptr || m_autoQsoFlowTabIndex < 0) {
@@ -1460,50 +1550,23 @@ void AppSettingsDialog::expandForAutoQsoFlow()
     }
 
     m_autoQsoFlowWindowExpanded = true;
-    m_preAutoQsoFlowGeometry = geometry();
-    m_preAutoQsoFlowWindowState = windowState();
     m_preAutoQsoFlowMinimumSize = minimumSize();
+    setMinimumSize(qMax(minimumWidth(), 1180), qMax(minimumHeight(), 760));
 
-    auto applyLargeGeometry = [this]() {
-        QScreen *screen = nullptr;
-#if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
-        screen = QGuiApplication::screenAt(mapToGlobal(rect().center()));
-#endif
-        if (screen == nullptr && windowHandle() != nullptr) {
-            screen = windowHandle()->screen();
+    auto keepMaximized = [this]() {
+        if (!isVisible()) {
+            return;
         }
-        if (screen == nullptr) {
-            screen = QGuiApplication::primaryScreen();
-        }
-
-        QRect target;
-        if (screen != nullptr) {
-            target = screen->availableGeometry().adjusted(14, 14, -14, -14);
-        }
-        if (!target.isValid()) {
-            target = QRect(40, 40, 1180, 760);
-        }
-
-        const QSize flowMinimum(qMin(1180, target.width()),
-                                qMin(760, target.height()));
-        setMinimumSize(qMax(760, flowMinimum.width()),
-                       qMax(500, flowMinimum.height()));
-
-        Qt::WindowStates state = windowState();
-        state &= ~Qt::WindowMinimized;
-        state &= ~Qt::WindowMaximized;
-        state &= ~Qt::WindowFullScreen;
-        setWindowState(state);
-        showNormal();
-        setGeometry(target);
+        setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowFullScreen);
+        showFullScreen();
         raise();
         activateWindow();
     };
 
     if (isVisible()) {
-        applyLargeGeometry();
+        keepMaximized();
     } else {
-        QTimer::singleShot(0, this, applyLargeGeometry);
+        QTimer::singleShot(0, this, keepMaximized);
     }
 }
 
@@ -1518,18 +1581,13 @@ void AppSettingsDialog::restoreAfterAutoQsoFlow()
     if (m_preAutoQsoFlowMinimumSize.isValid()) {
         setMinimumSize(m_preAutoQsoFlowMinimumSize);
     } else {
-        setMinimumSize(760, 525);
+        setMinimumSize(912, 630);
     }
 
-    Qt::WindowStates state = m_preAutoQsoFlowWindowState;
-    state &= ~Qt::WindowMinimized;
-    showNormal();
-    if (m_preAutoQsoFlowGeometry.isValid()) {
-        setGeometry(m_preAutoQsoFlowGeometry);
-    } else {
-        resize(820, 588);
-    }
-    setWindowState(state);
+    // Settings is now always a full-screen workbench.  Leaving MM Flow must not
+    // shrink the window back to an old floating geometry.
+    setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowFullScreen);
+    showFullScreen();
 }
 
 QString AppSettingsDialog::L(const QString &source) const

@@ -30,6 +30,7 @@ class QDoubleSpinBox;
 class QLineEdit;
 class QPlainTextEdit;
 class QLabel;
+class QShowEvent;
 class AutoQsoFlowEditorWidget;
 
 /**
@@ -84,6 +85,7 @@ signals:
 
 protected:
     void accept() override;
+    void showEvent(QShowEvent *event) override;
 
 private:
     struct ColourButton
@@ -145,6 +147,7 @@ private:
     AutoQsoFlowEditorWidget *m_autoQsoFlowPage = nullptr;
     int m_autoQsoFlowTabIndex = -1;
     bool m_autoQsoFlowWindowExpanded = false;
+    bool m_settingsFullscreenApplied = false;
     QRect m_preAutoQsoFlowGeometry;
     Qt::WindowStates m_preAutoQsoFlowWindowState = Qt::WindowNoState;
     QSize m_preAutoQsoFlowMinimumSize;

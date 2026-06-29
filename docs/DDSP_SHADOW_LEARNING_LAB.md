@@ -6,7 +6,7 @@ Current phase:
 
 - The production MIND panel is FT8/FT4-only.
 - In non-FT modes the MIND tab is hidden and runtime MIND is forced Off.
-- CW text is produced by ggmorse only; MIND is FT-only in production builds.
+- CW text is produced by the integrated CW skimmer only; MIND is FT-only in production builds.
 - RTTY text is produced by the classical matched-filter/Baudot chain.
 - FT8/FT4 use MIND only as a candidate-priority/ranker helper.
 - MIND does not key TX, control CAT/PTT, feed AutoQSO or accept AI-only text.

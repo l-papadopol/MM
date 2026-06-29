@@ -2,7 +2,7 @@
 #define TXAUDIOENGINE_H
 
 #include "AudioBlock.h"
-#include "../tx/TxModulator.h"
+#include "../core/tx/TxModulator.h"
 
 #include <QObject>
 #include <QString>

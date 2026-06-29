@@ -28,15 +28,14 @@ Used for radio CAT/PTT and rotator control. The bundled build scripts build Haml
 
 License: Hamlib library LGPL-2.1-or-later; some upstream tools/examples are GPL-2.0-or-later.
 
-### ggmorse
 
-Location: `third_party/ggmorse_mit/`
+### Hamfist-derived CW skimmer core
 
-Used by the CW decoder.
+Location: `modems/cw/skimmer/` and `third_party/hamfist_mit/COPYING.txt`
+
+Portions of the CW skimmer/decoder engine are derived from code by Jonathan P Dawson, Copyright (c) 2026, originally licensed under the MIT License. MadModem carries the required MIT copyright and permission notice in `third_party/hamfist_mit/COPYING.txt` and in `docs/cwskimmer/THIRD_PARTY_NOTICES.md`.
 
 License: MIT License.
-
-Credit: Georgi Gerganov.
 
 ### MMSSTV-derived SSTV core
 
@@ -114,3 +113,36 @@ Referenced components include gMFSK `mfsk.h`, `mfskrx.c`, `mfsktx.c`, `interleav
 ## fldigi GPL reference core
 
 MadModem 0.5.27 uses fldigi source code supplied by the user as a GPL reference for text-mode DSP behaviour. The integrated changes are Qt/C++ MadModem code, but PSK symbol sampling/Varicode handling, MFSK16 softdecode/FEC/interleaver structure, Feld Hell raster orientation and CW timing strategy were compared against fldigi's GPL sources under `src/psk`, `src/mfsk`, `src/feld` and `src/cw_rtty`.
+
+## MSHV / WSJT-X MSK144 GPL components
+
+MadModem 0.5.73 integrates GPL-compatible MSK144 support derived from user-supplied
+MSHV source. The assimilated components are used for MSK144 message generation,
+LDPC decode helpers, hashing, and message pack/unpack support.
+
+Integrated locations include:
+
+- `third_party/mshv_gpl/port/HvGenMsk/`
+- `third_party/mshv_gpl/port/HvPackUnpackMsg/`
+- `third_party/mshv_gpl/nhash.*`
+- `third_party/mshv_gpl/HvTxW/hvqthloc.*`
+- `modems/msk144/`
+
+Original algorithms, protocol specifications, and related WSJT-family source are
+copyright the WSJT Development Group and MSHV contributors; the MSHV C++ rewrite
+and modifications are attributed to Hrisimir Hristov, LZ2HV, where present in the
+source headers. MadModem remains GPLv3-compatible.
+
+
+## MSHV Q65 source assimilation
+
+Portions of the Q65 generator/decoder reference code are derived from MSHV and WSJT-derived GPL work, including `HvGenQ65`, `q65_subs`, `pack_unpack_msg77`, and the staged `DecoderQ65`/`decoderpom` reference files. The original source headers and GPL notices are preserved in the imported files under `third_party/mshv_gpl/`.
+
+
+## MSHV Q65 DecoderQ65 / FFTW-backed bridge
+
+MadModem 0.5.76 promotes the Q65 RX bridge from staged reference to active code
+when FFTW3 is available.  The integrated GPL-derived files are under
+`third_party/mshv_gpl/port/HvDecoderMs/` and use the MSHV Q65 generator,
+`q65_subs`, message packing, and FFTW-backed `decoderpom` path.  Original source
+headers and licensing notices are preserved in the imported files.

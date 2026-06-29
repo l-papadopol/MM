@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Self-heal script permissions when this file is started with `bash build_all.sh`
+# or after an archive manager extracts the zip without Unix executable bits.
+find "$SCRIPT_DIR" -type f -name "*.sh" -exec chmod u+rx,go+rx {} + 2>/dev/null || true
+
 APP_NAME="MadModem"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
@@ -36,7 +43,7 @@ if [[ "$MADMODEM_BUILD_LINUX" != "off" ]]; then
     printf '==> Building bundled Hamlib for Linux\n'
     HAMLIB_PREFIX="$HAMLIB_LINUX_PREFIX" \
     HAMLIB_STATIC=on HAMLIB_SHARED=off JOBS="$JOBS" \
-        "$PWD/third_party/hamlib_lgpl/build_hamlib.sh"
+        bash "$PWD/third_party/hamlib_lgpl/build_hamlib.sh"
 
     printf '\n==> Building %s for Linux with bundled Hamlib (%s)\n' "$APP_NAME" "$BUILD_TYPE"
     cmake -S . -B build-linux \
@@ -77,7 +84,7 @@ if [[ "$MADMODEM_BUILD_WINDOWS" != "off" ]]; then
     fi
     MXE_ROOT="$MXE_ROOT" MXE_TARGET="$MXE_TARGET" \
     HAMLIB_PREFIX="$HAMLIB_WIN_PREFIX" JOBS="$JOBS" \
-        "$PWD/third_party/hamlib_lgpl/build_hamlib_mxe.sh"
+        bash "$PWD/third_party/hamlib_lgpl/build_hamlib_mxe.sh"
 
     export PATH="$MXE_ROOT/usr/bin:$PATH"
     mkdir -p "$PWD/dist/windows"
@@ -121,7 +128,7 @@ if [[ "$MADMODEM_CREATE_MM_ZIP" != "off" ]]; then
     MADMODEM_ROOT_DIR="$PWD" \
     MADMODEM_PACKAGE_DIR="$MADMODEM_PACKAGE_DIR" \
     MADMODEM_PACKAGE_ZIP="$MADMODEM_PACKAGE_ZIP" \
-        "$PWD/tools/package_mm_zip.sh"
+        bash "$PWD/tools/package_mm_zip.sh"
 fi
 
 printf '\nBuild complete.\n'

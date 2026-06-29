@@ -1197,7 +1197,7 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 {
     painter->save();
     painter->setClipRect(mapRect);
-    painter->fillRect(mapRect, QColor(219, 229, 236));
+    painter->fillRect(mapRect, QColor(7, 9, 10));
 
     if (m_exportRendering) {
         // v4.13a: export/print should use the same cached OpenStreetMap tiles
@@ -1224,8 +1224,8 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 
         painter->setClipping(false);
         const QRect attrib(mapRect.left() + 6, mapRect.bottom() - 21, 420, 18);
-        painter->fillRect(attrib, QColor(245, 248, 250, 220));
-        painter->setPen(QColor(55, 75, 88));
+        painter->fillRect(attrib, QColor(5, 6, 7, 220));
+        painter->setPen(QColor(255, 179, 90));
         painter->drawText(attrib.adjusted(5, 0, -5, 0),
                           Qt::AlignVCenter | Qt::AlignLeft,
                           cachedTiles > 0
@@ -1256,8 +1256,8 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
     if (m_osmTileRequestBlocked && m_osmTileCache.isEmpty()) {
         painter->setClipping(false);
         const QRect attrib(mapRect.left() + 6, mapRect.bottom() - 21, 340, 18);
-        painter->fillRect(attrib, QColor(245, 248, 250, 215));
-        painter->setPen(QColor(55, 75, 88));
+        painter->fillRect(attrib, QColor(5, 6, 7, 215));
+        painter->setPen(QColor(255, 179, 90));
         painter->drawText(attrib.adjusted(5, 0, -5, 0),
                           Qt::AlignVCenter | Qt::AlignLeft,
                           QStringLiteral("Offline bundled map"));
@@ -1294,8 +1294,8 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 
     painter->setClipping(false);
     const QRect attrib(mapRect.left() + 6, mapRect.bottom() - 21, 260, 18);
-    painter->fillRect(attrib, QColor(245, 248, 250, 205));
-    painter->setPen(QColor(55, 75, 88));
+    painter->fillRect(attrib, QColor(5, 6, 7, 205));
+    painter->setPen(QColor(255, 179, 90));
     painter->drawText(attrib.adjusted(5, 0, -5, 0),
                       Qt::AlignVCenter | Qt::AlignLeft,
                       QStringLiteral("OpenStreetMap raster tiles"));
@@ -1305,13 +1305,13 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 void QsoMapWidget::drawMap(QPainter *painter, const QRect &targetRect) const
 {
     painter->save();
-    painter->fillRect(targetRect, QColor(236, 242, 247));
+    painter->fillRect(targetRect, QColor(5, 6, 7));
 
     const QRect titleLine(targetRect.left() + 12,
                           targetRect.top() + 6,
                           qMax(10, targetRect.width() - 24),
                           24);
-    painter->setPen(QPen(QColor(25, 50, 70), 1));
+    painter->setPen(QPen(QColor(255, 179, 90), 1));
     painter->drawText(titleLine,
                       Qt::AlignLeft | Qt::AlignVCenter,
                       mapTitleText());
@@ -1347,8 +1347,8 @@ void QsoMapWidget::drawLand(QPainter *painter, const QRect &mapRect) const
 {
     painter->save();
     painter->setClipRect(mapRect);
-    painter->setBrush(QColor(211, 219, 197));
-    painter->setPen(QPen(QColor(112, 128, 104), 1));
+    painter->setBrush(QColor(38, 48, 42));
+    painter->setPen(QPen(QColor(95, 115, 96), 1));
     for (const QPolygonF &poly : worldLandPolygons()) {
         QPolygonF screenPoly;
         for (const QPointF &lonLat : poly) {
@@ -1363,7 +1363,7 @@ void QsoMapWidget::drawGrid(QPainter *painter, const QRect &mapRect) const
 {
     painter->save();
     painter->setClipRect(mapRect);
-    painter->setPen(QPen(QColor(115, 145, 170, 150), 1, Qt::DashLine));
+    painter->setPen(QPen(QColor(80, 108, 122, 150), 1, Qt::DashLine));
     for (int lon = -180; lon <= 180; lon += 30) {
         const QPointF a = lonLatToScreen(QPointF(lon, -90), mapRect);
         const QPointF b = lonLatToScreen(QPointF(lon, 90), mapRect);

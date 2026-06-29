@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.5.29
+    VERSION 0.5.76
     LANGUAGES CXX
 )
 
@@ -33,16 +33,26 @@ option(MADMODEM_MIND_OPENMP
 option(MADMODEM_AVX2_BUILD
     "Build an AVX2/FMA/SSE4.2-only binary. OFF keeps Windows packages portable; FT8 still uses runtime AVX2 dispatch where safe."
     OFF)
+option(MADMODEM_ENABLE_LTO
+    "Enable CMake IPO/LTO for Release builds. OFF by default because GCC LTO has produced undefined MainWindow private-slot references on some Linux builds."
+    OFF)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static in-tree support libraries" FORCE)
+
 include(CheckIPOSupported)
 if(MADMODEM_MAX_OPTIMIZE)
-    check_ipo_supported(RESULT _madmodem_ipo_supported OUTPUT _madmodem_ipo_error)
-    if(_madmodem_ipo_supported)
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+    if(MADMODEM_ENABLE_LTO)
+        check_ipo_supported(RESULT _madmodem_ipo_supported OUTPUT _madmodem_ipo_error)
+        if(_madmodem_ipo_supported)
+            set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+        endif()
+    else()
+        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE OFF)
+        message(STATUS "MadModem LTO/IPO disabled by default to avoid GCC/LTO private-slot link regressions")
     endif()
 
     add_compile_options($<$<CONFIG:Release>:-O3>)
@@ -181,16 +191,130 @@ endif()
 
 
 # -------------------------------------------------------------------------
-# Bundled MIT ggmorse CW decoder
+# Assimilated MIT CW skimmer decoder
 # -------------------------------------------------------------------------
-# ggmorse is the single production CW RX text decoder. MadModem wraps it
-# only for tone/WPM/AFC/UI integration. Build it as a static in-tree library;
-# do not build its examples.
-set(GGMORSE_BUILD_EXAMPLES OFF CACHE BOOL "ggmorse examples" FORCE)
-set(GGMORSE_BUILD_TESTS OFF CACHE BOOL "ggmorse tests" FORCE)
-set(GGMORSE_SUPPORT_SDL2 OFF CACHE BOOL "ggmorse SDL examples" FORCE)
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build shared libraries" FORCE)
-add_subdirectory(third_party/ggmorse_mit)
+# Production CW RX uses the in-tree FFT multi-channel skimmer port under
+# modems/cw/skimmer. The old selected-tone CW decoder source is not kept in
+# the active tree to avoid zombie/rollback ambiguity.
+add_library(madmodem_cwskimmer STATIC
+    modems/cw/skimmer/CwSkimmerEngine.cpp
+    modems/cw/skimmer/core/cw_classifier.cpp
+    modems/cw/skimmer/core/cw_data.cpp
+    modems/cw/skimmer/core/cw_decode.cpp
+    modems/cw/skimmer/core/cw_dsp.cpp
+    modems/cw/skimmer/core/dictionary.cpp
+    modems/cw/skimmer/core/fft.cpp
+    modems/cw/skimmer/core/utils.cpp
+)
+target_include_directories(madmodem_cwskimmer PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/modems/cw"
+    "${CMAKE_CURRENT_SOURCE_DIR}/modems/cw/skimmer"
+    "${CMAKE_CURRENT_SOURCE_DIR}/modems/cw/skimmer/core"
+)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(madmodem_cwskimmer PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable)
+endif()
+
+
+# -------------------------------------------------------------------------
+# GPL MSHV-derived MSK144 TX support and MM MSK144 mode shell
+# -------------------------------------------------------------------------
+add_library(madmodem_msk144 STATIC
+    modems/msk144/Msk144Decoder.h
+    modems/msk144/Msk144Decoder.cpp
+    modems/msk144/tx/Msk144Transmitter.h
+    modems/msk144/tx/Msk144Transmitter.cpp
+    third_party/mshv_gpl/nhash.cpp
+    third_party/mshv_gpl/HvTxW/hvqthloc.cpp
+    third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp
+    third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp
+    third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp
+)
+target_include_directories(madmodem_msk144 PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/modems/msk144"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port"
+)
+target_link_libraries(madmodem_msk144 PUBLIC ${QT}::Core ${QT}::Widgets)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(madmodem_msk144 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
+endif()
+
+
+
+# -------------------------------------------------------------------------
+# GPL MSHV-derived Q65 TX support and MM Q65 mode shell
+# -------------------------------------------------------------------------
+add_library(madmodem_q65 STATIC
+    modems/q65/Q65Decoder.h
+    modems/q65/Q65Decoder.cpp
+    modems/q65/Q65Mode.h
+    modems/q65/tx/Q65Transmitter.h
+    modems/q65/tx/Q65Transmitter.cpp
+    third_party/mshv_gpl/port/HvGenQ65/gen_q65.cpp
+    third_party/mshv_gpl/port/HvGenQ65/q65_subs.cpp
+    third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp
+    third_party/mshv_gpl/nhash.cpp
+)
+target_include_directories(madmodem_q65 PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/modems/q65"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl"
+    "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port"
+)
+target_link_libraries(madmodem_q65 PUBLIC ${QT}::Core ${QT}::Widgets)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(madmodem_q65 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
+endif()
+
+# Full MSHV DecoderQ65/decoderpom RX bridge. Q65 RX needs FFTW3 exactly like
+# upstream MSHV. Keep this optional/autodetected so Linux/MXE builds without
+# FFTW remain green; when FFTW3 is found the bridge sources can be promoted
+# without touching MainWindow or the UI layer.
+option(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER
+    "Build the full MSHV DecoderQ65 FFTW-backed RX bridge. Uses system FFTW3 when available, otherwise bundled MSHV FFTW static libs on known platforms."
+    ON)
+if(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER)
+    find_path(MADMODEM_FFTW3_INCLUDE_DIR fftw3.h)
+    find_library(MADMODEM_FFTW3_LIBRARY NAMES fftw3 libfftw3)
+
+    set(MADMODEM_BUNDLED_FFTW3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw")
+    set(MADMODEM_BUNDLED_FFTW3_LIBRARY "")
+    if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(MADMODEM_BUNDLED_FFTW3_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw/win/libfftw3v3310_gcc730_64bit.a")
+    elseif(WIN32)
+        set(MADMODEM_BUNDLED_FFTW3_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw/win/libfftw3v3310_gcc730_32bit.a")
+    elseif(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
+        set(MADMODEM_BUNDLED_FFTW3_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw/lin_pc/libfftw3v3310_gcc1121_64bit.a")
+    endif()
+
+    if(NOT MADMODEM_FFTW3_INCLUDE_DIR AND EXISTS "${MADMODEM_BUNDLED_FFTW3_INCLUDE_DIR}/fftw3.h")
+        set(MADMODEM_FFTW3_INCLUDE_DIR "${MADMODEM_BUNDLED_FFTW3_INCLUDE_DIR}")
+    endif()
+    if(NOT MADMODEM_FFTW3_LIBRARY AND EXISTS "${MADMODEM_BUNDLED_FFTW3_LIBRARY}")
+        set(MADMODEM_FFTW3_LIBRARY "${MADMODEM_BUNDLED_FFTW3_LIBRARY}")
+    endif()
+
+    if(MADMODEM_FFTW3_INCLUDE_DIR AND MADMODEM_FFTW3_LIBRARY)
+        target_sources(madmodem_q65 PRIVATE
+            third_party/mshv_gpl/port/HvDecoderMs/decoderpom.h
+            third_party/mshv_gpl/port/HvDecoderMs/decoderpom.cpp
+            third_party/mshv_gpl/port/HvDecoderMs/decoderq65.h
+            third_party/mshv_gpl/port/HvDecoderMs/decoderq65.cpp
+        )
+        target_compile_definitions(madmodem_q65 PRIVATE MADMODEM_Q65_FULL_MSHV_DECODER=1)
+        target_include_directories(madmodem_q65 PRIVATE
+            "${MADMODEM_FFTW3_INCLUDE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/HvDecoderMs"
+            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw"
+        )
+        target_link_libraries(madmodem_q65 PRIVATE "${MADMODEM_FFTW3_LIBRARY}")
+        message(STATUS "Q65 full MSHV RX bridge enabled with FFTW3: ${MADMODEM_FFTW3_LIBRARY}")
+    else()
+        message(WARNING "MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER=ON but FFTW3/header could not be found; Q65 RX falls back to safe buffered mode")
+    endif()
+endif()
 
 # -------------------------------------------------------------------------
 # Sources
@@ -225,6 +349,8 @@ add_executable(MadModem
     ai/DeepDspTinyNet.cpp
     utils/RuntimeI18n.h
     utils/RuntimeI18n.cpp
+    utils/CockpitTheme.h
+    utils/CockpitTheme.cpp
     dsp/DspEngine.h
     dsp/DspEngine.cpp
     dsp/common/DspConditioner.h
@@ -249,23 +375,26 @@ add_executable(MadModem
     widgets/FaxImageWidget.cpp
     modems/weatherfax/WeatherFaxDecoder.h
     modems/weatherfax/WeatherFaxDecoder.cpp
-    tx/TxModulator.h
-    tx/WeatherFaxTransmitter.h
-    tx/WeatherFaxTransmitter.cpp
-    tx/SstvTransmitter.h
-    tx/SstvTransmitter.cpp
-    tx/RttyTransmitter.h
-    tx/RttyTransmitter.cpp
-    tx/Bpsk31Transmitter.h
-    tx/Bpsk31Transmitter.cpp
-    tx/CwTransmitter.h
-    tx/CwTransmitter.cpp
-    tx/MfskTransmitter.h
-    tx/MfskTransmitter.cpp
-    tx/HellschreiberTransmitter.h
-    tx/HellschreiberTransmitter.cpp
-    tx/Ft8Transmitter.h
-    tx/Ft8Transmitter.cpp
+    core/tx/TxModulator.h
+    modems/weatherfax/tx/WeatherFaxTransmitter.h
+    modems/weatherfax/tx/WeatherFaxTransmitter.cpp
+    modems/sstv/tx/SstvTransmitter.h
+    modems/sstv/tx/SstvTransmitter.cpp
+    modems/rtty/tx/RttyTransmitter.h
+    modems/rtty/tx/RttyTransmitter.cpp
+    modems/bpsk31/tx/Bpsk31Transmitter.h
+    modems/bpsk31/tx/Bpsk31Transmitter.cpp
+    modems/cw/tx/CwTransmitter.h
+    modems/cw/tx/CwTransmitter.cpp
+    modems/mfsk/tx/MfskTransmitter.h
+    modems/mfsk/tx/MfskTransmitter.cpp
+    modems/hell/tx/HellschreiberTransmitter.h
+    modems/hell/tx/HellschreiberTransmitter.cpp
+    modems/ft8/tx/Ft8Transmitter.h
+    modems/ft8/tx/Ft8Transmitter.cpp
+    modems/msk144/Msk144Mode.h
+    modems/msk144/Msk144Decoder.h
+    modems/msk144/tx/Msk144Transmitter.h
     dsp/FrequencyMarker.h
     modems/sstv/SstvModeDefinition.h
     modems/sstv/SstvModeDefinition.cpp
@@ -409,7 +538,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv")
 endif()
 
 target_link_libraries(MadModem PRIVATE
-    ggmorse
+    madmodem_cwskimmer
+    madmodem_msk144
+    madmodem_q65
     ${QT}::Widgets
     ${QT}::SerialPort
     ${QT}::Multimedia

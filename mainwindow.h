@@ -23,6 +23,10 @@
 #include "modems/ft8/FtQsoSession.h"
 #include "modems/ft8/FtTxPlan.h"
 #include "modems/ft8/FtStandardMessageSet.h"
+#include "modems/msk144/Msk144Mode.h"
+#include "modems/msk144/Msk144Decoder.h"
+#include "modems/q65/Q65Mode.h"
+#include "modems/q65/Q65Decoder.h"
 #include "settings/AppSettings.h"
 #include "logbook/AdifLogbook.h"
 #include "widgets/FaxImageWidget.h"
@@ -71,6 +75,7 @@ class QActionGroup;
 class QMenu;
 class RttyScopeWidget;
 class QTabWidget;
+class QVBoxLayout;
 class QCheckBox;
 class DeepDspController;
 class DdspPanelWidget;
@@ -140,6 +145,9 @@ public:
      * @brief Releases UI resources and disables PTT if active.
      */
     ~MainWindow() override;
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:
     /**
@@ -518,34 +526,9 @@ private slots:
     void saveSstvImage();
 
     /**
-     * @brief Opens the Audio/PTT settings dialog.
-     */
-    void showAudioPttSettings();
-
-    /**
-     * @brief Opens the QSSTV-style sound-card calibration dialog.
-     */
-    void showSoundCardCalibration();
-
-    /**
-     * @brief Opens the text macro settings dialog.
-     */
-    void showTextMacroSettings();
-
-    /**
      * @brief Opens the ADIF logbook browser/editor window.
      */
     void showLogbookDialog();
-
-    /**
-     * @brief Opens the internal ADIF logbook file path settings dialog.
-     */
-    void showLogbookSettings();
-
-    /**
-     * @brief Opens Hamlib CAT/PTT settings.
-     */
-    void showRigControlSettings();
 
     /**
      * @brief Opens the unified WSJT-X-style application settings dialog.
@@ -568,11 +551,6 @@ private slots:
      * @brief Rebuilds the prepared SSTV TX card preview from the base image and side-panel QSO fields.
      */
     void updateSstvTxPreparedImage();
-
-    /**
-     * @brief Adds the active mode QSO form contents to the ADIF logbook.
-     */
-    void addActiveQsoToLog();
 
     /**
      * @brief Updates read-only UTC fields in all QSO forms.
@@ -603,6 +581,33 @@ private slots:
      * @brief Applies FT8 shell UI values to settings and waterfall markers.
      */
     void applyFt8Settings();
+
+    /**
+     * @brief Applies MSK144 RX/TX controls and updates scheduler/waterfall state.
+     */
+    void applyMsk144Settings();
+    void refreshMsk144StandardMessages();
+    void startMsk144RxShell();
+    void startMsk144TxShell();
+    void stopMsk144Shell();
+    void handleMsk144DecodeReady(const Msk144Decode &decode);
+    void handleMsk144Ping(double frequencyHz, int snrDb, double tSeconds);
+    void clearMsk144RxTable();
+    void updateMsk144SequencerFromDecode(const QString &message, int snrDb);
+
+    /**
+     * @brief Applies Q65 RX/TX controls and updates scheduler/waterfall state.
+     */
+    void applyQ65Settings();
+    void refreshQ65StandardMessages();
+    void startQ65RxShell();
+    void startQ65TxShell();
+    void stopQ65Shell();
+    void handleQ65DecodeReady(const Q65Decode &decode);
+    void clearQ65RxTable();
+    void updateQ65SequencerFromDecode(const QString &message, int snrDb);
+    Q65Mode::Submode currentQ65Submode() const;
+
     QString ft8TxFrequencyStrategyKey() const;
     int chooseFt8AutoFreeTxFrequency(int wantedHz = 0, QString *reason = nullptr) const;
     int resolveFt8TxFrequencyForStrategy(int correspondentHz, QString *reason = nullptr) const;
@@ -629,7 +634,7 @@ private slots:
     void updateFtUtcClockVisibility(const QString &modeName = QString());
 
     /**
-     * @brief MIND is user-visible and active only for FT4/FT8 candidate ranking.
+     * @brief MIND is user-visible and active only for FT4/FT8 and MSK144 candidate ranking.
      */
     bool modeSupportsMind(const QString &modeName) const;
     void updateMindUiForMode(const QString &modeName = QString());
@@ -927,8 +932,6 @@ private:
     void updateBandSchedulerTabForMode(const QString &modeName);
     void setupDspTab();
     void updateDspTabForMode(const QString &modeName);
-    void applyDspTabSettings();
-
     QWidget *createDspConditionerControls(const QString &modeKey, QWidget *parent);
     QString dspModeKeyForModeName(const QString &modeName) const;
     bool dspNoiseReductionEnabledForModeKey(const QString &modeKey) const;
@@ -1038,6 +1041,16 @@ private:
     void setupHellPage();
 
     /**
+     * @brief Creates the MSK144 meteor-scatter UI shell and controls.
+     */
+    void setupMsk144Page();
+
+    /**
+     * @brief Creates the Q65 weak-signal UI shell and controls.
+     */
+    void setupQ65Page();
+
+    /**
      * @brief Creates the FT8 UI shell and side-panel settings.
      */
     void setupFt8Page();
@@ -1130,6 +1143,7 @@ private:
      * @brief Creates the QSO log-entry strip shown under text-mode RX areas.
      */
     QWidget *createQsoFormPanel(QWidget *parent, const QString &modeLabel, QsoFormWidgets **qsoForm);
+    void placeQsoFormInModePanel(QVBoxLayout *layout, QsoFormWidgets *form);
 
     /**
      * @brief Returns the QSO form belonging to the current active text mode.
@@ -1453,15 +1467,6 @@ private:
      */
     void resetRttyTxScopeState();
 
-    /**
-     * @brief Updates the RTTY crossed-ellipse scope from TX tone metadata.
-     *
-     * TX scope rendering must never demodulate the generated PCM.  The
-     * transmitter already knows whether it is currently sending Mark or Space,
-     * so the scope is driven from that metadata only.
-     */
-    void updateRttyScopeFromTxToneState(bool mark, double progress);
-
 private:
     void setUiLanguageFromAction(QAction *action);
     void setupLanguageMenu();
@@ -1486,12 +1491,7 @@ private:
     QMenu *m_menuLanguage = nullptr;
     QAction *m_actionLogbook = nullptr;
     QAction *m_actionSstvEditor = nullptr;
-    QAction *m_actionSoundCardCalibration = nullptr;
-    QAction *m_actionLogbookSettings = nullptr;
-    QAction *m_actionRigControlSettings = nullptr;
     QAction *m_actionAppSettings = nullptr;
-    QAction *m_actionFtAnalyzeWav = nullptr;
-    QAction *m_actionFtAutoTest = nullptr;
     QAction *m_actionHelpContents = nullptr;
     QAction *m_actionWhatsThisMode = nullptr;
 
@@ -1660,6 +1660,64 @@ private:
     QPushButton *m_btnHellResetImage = nullptr;
     QList<QPushButton *> m_hellMacroButtons;
     QsoFormWidgets *m_hellQsoForm = nullptr;
+
+    QWidget *m_msk144DisplayPage = nullptr;
+    QWidget *m_pageMsk144Settings = nullptr;
+    QTableWidget *m_tableMsk144Rx = nullptr;
+    QTableWidget *m_tableMsk144TxMessages = nullptr;
+    QPushButton *m_btnMsk144ClearRx = nullptr;
+    QPushButton *m_btnMsk144GenerateStd = nullptr;
+    QPushButton *m_btnMsk144Rx = nullptr;
+    QPushButton *m_btnMsk144Tx = nullptr;
+    QPushButton *m_btnMsk144Stop = nullptr;
+    QPushButton *m_btnMsk144Tune = nullptr;
+    QComboBox *m_cmbMsk144Period = nullptr;
+    QComboBox *m_cmbMsk144DecodeDepth = nullptr;
+    QSpinBox *m_spinMsk144RxFreq = nullptr;
+    QSpinBox *m_spinMsk144TxFreq = nullptr;
+    QSpinBox *m_spinMsk144DfTolerance = nullptr;
+    QCheckBox *m_chkMsk144ShortMessages = nullptr;
+    QCheckBox *m_chkMsk144Swl = nullptr;
+    QCheckBox *m_chkMsk144Contest = nullptr;
+    QCheckBox *m_chkMsk144TxFirst = nullptr;
+    QLineEdit *m_editMsk144DxCall = nullptr;
+    QLineEdit *m_editMsk144DxGrid = nullptr;
+    QsoFormWidgets *m_msk144QsoForm = nullptr;
+    QLabel *m_lblMsk144Status = nullptr;
+    QLabel *m_lblMsk144PeriodStatus = nullptr;
+    QLabel *m_lblMsk144SequencerStatus = nullptr;
+    Msk144Decoder *m_msk144Decoder = nullptr;
+    QVector<WaterfallTextOverlay> m_msk144PingOverlays;
+
+    QWidget *m_q65DisplayPage = nullptr;
+    QWidget *m_pageQ65Settings = nullptr;
+    QTableWidget *m_tableQ65Rx = nullptr;
+    QTableWidget *m_tableQ65TxMessages = nullptr;
+    QPushButton *m_btnQ65ClearRx = nullptr;
+    QPushButton *m_btnQ65GenerateStd = nullptr;
+    QPushButton *m_btnQ65Rx = nullptr;
+    QPushButton *m_btnQ65Tx = nullptr;
+    QPushButton *m_btnQ65Stop = nullptr;
+    QPushButton *m_btnQ65ClearAvg = nullptr;
+    QComboBox *m_cmbQ65Submode = nullptr;
+    QComboBox *m_cmbQ65Period = nullptr;
+    QComboBox *m_cmbQ65DecodeDepth = nullptr;
+    QSpinBox *m_spinQ65RxFreq = nullptr;
+    QSpinBox *m_spinQ65TxFreq = nullptr;
+    QSpinBox *m_spinQ65DfTolerance = nullptr;
+    QCheckBox *m_chkQ65AverageDecode = nullptr;
+    QCheckBox *m_chkQ65AutoClearAvg = nullptr;
+    QCheckBox *m_chkQ65SingleDecode = nullptr;
+    QCheckBox *m_chkQ65ApDecode = nullptr;
+    QCheckBox *m_chkQ65MaxDrift = nullptr;
+    QCheckBox *m_chkQ65EmeDelay = nullptr;
+    QLineEdit *m_editQ65DxCall = nullptr;
+    QLineEdit *m_editQ65DxGrid = nullptr;
+    QsoFormWidgets *m_q65QsoForm = nullptr;
+    QLabel *m_lblQ65Status = nullptr;
+    QLabel *m_lblQ65AverageStatus = nullptr;
+    QLabel *m_lblQ65SequencerStatus = nullptr;
+    Q65Decoder *m_q65Decoder = nullptr;
 
     using Ft8SequencerState = FtQsoSequencer::State;
 
@@ -1861,9 +1919,6 @@ private:
     bool m_rttyPendingRxLineBreak = false;
     bool m_bpsk31PendingRxLineBreak = false;
     bool m_mfskPendingRxLineBreak = false;
-
-    double m_rttyTxScopePhase = 0.0;
-    QVector<QPointF> m_rttyTxScopeTrace;
 
     QSerialPort m_pttSerial;
     QTimer m_pttTestTimer;

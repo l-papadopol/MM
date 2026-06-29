@@ -4,10 +4,12 @@
 #include "../dsp/FrequencyMarker.h"
 
 #include <QColor>
+#include <QHash>
 #include <QImage>
 #include <QOpenGLWidget>
 #include <QMouseEvent>
 #include <QRgb>
+#include <QString>
 #include <QTimer>
 #include <QVector>
 
@@ -24,6 +26,20 @@ struct WaterfallTextOverlay
     QString label;
     QColor textColor = QColor(255, 235, 80);
     QColor backgroundColor = QColor(0, 0, 0, 185);
+
+    /**
+     * When true the label is not drawn as a static callout.  Instead only new
+     * characters are appended to a time-locked vertical trail beside the signal.
+     * The trail then moves upward with the waterfall until it naturally leaves
+     * the top edge.  This is intended for live CW skimmer text.
+     */
+    bool verticalTrail = false;
+
+    /**
+     * Stable stream key used to detect newly appended characters.  If empty, a
+     * key is derived from the frequency bucket.
+     */
+    QString streamId;
 };
 
 /**
@@ -138,6 +154,12 @@ private:
     void drawFrequencyScale(QPainter &painter);
     void drawMarkers(QPainter &painter);
     void drawTextOverlays(QPainter &painter);
+    void drawVerticalTextTrails(QPainter &painter);
+    void ageVerticalTextTrails();
+    void appendVerticalTextTrail(const WaterfallTextOverlay &overlay);
+    QString newOverlaySuffix(const QString &key, const QString &currentLabel);
+    int bottomScaleBandHeight() const;
+    int rightScaleBandWidth() const;
     void requestRepaint();
 
 private:
@@ -150,8 +172,20 @@ private:
     double m_minHz = 100.0;
     double m_maxHz = 3000.0;
 
+    struct VerticalTextGlyph
+    {
+        double frequencyHz = 0.0;
+        QString text;
+        QColor textColor = QColor(255, 235, 80);
+        QColor backgroundColor = QColor(0, 0, 0, 185);
+        int ageRows = 0;
+        int sequenceIndex = 0;
+    };
+
     QVector<FrequencyMarker> m_markers;
     QVector<WaterfallTextOverlay> m_textOverlays;
+    QVector<VerticalTextGlyph> m_verticalTextGlyphs;
+    QHash<QString, QString> m_verticalTrailLastLabelByStream;
     QTimer m_repaintTimer;
     bool m_repaintQueued = false;
 };

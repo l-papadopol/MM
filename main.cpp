@@ -6,6 +6,7 @@
 
 #include "mainwindow.h"
 #include "audio/AudioBlock.h"
+#include "utils/CockpitTheme.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -65,7 +66,6 @@ public:
 int main(int argc, char *argv[])
 {
 #ifdef MADMODEM_MIND_OPENMP
-    Eigen::initParallel();
     const int logicalThreads = qMax(1, QThread::idealThreadCount());
     const int eigenThreads = qBound(1, logicalThreads - 2, 12);
     Eigen::setNbThreads(eigenThreads);
@@ -84,13 +84,19 @@ int main(int argc, char *argv[])
     qRegisterMetaType<QVector<quint8>>("QVector<quint8>");
     qRegisterMetaType<QVector<QPointF>>("QVector<QPointF>");
     app.setStyle(new DelayedToolTipStyle());
+    MadModemUi::applyCockpitTheme(app);
     QCoreApplication::setApplicationName(QStringLiteral("MadModem"));
     QCoreApplication::setApplicationVersion(QStringLiteral(MADMODEM_VERSION_STRING));
     app.setApplicationDisplayName(QStringLiteral(MADMODEM_VERSION_DISPLAY));
     app.setWindowIcon(QIcon(":/icons/madmodem.png"));
 
     MainWindow window;
-    window.showMaximized();
+    MadModemUi::installCockpitMainWindowChrome(&window);
+    // Cockpit UI is intended to run like a radio console / fullscreen
+    // instrument panel.  Keep the custom minimize/maximize/close buttons in
+    // the in-app title bar, but hide the OS panel/taskbar.
+    window.setWindowState((window.windowState() & ~Qt::WindowMinimized) | Qt::WindowFullScreen);
+    window.showFullScreen();
 
     return app.exec();
 }

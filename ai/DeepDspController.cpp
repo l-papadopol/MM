@@ -26,15 +26,19 @@ constexpr int kInputCount = 464;
 constexpr int kOutputCount = 1;
 constexpr int kMaxSamples = 20000;
 constexpr int kMinReadyValidation = 300;
+constexpr int kMinMsk144AssistSamples = 240;
+constexpr int kMinMsk144ReadyValidation = 120;
 
 QString normalizedDomain(QString mode)
 {
     mode = mode.trimmed().toUpper();
-    if (mode == QStringLiteral("FT4") || mode == QStringLiteral("FT8")) {
+    if (mode == QStringLiteral("FT4") || mode == QStringLiteral("FT8") ||
+        mode == QStringLiteral("MSK144")) {
         return mode;
     }
     if (mode.contains(QStringLiteral("FT4"))) return QStringLiteral("FT4");
     if (mode.contains(QStringLiteral("FT8"))) return QStringLiteral("FT8");
+    if (mode.contains(QStringLiteral("MSK144")) || mode.contains(QStringLiteral("MSK"))) return QStringLiteral("MSK144");
     return QStringLiteral("OTHER");
 }
 
@@ -43,6 +47,7 @@ int domainIndex(const QString &mode)
     const QString d = normalizedDomain(mode);
     if (d == QStringLiteral("FT8")) return 0;
     if (d == QStringLiteral("FT4")) return 1;
+    if (d == QStringLiteral("MSK144")) return 2;
     return -1;
 }
 
@@ -92,12 +97,37 @@ QString mindAssistReadinessReason(int validationCount, int replaySamples, double
         return QStringLiteral("collecting ranker validation window");
     }
     if (replaySamples < 768) {
-        return QStringLiteral("collecting positive/negative FT candidates");
+        return QStringLiteral("collecting positive/negative weak-signal candidates");
     }
     if (classifierAccuracy < 84.0 || bestClassifierAccuracy < 88.0) {
         return QStringLiteral("waiting for ranker classifier stability");
     }
     return QStringLiteral("candidate ranker assist-ready");
+}
+
+
+bool mindAssistReadyForMsk144(int mskSamples, int validationCount, double classifierAccuracy, double bestClassifierAccuracy)
+{
+    // Do not let a trained FT8/FT4 ranker look "ready" for MSK144 before it has
+    // seen real MSK144 positive/negative ping/chunk candidates.
+    return mskSamples >= kMinMsk144AssistSamples &&
+           validationCount >= kMinMsk144ReadyValidation &&
+           classifierAccuracy >= 70.0 &&
+           bestClassifierAccuracy >= 80.0;
+}
+
+QString mindAssistReadinessReasonForMsk144(int mskSamples, int validationCount, double classifierAccuracy, double bestClassifierAccuracy)
+{
+    if (mskSamples < kMinMsk144AssistSamples) {
+        return QStringLiteral("collecting real MSK144 ping/chunk samples");
+    }
+    if (validationCount < kMinMsk144ReadyValidation) {
+        return QStringLiteral("collecting MSK144 validation window");
+    }
+    if (classifierAccuracy < 70.0 || bestClassifierAccuracy < 80.0) {
+        return QStringLiteral("waiting for MSK144 ranker stability");
+    }
+    return QStringLiteral("MSK144 candidate ranker assist-ready");
 }
 
 QString madnnessBaseDir()
@@ -193,6 +223,7 @@ DeepDspController::Status DeepDspController::status() const
     s.ftSamples = m_ftSamples;
     s.ft8Samples = m_ft8Samples;
     s.ft4Samples = m_ft4Samples;
+    s.msk144Samples = m_msk144Samples;
     s.nativeFtSamples = m_nativeFtSamples;
     s.manualSamples = m_manualSamples;
     s.replayBufferSamples = static_cast<int>(m_samples.size());
@@ -204,6 +235,12 @@ DeepDspController::Status DeepDspController::status() const
     }
     s.rankerPositiveSamples = rankerPos;
     s.rankerNegativeSamples = rankerNeg;
+    s.mindExtraLastSlot = m_mindExtraLastSlot;
+    s.mindExtraSession = m_mindExtraSession;
+    s.mindLdpcSkippedLastSlot = m_mindLdpcSkippedLastSlot;
+    s.mindLdpcSkippedSession = m_mindLdpcSkippedSession;
+    s.mindScoredLastSlot = m_mindScoredLastSlot;
+    s.mindAvgSuccessLastSlot = m_mindAvgSuccessLastSlot;
     s.sampleCount = qMax(static_cast<int>(m_samples.size()), m_ftSamples);
     s.trainingRuns = m_trainingRuns;
     s.validationCount = static_cast<int>(m_validationWindow.size());
@@ -215,13 +252,66 @@ DeepDspController::Status DeepDspController::status() const
     s.bitAccuracy = !m_bitAccuracyWindow.empty() ? bitSum / static_cast<double>(m_bitAccuracyWindow.size()) : 0.0;
     s.bestBitAccuracy = m_bestBitAccuracy;
     s.estimatedExactFrameAccuracy = estimatedExactFramePercent(s.bitAccuracy);
-    s.assistReady = mindAssistReadyForFt(s.validationCount, s.replayBufferSamples, s.bitAccuracy, s.bestBitAccuracy);
-    s.readinessReason = mindAssistReadinessReason(s.validationCount, s.replayBufferSamples, s.bitAccuracy, s.bestBitAccuracy);
+
+    auto samplesForProfile = [this](const QString &profile) -> int {
+        const QString d = normalizedDomain(profile);
+        if (d == QStringLiteral("FT8")) return m_ft8Samples;
+        if (d == QStringLiteral("FT4")) return m_ft4Samples;
+        if (d == QStringLiteral("MSK144")) return m_msk144Samples;
+        return 0;
+    };
+    auto validationStatsForProfile = [this](const QString &profile, int *count, double *avg, double *best) {
+        const QString d = normalizedDomain(profile);
+        int n = 0;
+        double sum = 0.0;
+        double maxv = 0.0;
+        auto modeIt = m_validationModeWindow.begin();
+        auto accIt = m_bitAccuracyWindow.begin();
+        for (; modeIt != m_validationModeWindow.end() && accIt != m_bitAccuracyWindow.end(); ++modeIt, ++accIt) {
+            if (normalizedDomain(*modeIt) != d) continue;
+            ++n;
+            sum += *accIt;
+            if (*accIt > maxv) maxv = *accIt;
+        }
+        if (count != nullptr) *count = n;
+        if (avg != nullptr) *avg = (n > 0) ? (sum / static_cast<double>(n)) : 0.0;
+        if (best != nullptr) *best = maxv;
+    };
+
+    const QString statusProfile = normalizedDomain(m_activeProfile);
+    s.activeProfileSamples = samplesForProfile(statusProfile);
+    validationStatsForProfile(statusProfile, &s.activeProfileValidationCount,
+                              &s.activeProfileRankerAccuracy,
+                              &s.activeProfileBestRankerAccuracy);
+
+    const bool mskProfile = (statusProfile == QStringLiteral("MSK144"));
+    if (mskProfile) {
+        s.assistReady = mindAssistReadyForMsk144(s.activeProfileSamples,
+                                                 s.activeProfileValidationCount,
+                                                 s.activeProfileRankerAccuracy,
+                                                 s.activeProfileBestRankerAccuracy);
+        s.readinessReason = mindAssistReadinessReasonForMsk144(s.activeProfileSamples,
+                                                               s.activeProfileValidationCount,
+                                                               s.activeProfileRankerAccuracy,
+                                                               s.activeProfileBestRankerAccuracy);
+    } else {
+        s.assistReady = mindAssistReadyForFt(s.validationCount, s.replayBufferSamples, s.bitAccuracy, s.bestBitAccuracy);
+        s.readinessReason = mindAssistReadinessReason(s.validationCount, s.replayBufferSamples, s.bitAccuracy, s.bestBitAccuracy);
+    }
+    s.activeProfileAssistReady = s.assistReady;
+    s.activeProfileReadinessReason = s.readinessReason;
     s.validationAccuracy = s.messageAccuracy;
-    const double sampleReadiness = qMin(1.0, static_cast<double>(s.validationCount) / static_cast<double>(kMinReadyValidation));
-    const double ftGoldReadiness = qMin(1.0, static_cast<double>(s.replayBufferSamples) / 768.0);
-    const double classifierProgress = qBound(0.0, (s.bitAccuracy - 50.0) / 34.0, 1.0);
-    s.trainingCompletionPercent = qMin(100.0, 100.0 * sampleReadiness * ftGoldReadiness * classifierProgress);
+    if (mskProfile) {
+        const double sampleReadiness = qMin(1.0, static_cast<double>(s.activeProfileSamples) / static_cast<double>(kMinMsk144AssistSamples));
+        const double valReadiness = qMin(1.0, static_cast<double>(s.activeProfileValidationCount) / static_cast<double>(kMinMsk144ReadyValidation));
+        const double classifierProgress = qBound(0.0, (s.activeProfileRankerAccuracy - 50.0) / 20.0, 1.0);
+        s.trainingCompletionPercent = qMin(100.0, 100.0 * sampleReadiness * valReadiness * classifierProgress);
+    } else {
+        const double sampleReadiness = qMin(1.0, static_cast<double>(s.validationCount) / static_cast<double>(kMinReadyValidation));
+        const double ftGoldReadiness = qMin(1.0, static_cast<double>(s.replayBufferSamples) / 768.0);
+        const double classifierProgress = qBound(0.0, (s.bitAccuracy - 50.0) / 34.0, 1.0);
+        s.trainingCompletionPercent = qMin(100.0, 100.0 * sampleReadiness * ftGoldReadiness * classifierProgress);
+    }
     s.lastLoss = m_lastLoss;
     s.ftActivity = m_network != nullptr ? m_network->lastActivity() : QVector<float>();
     s.neuralActivity = s.ftActivity;
@@ -230,7 +320,9 @@ DeepDspController::Status DeepDspController::status() const
     s.checkpointPath = checkpointPath();
     s.statsPath = statsPath();
     s.goldDatasetPath = goldDatasetPath();
-    s.architectureText = QStringLiteral("FT 58×8 Conv2D ranker");
+    s.architectureText = (normalizedDomain(m_activeProfile) == QStringLiteral("MSK144"))
+        ? QStringLiteral("MSK144 58×8 ping/chunk ranker")
+        : QStringLiteral("FT 58×8 Conv2D ranker");
     s.activeProfile = m_activeProfile;
     s.eigenThreads = Eigen::nbThreads();
     s.ftBatchSize = m_lastFtBatchSize > 0 ? m_lastFtBatchSize : m_ftBatchSize;
@@ -240,7 +332,7 @@ DeepDspController::Status DeepDspController::status() const
     s.adaptiveBatchSize = m_lastAdaptiveBatchSize;
     s.loadedGoldSamples = m_loadedGoldSamples;
     s.activityHint = m_activityHint;
-    s.backendText = QStringLiteral("CPU low-priority FT MIND (%1 Eigen thread%2)")
+    s.backendText = QStringLiteral("CPU low-priority MIND ranker (%1 Eigen thread%2)")
                         .arg(s.eigenThreads)
                         .arg(s.eigenThreads == 1 ? QString() : QStringLiteral("s"));
     QFileInfo cpInfo(checkpointPath());
@@ -284,6 +376,24 @@ QString DeepDspController::goldDatasetPath() const
     return defaultGoldDatasetPath();
 }
 
+
+void DeepDspController::updateFtMindGainStats(int extraDecodes,
+                                              int ldpcSkipped,
+                                              int scoredCandidates,
+                                              double avgSuccessPercent)
+{
+    {
+        QMutexLocker locker(&m_mutex);
+        m_mindExtraLastSlot = qMax(0, extraDecodes);
+        m_mindExtraSession += qMax(0, extraDecodes);
+        m_mindLdpcSkippedLastSlot = qMax(0, ldpcSkipped);
+        m_mindLdpcSkippedSession += qMax(0, ldpcSkipped);
+        m_mindScoredLastSlot = qMax(0, scoredCandidates);
+        m_mindAvgSuccessLastSlot = qBound(0.0, avgSuccessPercent, 100.0);
+    }
+    emitStatusThrottled();
+}
+
 void DeepDspController::setEnabled(bool enabled)
 {
     {
@@ -304,32 +414,67 @@ void DeepDspController::setAssistMode(const QString &mode)
     QString clean = normalizedAssistMode(mode);
     bool queued = false;
     bool active = false;
+    QString readinessReason;
+    QString profile;
     {
         QMutexLocker locker(&m_mutex);
         if (m_assistMode == clean) return;
         m_assistMode = clean;
-        double bitSum = 0.0;
-        for (double v : m_bitAccuracyWindow) bitSum += v;
-        const double bitAccuracy = !m_bitAccuracyWindow.empty()
-            ? bitSum / static_cast<double>(m_bitAccuracyWindow.size())
-            : 0.0;
-        const bool readyNow = mindAssistReadyForFt(static_cast<int>(m_validationWindow.size()),
-                                                   static_cast<int>(m_samples.size()),
-                                                   bitAccuracy,
-                                                   m_bestBitAccuracy);
+        profile = normalizedDomain(m_activeProfile);
+
+        bool readyNow = false;
+        if (profile == QStringLiteral("MSK144")) {
+            int mskValidationCount = 0;
+            double mskAccuracySum = 0.0;
+            double mskBestAccuracy = 0.0;
+            auto modeIt = m_validationModeWindow.begin();
+            auto accIt = m_bitAccuracyWindow.begin();
+            for (; modeIt != m_validationModeWindow.end() && accIt != m_bitAccuracyWindow.end(); ++modeIt, ++accIt) {
+                if (normalizedDomain(*modeIt) != QStringLiteral("MSK144")) continue;
+                ++mskValidationCount;
+                mskAccuracySum += *accIt;
+                if (*accIt > mskBestAccuracy) mskBestAccuracy = *accIt;
+            }
+            const double mskClassifierAccuracy = mskValidationCount > 0
+                ? mskAccuracySum / static_cast<double>(mskValidationCount)
+                : 0.0;
+            readyNow = mindAssistReadyForMsk144(m_msk144Samples,
+                                                mskValidationCount,
+                                                mskClassifierAccuracy,
+                                                mskBestAccuracy);
+            readinessReason = mindAssistReadinessReasonForMsk144(m_msk144Samples,
+                                                                  mskValidationCount,
+                                                                  mskClassifierAccuracy,
+                                                                  mskBestAccuracy);
+        } else {
+            double bitSum = 0.0;
+            for (double v : m_bitAccuracyWindow) bitSum += v;
+            const double bitAccuracy = !m_bitAccuracyWindow.empty()
+                ? bitSum / static_cast<double>(m_bitAccuracyWindow.size())
+                : 0.0;
+            readyNow = mindAssistReadyForFt(static_cast<int>(m_validationWindow.size()),
+                                            static_cast<int>(m_samples.size()),
+                                            bitAccuracy,
+                                            m_bestBitAccuracy);
+            readinessReason = mindAssistReadinessReason(static_cast<int>(m_validationWindow.size()),
+                                                         static_cast<int>(m_samples.size()),
+                                                         bitAccuracy,
+                                                         m_bestBitAccuracy);
+        }
+
         m_assistEnabled = (m_assistMode == QStringLiteral("assisted")) && readyNow;
         queued = (m_assistMode == QStringLiteral("assisted")) && !readyNow;
         active = m_assistEnabled;
         m_statsDirty = true;
     }
     if (clean == QStringLiteral("off")) {
-        emit logMessage(QStringLiteral("MIND Assist mode: Off. Native FT decoder runs without MIND ranking."));
+        emit logMessage(QStringLiteral("MIND Assist mode: Off. Native weak-signal decoders run without MIND ranking."));
     } else if (clean == QStringLiteral("shadow")) {
         emit logMessage(QStringLiteral("MIND Assist mode: Training. MIND learns/scores but does not alter decoding."));
     } else if (queued) {
-        emit logMessage(QStringLiteral("MIND Assist mode: Assist queued; ranker still training."));
+        emit logMessage(QStringLiteral("MIND Assist mode: Assist queued for %1; %2.").arg(profile, readinessReason));
     } else if (active) {
-        emit logMessage(QStringLiteral("MIND Assist mode: Assist active."));
+        emit logMessage(QStringLiteral("MIND Assist mode: Assist active for %1.").arg(profile));
     }
     emitStatus();
 }
@@ -372,7 +517,8 @@ void DeepDspController::setActivityHint(const QString &hint)
 void DeepDspController::setRuntimeMode(const QString &mode)
 {
     const QString domain = normalizedDomain(mode);
-    if (domain != QStringLiteral("FT8") && domain != QStringLiteral("FT4")) {
+    if (domain != QStringLiteral("FT8") && domain != QStringLiteral("FT4") &&
+        domain != QStringLiteral("MSK144")) {
         return;
     }
     bool changed = false;
@@ -424,6 +570,45 @@ void DeepDspController::observeFtActivity(const QString &mode)
     if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off")) return;
     m_activeProfile = domain;
     m_lastRealtimeActivityMs = QDateTime::currentMSecsSinceEpoch();
+}
+
+void DeepDspController::observeMsk144Activity()
+{
+    QMutexLocker locker(&m_mutex);
+    if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off")) return;
+    m_activeProfile = QStringLiteral("MSK144");
+    m_lastRealtimeActivityMs = QDateTime::currentMSecsSinceEpoch();
+}
+
+void DeepDspController::submitNativeMsk144Sample(const QVector<float> &candidateFeatures,
+                                                 bool decodeSucceeded,
+                                                 const QString &message)
+{
+    if (candidateFeatures.size() != kInputCount) return;
+
+    {
+        QMutexLocker locker(&m_mutex);
+        if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off")) return;
+
+        Sample sample;
+        sample.input = candidateFeatures;
+        sample.target = QVector<float>{decodeSucceeded ? 1.0f : 0.0f};
+        sample.mode = QStringLiteral("MSK144");
+        sample.label = message.trimmed().toUpper();
+        sample.nativeFt = true; // legacy replay flag: native weak-signal candidate sample
+
+        appendSample(sample);
+        m_activeProfile = QStringLiteral("MSK144");
+        // MSK144 pings are latency-sensitive.  Queue labels now, but defer heavy
+        // trainer work briefly so the period decoder can finish first.
+        m_neuralWorkDeferredUntilMs = QDateTime::currentMSecsSinceEpoch() + 1500;
+        ++m_msk144Samples;
+        ++m_nativeFtSamples;
+        m_statsDirty = true;
+        m_goldDatasetDirty = true;
+        if (m_decodeCritical) return;
+    }
+    emitStatusThrottled();
 }
 
 
@@ -487,6 +672,7 @@ void DeepDspController::resetModel()
         m_ftSamples = 0;
         m_ft8Samples = 0;
         m_ft4Samples = 0;
+        m_msk144Samples = 0;
         m_nativeFtSamples = 0;
         m_manualSamples = 0;
         m_lastLoss = 0.0;
@@ -501,7 +687,7 @@ void DeepDspController::resetModel()
         m_lastStatsSaveMs = 0;
         m_lastStatsSavedSampleCount = 0;
     }
-    emit logMessage(QStringLiteral("MIND ranker model and FT candidate replay buffer reset."));
+    emit logMessage(QStringLiteral("MIND ranker model and weak-signal candidate replay buffer reset."));
     emitStatus();
 }
 
@@ -520,7 +706,7 @@ void DeepDspController::saveCheckpoint()
         m_lastStatsSavedSampleCount = m_nativeFtSamples + m_manualSamples;
     }
     if (modelOk) {
-        emit logMessage(QStringLiteral("MIND ranker checkpoint and FT candidate replay buffer saved: %1").arg(checkpointPath()));
+        emit logMessage(QStringLiteral("MIND ranker checkpoint and weak-signal candidate replay buffer saved: %1").arg(checkpointPath()));
     } else {
         emit logMessage(QStringLiteral("MIND checkpoint save failed."));
     }
@@ -547,9 +733,9 @@ void DeepDspController::loadCheckpoint()
         loadGoldDataset();
     }
     if (ftLoaded) {
-        emit logMessage(QStringLiteral("MIND FT ranker checkpoint loaded."));
+        emit logMessage(QStringLiteral("MIND weak-signal ranker checkpoint loaded."));
     } else {
-        emit logMessage(QStringLiteral("MIND FT ranker checkpoint missing; starting fresh."));
+        emit logMessage(QStringLiteral("MIND weak-signal ranker checkpoint missing; starting fresh."));
     }
     emitStatus();
 }
@@ -576,10 +762,10 @@ void DeepDspController::saveStats()
     double readiness = qMin(100.0, (0.75 * bitAccuracy + 0.25 * messageAccuracy) * sampleReadiness);
     QJsonObject obj;
     obj.insert(QStringLiteral("engine"), QStringLiteral("MIND"));
-    obj.insert(QStringLiteral("version"), 11);
-    obj.insert(QStringLiteral("architecture"), QStringLiteral("ft_candidate_ranker_v1"));
+    obj.insert(QStringLiteral("version"), 12);
+    obj.insert(QStringLiteral("architecture"), QStringLiteral("weak_signal_candidate_ranker_v2"));
     obj.insert(QStringLiteral("trainer_thread"), QStringLiteral("autonomous_low_priority_qthread"));
-    obj.insert(QStringLiteral("math_backend"), QStringLiteral("LowPriority CPU FT ranker / Eigen threads capped during training"));
+    obj.insert(QStringLiteral("math_backend"), QStringLiteral("LowPriority CPU weak-signal ranker / Eigen threads capped during training"));
     obj.insert(QStringLiteral("eigen_threads"), Eigen::nbThreads());
     obj.insert(QStringLiteral("ft_batch_size"), m_lastFtBatchSize > 0 ? m_lastFtBatchSize : m_ftBatchSize);
     obj.insert(QStringLiteral("train_steps_per_second"), m_trainStepsPerSecond);
@@ -594,6 +780,7 @@ void DeepDspController::saveStats()
     obj.insert(QStringLiteral("ft_samples"), m_ftSamples);
     obj.insert(QStringLiteral("ft8_samples"), m_ft8Samples);
     obj.insert(QStringLiteral("ft4_samples"), m_ft4Samples);
+    obj.insert(QStringLiteral("msk144_samples"), m_msk144Samples);
     obj.insert(QStringLiteral("active_profile"), m_activeProfile);
     obj.insert(QStringLiteral("native_ft_samples"), m_nativeFtSamples);
     obj.insert(QStringLiteral("manual_samples"), m_manualSamples);
@@ -605,14 +792,37 @@ void DeepDspController::saveStats()
     obj.insert(QStringLiteral("bit_accuracy_percent"), bitAccuracy); // legacy UI/stat key
     obj.insert(QStringLiteral("best_ranker_accuracy_percent"), m_bestBitAccuracy);
     obj.insert(QStringLiteral("best_bit_accuracy_percent"), m_bestBitAccuracy); // legacy UI/stat key
-    const bool assistReady = mindAssistReadyForFt(validationCount, static_cast<int>(m_samples.size()), bitAccuracy, m_bestBitAccuracy);
+    int mskValidationCount = 0;
+    double mskAccuracySum = 0.0;
+    double mskBestAccuracy = 0.0;
+    auto modeIt = m_validationModeWindow.begin();
+    auto accIt = m_bitAccuracyWindow.begin();
+    for (; modeIt != m_validationModeWindow.end() && accIt != m_bitAccuracyWindow.end(); ++modeIt, ++accIt) {
+        if (normalizedDomain(*modeIt) != QStringLiteral("MSK144")) continue;
+        ++mskValidationCount;
+        mskAccuracySum += *accIt;
+        if (*accIt > mskBestAccuracy) mskBestAccuracy = *accIt;
+    }
+    const double mskClassifierAccuracy = mskValidationCount > 0
+        ? mskAccuracySum / static_cast<double>(mskValidationCount)
+        : 0.0;
+    const QString activeStatsProfile = normalizedDomain(m_activeProfile);
+    const bool assistReady = (activeStatsProfile == QStringLiteral("MSK144"))
+        ? mindAssistReadyForMsk144(m_msk144Samples, mskValidationCount, mskClassifierAccuracy, mskBestAccuracy)
+        : mindAssistReadyForFt(validationCount, static_cast<int>(m_samples.size()), bitAccuracy, m_bestBitAccuracy);
+    obj.insert(QStringLiteral("msk144_validation_count"), mskValidationCount);
+    obj.insert(QStringLiteral("msk144_ranker_accuracy_percent"), mskClassifierAccuracy);
+    obj.insert(QStringLiteral("msk144_best_ranker_accuracy_percent"), mskBestAccuracy);
     obj.insert(QStringLiteral("message_accuracy_percent"), messageAccuracy);
     obj.insert(QStringLiteral("exact_frame_accuracy_percent"), messageAccuracy);
     obj.insert(QStringLiteral("estimated_exact_frame_from_bit_percent"), estimatedExactFramePercent(bitAccuracy));
     obj.insert(QStringLiteral("candidate_success_probability_model"), true);
     obj.insert(QStringLiteral("validation_success_percent"), messageAccuracy);
     obj.insert(QStringLiteral("assist_ready"), assistReady);
-    obj.insert(QStringLiteral("assist_readiness_reason"), mindAssistReadinessReason(validationCount, static_cast<int>(m_samples.size()), bitAccuracy, m_bestBitAccuracy));
+    obj.insert(QStringLiteral("assist_readiness_reason"),
+               activeStatsProfile == QStringLiteral("MSK144")
+                   ? mindAssistReadinessReasonForMsk144(m_msk144Samples, mskValidationCount, mskClassifierAccuracy, mskBestAccuracy)
+                   : mindAssistReadinessReason(validationCount, static_cast<int>(m_samples.size()), bitAccuracy, m_bestBitAccuracy));
     obj.insert(QStringLiteral("readiness_percent"), readiness);
     writeJsonAtomically(statsPath(), obj);
 }
@@ -629,7 +839,9 @@ void DeepDspController::loadStats()
 
     const int version = obj.value(QStringLiteral("version")).toInt();
     const QString arch = obj.value(QStringLiteral("architecture")).toString();
-    if (version != 11 || arch != QStringLiteral("ft_candidate_ranker_v1")) {
+    const bool supportedStats = (version == 11 && arch == QStringLiteral("ft_candidate_ranker_v1")) ||
+                                (version == 12 && arch == QStringLiteral("weak_signal_candidate_ranker_v2"));
+    if (!supportedStats) {
         const QString legacyPath = statsPath() + QStringLiteral(".legacy_v%1").arg(version);
         QFile::remove(legacyPath);
         QFile::rename(statsPath(), legacyPath);
@@ -641,6 +853,7 @@ void DeepDspController::loadStats()
     m_ftSamples = obj.value(QStringLiteral("ft_samples")).toInt(m_ftSamples);
     m_ft8Samples = obj.value(QStringLiteral("ft8_samples")).toInt(m_ft8Samples);
     m_ft4Samples = obj.value(QStringLiteral("ft4_samples")).toInt(m_ft4Samples);
+    m_msk144Samples = obj.value(QStringLiteral("msk144_samples")).toInt(m_msk144Samples);
     const QString loadedProfile = obj.value(QStringLiteral("active_profile")).toString();
     if (!loadedProfile.trimmed().isEmpty()) m_activeProfile = normalizedDomain(loadedProfile);
     m_assistMode = normalizedAssistMode(obj.value(QStringLiteral("mind_assist_mode")).toString(m_assistMode));
@@ -670,8 +883,10 @@ void DeepDspController::loadStats()
         m_validationWindow.clear();
         const int cappedCount = qMin(loadedValidationCount, 1000);
         const int okCount = qBound(0, static_cast<int>(std::lround((m_loadedMessageAccuracyPercent / 100.0) * cappedCount)), cappedCount);
+        m_validationModeWindow.clear();
         for (int i = 0; i < cappedCount; ++i) {
             m_validationWindow.push_back(i < okCount);
+            m_validationModeWindow.push_back(QStringLiteral("FT8")); // legacy compact stats belong to the FT ranker, not MSK144
         }
     }
 
@@ -700,7 +915,7 @@ bool DeepDspController::saveGoldDataset()
 
     QDataStream ds(&f);
     ds.setVersion(QDataStream::Qt_5_12);
-    ds << QStringLiteral("MM_MIND_FT_RANKER_V1") << static_cast<qint32>(nativeSamples.size());
+    ds << QStringLiteral("MM_MIND_WEAK_SIGNAL_RANKER_V2") << static_cast<qint32>(nativeSamples.size());
     for (const Sample &s : nativeSamples) {
         ds << s.mode << s.label << s.input << s.target;
     }
@@ -731,11 +946,13 @@ bool DeepDspController::loadGoldDataset()
     QString magic;
     qint32 count = 0;
     ds >> magic >> count;
-    if (magic != QStringLiteral("MM_MIND_FT_RANKER_V1") || count < 0) return false;
+    if ((magic != QStringLiteral("MM_MIND_FT_RANKER_V1") &&
+         magic != QStringLiteral("MM_MIND_WEAK_SIGNAL_RANKER_V2")) || count < 0) return false;
 
     std::deque<Sample> loaded;
     int loadedFt8 = 0;
     int loadedFt4 = 0;
+    int loadedMsk144 = 0;
     const int maxToLoad = qMin(static_cast<int>(count), kMaxSamples);
     for (int i = 0; i < count; ++i) {
         QString mode;
@@ -746,7 +963,8 @@ bool DeepDspController::loadGoldDataset()
         if (ds.status() != QDataStream::Ok) return false;
         if (i < count - maxToLoad) continue; // keep newest records when file is larger than buffer
         const QString domain = normalizedDomain(mode);
-        if ((domain == QStringLiteral("FT8") || domain == QStringLiteral("FT4")) &&
+        if ((domain == QStringLiteral("FT8") || domain == QStringLiteral("FT4") ||
+             domain == QStringLiteral("MSK144")) &&
             input.size() == kInputCount && target.size() == kOutputCount) {
             Sample s;
             s.mode = domain;
@@ -756,7 +974,8 @@ bool DeepDspController::loadGoldDataset()
             s.nativeFt = true;
             loaded.push_back(s);
             if (domain == QStringLiteral("FT8")) ++loadedFt8;
-            else ++loadedFt4;
+            else if (domain == QStringLiteral("FT4")) ++loadedFt4;
+            else if (domain == QStringLiteral("MSK144")) ++loadedMsk144;
         }
     }
 
@@ -765,7 +984,8 @@ bool DeepDspController::loadGoldDataset()
     m_nativeFtSamples = static_cast<int>(m_samples.size());
     m_ft8Samples = loadedFt8;
     m_ft4Samples = loadedFt4;
-    m_ftSamples = m_nativeFtSamples;
+    m_msk144Samples = loadedMsk144;
+    m_ftSamples = loadedFt8 + loadedFt4;
     m_loadedGoldSamples = m_nativeFtSamples;
     m_replayCursor = 0;
     m_goldDatasetDirty = false;
@@ -783,6 +1003,10 @@ QString DeepDspController::autonomousStateText(int budgetMs) const
     if (profile == QStringLiteral("FT8") || profile == QStringLiteral("FT4")) {
         return budgetMs > 0 ? QStringLiteral("Autonomous · FT idle training")
                             : QStringLiteral("Autonomous · FT idle");
+    }
+    if (profile == QStringLiteral("MSK144")) {
+        return budgetMs > 0 ? QStringLiteral("Autonomous · MSK144 idle training")
+                            : QStringLiteral("Autonomous · MSK144 idle");
     }
     return budgetMs > 0 ? QStringLiteral("Autonomous training")
                         : QStringLiteral("Autonomous · waiting for idle time");
@@ -964,7 +1188,7 @@ void DeepDspController::appendSample(const Sample &sample)
     }
 }
 
-void DeepDspController::updateValidation(const QVector<float> &prediction, const QVector<float> &target)
+void DeepDspController::updateValidation(const QVector<float> &prediction, const QVector<float> &target, const QString &mode)
 {
     if (prediction.size() != target.size()) return;
     int bitOk = 0;
@@ -978,8 +1202,10 @@ void DeepDspController::updateValidation(const QVector<float> &prediction, const
     if (bitAccuracy > m_bestBitAccuracy) m_bestBitAccuracy = bitAccuracy;
     m_bitAccuracyWindow.push_back(bitAccuracy);
     m_validationWindow.push_back(exact);
+    m_validationModeWindow.push_back(normalizedDomain(mode));
     while (m_bitAccuracyWindow.size() > 1000) m_bitAccuracyWindow.pop_front();
     while (m_validationWindow.size() > 1000) m_validationWindow.pop_front();
+    while (m_validationModeWindow.size() > 1000) m_validationModeWindow.pop_front();
 }
 
 void DeepDspController::emitStatus()
@@ -1030,7 +1256,7 @@ double DeepDspController::trainOnSamples(const QVector<Sample> &batch)
     // Validation is computed from idle slices, not from the decoder callback.
     const QVector<float> prediction = m_network->predict(inputs.constFirst());
     if (prediction.size() == targets.constFirst().size()) {
-        updateValidation(prediction, targets.constFirst());
+        updateValidation(prediction, targets.constFirst(), batch.constFirst().mode);
     }
     return m_network->trainBatch(inputs, targets, 0.003f);
 }
@@ -1095,5 +1321,51 @@ bool DeepDspController::scoreNativeFtCandidate(const QVector<float> &candidateMa
     }
     return true;
 }
+
+bool DeepDspController::scoreMsk144Candidate(const QVector<float> &candidateFeatures,
+                                             double *confidencePercent,
+                                             bool *mayPromote)
+{
+    if (confidencePercent != nullptr) *confidencePercent = 0.0;
+    if (mayPromote != nullptr) *mayPromote = false;
+    if (candidateFeatures.size() != kInputCount) return false;
+
+    QMutexLocker locker(&m_mutex);
+    const QString mode = normalizedAssistMode(m_assistMode);
+    if (!m_enabled || mode == QStringLiteral("off") || m_network == nullptr) {
+        return false;
+    }
+
+    int mskValidationCount = 0;
+    double mskAccuracySum = 0.0;
+    double mskBestAccuracy = 0.0;
+    auto modeIt = m_validationModeWindow.begin();
+    auto accIt = m_bitAccuracyWindow.begin();
+    for (; modeIt != m_validationModeWindow.end() && accIt != m_bitAccuracyWindow.end(); ++modeIt, ++accIt) {
+        if (normalizedDomain(*modeIt) != QStringLiteral("MSK144")) continue;
+        ++mskValidationCount;
+        mskAccuracySum += *accIt;
+        if (*accIt > mskBestAccuracy) mskBestAccuracy = *accIt;
+    }
+    const double mskClassifierAccuracy = mskValidationCount > 0
+        ? mskAccuracySum / static_cast<double>(mskValidationCount)
+        : 0.0;
+    const bool readyNow = mindAssistReadyForMsk144(m_msk144Samples,
+                                                   mskValidationCount,
+                                                   mskClassifierAccuracy,
+                                                   mskBestAccuracy);
+    m_assistEnabled = (mode == QStringLiteral("assisted")) && readyNow;
+
+    const QVector<float> prediction = m_network->predict(candidateFeatures);
+    if (prediction.size() != kOutputCount) {
+        return false;
+    }
+    const double probability = qBound(0.0, static_cast<double>(prediction.constFirst()), 1.0);
+    if (confidencePercent != nullptr) *confidencePercent = 100.0 * probability;
+    if (mayPromote != nullptr) *mayPromote = (mode == QStringLiteral("assisted") && readyNow);
+    m_activeProfile = QStringLiteral("MSK144");
+    return true;
+}
+
 
 

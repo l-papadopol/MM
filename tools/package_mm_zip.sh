@@ -69,10 +69,7 @@ for f in \
     fi
 done
 
-if [[ -f "$ROOT_DIR/third_party/ggmorse_mit/LICENSE" ]]; then
-    mkdir -p "$PACKAGE_DIR/licenses"
-    cp -f "$ROOT_DIR/third_party/ggmorse_mit/LICENSE" "$PACKAGE_DIR/licenses/LICENSE-ggmorse-MIT.txt"
-fi
+# CW RX now uses the integrated Hamfist-derived MIT skimmer.
 
 # Bundled FT8 Auto test WAV files.  Keep them in the binary distribution so the
 # FT panel Auto test button works from installed packages, not only from source.

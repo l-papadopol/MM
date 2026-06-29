@@ -92,6 +92,7 @@ void WaterfallWidget::addLine(const QVector<quint8> &line, double minHz, double 
             row[imageWidth - 1] = colorForIntensity(static_cast<quint8>(qBound(0, value, 255)));
         }
 
+        ageVerticalTextTrails();
         requestRepaint();
         return;
     }
@@ -114,6 +115,7 @@ void WaterfallWidget::addLine(const QVector<quint8> &line, double minHz, double 
         dst[x] = colorForIntensity(static_cast<quint8>(qBound(0, value, 255)));
     }
 
+    ageVerticalTextTrails();
     requestRepaint();
 }
 
@@ -124,6 +126,9 @@ void WaterfallWidget::clear()
     if (!m_image.isNull()) {
         m_image.fill(QColor(4, 6, 8));
     }
+
+    m_verticalTextGlyphs.clear();
+    m_verticalTrailLastLabelByStream.clear();
 
     requestRepaint();
 }
@@ -136,7 +141,18 @@ void WaterfallWidget::setMarkers(const QVector<FrequencyMarker> &markers)
 
 void WaterfallWidget::setTextOverlays(const QVector<WaterfallTextOverlay> &overlays)
 {
-    m_textOverlays = overlays;
+    QVector<WaterfallTextOverlay> staticOverlays;
+    staticOverlays.reserve(overlays.size());
+
+    for (const WaterfallTextOverlay &overlay : overlays) {
+        if (overlay.verticalTrail) {
+            appendVerticalTextTrail(overlay);
+        } else {
+            staticOverlays.append(overlay);
+        }
+    }
+
+    m_textOverlays = staticOverlays;
     requestRepaint();
 }
 
@@ -216,6 +232,7 @@ void WaterfallWidget::paintGL()
     drawFrequencyScale(painter);
     drawMarkers(painter);
     drawTextOverlays(painter);
+    drawVerticalTextTrails(painter);
 
     painter.setPen(QColor(130, 150, 160));
     painter.drawRect(rect().adjusted(0, 0, -1, -1));
@@ -287,7 +304,7 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
         labelFont.setPointSize(7);
         painter.setFont(labelFont);
         const QFontMetrics fm(labelFont);
-        const int sideWidth = 58;
+        const int sideWidth = rightScaleBandWidth();
         const int sideLeft = qMax(0, width() - sideWidth);
         painter.fillRect(QRect(sideLeft, 0, sideWidth, height()), bandBackground);
         for (int i = 0; i <= divisions; ++i) {
@@ -295,7 +312,7 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
             const double freq = m_minHz + ratio * (m_maxHz - m_minHz);
             const int y = frequencyToY(freq);
             painter.setPen(gridColor);
-            painter.drawLine(0, y, width(), y);
+            painter.drawLine(0, y, qMax(0, sideLeft - 1), y);
             const QString label = QString::number(static_cast<int>(freq)) + " Hz";
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
             const int textWidth = fm.horizontalAdvance(label);
@@ -334,7 +351,7 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
 
     const QFontMetrics fm(labelFont);
     const int labelHeight = fm.height() + (labelPaddingY * 2);
-    const int bandHeight = 24;
+    const int bandHeight = bottomScaleBandHeight();
     const int bandTop = qMax(0, height() - bandHeight);
 
     painter.fillRect(QRect(0, bandTop, width(), bandHeight), bandBackground);
@@ -344,7 +361,7 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
         const int x = static_cast<int>(ratio * static_cast<double>(width() - 1));
 
         painter.setPen(gridColor);
-        painter.drawLine(x, 0, x, height());
+        painter.drawLine(x, 0, x, qMax(0, bandTop - 1));
 
         const double freq = m_minHz + ratio * (m_maxHz - m_minHz);
         const QString label = QString::number(static_cast<int>(freq)) + " Hz";
@@ -365,9 +382,10 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
             labelLeft = 2;
         }
 
+        const int labelTop = bandTop + qMax(3, (bandHeight - labelHeight) / 2 - 4);
         const QRect labelRect(
             labelLeft,
-            height() - labelHeight - 3,
+            qBound(bandTop + 2, labelTop, qMax(bandTop + 2, height() - labelHeight - 6)),
             textWidth + (labelPaddingX * 2),
             labelHeight
             );
@@ -412,25 +430,27 @@ void WaterfallWidget::drawMarkers(QPainter &painter)
                 markerPen.setStyle(Qt::DashLine);
             }
             painter.setPen(markerPen);
-            painter.drawLine(0, y, width(), y);
+            painter.drawLine(0, y, qMax(0, width() - rightScaleBandWidth() - 1), y);
+            if (!marker.label.trimmed().isEmpty()) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-            const int textWidth = fm.horizontalAdvance(marker.label);
+                const int textWidth = fm.horizontalAdvance(marker.label);
 #else
-            const int textWidth = fm.width(marker.label);
+                const int textWidth = fm.width(marker.label);
 #endif
-            const int labelLeft = 4 + ((visibleLabelIndex % 2) * (textWidth + 14));
-            QRect labelRect(labelLeft,
-                            qBound(2, y - labelHeight - 2, qMax(2, height() - labelHeight - 2)),
-                            textWidth + (labelPaddingX * 2),
-                            labelHeight);
-            painter.fillRect(labelRect, QColor(245, 245, 245, 235));
-            painter.setPen(QColor(130, 0, 0));
-            painter.drawRect(labelRect.adjusted(0, 0, -1, -1));
-            painter.setPen(marker.color);
-            painter.drawText(labelRect.adjusted(labelPaddingX, labelPaddingY, -labelPaddingX, -labelPaddingY),
-                             Qt::AlignVCenter | Qt::AlignLeft,
-                             marker.label);
-            ++visibleLabelIndex;
+                const int labelLeft = 4 + ((visibleLabelIndex % 2) * (textWidth + 14));
+                QRect labelRect(labelLeft,
+                                qBound(2, y - labelHeight - 2, qMax(2, height() - labelHeight - 2)),
+                                textWidth + (labelPaddingX * 2),
+                                labelHeight);
+                painter.fillRect(labelRect, QColor(245, 245, 245, 235));
+                painter.setPen(QColor(130, 0, 0));
+                painter.drawRect(labelRect.adjusted(0, 0, -1, -1));
+                painter.setPen(marker.color);
+                painter.drawText(labelRect.adjusted(labelPaddingX, labelPaddingY, -labelPaddingX, -labelPaddingY),
+                                 Qt::AlignVCenter | Qt::AlignLeft,
+                                 marker.label);
+                ++visibleLabelIndex;
+            }
         }
         return;
     }
@@ -461,46 +481,50 @@ void WaterfallWidget::drawMarkers(QPainter &painter)
             markerPen.setStyle(Qt::DashLine);
         }
         painter.setPen(markerPen);
-        painter.drawLine(x, 0, x, height());
+        const int plotBottom = qMax(0, height() - bottomScaleBandHeight() - 1);
+        painter.drawLine(x, 0, x, plotBottom);
 
+        if (!marker.label.trimmed().isEmpty()) {
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
-        const int textWidth = fm.horizontalAdvance(marker.label);
+            const int textWidth = fm.horizontalAdvance(marker.label);
 #else
-        const int textWidth = fm.width(marker.label);
+            const int textWidth = fm.width(marker.label);
 #endif
 
-        int labelLeft = x + 4;
+            int labelLeft = x + 4;
 
-        if (labelLeft + textWidth + (labelPaddingX * 2) > width()) {
-            labelLeft = x - textWidth - (labelPaddingX * 2) - 4;
+            if (labelLeft + textWidth + (labelPaddingX * 2) > width()) {
+                labelLeft = x - textWidth - (labelPaddingX * 2) - 4;
+            }
+
+            if (labelLeft < 2) {
+                labelLeft = 2;
+            }
+
+            const int plotBottom = qMax(2, height() - bottomScaleBandHeight() - 2);
+            const int labelBottomOffset = 4 + ((visibleLabelIndex % 2) * (labelHeight + 2));
+            const int labelTop = qMax(2, plotBottom - labelBottomOffset - labelHeight);
+
+            const QRect labelRect(
+                labelLeft,
+                labelTop,
+                textWidth + (labelPaddingX * 2),
+                labelHeight
+                );
+
+            painter.fillRect(labelRect, QColor(245, 245, 245, 235));
+            painter.setPen(QColor(130, 0, 0));
+            painter.drawRect(labelRect.adjusted(0, 0, -1, -1));
+
+            painter.setPen(marker.color);
+            painter.drawText(
+                labelRect.adjusted(labelPaddingX, labelPaddingY, -labelPaddingX, -labelPaddingY),
+                Qt::AlignVCenter | Qt::AlignLeft,
+                marker.label
+                );
+
+            ++visibleLabelIndex;
         }
-
-        if (labelLeft < 2) {
-            labelLeft = 2;
-        }
-
-        const int labelBottomOffset = 24 + ((visibleLabelIndex % 2) * (labelHeight + 2));
-        const int labelTop = qMax(2, height() - labelBottomOffset - labelHeight);
-
-        const QRect labelRect(
-            labelLeft,
-            labelTop,
-            textWidth + (labelPaddingX * 2),
-            labelHeight
-            );
-
-        painter.fillRect(labelRect, QColor(245, 245, 245, 235));
-        painter.setPen(QColor(130, 0, 0));
-        painter.drawRect(labelRect.adjusted(0, 0, -1, -1));
-
-        painter.setPen(marker.color);
-        painter.drawText(
-            labelRect.adjusted(labelPaddingX, labelPaddingY, -labelPaddingX, -labelPaddingY),
-            Qt::AlignVCenter | Qt::AlignLeft,
-            marker.label
-            );
-
-        ++visibleLabelIndex;
     }
 }
 
@@ -519,7 +543,7 @@ void WaterfallWidget::drawTextOverlays(QPainter &painter)
     const int paddingX = 6;
     const int paddingY = 2;
     const int labelHeight = fm.height() + paddingY * 2;
-    const int usableBottom = qMax(0, height() - 30);
+    const int usableBottom = qMax(0, height() - bottomScaleBandHeight() - 4);
     QVector<QRect> occupied;
 
     for (const WaterfallTextOverlay &overlay : m_textOverlays) {
@@ -578,6 +602,226 @@ void WaterfallWidget::drawTextOverlays(QPainter &painter)
         painter.setPen(guidePen);
         painter.drawLine(x, rect.bottom(), x, usableBottom);
     }
+}
+
+
+void WaterfallWidget::drawVerticalTextTrails(QPainter &painter)
+{
+    if (m_verticalTextGlyphs.isEmpty()) {
+        return;
+    }
+
+    if (m_scrollDirection != ScrollDirection::Down) {
+        return;
+    }
+
+    QFont trailFont = painter.font();
+    trailFont.setBold(true);
+    trailFont.setPointSize(9);
+    painter.setFont(trailFont);
+
+    const QFontMetrics fm(trailFont);
+    const int paddingX = 4;
+    const int paddingY = 1;
+    const int charStep = qMax(12, fm.height() + 2);
+    const int labelHeight = fm.height() + (paddingY * 2);
+    const int plotBottom = qMax(0, height() - bottomScaleBandHeight() - 4);
+
+    QVector<QRect> occupied;
+    for (const VerticalTextGlyph &glyph : m_verticalTextGlyphs) {
+        if (glyph.text.isEmpty() || glyph.frequencyHz < m_minHz || glyph.frequencyHz > m_maxHz) {
+            continue;
+        }
+
+        const int x = frequencyToX(glyph.frequencyHz);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
+        const int textWidth = fm.horizontalAdvance(glyph.text);
+#else
+        const int textWidth = fm.width(glyph.text);
+#endif
+        const int labelWidth = textWidth + (paddingX * 2);
+
+        int left = x + 9;
+        if (left + labelWidth + 2 > width()) {
+            left = x - labelWidth - 9;
+        }
+        left = qBound(2, left, qMax(2, width() - labelWidth - 2));
+
+        int top = plotBottom - glyph.ageRows - (glyph.sequenceIndex * charStep) - labelHeight;
+        if (top + labelHeight < 0 || top > plotBottom) {
+            continue;
+        }
+
+        QRect rect(left, top, labelWidth, labelHeight);
+
+        // Keep the glyph beside the tone, but step it sideways by a few pixels if
+        // two CW streams collide.  There is no flashing/toggling: once a glyph is
+        // born it simply rides upward with the waterfall pixels.
+        int guard = 0;
+        while (guard < 5) {
+            bool overlaps = false;
+            for (const QRect &used : occupied) {
+                if (rect.adjusted(-2, -1, 2, 1).intersects(used)) {
+                    overlaps = true;
+                    break;
+                }
+            }
+            if (!overlaps) {
+                break;
+            }
+            rect.translate(labelWidth + 3, 0);
+            if (rect.right() >= width() - 2) {
+                rect.moveLeft(qMax(2, x - labelWidth - 9 - (guard * (labelWidth + 3))));
+            }
+            ++guard;
+        }
+        occupied.append(rect);
+
+        painter.fillRect(rect, glyph.backgroundColor);
+        painter.setPen(QColor(255, 255, 255, 150));
+        painter.drawRect(rect.adjusted(0, 0, -1, -1));
+
+        const QRect textRect = rect.adjusted(paddingX, paddingY, -paddingX, -paddingY);
+        // High-contrast cockpit OSD: draw a tiny black halo first, then the
+        // bright glyph.  This keeps CW characters readable on both blue/green
+        // traces and the black waterfall background without blinking.
+        painter.setPen(QColor(0, 0, 0, 230));
+        painter.drawText(textRect.translated(1, 1), Qt::AlignCenter, glyph.text);
+        painter.setPen(glyph.textColor.isValid() ? glyph.textColor : QColor(255, 244, 170));
+        painter.drawText(textRect,
+                         Qt::AlignCenter,
+                         glyph.text);
+    }
+}
+
+void WaterfallWidget::ageVerticalTextTrails()
+{
+    if (m_verticalTextGlyphs.isEmpty()) {
+        return;
+    }
+
+    const int maxAge = qMax(220, height() + 80);
+    for (VerticalTextGlyph &glyph : m_verticalTextGlyphs) {
+        ++glyph.ageRows;
+    }
+
+    QVector<VerticalTextGlyph> alive;
+    alive.reserve(m_verticalTextGlyphs.size());
+    for (const VerticalTextGlyph &glyph : m_verticalTextGlyphs) {
+        if (glyph.ageRows + (glyph.sequenceIndex * 18) < maxAge) {
+            alive.append(glyph);
+        }
+    }
+    m_verticalTextGlyphs = alive;
+}
+
+void WaterfallWidget::appendVerticalTextTrail(const WaterfallTextOverlay &overlay)
+{
+    if (overlay.label.trimmed().isEmpty() ||
+        overlay.frequencyHz < m_minHz || overlay.frequencyHz > m_maxHz) {
+        return;
+    }
+
+    QString key = overlay.streamId.trimmed();
+    if (key.isEmpty()) {
+        key = QStringLiteral("freq:%1").arg(qRound(overlay.frequencyHz));
+    }
+
+    QString current = overlay.label;
+    current.replace(QChar('\r'), QChar(' '));
+    current.replace(QChar('\n'), QChar(' '));
+    current = current.simplified();
+    if (current.isEmpty()) {
+        return;
+    }
+
+    QString delta = newOverlaySuffix(key, current);
+    if (delta.isEmpty()) {
+        return;
+    }
+
+    // A late decoder may commit a short word/chunk at once.  Do not dump a whole
+    // stale rolling buffer onto the waterfall; only the newest tail is rendered
+    // as time-locked glyphs.
+    constexpr int kMaxBurstChars = 12;
+    if (delta.size() > kMaxBurstChars) {
+        delta = delta.right(kMaxBurstChars);
+    }
+
+    const int glyphCount = delta.size();
+    for (int i = 0; i < glyphCount; ++i) {
+        const QChar ch = delta.at(i);
+        if (ch.isSpace()) {
+            continue;
+        }
+
+        VerticalTextGlyph glyph;
+        glyph.frequencyHz = overlay.frequencyHz;
+        glyph.text = QString(ch);
+        glyph.textColor = overlay.textColor;
+        glyph.backgroundColor = overlay.backgroundColor;
+        glyph.ageRows = 0;
+        // Older characters in the same committed burst are placed higher;
+        // later characters then appear underneath as the stream grows.
+        glyph.sequenceIndex = qMax(0, glyphCount - 1 - i);
+        m_verticalTextGlyphs.append(glyph);
+    }
+
+    constexpr int kMaxGlyphs = 256;
+    if (m_verticalTextGlyphs.size() > kMaxGlyphs) {
+        m_verticalTextGlyphs = m_verticalTextGlyphs.mid(m_verticalTextGlyphs.size() - kMaxGlyphs);
+    }
+}
+
+QString WaterfallWidget::newOverlaySuffix(const QString &key, const QString &currentLabel)
+{
+    const QString previous = m_verticalTrailLastLabelByStream.value(key);
+    m_verticalTrailLastLabelByStream.insert(key, currentLabel);
+
+    if (currentLabel == previous) {
+        return QString();
+    }
+
+    if (previous.isEmpty()) {
+        return currentLabel.right(qMin(3, currentLabel.size()));
+    }
+
+    if (currentLabel.startsWith(previous)) {
+        return currentLabel.mid(previous.size());
+    }
+
+    if (previous.contains(currentLabel)) {
+        return QString();
+    }
+
+    int bestOverlap = 0;
+    const int maxOverlap = qMin(previous.size(), currentLabel.size());
+    for (int len = 1; len <= maxOverlap; ++len) {
+        if (previous.right(len) == currentLabel.left(len)) {
+            bestOverlap = len;
+        }
+    }
+
+    if (bestOverlap > 0) {
+        return currentLabel.mid(bestOverlap);
+    }
+
+    // Rolling text was probably trimmed/reset.  Keep only a small tail to avoid
+    // a visible burst of old text.
+    return currentLabel.right(qMin(4, currentLabel.size()));
+}
+
+int WaterfallWidget::bottomScaleBandHeight() const
+{
+    // Keep the frequency scale in a reserved, readable bottom band.
+    // Some fullscreen/window-manager combinations clip the last few GL pixels;
+    // a taller band keeps the Hz labels away from the widget border in every mode.
+    return 50;
+}
+
+int WaterfallWidget::rightScaleBandWidth() const
+{
+    return 66;
 }
 
 int WaterfallWidget::frequencyToX(double frequencyHz) const

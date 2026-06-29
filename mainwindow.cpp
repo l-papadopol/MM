@@ -2,13 +2,8 @@
 #include "MadModemVersion.h"
 #include "ui_mainwindow.h"
 
-#include "dialogs/AudioSettingsDialog.h"
 #include "dialogs/HelpDialog.h"
-#include "dialogs/SoundCardCalibrationDialog.h"
-#include "dialogs/TextMacroSettingsDialog.h"
 #include "dialogs/LogbookDialog.h"
-#include "dialogs/LogbookSettingsDialog.h"
-#include "dialogs/RigControlSettingsDialog.h"
 #include "dialogs/SstvImageEditorDialog.h"
 #include "modems/sstv/SstvModeDefinition.h"
 #include "modems/ft8/Ft8Mode.h"
@@ -18,16 +13,20 @@
 #include "modems/ft8/FtDecodedText.h"
 #include "modems/ft8/FtQsoSequencer.h"
 #include "modems/ft8/FtStandardMessageSet.h"
-#include "tx/SstvTransmitter.h"
-#include "tx/RttyTransmitter.h"
-#include "tx/Bpsk31Transmitter.h"
-#include "tx/CwTransmitter.h"
-#include "tx/MfskTransmitter.h"
-#include "tx/HellschreiberTransmitter.h"
-#include "tx/Ft8Transmitter.h"
+#include "modems/sstv/tx/SstvTransmitter.h"
+#include "modems/rtty/tx/RttyTransmitter.h"
+#include "modems/bpsk31/tx/Bpsk31Transmitter.h"
+#include "modems/cw/tx/CwTransmitter.h"
+#include "modems/mfsk/tx/MfskTransmitter.h"
+#include "modems/hell/tx/HellschreiberTransmitter.h"
+#include "modems/ft8/tx/Ft8Transmitter.h"
+#include "modems/msk144/Msk144Mode.h"
+#include "modems/msk144/tx/Msk144Transmitter.h"
+#include "modems/q65/tx/Q65Transmitter.h"
 #include "utils/UiScale.h"
 #include "utils/RuntimeI18n.h"
-#include "tx/WeatherFaxTransmitter.h"
+#include "utils/CockpitTheme.h"
+#include "modems/weatherfax/tx/WeatherFaxTransmitter.h"
 #include "widgets/RttyScopeWidget.h"
 #include "widgets/DdspPanelWidget.h"
 #include "ai/DeepDspController.h"
@@ -70,6 +69,7 @@
 #include <QFont>
 #include <QFontMetrics>
 #include <QGridLayout>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <memory>
 #include <QProgressBar>
@@ -85,6 +85,8 @@
 #include <QMessageBox>
 #include <QMetaObject>
 #include <QMenu>
+#include <QMouseEvent>
+#include <QEvent>
 #include <QProgressDialog>
 #include <QProcess>
 #include <QPixmap>
@@ -95,6 +97,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QScreen>
 #include <QSerialPortInfo>
 #include <QSettings>
 #include <cmath>
@@ -221,6 +224,29 @@ private:
 };
 
 namespace {
+
+void hardenPopupMenuForFullscreen(QMenu *menu)
+{
+    if (menu == nullptr) {
+        return;
+    }
+
+    // In true frameless fullscreen on some X11/Wayland window managers a
+    // top-level QMenu can be created below the fullscreen window or lose the
+    // activation race.  Keep the menu as a normal Qt popup, but explicitly keep
+    // it above the cockpit window and raise it after Qt has created the native
+    // popup surface.  This is deliberately applied to mode/language menus only;
+    // it does not change modem routing.
+    menu->setWindowFlags(menu->windowFlags() | Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+    QObject::connect(menu, &QMenu::aboutToShow, menu, [menu]() {
+        QTimer::singleShot(0, menu, [menu]() {
+            if (menu != nullptr) {
+                menu->raise();
+                menu->activateWindow();
+            }
+        });
+    });
+}
 
 constexpr int kFtRowRedOutlineRole = Qt::UserRole + 427;
 constexpr int kFtOriginalMessageRole = Qt::UserRole + 428;
@@ -1493,8 +1519,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_bpsk31Decoder(new Bpsk31Decoder(this)),
     m_mfskDecoder(new MfskDecoder(this)),
     m_cwDecoder(new CwDecoder(this)),
-    m_cwSecondaryDecoder(new CwDecoder(this)),
+    m_cwSecondaryDecoder(nullptr),
     m_hellDecoder(new HellschreiberDecoder(this)),
+    m_msk144Decoder(new Msk144Decoder(this)),
     m_ft8RxDecoder(new Ft8RxDecoder()),
     m_ft8RxThread(new QThread(this)),
     m_ftSlotScheduler(new FtSlotScheduler()),
@@ -1607,28 +1634,37 @@ MainWindow::MainWindow(QWidget *parent)
                 this, [this](const QString &message) { appendLog(message); });
 
         auto syncMindDecoderIntegration = [this](const DeepDspController::Status &status) {
-            if (m_ft8RxDecoder == nullptr) {
+            if (m_ft8RxDecoder == nullptr && m_msk144Decoder == nullptr) {
                 return;
             }
             const QString currentMode = (ui != nullptr && ui->cmbMode != nullptr)
                 ? ui->cmbMode->currentText()
                 : QString();
-            const bool ftMindMode = modeSupportsMind(currentMode);
+            const bool mindMode = modeSupportsMind(currentMode);
             const QString assistMode = status.assistMode.trimmed().toLower();
-            const bool hardBypass = !ftMindMode || !status.enabled || assistMode == QStringLiteral("off");
+            const bool hardBypass = !mindMode || !status.enabled || assistMode == QStringLiteral("off");
             const bool modelLoaded = status.modelStateText == QStringLiteral("Model loaded");
             const bool assistedRequested = assistMode == QStringLiteral("assisted");
+            const bool assistedActive = status.assistEnabled;
 
-            // MIND is FT-only.  Outside FT4/FT8 it must be visually hidden,
-            // runtime-bypassed, and disconnected from CW/RTTY/text decoders.
+            // MIND is exposed only for FT4/FT8 and MSK144 candidate ranking.
+            // CW/RTTY/BPSK/etc. remain fully classical and bypassed.
             const bool scoringEnabled = !hardBypass && modelLoaded &&
                                         (assistMode == QStringLiteral("shadow") || assistedRequested);
             const bool sampleExportEnabled = !hardBypass;
-            const bool ultraDeepAssistedEnabled = !hardBypass && assistedRequested && modelLoaded;
-            m_ft8RxDecoder->setMindIntegrationState(hardBypass,
-                                                    scoringEnabled,
-                                                    sampleExportEnabled,
-                                                    ultraDeepAssistedEnabled);
+            const bool assistedRankingEnabled = !hardBypass && assistedActive && modelLoaded;
+            if (m_ft8RxDecoder != nullptr) {
+                m_ft8RxDecoder->setMindIntegrationState(!(Ft8Mode::isFamilyMode(currentMode)) || hardBypass,
+                                                        scoringEnabled && Ft8Mode::isFamilyMode(currentMode),
+                                                        sampleExportEnabled && Ft8Mode::isFamilyMode(currentMode),
+                                                        assistedRankingEnabled && Ft8Mode::isFamilyMode(currentMode));
+            }
+            if (m_msk144Decoder != nullptr) {
+                m_msk144Decoder->setMindIntegrationState(!Msk144Mode::isMode(currentMode) || hardBypass,
+                                                         scoringEnabled && Msk144Mode::isMode(currentMode),
+                                                         sampleExportEnabled && Msk144Mode::isMode(currentMode),
+                                                         assistedRankingEnabled && Msk144Mode::isMode(currentMode));
+            }
         };
         syncMindDecoderIntegration(m_ddspController->status());
         connect(m_ddspController, &DeepDspController::statusChanged,
@@ -1649,12 +1685,37 @@ MainWindow::MainWindow(QWidget *parent)
                                                                   confidencePercent);
                 });
         }
+        if (m_msk144Decoder != nullptr) {
+            m_msk144Decoder->setMindScoreCallback(
+                [mindController](const QVector<float> &candidateFeatures,
+                                 double *confidencePercent,
+                                 bool *mayPromote) {
+                    if (mindController.isNull()) {
+                        return false;
+                    }
+                    return mindController->scoreMsk144Candidate(candidateFeatures,
+                                                               confidencePercent,
+                                                               mayPromote);
+                });
+            m_msk144Decoder->setMindSampleCallback(
+                [mindController](const QVector<float> &candidateFeatures,
+                                 bool decodeSucceeded,
+                                 const QString &message) {
+                    if (mindController.isNull()) {
+                        return;
+                    }
+                    mindController->submitNativeMsk144Sample(candidateFeatures,
+                                                            decodeSucceeded,
+                                                            message);
+                });
+        }
     }
     updateMindUiForMode(ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
     setupModeMenu();
     refreshQsoMaps();
     setupLanguageMenu();
     applyUiLanguage();
+    MadModemUi::polishCockpitWidgetTree(this);
 
     m_pttTestTimer.setSingleShot(true);
     m_ft8FullAutoCqSelectionTimer.setSingleShot(true);
@@ -1808,6 +1869,13 @@ void MainWindow::setupUiState()
 {
     setWindowTitle(QStringLiteral(MADMODEM_VERSION_DISPLAY));
 
+    if (ui->menubar != nullptr) {
+        // Keep menus as in-process Qt widgets. Native/global menu behaviour can
+        // break popup stacking in the frameless fullscreen cockpit window on
+        // some desktop environments.
+        ui->menubar->setNativeMenuBar(false);
+    }
+
     ui->cmbMode->clear();
     // Mode names are operational identifiers used by the modem routing logic.
     // Do not run them through the generic combo-item translator: labels such as
@@ -1821,6 +1889,8 @@ void MainWindow::setupUiState()
     ui->cmbMode->addItem(MfskDecoder::modeName());
     ui->cmbMode->addItem(CwDecoder::modeName());
     ui->cmbMode->addItem(HellschreiberDecoder::modeName());
+    ui->cmbMode->addItem(Msk144Mode::modeName());
+    ui->cmbMode->addItem(Q65Mode::familyName());
     for (const QString &ftModeName : Ft8Mode::allModeNames()) {
         ui->cmbMode->addItem(ftModeName);
     }
@@ -1879,18 +1949,29 @@ void MainWindow::setupUiState()
     }
 
     if (ui->grpWaterfall != nullptr) {
-        ui->grpWaterfall->setMinimumHeight(190);
+        ui->grpWaterfall->setMinimumHeight(170);
         ui->grpWaterfall->setMaximumHeight(QWIDGETSIZE_MAX);
         ui->grpWaterfall->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     }
+    if (ui->grpWaterfall != nullptr) {
+        ui->grpWaterfall->setProperty("cockpitUntitled", true);
+        ui->grpWaterfall->setContentsMargins(0, 0, 0, 0);
+    }
     if (ui->frameWaterfall != nullptr) {
-        ui->frameWaterfall->setMinimumHeight(170);
+        ui->frameWaterfall->setMinimumHeight(150);
         ui->frameWaterfall->setMaximumHeight(QWIDGETSIZE_MAX);
         ui->frameWaterfall->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        ui->frameWaterfall->setContentsMargins(0, 0, 0, 0);
+        ui->frameWaterfall->setFrameShape(QFrame::NoFrame);
+    }
+    if (ui->waterfallVerticalLayout != nullptr) {
+        ui->waterfallVerticalLayout->setContentsMargins(0, 0, 0, 0);
+        ui->waterfallVerticalLayout->setSpacing(0);
     }
     if (ui->mainLeftVerticalLayout != nullptr) {
-        ui->mainLeftVerticalLayout->setStretch(0, 3);
+        ui->mainLeftVerticalLayout->setStretch(0, 4);
         ui->mainLeftVerticalLayout->setStretch(1, 1);
+        ui->mainLeftVerticalLayout->setSpacing(3);
     }
 
     ui->progressAudioLevel->setRange(0, 100);
@@ -1921,7 +2002,7 @@ void MainWindow::setupCustomWidgets()
 {
     QHBoxLayout *waterfallLayout = new QHBoxLayout(ui->frameWaterfall);
     waterfallLayout->setContentsMargins(0, 0, 0, 0);
-    waterfallLayout->setSpacing(2);
+    waterfallLayout->setSpacing(0);
 
     if (ui->progressAudioLevel != nullptr) {
         // Replaced by a compact LED-style VU meter beside the waterfall.
@@ -1962,7 +2043,7 @@ void MainWindow::setupCustomWidgets()
     // QSO mode, so updateCentralDisplayForMode() removes the map tab and hides
     // the single-tab bar when MeteoFax/WEFAX is selected.
     m_imageDisplayPage = wrapTextDisplayPageWithMap(m_imageDisplayPage,
-                                                    uiText("tab_sstv_image", "SSTV image"),
+                                                    uiText("tab_sstv_image", "SSTV"),
                                                     QStringLiteral("SSTV"),
                                                     &m_sstvQsoMapWidget,
                                                     &m_imageDisplayTabs,
@@ -2029,6 +2110,8 @@ void MainWindow::setupCustomWidgets()
     setupMfskPage();
     setupCwPage();
     setupHellPage();
+    setupMsk144Page();
+    setupQ65Page();
     // DSP tab removed: useful per-mode conditioning now lives inside Mode pages.
     // Keep the backend helpers for Software AGC and legacy settings migration.
     // setupDspTab();
@@ -2192,7 +2275,7 @@ void MainWindow::setupCustomWidgets()
         connect(m_btnShowRuntimeLog, &QPushButton::clicked, this, &MainWindow::showRuntimeLogDialog);
         ui->modeTabLayout->addWidget(m_btnShowRuntimeLog, 0);
         const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QString();
-        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName));
+        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName) || Msk144Mode::isMode(modeName) || Q65Mode::isFamilyMode(modeName));
     }
 
     m_settings.waterfallColorScalePercent = 80;
@@ -2261,12 +2344,14 @@ QWidget *MainWindow::wrapTextDisplayPageWithMap(QWidget *mainPage,
 
     QWidget *mapPage = new QWidget(tabs);
     mapPage->setAutoFillBackground(false);
-    mapPage->setStyleSheet(QString());
+    mapPage->setStyleSheet(QStringLiteral("background-color: #050607; color: #ffb35a;"));
     QVBoxLayout *outer = new QVBoxLayout(mapPage);
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(6);
 
     QsoMapWidget *map = new QsoMapWidget(mapPage);
+    map->setAutoFillBackground(false);
+    map->setStyleSheet(QStringLiteral("background-color: #050607;"));
 
     // Keep the map controls inside the map canvas instead of reserving a
     // separate row above it.  The layout is owned by QsoMapWidget, so the
@@ -2463,7 +2548,7 @@ QWidget *MainWindow::createTextTerminalPage(const QString &title,
         "QPlainTextEdit {"
         " padding: 4px;"
         " font-family: DejaVu Sans Mono, Consolas, monospace;"
-        " font-size: 10.5pt;"
+        " font-size: 9pt;"
         "}"
         "QPushButton {"
         " padding: 3px 7px;"
@@ -2480,7 +2565,7 @@ QWidget *MainWindow::createTextTerminalPage(const QString &title,
     layout->setSpacing(5);
 
     QLabel *caption = new QLabel(title, page);
-    caption->setStyleSheet("font-weight: bold; font-size: 10.5pt;");
+    caption->setStyleSheet("font-weight: 500; font-size: 9pt;");
 
     *rxTerminal = new QPlainTextEdit(page);
     (*rxTerminal)->setReadOnly(true);
@@ -2525,32 +2610,54 @@ QWidget *MainWindow::createTextTerminalPage(const QString &title,
     inputLayout->addWidget(*txInput, 1);
     inputLayout->addWidget(*sendButton);
 
-    QHBoxLayout *toolLayout = new QHBoxLayout();
-    toolLayout->setContentsMargins(0, 0, 0, 0);
-    toolLayout->setSpacing(6);
-
+    /*
+     * The old text-mode utility row (Clear terminal / Load text... / Clear
+     * input) consumed a full strip of vertical space in the central work area.
+     * Keep the buttons allocated for older signal/slot code paths and future
+     * context-menu actions, but do not add them to the visible layout.
+     */
     *clearRxButton = new QPushButton("Clear terminal", page);
     *loadTextButton = new QPushButton("Load text...", page);
     *clearInputButton = new QPushButton("Clear input", page);
-
-    toolLayout->addWidget(*clearRxButton);
-    toolLayout->addWidget(*loadTextButton);
-    toolLayout->addWidget(*clearInputButton);
-    toolLayout->addStretch(1);
+    (*clearRxButton)->hide();
+    (*loadTextButton)->hide();
+    (*clearInputButton)->hide();
 
     layout->addWidget(caption);
     layout->addWidget(*rxTerminal, 1);
-    layout->addWidget(qsoPanel);
+    // QSO logging fields belong in the right-side Mode tab, not inside the
+    // central RX/TX work area.  Keep the form object alive here; each mode
+    // setup page reparents it into its compact Mode panel.
+    qsoPanel->setVisible(false);
     layout->addLayout(macroLayout);
     layout->addLayout(inputLayout);
-    layout->addLayout(toolLayout);
 
     return page;
 }
 
+void MainWindow::placeQsoFormInModePanel(QVBoxLayout *layout, QsoFormWidgets *form)
+{
+    if (layout == nullptr || form == nullptr || form->container == nullptr) {
+        return;
+    }
+
+    QWidget *panel = form->container;
+    if (QWidget *oldParent = panel->parentWidget()) {
+        if (QLayout *oldLayout = oldParent->layout()) {
+            oldLayout->removeWidget(panel);
+        }
+    }
+
+    panel->setParent(layout->parentWidget());
+    panel->setVisible(true);
+    panel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    panel->setMaximumHeight(QWIDGETSIZE_MAX);
+    layout->addWidget(panel);
+}
+
 QWidget *MainWindow::createQsoFormPanel(QWidget *parent, const QString &modeLabel, QsoFormWidgets **qsoForm)
 {
-    QGroupBox *box = new QGroupBox("QSO log entry", parent);
+    QGroupBox *box = new QGroupBox(MadModemI18n::text(QStringLiteral("QSO Info")), parent);
     // v1.55: do not force a too-small maximum height here.  The v1.53 cap made
     // translated labels and the macro row paint over the QSO fields on Linux
     // and Windows.  Let the grid compute its own natural height and keep the
@@ -2579,9 +2686,9 @@ QWidget *MainWindow::createQsoFormPanel(QWidget *parent, const QString &modeLabe
         edit->setMinimumHeight(22);
         edit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     }
-    form->addButton->setMinimumHeight(44);
-    form->addButton->setMaximumWidth(112);
-    form->addButton->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    form->addButton->setMinimumHeight(26);
+    form->addButton->setMaximumWidth(QWIDGETSIZE_MAX);
+    form->addButton->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
 
     form->callsign->setPlaceholderText("Call");
     form->rstSent->setPlaceholderText("599");
@@ -2612,37 +2719,32 @@ QWidget *MainWindow::createQsoFormPanel(QWidget *parent, const QString &modeLabe
         label->setWordWrap(false);
     }
 
-    // Label-above-field layout: this survives translated strings much better
-    // than the old label/field/label/field row, and removes the v1.53 overlap.
+    // Compact side-panel layout: these fields now live in the Mode tab, so avoid
+    // the old wide horizontal strip that consumed central RX/TX space.
     grid->addWidget(lblCall, 0, 0);
-    grid->addWidget(lblBand, 0, 1);
-    grid->addWidget(lblSent, 0, 2);
-    grid->addWidget(lblRecv, 0, 3);
-    grid->addWidget(lblMode, 0, 4);
-    grid->addWidget(lblGrid, 0, 5);
-    grid->addWidget(form->callsign, 1, 0);
+    grid->addWidget(form->callsign, 0, 1, 1, 3);
+    grid->addWidget(lblBand, 1, 0);
     grid->addWidget(form->band, 1, 1);
-    grid->addWidget(form->rstSent, 1, 2);
-    grid->addWidget(form->rstReceived, 1, 3);
-    grid->addWidget(form->mode, 1, 4);
-    grid->addWidget(form->grid, 1, 5);
-    grid->addWidget(form->addButton, 0, 6, 2, 1);
-    grid->addWidget(lblUtc, 2, 0);
-    grid->addWidget(form->utc, 2, 1, 1, 5);
+    grid->addWidget(lblMode, 1, 2);
+    grid->addWidget(form->mode, 1, 3);
+    grid->addWidget(lblSent, 2, 0);
+    grid->addWidget(form->rstSent, 2, 1);
+    grid->addWidget(lblRecv, 2, 2);
+    grid->addWidget(form->rstReceived, 2, 3);
+    grid->addWidget(lblGrid, 3, 0);
+    grid->addWidget(form->grid, 3, 1, 1, 3);
+    grid->addWidget(lblUtc, 4, 0);
+    grid->addWidget(form->utc, 4, 1, 1, 3);
+    grid->addWidget(form->addButton, 5, 0, 1, 4);
 
-    grid->setColumnMinimumWidth(0, 82);
+    grid->setColumnMinimumWidth(0, 48);
     grid->setColumnMinimumWidth(1, 58);
-    grid->setColumnMinimumWidth(2, 62);
-    grid->setColumnMinimumWidth(3, 74);
-    grid->setColumnMinimumWidth(4, 62);
-    grid->setColumnMinimumWidth(5, 72);
-    grid->setColumnStretch(0, 2);
+    grid->setColumnMinimumWidth(2, 54);
+    grid->setColumnMinimumWidth(3, 58);
+    grid->setColumnStretch(0, 0);
     grid->setColumnStretch(1, 1);
-    grid->setColumnStretch(2, 1);
+    grid->setColumnStretch(2, 0);
     grid->setColumnStretch(3, 1);
-    grid->setColumnStretch(4, 1);
-    grid->setColumnStretch(5, 2);
-    grid->setColumnStretch(6, 0);
 
     populateQsoFormDefaults(form, ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
 
@@ -2680,6 +2782,12 @@ MainWindow::QsoFormWidgets *MainWindow::activeQsoForm() const
     }
     if (modeName == HellschreiberDecoder::modeName()) {
         return m_hellQsoForm;
+    }
+    if (Msk144Mode::isMode(modeName)) {
+        return m_msk144QsoForm;
+    }
+    if (Q65Mode::isFamilyMode(modeName)) {
+        return m_q65QsoForm;
     }
     return nullptr;
 }
@@ -2735,6 +2843,13 @@ QString MainWindow::currentAdifMode() const
     if (Ft8Mode::isFamilyMode(modeName)) {
         return Ft8Mode::profileForMode(modeName).adifMode;
     }
+    if (Msk144Mode::isMode(modeName)) {
+        return QStringLiteral("MSK144");
+    }
+
+    if (Q65Mode::isFamilyMode(modeName)) {
+        return QStringLiteral("Q65");
+    }
     return shortModeLabel(modeName).toUpper();
 }
 
@@ -2755,6 +2870,10 @@ void MainWindow::populateQsoFormDefaults(QsoFormWidgets *form, const QString &mo
         adifMode = "CW";
     } else if (modeName == HellschreiberDecoder::modeName() || modeName.compare("Hell", Qt::CaseInsensitive) == 0) {
         adifMode = (m_cmbHellVariant != nullptr && m_cmbHellVariant->currentData().toString() == "FSK105") ? QString("HELL-FSK105") : QString("HELL");
+    } else if (Msk144Mode::isMode(modeName)) {
+        adifMode = QStringLiteral("MSK144");
+    } else if (Q65Mode::isFamilyMode(modeName)) {
+        adifMode = QStringLiteral("Q65");
     } else {
         adifMode = currentAdifMode().isEmpty() ? shortModeLabel(modeName).toUpper() : currentAdifMode();
     }
@@ -2777,7 +2896,7 @@ void MainWindow::populateQsoFormDefaults(QsoFormWidgets *form, const QString &mo
 void MainWindow::updateQsoUtcFields()
 {
     const QString utc = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd HH:mm:ss 'UTC'");
-    const QList<QsoFormWidgets *> forms = {m_rttyQsoForm, m_bpsk31QsoForm, m_mfskQsoForm, m_cwQsoForm, m_hellQsoForm};
+    const QList<QsoFormWidgets *> forms = {m_rttyQsoForm, m_bpsk31QsoForm, m_mfskQsoForm, m_cwQsoForm, m_hellQsoForm, m_msk144QsoForm, m_q65QsoForm};
     for (QsoFormWidgets *form : forms) {
         if (form != nullptr && form->utc != nullptr) {
             form->utc->setText(utc);
@@ -2785,10 +2904,6 @@ void MainWindow::updateQsoUtcFields()
     }
 }
 
-void MainWindow::addActiveQsoToLog()
-{
-    addQsoToLogFromForm(activeQsoForm());
-}
 
 bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
 {
@@ -2798,23 +2913,25 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
 
     LogbookEntry entry;
     entry.callsign = AdifLogbook::normalizeCallsign(form->callsign->text());
-    entry.rstSent = form->rstSent != nullptr ? form->rstSent->text().trimmed().toUpper() : QString("599");
-    entry.rstReceived = form->rstReceived != nullptr ? form->rstReceived->text().trimmed().toUpper() : QString("599");
+    entry.rstSent = form->rstSent != nullptr ? form->rstSent->text().trimmed().toUpper() : QStringLiteral("599");
+    entry.rstReceived = form->rstReceived != nullptr ? form->rstReceived->text().trimmed().toUpper() : QStringLiteral("599");
     entry.band = form->band != nullptr ? form->band->text().trimmed().toLower() : QString();
     entry.mode = form->mode != nullptr ? form->mode->text().trimmed().toUpper() : currentAdifMode();
     entry.grid = form->grid != nullptr ? form->grid->text().trimmed().toUpper() : QString();
     entry.utc = QDateTime::currentDateTimeUtc();
 
     if (entry.callsign.isEmpty()) {
-        QMessageBox::information(this, "Add QSO to log", "Insert the correspondent callsign first.");
+        QMessageBox::information(this,
+                                 uiText("add_qso_to_log", "Add QSO to log"),
+                                 uiText("insert_correspondent_callsign", "Insert the correspondent callsign first."));
         return false;
     }
 
     if (entry.rstSent.isEmpty()) {
-        entry.rstSent = "599";
+        entry.rstSent = QStringLiteral("599");
     }
     if (entry.rstReceived.isEmpty()) {
-        entry.rstReceived = "599";
+        entry.rstReceived = QStringLiteral("599");
     }
     if (entry.mode.isEmpty()) {
         entry.mode = currentAdifMode();
@@ -2823,24 +2940,26 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
     const bool wasKnown = m_logbook.containsCallsign(entry.callsign);
     QString error;
     if (!m_logbook.append(entry, &error)) {
-        QMessageBox::warning(this, "Add QSO to log", "Cannot save logbook: " + error);
+        QMessageBox::warning(this,
+                             uiText("add_qso_to_log", "Add QSO to log"),
+                             uiText("cannot_save_logbook", "Cannot save logbook: %1").arg(error));
         return false;
     }
 
-    appendLog(QString("Logged QSO: %1 %2 %3 %4%5")
+    appendLog(QStringLiteral("Logged QSO: %1 %2 %3 %4%5")
                   .arg(entry.callsign,
                        entry.rstSent,
                        entry.rstReceived,
                        entry.mode,
-                       wasKnown ? " (worked before)" : QString()));
+                       wasKnown ? QStringLiteral(" (worked before)") : QString()));
     refreshLogbookHighlights();
     refreshQsoMaps();
 
     QMessageBox::information(this,
-                             "Add QSO to log",
-                             QString("QSO with %1 saved to ADIF logbook.%2")
+                             uiText("add_qso_to_log", "Add QSO to log"),
+                             uiText("qso_saved_to_adif", "QSO with %1 saved to ADIF logbook.%2")
                                  .arg(entry.callsign,
-                                      wasKnown ? "\nThis callsign was already present in the log." : QString()));
+                                      wasKnown ? uiText("qso_already_present_suffix", "\nThis callsign was already present in the log.") : QString()));
     return true;
 }
 
@@ -2852,19 +2971,73 @@ QString MainWindow::extractCallsignFromText(const QString &text) const
     if (match.hasMatch()) {
         return AdifLogbook::normalizeCallsign(match.captured(0));
     }
-    const QStringList parts = text.simplified().split(' ');
+
+    const QStringList parts = text.simplified().split(QLatin1Char(' '));
     for (const QString &part : parts) {
-        if (!part.trimmed().isEmpty()) {
-            return AdifLogbook::normalizeCallsign(part);
+        const QString normalized = AdifLogbook::normalizeCallsign(part);
+        if (!normalized.isEmpty()) {
+            return normalized;
         }
     }
     return QString();
+}
+
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event != nullptr && event->type() == QEvent::MouseButtonRelease) {
+        QWidget *viewport = qobject_cast<QWidget *>(watched);
+        QPlainTextEdit *terminal = (viewport != nullptr) ? qobject_cast<QPlainTextEdit *>(viewport->parentWidget()) : nullptr;
+        if (terminal == m_txtRttyRx || terminal == m_txtBpsk31Rx ||
+            terminal == m_txtMfskRx || terminal == m_txtCwRx) {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            if (mouse != nullptr && mouse->button() == Qt::LeftButton) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+                const QPoint pos = mouse->position().toPoint();
+#else
+                const QPoint pos = mouse->pos();
+#endif
+                const QTextCursor clickedCursor = terminal->cursorForPosition(pos);
+                const int clickPos = clickedCursor.position();
+                const QString text = terminal->toPlainText().toUpper();
+                const QRegularExpression re(QStringLiteral("\\b[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?\\b"),
+                                            QRegularExpression::CaseInsensitiveOption);
+                QRegularExpressionMatchIterator it = re.globalMatch(text);
+                while (it.hasNext()) {
+                    const QRegularExpressionMatch match = it.next();
+                    if (clickPos < match.capturedStart() || clickPos >= match.capturedEnd()) {
+                        continue;
+                    }
+                    const QString call = AdifLogbook::normalizeCallsign(match.captured(0));
+                    if (call.size() < 3) {
+                        break;
+                    }
+                    QsoFormWidgets *form = qsoFormForTerminal(terminal);
+                    if (form != nullptr && form->callsign != nullptr) {
+                        form->callsign->setText(call);
+                        if (form->mode != nullptr && form->mode->text().trimmed().isEmpty()) {
+                            form->mode->setText(currentAdifMode());
+                        }
+                        appendLog(QStringLiteral("QSO callsign autofill from RX text: %1").arg(call));
+                    }
+                    event->accept();
+                    return true;
+                }
+            }
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 void MainWindow::installRxTextContextMenu(QPlainTextEdit *terminal)
 {
     if (terminal == nullptr) {
         return;
+    }
+
+    if (terminal->viewport() != nullptr) {
+        terminal->viewport()->installEventFilter(this);
+        terminal->viewport()->setCursor(Qt::IBeamCursor);
     }
 
     terminal->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -2955,8 +3128,13 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
 
     QTextCursor cursor(terminal->document());
     QTextCharFormat normal;
-    normal.setForeground(QColor("#111111"));
+    // Cockpit terminals have a black background; resetting the document to
+    // nearly-black made CW/BPSK/RTTY receive text unreadable after the callsign
+    // highlighter ran.  Keep ordinary RX text amber and only override detected
+    // callsigns with green/red formats below.
+    normal.setForeground(QColor("#ffb347"));
     normal.setFontUnderline(false);
+    normal.setFontStrikeOut(false);
     normal.setUnderlineStyle(QTextCharFormat::NoUnderline);
     cursor.select(QTextCursor::Document);
     cursor.mergeCharFormat(normal);
@@ -3120,9 +3298,11 @@ void MainWindow::setupTextTerminalPages()
                                              &m_cwQsoForm);
 
     /*
-     * CW uses two direct RX decoders: RX A on the green marker and RX B on
-     * the blue marker. Left-click sets RX A; right-click sets/enables RX B.  The broken full-passband CW candidate decoder was removed in v2.81:
-     * do not show the generic text-mode macro row or the three utility
+     * CW uses one skimmer engine under the hood, but operator control stays
+     * simple: RX A on the green marker and optional RX B on the blue marker.
+     * Left-click sets RX A; right-click sets/enables RX B. Internal skimmer
+     * channels are never drawn as waterfall markers. Do not show the generic
+     * text-mode macro row or the three utility
      * buttons used by RTTY/PSK/MFSK.
      */
     m_cwMacroButtons.clear();
@@ -3147,6 +3327,116 @@ void MainWindow::setupTextTerminalPages()
     m_cwDisplayPage = wrapTextDisplayPageWithMap(m_cwDisplayPage, uiText("tab_cw", "CW"), QStringLiteral("CW"));
     m_mainDisplayStack->addWidget(m_cwDisplayPage);
 
+    // MSK144 weak-signal meteor-scatter activity page: decoded messages table
+    // plus the standard TX message list.  It intentionally follows the compact
+    // WSJT/MSHV layout rather than a generic text terminal.
+    m_msk144DisplayPage = new QWidget(m_mainDisplayStack);
+    QVBoxLayout *mskLayout = new QVBoxLayout(m_msk144DisplayPage);
+    mskLayout->setContentsMargins(6, 6, 6, 6);
+    mskLayout->setSpacing(5);
+
+    QLabel *mskCaption = new QLabel(uiText("msk144_activity", "MSK144 activity"), m_msk144DisplayPage);
+    mskCaption->setStyleSheet(QStringLiteral("font-weight: 600;"));
+    m_tableMsk144Rx = new QTableWidget(0, 5, m_msk144DisplayPage);
+    m_tableMsk144Rx->setHorizontalHeaderLabels(QStringList() << "UTC" << "dB" << "T" << "DF" << "Message");
+    m_tableMsk144Rx->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_tableMsk144Rx->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tableMsk144Rx->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_tableMsk144Rx->verticalHeader()->setVisible(false);
+    m_tableMsk144Rx->horizontalHeader()->setStretchLastSection(true);
+    m_tableMsk144Rx->setColumnWidth(0, 58);
+    m_tableMsk144Rx->setColumnWidth(1, 42);
+    m_tableMsk144Rx->setColumnWidth(2, 42);
+    m_tableMsk144Rx->setColumnWidth(3, 52);
+    connect(m_tableMsk144Rx, &QTableWidget::cellClicked, this, [this](int row, int) {
+        if (m_tableMsk144Rx == nullptr || row < 0 || row >= m_tableMsk144Rx->rowCount()) return;
+        QTableWidgetItem *msgItem = m_tableMsk144Rx->item(row, 4);
+        const QString call = (msgItem != nullptr) ? extractCallsignFromText(msgItem->text()) : QString();
+        if (call.isEmpty() || call == stationCallsign()) return;
+        if (m_msk144QsoForm != nullptr && m_msk144QsoForm->callsign != nullptr) {
+            m_msk144QsoForm->callsign->setText(call);
+        }
+        if (m_editMsk144DxCall != nullptr) {
+            m_editMsk144DxCall->setText(call);
+        }
+        appendLog(QStringLiteral("MSK144 QSO callsign autofill: %1").arg(call));
+    });
+
+    m_tableMsk144TxMessages = new QTableWidget(7, 2, m_msk144DisplayPage);
+    m_tableMsk144TxMessages->setHorizontalHeaderLabels(QStringList() << "Tx" << "Message");
+    m_tableMsk144TxMessages->verticalHeader()->setVisible(false);
+    m_tableMsk144TxMessages->horizontalHeader()->setStretchLastSection(true);
+    m_tableMsk144TxMessages->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_tableMsk144TxMessages->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tableMsk144TxMessages->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+    m_tableMsk144TxMessages->setMaximumHeight(190);
+    m_tableMsk144TxMessages->setColumnWidth(0, 40);
+
+    m_btnMsk144ClearRx = new QPushButton(uiText("clear_messages", "Clear messages"), m_msk144DisplayPage);
+    connect(m_btnMsk144ClearRx, &QPushButton::clicked, this, &MainWindow::clearMsk144RxTable);
+
+    mskLayout->addWidget(mskCaption);
+    mskLayout->addWidget(m_tableMsk144Rx, 1);
+    mskLayout->addWidget(m_btnMsk144ClearRx, 0, Qt::AlignLeft);
+    m_msk144DisplayPage = wrapTextDisplayPageWithMap(m_msk144DisplayPage, uiText("tab_msk144", "MSK144"), QStringLiteral("MSK144"));
+    m_mainDisplayStack->addWidget(m_msk144DisplayPage);
+    refreshMsk144StandardMessages();
+
+    // Q65 weak-signal activity page.  Q65A/B/C/D share one clean table/QSO
+    // layout; the selected mode chooses the MSHV submode multiplier.
+    m_q65DisplayPage = new QWidget(m_mainDisplayStack);
+    QVBoxLayout *q65Layout = new QVBoxLayout(m_q65DisplayPage);
+    q65Layout->setContentsMargins(6, 6, 6, 6);
+    q65Layout->setSpacing(5);
+
+    QLabel *q65Caption = new QLabel(uiText("q65_activity", "Q65 activity"), m_q65DisplayPage);
+    q65Caption->setStyleSheet(QStringLiteral("font-weight: 600;"));
+    m_tableQ65Rx = new QTableWidget(0, 5, m_q65DisplayPage);
+    m_tableQ65Rx->setHorizontalHeaderLabels(QStringList() << "UTC" << "dB" << "DT" << "DF" << "Message");
+    m_tableQ65Rx->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_tableQ65Rx->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tableQ65Rx->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    m_tableQ65Rx->verticalHeader()->setVisible(false);
+    m_tableQ65Rx->horizontalHeader()->setStretchLastSection(true);
+    m_tableQ65Rx->setColumnWidth(0, 58);
+    m_tableQ65Rx->setColumnWidth(1, 42);
+    m_tableQ65Rx->setColumnWidth(2, 42);
+    m_tableQ65Rx->setColumnWidth(3, 52);
+    connect(m_tableQ65Rx, &QTableWidget::cellClicked, this, [this](int row, int) {
+        if (m_tableQ65Rx == nullptr || row < 0 || row >= m_tableQ65Rx->rowCount()) return;
+        QTableWidgetItem *msgItem = m_tableQ65Rx->item(row, 4);
+        const QString call = (msgItem != nullptr) ? extractCallsignFromText(msgItem->text()) : QString();
+        if (call.isEmpty() || call == stationCallsign()) return;
+        if (m_q65QsoForm != nullptr && m_q65QsoForm->callsign != nullptr) {
+            m_q65QsoForm->callsign->setText(call);
+        }
+        if (m_editQ65DxCall != nullptr) {
+            m_editQ65DxCall->setText(call);
+        }
+        appendLog(QStringLiteral("Q65 QSO callsign autofill: %1").arg(call));
+    });
+
+    m_tableQ65TxMessages = new QTableWidget(7, 2, m_q65DisplayPage);
+    m_tableQ65TxMessages->setHorizontalHeaderLabels(QStringList() << "Tx" << "Message");
+    m_tableQ65TxMessages->verticalHeader()->setVisible(false);
+    m_tableQ65TxMessages->horizontalHeader()->setStretchLastSection(true);
+    m_tableQ65TxMessages->setSelectionBehavior(QAbstractItemView::SelectRows);
+    m_tableQ65TxMessages->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tableQ65TxMessages->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+    m_tableQ65TxMessages->setMaximumHeight(190);
+    m_tableQ65TxMessages->setColumnWidth(0, 40);
+
+    m_btnQ65ClearRx = new QPushButton(uiText("clear_messages", "Clear messages"), m_q65DisplayPage);
+    connect(m_btnQ65ClearRx, &QPushButton::clicked, this, &MainWindow::clearQ65RxTable);
+
+    q65Layout->addWidget(q65Caption);
+    q65Layout->addWidget(m_tableQ65Rx, 1);
+    q65Layout->addWidget(m_btnQ65ClearRx, 0, Qt::AlignLeft);
+    m_q65DisplayPage = wrapTextDisplayPageWithMap(m_q65DisplayPage, uiText("tab_q65", "Q65"), QStringLiteral("Q65"));
+    m_mainDisplayStack->addWidget(m_q65DisplayPage);
+    refreshQ65StandardMessages();
+
+
     /*
      * Hellschreiber is a text mode, but the received information is read visually
      * from a Hellschreiber paper tape rather than decoded into ASCII.  Keep the
@@ -3158,7 +3448,7 @@ void MainWindow::setupTextTerminalPages()
     m_hellDisplayPage->setStyleSheet(
         "QLabel#hellPaperLabel { background: palette(base); color: palette(text); }"
         "QPlainTextEdit { padding: 5px;"
-        " font-family: DejaVu Sans Mono, Consolas, monospace; font-size: 10.5pt; }"
+        " font-family: DejaVu Sans Mono, Consolas, monospace; font-size: 9pt; }"
         "QPushButton { padding: 3px 7px; min-height: 24px; font-size: 9pt; }"
         "QLabel { font-size: 9pt; }"
         );
@@ -3168,7 +3458,7 @@ void MainWindow::setupTextTerminalPages()
     hellLayout->setSpacing(5);
 
     QLabel *hellCaption = new QLabel(uiText("hellschreiber_paper", "Hellschreiber paper"), m_hellDisplayPage);
-    hellCaption->setStyleSheet("font-weight: bold; font-size: 10.5pt;");
+    hellCaption->setStyleSheet("font-weight: 500; font-size: 9pt;");
 
     m_lblHellRaster = new QLabel(m_hellDisplayPage);
     m_lblHellRaster->setObjectName("hellPaperLabel");
@@ -3234,7 +3524,7 @@ void MainWindow::setupTextTerminalPages()
 
     hellLayout->addWidget(hellCaption);
     hellLayout->addWidget(m_scrollHellRaster, 1);
-    hellLayout->addWidget(hellQsoPanel);
+    hellQsoPanel->setVisible(false);
     hellLayout->addLayout(hellMacroLayout);
     hellLayout->addLayout(hellInputLayout);
     hellLayout->addLayout(hellToolLayout);
@@ -3263,7 +3553,9 @@ void MainWindow::updateCentralDisplayForMode(const QString &modeName)
                            modeName == MfskDecoder::modeName() ||
                            cwMode ||
                            modeName == HellschreiberDecoder::modeName() ||
-                           Ft8Mode::isFamilyMode(modeName));
+                           Ft8Mode::isFamilyMode(modeName) ||
+                           Msk144Mode::isMode(modeName) ||
+                           Q65Mode::isFamilyMode(modeName));
 
     if (ui->frameSstvImage != nullptr) {
         // Keep the surrounding SSTV/WEFAX page on the native Qt palette.
@@ -3272,23 +3564,31 @@ void MainWindow::updateCentralDisplayForMode(const QString &modeName)
         ui->frameSstvImage->setStyleSheet(QString());
     }
 
-    // v1.60: let the waterfall scale proportionally with the main window
-    // instead of being trapped by fixed max heights.  Since the old full-band
-    // CW skimmer has been removed, CW no longer needs the extra-tall waterfall:
-    // keep the terminal/QSO area dominant and use a compact tuning waterfall.
+    // Let the waterfall scale proportionally with the main window instead of
+    // being trapped by fixed max heights. CW skimmer decoding is active under
+    // the hood, but the waterfall remains compact and only shows user A/B
+    // markers plus transient decoded-text overlays.
     if (ui->grpWaterfall != nullptr) {
-        ui->grpWaterfall->setMinimumHeight(modeName == HellschreiberDecoder::modeName() ? 135 : (cwMode ? 220 : (textMode ? 230 : 185)));
+        ui->grpWaterfall->setMinimumHeight(modeName == HellschreiberDecoder::modeName() ? 125 : (cwMode ? 190 : (textMode ? 195 : 155)));
         ui->grpWaterfall->setMaximumHeight(QWIDGETSIZE_MAX);
         ui->grpWaterfall->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        if (ui->waterfallVerticalLayout != nullptr) {
+            ui->waterfallVerticalLayout->setContentsMargins(0, 0, 0, 0);
+            ui->waterfallVerticalLayout->setSpacing(0);
+        }
+        ui->grpWaterfall->setContentsMargins(0, 0, 0, 0);
     }
     if (ui->frameWaterfall != nullptr) {
-        ui->frameWaterfall->setMinimumHeight(modeName == HellschreiberDecoder::modeName() ? 115 : (cwMode ? 200 : (textMode ? 210 : 165)));
+        ui->frameWaterfall->setMinimumHeight(modeName == HellschreiberDecoder::modeName() ? 110 : (cwMode ? 175 : (textMode ? 180 : 145)));
         ui->frameWaterfall->setMaximumHeight(QWIDGETSIZE_MAX);
         ui->frameWaterfall->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        ui->frameWaterfall->setContentsMargins(0, 0, 0, 0);
+        ui->frameWaterfall->setFrameShape(QFrame::NoFrame);
     }
     if (ui->mainLeftVerticalLayout != nullptr) {
-        ui->mainLeftVerticalLayout->setStretch(0, cwMode ? 4 : 3);
+        ui->mainLeftVerticalLayout->setStretch(0, cwMode ? 5 : 4);
         ui->mainLeftVerticalLayout->setStretch(1, 1);
+        ui->mainLeftVerticalLayout->setSpacing(3);
     }
 
     if (modeName == RttyDecoder::modeName() && m_rttyDisplayPage != nullptr) {
@@ -3319,6 +3619,16 @@ void MainWindow::updateCentralDisplayForMode(const QString &modeName)
     if (Ft8Mode::isFamilyMode(modeName) && m_ft8DisplayPage != nullptr) {
         updateFtQsoMapModeFilter();
         m_mainDisplayStack->setCurrentWidget(m_ft8DisplayPage);
+        return;
+    }
+
+    if (Msk144Mode::isMode(modeName) && m_msk144DisplayPage != nullptr) {
+        m_mainDisplayStack->setCurrentWidget(m_msk144DisplayPage);
+        return;
+    }
+
+    if (Q65Mode::isFamilyMode(modeName) && m_q65DisplayPage != nullptr) {
+        m_mainDisplayStack->setCurrentWidget(m_q65DisplayPage);
         return;
     }
 
@@ -3370,6 +3680,16 @@ QString MainWindow::shortModeLabel(const QString &modeName) const
         return "Feld Hell";
     }
 
+    if (Msk144Mode::isMode(modeName)) {
+        return QStringLiteral("MSK144");
+    }
+    if (Q65Mode::isFamilyMode(modeName)) {
+        if (modeName.trimmed().compare(Q65Mode::familyName(), Qt::CaseInsensitive) == 0) {
+            return Q65Mode::familyName();
+        }
+        return Q65Mode::modeName(Q65Mode::submodeForMode(modeName));
+    }
+
     if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
         return profile.experimental
@@ -3383,6 +3703,7 @@ QString MainWindow::shortModeLabel(const QString &modeName) const
 void MainWindow::setupModeMenu()
 {
     QMenu *modeMenu = new QMenu("Mode", this);
+    hardenPopupMenuForFullscreen(modeMenu);
     QActionGroup *modeGroup = new QActionGroup(modeMenu);
     modeGroup->setExclusive(true);
 
@@ -3408,6 +3729,8 @@ void MainWindow::setupModeMenu()
     addModeAction(MfskDecoder::modeName());
     addModeAction(CwDecoder::modeName());
     addModeAction(HellschreiberDecoder::modeName());
+    addModeAction(Msk144Mode::modeName());
+    addModeAction(Q65Mode::familyName());
     for (const QString &ftModeName : Ft8Mode::allModeNames()) {
         addModeAction(ftModeName);
     }
@@ -3421,7 +3744,23 @@ void MainWindow::setupModeMenu()
         }
     });
 
-    ui->menubar->insertMenu(ui->menuSettings->menuAction(), modeMenu);
+    // Settings is now a direct menubar action, not the original QMenu.  Insert
+    // Mode before Settings explicitly; otherwise Qt appends Mode at the end
+    // after the old menuSettings action has been removed from the menubar.
+    QAction *before = m_actionAppSettings != nullptr ? m_actionAppSettings : nullptr;
+    if (before == nullptr && ui->menuSettings != nullptr) {
+        before = ui->menuSettings->menuAction();
+    }
+    if (before != nullptr && ui->menubar->actions().contains(before)) {
+        ui->menubar->insertMenu(before, modeMenu);
+    } else {
+        QAction *helpAction = ui->menuHelp != nullptr ? ui->menuHelp->menuAction() : nullptr;
+        if (helpAction != nullptr && ui->menubar->actions().contains(helpAction)) {
+            ui->menubar->insertMenu(helpAction, modeMenu);
+        } else {
+            ui->menubar->addMenu(modeMenu);
+        }
+    }
 }
 
 void MainWindow::setupRttyPage()
@@ -3436,7 +3775,7 @@ void MainWindow::setupRttyPage()
     outerLayout->setSpacing(8);
 
     QGroupBox *settingsGroup = new QGroupBox("RTTY settings", m_pageRttySettings);
-    settingsGroup->setStyleSheet("QGroupBox { font-size: 11pt; } QLabel, QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox { font-size: 11pt; min-height: 24px; }");
+    settingsGroup->setStyleSheet(QString());
     QGridLayout *grid = new QGridLayout(settingsGroup);
     grid->setContentsMargins(8, 8, 8, 8);
     grid->setHorizontalSpacing(6);
@@ -3487,32 +3826,17 @@ void MainWindow::setupRttyPage()
     // RTTY contest/multi-decode DSP controls live in the dedicated DSP tab.
 
     QGroupBox *scopeGroup = new QGroupBox("RTTY tuning scope", m_pageRttySettings);
-    scopeGroup->setStyleSheet("QGroupBox { font-size: 11pt; }");
+    scopeGroup->setStyleSheet(QString());
     QVBoxLayout *scopeLayout = new QVBoxLayout(scopeGroup);
     scopeLayout->setContentsMargins(10, 12, 10, 10);
     scopeLayout->setSpacing(8);
 
     m_rttyScopeWidget = new RttyScopeWidget(scopeGroup);
-    QLabel *scopeAxesLabel = new QLabel("Mark → X axis    Space → Y axis", scopeGroup);
-    scopeAxesLabel->setAlignment(Qt::AlignCenter);
-    scopeAxesLabel->setStyleSheet("color: #303030; font-size: 11pt;");
-
-    QLabel *scopeHint = new QLabel("Tune for a bright, stable crossed ellipse.", scopeGroup);
-    scopeHint->setAlignment(Qt::AlignCenter);
-    scopeHint->setWordWrap(true);
-    scopeHint->setStyleSheet("color: #505050; font-size: 9pt;");
-
     scopeLayout->addWidget(m_rttyScopeWidget, 0, Qt::AlignHCenter);
-    scopeLayout->addWidget(scopeAxesLabel);
-    scopeLayout->addWidget(scopeHint);
-
-    QLabel *hint = new QLabel("Terminal, macros and TX input are shown above the waterfall.", m_pageRttySettings);
-    hint->setWordWrap(true);
-    hint->setStyleSheet("color: #505050; font-size: 9pt;");
 
     outerLayout->addWidget(settingsGroup);
+    placeQsoFormInModePanel(outerLayout, m_rttyQsoForm);
     outerLayout->addWidget(scopeGroup);
-    outerLayout->addWidget(hint);
     outerLayout->addStretch(1);
 
     ui->stkModeSettings->addWidget(m_pageRttySettings);
@@ -3648,6 +3972,7 @@ void MainWindow::setupBpsk31Page()
     setHelpText(settingsGroup, uiText("psk_settings_tooltip", "Select PSK/QPSK speed, audio tone, AFC and inversion. The RX terminal, TX box and macros are shown in the central text area above the waterfall."));
 
     outerLayout->addWidget(settingsGroup);
+    placeQsoFormInModePanel(outerLayout, m_bpsk31QsoForm);
     outerLayout->addStretch(1);
 
     ui->stkModeSettings->addWidget(m_pageBpsk31Settings);
@@ -3727,6 +4052,7 @@ void MainWindow::setupMfskPage()
     setHelpText(settingsGroup, uiText("mfsk_settings_tooltip", "MFSK16 uses standard Varicode/FEC. MFSK32 is still a legacy experimental mode."));
 
     outerLayout->addWidget(settingsGroup);
+    placeQsoFormInModePanel(outerLayout, m_mfskQsoForm);
     outerLayout->addStretch(1);
 
     ui->stkModeSettings->addWidget(m_pageMfskSettings);
@@ -3774,7 +4100,7 @@ void MainWindow::setupCwPage()
     grid->setVerticalSpacing(6);
 
     m_spinCwToneHz = new QSpinBox(settingsGroup);
-    m_spinCwToneHz->setRange(250, 2500);
+    m_spinCwToneHz->setRange(250, 3000);
     m_spinCwToneHz->setSingleStep(10);
     m_spinCwToneHz->setSuffix(" Hz");
 
@@ -3784,13 +4110,13 @@ void MainWindow::setupCwPage()
     m_spinCwWpm->setSuffix(" WPM");
     m_chkCwAutoWpm = new QCheckBox(uiText("cw_auto_wpm", "Auto WPM"), settingsGroup);
     m_lblCwTrackedWpm = new QLabel(uiText("cw_tracked_wpm", "Tracked: -- WPM"), settingsGroup);
-    m_lblCwTrackedWpm->setStyleSheet(QStringLiteral("font-weight: bold;"));
+    m_lblCwTrackedWpm->setStyleSheet(QStringLiteral("font-weight: 500;"));
     m_lblCwDualRx = new QLabel(uiText("cw_dual_rx_status", "RX A: left click · RX B: right click on waterfall"), settingsGroup);
     m_lblCwDualRx->setWordWrap(true);
-    m_lblCwDualRx->setStyleSheet(QStringLiteral("color: #2368b8; font-weight: bold;"));
+    m_lblCwDualRx->setStyleSheet(QStringLiteral("color: #3aa8ff; font-weight: 500;"));
 
     m_btnCwDisableSecondary = new QPushButton(uiText("cw_disable_rx_b", "Disable RX B"), settingsGroup);
-    m_btnCwDisableSecondary->setToolTip(uiText("cw_disable_rx_b_tooltip", "Remove the blue secondary CW marker and stop decoder B."));
+    m_btnCwDisableSecondary->setToolTip(uiText("cw_disable_rx_b_tooltip", "Remove the blue secondary CW marker. RX A keeps running."));
     connect(m_btnCwDisableSecondary, &QPushButton::clicked, this, &MainWindow::disableCwSecondaryRx);
 
     m_spinCwBandwidthHz = new QSpinBox(settingsGroup);
@@ -3805,30 +4131,27 @@ void MainWindow::setupCwPage()
     m_spinCwAfcRangeHz->setPrefix(QString::fromUtf8("±"));
     m_spinCwAfcRangeHz->setSuffix(" Hz");
 
-    // CW uses ggmorse with bounded internal input leveling.
-    // The generic software AGC checkbox is intentionally not shown for CW.
+    // CW RX is now the assimilated skimmer.  Manual bandwidth/AFC controls are
+    // intentionally hidden: the engine owns adaptive per-bin noise, threshold
+    // and hysteresis internally.  The old setting objects remain allocated only
+    // so older settings files/load paths stay harmless.
     m_chkCwSoftwareAgc = nullptr;
+    m_spinCwBandwidthHz->setVisible(false);
+    m_chkCwAfc->setVisible(false);
+    m_spinCwAfcRangeHz->setVisible(false);
 
-    grid->addWidget(new QLabel("Tone", settingsGroup), 0, 0);
+    grid->addWidget(new QLabel("RX A tone", settingsGroup), 0, 0);
     grid->addWidget(m_spinCwToneHz, 0, 1, 1, 2);
-    grid->addWidget(new QLabel("Speed", settingsGroup), 1, 0);
+    grid->addWidget(new QLabel("Speed hint", settingsGroup), 1, 0);
     grid->addWidget(m_spinCwWpm, 1, 1, 1, 2);
     grid->addWidget(m_chkCwAutoWpm, 2, 0, 1, 1);
     grid->addWidget(m_lblCwTrackedWpm, 2, 1, 1, 2);
-    grid->addWidget(new QLabel("Bandwidth", settingsGroup), 3, 0);
-    grid->addWidget(m_spinCwBandwidthHz, 3, 1, 1, 2);
-    grid->addWidget(m_chkCwAfc, 4, 0, 1, 1);
-    grid->addWidget(new QLabel("AFC range", settingsGroup), 4, 1);
-    grid->addWidget(m_spinCwAfcRangeHz, 4, 2);
-    grid->addWidget(m_lblCwDualRx, 5, 0, 1, 2);
-    grid->addWidget(m_btnCwDisableSecondary, 5, 2);
+    grid->addWidget(m_lblCwDualRx, 3, 0, 1, 2);
+    grid->addWidget(m_btnCwDisableSecondary, 3, 2);
     grid->setColumnStretch(1, 1);
 
-    QLabel *hint = new QLabel(uiText("cw_dual_rx_hint", "CW RX: left click sets green RX A; right click sets blue RX B. Each ggmorse decoder has its own Auto-WPM/AFC tracking. Yellow dashed lines show the active CW filter passband around each selected tone."), m_pageCwSettings);
-    hint->setWordWrap(true);
-
     outerLayout->addWidget(settingsGroup);
-    outerLayout->addWidget(hint);
+    placeQsoFormInModePanel(outerLayout, m_cwQsoForm);
     outerLayout->addStretch(1);
 
     ui->stkModeSettings->addWidget(m_pageCwSettings);
@@ -3854,9 +4177,9 @@ void MainWindow::loadCwSettingsToUi()
     const QSignalBlocker blockAfc(m_chkCwAfc);
     const QSignalBlocker blockAfcRange(m_spinCwAfcRangeHz);
 
-    m_spinCwToneHz->setValue(qBound(250, m_settings.cwToneHz, 2500));
+    m_spinCwToneHz->setValue(qBound(250, m_settings.cwToneHz, 3000));
     m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
-    m_cwSecondaryToneHz = qBound(250, m_settings.cwSecondaryToneHz, 2500);
+    m_cwSecondaryToneHz = qBound(250, m_settings.cwSecondaryToneHz, 3000);
     updateCwDualRxStatusLabel();
     m_spinCwWpm->setValue(qBound(5, m_settings.cwWpm, 60));
     m_chkCwAutoWpm->setChecked(m_settings.cwAutoWpm);
@@ -3940,11 +4263,8 @@ void MainWindow::setupHellPage()
     grid->addWidget(m_lblHellPaperScale, 5, 2);
     grid->setColumnStretch(1, 1);
 
-    QLabel *hint = new QLabel("Feld Hell and FSK-105 are read visually on the same paper display. Paper zoom is a zoom control; paper speed changes the Hell column rate. Local TX is printed in red on the same paper.", m_pageHellSettings);
-    hint->setWordWrap(true);
-
     outerLayout->addWidget(settingsGroup);
-    outerLayout->addWidget(hint);
+    placeQsoFormInModePanel(outerLayout, m_hellQsoForm);
     outerLayout->addStretch(1);
 
     ui->stkModeSettings->addWidget(m_pageHellSettings);
@@ -3986,6 +4306,490 @@ void MainWindow::loadHellSettingsToUi()
     m_lblHellPaperScale->setText(QStringLiteral("x%1").arg(paperScale));
 }
 
+
+
+void MainWindow::setupMsk144Page()
+{
+    if (ui == nullptr || ui->stkModeSettings == nullptr) {
+        return;
+    }
+
+    m_pageMsk144Settings = new QWidget(ui->stkModeSettings);
+    QVBoxLayout *outer = new QVBoxLayout(m_pageMsk144Settings);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(8);
+
+    QGroupBox *rxGroup = new QGroupBox(uiText("msk144_rx_tx_settings", "MSK144 RX/TX settings"), m_pageMsk144Settings);
+    QGridLayout *grid = new QGridLayout(rxGroup);
+    grid->setContentsMargins(8, 8, 8, 8);
+    grid->setHorizontalSpacing(6);
+    grid->setVerticalSpacing(6);
+
+    m_cmbMsk144Period = new QComboBox(rxGroup);
+    m_cmbMsk144Period->addItem(QStringLiteral("15 s"), 15);
+    m_cmbMsk144Period->addItem(QStringLiteral("30 s"), 30);
+    // MSHV exposes MSK/FT/Q65 decode depth from the global Decode menu,
+    // not as a bulky per-mode panel control. Keep a hidden combo as the
+    // single source of truth for settings/apply logic, but expose it through
+    // Decode -> MSK144 decode depth below. Mapping follows MSHV:
+    //   1 = Fast   : short-ping decoder only
+    //   2 = Normal : short-ping + 4-frame coherent averages
+    //   3 = Deep   : short-ping + 4/5/7-frame coherent averages
+    m_cmbMsk144DecodeDepth = new QComboBox(rxGroup);
+    m_cmbMsk144DecodeDepth->addItem(QStringLiteral("Fast"), 1);
+    m_cmbMsk144DecodeDepth->addItem(QStringLiteral("Normal"), 2);
+    m_cmbMsk144DecodeDepth->addItem(QStringLiteral("Deep"), 3);
+    const int savedMskDepth = qBound(1, QSettings(AppSettings::settingsFilePath(), QSettings::IniFormat)
+                                           .value(QStringLiteral("MSK144/decodeDepth"), 2).toInt(), 3);
+    const int savedMskDepthIndex = m_cmbMsk144DecodeDepth->findData(savedMskDepth);
+    m_cmbMsk144DecodeDepth->setCurrentIndex(savedMskDepthIndex >= 0 ? savedMskDepthIndex : 1);
+    m_cmbMsk144DecodeDepth->hide();
+
+    m_spinMsk144RxFreq = new QSpinBox(rxGroup);
+    m_spinMsk144RxFreq->setRange(300, 2700);
+    m_spinMsk144RxFreq->setValue(1500);
+    m_spinMsk144RxFreq->setSuffix(QStringLiteral(" Hz"));
+    m_spinMsk144TxFreq = new QSpinBox(rxGroup);
+    m_spinMsk144TxFreq->setRange(300, 2700);
+    m_spinMsk144TxFreq->setValue(1500);
+    m_spinMsk144TxFreq->setSuffix(QStringLiteral(" Hz"));
+    m_spinMsk144DfTolerance = new QSpinBox(rxGroup);
+    m_spinMsk144DfTolerance->setRange(10, 500);
+    m_spinMsk144DfTolerance->setValue(100);
+    m_spinMsk144DfTolerance->setPrefix(QString::fromUtf8("±"));
+    m_spinMsk144DfTolerance->setSuffix(QStringLiteral(" Hz"));
+
+    m_chkMsk144ShortMessages = new QCheckBox(uiText("msk144_short_messages", "Short messages"), rxGroup);
+    m_chkMsk144Swl = new QCheckBox(uiText("msk144_swl", "SWL"), rxGroup);
+    m_chkMsk144Contest = new QCheckBox(uiText("msk144_contest", "Contest"), rxGroup);
+    m_chkMsk144TxFirst = new QCheckBox(uiText("msk144_tx_first", "TX first period"), rxGroup);
+
+    m_editMsk144DxCall = new QLineEdit(rxGroup);
+    m_editMsk144DxCall->setPlaceholderText(uiText("dx_callsign", "DX callsign"));
+    m_editMsk144DxGrid = new QLineEdit(rxGroup);
+    m_editMsk144DxGrid->setPlaceholderText(uiText("dx_grid", "DX grid"));
+
+    m_btnMsk144GenerateStd = new QPushButton(uiText("generate_standard_messages", "Generate standard messages"), rxGroup);
+    m_btnMsk144Rx = new QPushButton(uiText("rx", "RX"), rxGroup);
+    m_btnMsk144Tx = new QPushButton(uiText("tx", "TX"), rxGroup);
+    m_btnMsk144Stop = new QPushButton(uiText("button.stop", "STOP"), rxGroup);
+    m_btnMsk144Tune = new QPushButton(uiText("tune", "Tune"), rxGroup);
+    for (QPushButton *btn : {m_btnMsk144GenerateStd, m_btnMsk144Rx, m_btnMsk144Tx, m_btnMsk144Stop, m_btnMsk144Tune}) {
+        if (btn != nullptr) btn->hide();
+    }
+    m_lblMsk144Status = new QLabel(uiText("msk144_status_idle", "MSK144: idle"), rxGroup);
+    m_lblMsk144Status->setWordWrap(true);
+    m_lblMsk144Status->setStyleSheet(QStringLiteral("font-weight: 500; color: #3aa8ff;"));
+    m_lblMsk144PeriodStatus = new QLabel(rxGroup);
+    m_lblMsk144PeriodStatus->setWordWrap(true);
+
+    int row = 0;
+    grid->addWidget(new QLabel(uiText("period", "Period"), rxGroup), row, 0);
+    grid->addWidget(m_cmbMsk144Period, row, 1);
+    ++row;
+    grid->addWidget(new QLabel(uiText("rx_frequency", "RX freq"), rxGroup), row, 0);
+    grid->addWidget(m_spinMsk144RxFreq, row, 1);
+    grid->addWidget(new QLabel(uiText("tx_frequency", "TX freq"), rxGroup), row, 2);
+    grid->addWidget(m_spinMsk144TxFreq, row, 3);
+    ++row;
+    grid->addWidget(new QLabel(uiText("df_tolerance", "DF tol"), rxGroup), row, 0);
+    grid->addWidget(m_spinMsk144DfTolerance, row, 1);
+    grid->addWidget(m_chkMsk144TxFirst, row, 2, 1, 2);
+    ++row;
+    grid->addWidget(m_chkMsk144ShortMessages, row, 0);
+    grid->addWidget(m_chkMsk144Swl, row, 1);
+    grid->addWidget(m_chkMsk144Contest, row, 2, 1, 2);
+    ++row;
+    grid->addWidget(new QLabel(uiText("dx_callsign", "DX callsign"), rxGroup), row, 0);
+    grid->addWidget(m_editMsk144DxCall, row, 1);
+    grid->addWidget(new QLabel(uiText("dx_grid", "DX grid"), rxGroup), row, 2);
+    grid->addWidget(m_editMsk144DxGrid, row, 3);
+    ++row;
+    grid->addWidget(m_lblMsk144Status, row, 0, 1, 4);
+    ++row;
+    grid->addWidget(m_lblMsk144PeriodStatus, row, 0, 1, 4);
+
+    QGroupBox *mskSeqGroup = new QGroupBox(uiText("msk144_sequence_status", "MSK144 sequence status"), m_pageMsk144Settings);
+    QVBoxLayout *mskSeqLayout = new QVBoxLayout(mskSeqGroup);
+    mskSeqLayout->setContentsMargins(8, 8, 8, 8);
+    mskSeqLayout->setSpacing(4);
+    m_lblMsk144SequencerStatus = new QLabel(uiText("msk144_seq_idle", "Sequencer: idle"), mskSeqGroup);
+    m_lblMsk144SequencerStatus->setWordWrap(true);
+    m_lblMsk144SequencerStatus->setStyleSheet(QStringLiteral("font-weight: 500;"));
+    mskSeqLayout->addWidget(m_lblMsk144SequencerStatus);
+
+    QWidget *mskQsoPanel = createQsoFormPanel(m_pageMsk144Settings, QStringLiteral("MSK144"), &m_msk144QsoForm);
+
+    QGroupBox *mskTxGroup = new QGroupBox(uiText("standard_messages", "Standard messages"), m_pageMsk144Settings);
+    QVBoxLayout *mskTxLayout = new QVBoxLayout(mskTxGroup);
+    mskTxLayout->setContentsMargins(8, 8, 8, 8);
+    mskTxLayout->setSpacing(4);
+    if (m_tableMsk144TxMessages != nullptr) {
+        m_tableMsk144TxMessages->setParent(mskTxGroup);
+        m_tableMsk144TxMessages->setMinimumHeight(160);
+        m_tableMsk144TxMessages->setMaximumHeight(220);
+        mskTxLayout->addWidget(m_tableMsk144TxMessages);
+    }
+
+    outer->addWidget(rxGroup);
+    outer->addWidget(mskSeqGroup);
+    outer->addWidget(mskQsoPanel);
+    outer->addWidget(mskTxGroup);
+    outer->addStretch(1);
+    ui->stkModeSettings->addWidget(m_pageMsk144Settings);
+
+    auto apply = [this]() { applyMsk144Settings(); };
+    connect(m_cmbMsk144Period, QOverload<int>::of(&QComboBox::currentIndexChanged), this, apply);
+    connect(m_cmbMsk144DecodeDepth, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("MSK144/decodeDepth"),
+                          m_cmbMsk144DecodeDepth != nullptr ? m_cmbMsk144DecodeDepth->currentData().toInt() : 2);
+        applyMsk144Settings();
+    });
+    connect(m_spinMsk144RxFreq, QOverload<int>::of(&QSpinBox::valueChanged), this, apply);
+    connect(m_spinMsk144TxFreq, QOverload<int>::of(&QSpinBox::valueChanged), this, apply);
+    connect(m_spinMsk144DfTolerance, QOverload<int>::of(&QSpinBox::valueChanged), this, apply);
+    connect(m_chkMsk144ShortMessages, &QCheckBox::toggled, this, apply);
+    connect(m_chkMsk144Swl, &QCheckBox::toggled, this, apply);
+    connect(m_chkMsk144Contest, &QCheckBox::toggled, this, apply);
+    connect(m_editMsk144DxCall, &QLineEdit::textChanged, this, [this, apply]() { apply(); refreshMsk144StandardMessages(); });
+    connect(m_editMsk144DxGrid, &QLineEdit::textChanged, this, &MainWindow::refreshMsk144StandardMessages);
+    connect(m_btnMsk144GenerateStd, &QPushButton::clicked, this, &MainWindow::refreshMsk144StandardMessages);
+    connect(m_btnMsk144Rx, &QPushButton::clicked, this, &MainWindow::startMsk144RxShell);
+    connect(m_btnMsk144Tx, &QPushButton::clicked, this, &MainWindow::startMsk144TxShell);
+    connect(m_btnMsk144Stop, &QPushButton::clicked, this, &MainWindow::stopMsk144Shell);
+    if (m_btnMsk144Tune != nullptr) {
+        m_btnMsk144Tune->setVisible(false); // no non-standard diagnostic tune waveform in MSK144
+        m_btnMsk144Tune->setEnabled(false);
+    }
+
+    if (ui != nullptr && ui->menubar != nullptr && m_cmbMsk144DecodeDepth != nullptr) {
+        QMenu *decodeMenu = new QMenu(uiText("menu_decode", "Decode"), this);
+        hardenPopupMenuForFullscreen(decodeMenu);
+
+        QMenu *mskDepthMenu = decodeMenu->addMenu(uiText("msk144_decode_depth", "MSK144 decode depth"));
+        hardenPopupMenuForFullscreen(mskDepthMenu);
+        QActionGroup *depthGroup = new QActionGroup(mskDepthMenu);
+        depthGroup->setExclusive(true);
+
+        auto addDepthAction = [this, mskDepthMenu, depthGroup](const QString &label, int value, const QString &hint) {
+            QAction *action = mskDepthMenu->addAction(label);
+            action->setCheckable(true);
+            action->setData(value);
+            action->setToolTip(hint);
+            action->setStatusTip(hint);
+            depthGroup->addAction(action);
+            if (m_cmbMsk144DecodeDepth != nullptr && m_cmbMsk144DecodeDepth->currentData().toInt() == value) {
+                action->setChecked(true);
+            }
+            connect(action, &QAction::triggered, this, [this, value]() {
+                if (m_cmbMsk144DecodeDepth == nullptr) {
+                    return;
+                }
+                const int index = m_cmbMsk144DecodeDepth->findData(value);
+                if (index >= 0 && m_cmbMsk144DecodeDepth->currentIndex() != index) {
+                    m_cmbMsk144DecodeDepth->setCurrentIndex(index);
+                } else {
+                    QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+                    settings.setValue(QStringLiteral("MSK144/decodeDepth"), value);
+                    applyMsk144Settings();
+                }
+                appendLog(QStringLiteral("MSK144 decode depth set to %1.")
+                              .arg(value <= 1 ? QStringLiteral("Fast") : (value == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep"))));
+            });
+        };
+
+        addDepthAction(uiText("msk144_depth_fast", "Fast"), 1,
+                       uiText("msk144_depth_fast_hint", "MSHV mapping: short-ping decoder only."));
+        addDepthAction(uiText("msk144_depth_normal", "Normal"), 2,
+                       uiText("msk144_depth_normal_hint", "MSHV default for MSK144: short-ping decoder plus 4-frame coherent averages."));
+        addDepthAction(uiText("msk144_depth_deep", "Deep"), 3,
+                       uiText("msk144_depth_deep_hint", "MSHV deep MSK144: short-ping decoder plus 4-, 5- and 7-frame coherent averages."));
+
+        connect(m_cmbMsk144DecodeDepth, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [depthGroup, this]() {
+            if (m_cmbMsk144DecodeDepth == nullptr) {
+                return;
+            }
+            const int depth = m_cmbMsk144DecodeDepth->currentData().toInt();
+            for (QAction *action : depthGroup->actions()) {
+                if (action->data().toInt() == depth) {
+                    action->setChecked(true);
+                    break;
+                }
+            }
+        });
+
+        QAction *insertBefore = m_actionAppSettings != nullptr ? m_actionAppSettings : nullptr;
+        if (insertBefore == nullptr && ui->menuHelp != nullptr) {
+            insertBefore = ui->menuHelp->menuAction();
+        }
+        if (insertBefore != nullptr && ui->menubar->actions().contains(insertBefore)) {
+            ui->menubar->insertMenu(insertBefore, decodeMenu);
+        } else {
+            ui->menubar->addMenu(decodeMenu);
+        }
+    }
+
+    if (m_msk144Decoder != nullptr) {
+        connect(m_msk144Decoder, &Msk144Decoder::decoded, this, &MainWindow::handleMsk144DecodeReady, Qt::QueuedConnection);
+        connect(m_msk144Decoder, &Msk144Decoder::statusChanged, this, [this](const QString &s) {
+            if (m_lblMsk144Status != nullptr) m_lblMsk144Status->setText(s);
+            appendLog(s);
+        }, Qt::QueuedConnection);
+        connect(m_msk144Decoder, &Msk144Decoder::pingDetected, this, &MainWindow::handleMsk144Ping, Qt::QueuedConnection);
+        connect(m_msk144Decoder, &Msk144Decoder::periodReady, this, [this](int buffered, int period) {
+            if (m_lblMsk144PeriodStatus != nullptr) {
+                m_lblMsk144PeriodStatus->setText(QStringLiteral("Last MSK144 period: %1/%2 s buffered").arg(buffered).arg(period));
+            }
+        }, Qt::QueuedConnection);
+        connect(m_msk144Decoder, &Msk144Decoder::mindStats, this, [this](int scored, int promoted, double avgConfidence) {
+            appendLog(QStringLiteral("MSK144 MIND Ranker: scored %1, promoted %2, avg candidate %3%")
+                          .arg(scored)
+                          .arg(promoted)
+                          .arg(avgConfidence, 0, 'f', 1));
+        }, Qt::QueuedConnection);
+    }
+
+    refreshMsk144StandardMessages();
+    applyMsk144Settings();
+}
+
+void MainWindow::setupQ65Page()
+{
+    if (ui == nullptr || ui->stkModeSettings == nullptr) {
+        return;
+    }
+
+    m_pageQ65Settings = new QWidget(ui->stkModeSettings);
+    QVBoxLayout *outer = new QVBoxLayout(m_pageQ65Settings);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(8);
+
+    QGroupBox *rxGroup = new QGroupBox(uiText("q65_rx_tx_settings", "Q65 RX/TX settings"), m_pageQ65Settings);
+    QGridLayout *grid = new QGridLayout(rxGroup);
+    grid->setContentsMargins(8, 8, 8, 8);
+    grid->setHorizontalSpacing(8);
+    grid->setVerticalSpacing(6);
+
+    m_cmbQ65Submode = new QComboBox(rxGroup);
+    m_cmbQ65Submode->addItem(QStringLiteral("A"), 1);
+    m_cmbQ65Submode->addItem(QStringLiteral("B"), 2);
+    m_cmbQ65Submode->addItem(QStringLiteral("C"), 4);
+    m_cmbQ65Submode->addItem(QStringLiteral("D"), 8);
+    const int savedSubmode = qBound(1, QSettings(AppSettings::settingsFilePath(), QSettings::IniFormat)
+                                           .value(QStringLiteral("Q65/submode"), 1).toInt(), 8);
+    int submodeIndex = m_cmbQ65Submode->findData(savedSubmode);
+    if (submodeIndex < 0) submodeIndex = 0;
+    m_cmbQ65Submode->setCurrentIndex(submodeIndex);
+
+    m_cmbQ65Period = new QComboBox(rxGroup);
+    m_cmbQ65Period->addItem(QStringLiteral("15 s"), 15);
+    m_cmbQ65Period->addItem(QStringLiteral("30 s"), 30);
+    m_cmbQ65Period->addItem(QStringLiteral("60 s"), 60);
+    m_cmbQ65Period->addItem(QStringLiteral("120 s"), 120);
+    const int savedPeriod = qBound(15, QSettings(AppSettings::settingsFilePath(), QSettings::IniFormat)
+                                          .value(QStringLiteral("Q65/period"), 60).toInt(), 120);
+    int periodIndex = m_cmbQ65Period->findData(savedPeriod);
+    if (periodIndex < 0) periodIndex = m_cmbQ65Period->findData(60);
+    m_cmbQ65Period->setCurrentIndex(periodIndex >= 0 ? periodIndex : 2);
+
+    m_cmbQ65DecodeDepth = new QComboBox(rxGroup);
+    m_cmbQ65DecodeDepth->addItem(QStringLiteral("Fast"), 1);
+    m_cmbQ65DecodeDepth->addItem(QStringLiteral("Normal"), 2);
+    m_cmbQ65DecodeDepth->addItem(QStringLiteral("Deep"), 3);
+    const int savedDepth = qBound(1, QSettings(AppSettings::settingsFilePath(), QSettings::IniFormat)
+                                         .value(QStringLiteral("Q65/decodeDepth"), 2).toInt(), 3);
+    const int depthIndex = m_cmbQ65DecodeDepth->findData(savedDepth);
+    m_cmbQ65DecodeDepth->setCurrentIndex(depthIndex >= 0 ? depthIndex : 1);
+
+    m_spinQ65RxFreq = new QSpinBox(rxGroup);
+    m_spinQ65RxFreq->setRange(300, 2700);
+    m_spinQ65RxFreq->setValue(1500);
+    m_spinQ65RxFreq->setSuffix(QStringLiteral(" Hz"));
+    m_spinQ65TxFreq = new QSpinBox(rxGroup);
+    m_spinQ65TxFreq->setRange(300, 2700);
+    m_spinQ65TxFreq->setValue(1500);
+    m_spinQ65TxFreq->setSuffix(QStringLiteral(" Hz"));
+    m_spinQ65DfTolerance = new QSpinBox(rxGroup);
+    m_spinQ65DfTolerance->setRange(10, 1000);
+    m_spinQ65DfTolerance->setValue(100);
+    m_spinQ65DfTolerance->setPrefix(QString::fromUtf8("±"));
+    m_spinQ65DfTolerance->setSuffix(QStringLiteral(" Hz"));
+
+    m_chkQ65AverageDecode = new QCheckBox(uiText("q65_avg_decode", "Average"), rxGroup);
+    m_chkQ65AverageDecode->setChecked(true);
+    m_chkQ65AutoClearAvg = new QCheckBox(uiText("q65_auto_clear_avg", "Auto clear AVG"), rxGroup);
+    m_chkQ65AutoClearAvg->setChecked(true);
+    m_chkQ65SingleDecode = new QCheckBox(uiText("q65_single_decode", "Single decode"), rxGroup);
+    m_chkQ65ApDecode = new QCheckBox(uiText("q65_ap_decode", "AP decode"), rxGroup);
+    m_chkQ65ApDecode->setChecked(true);
+    m_chkQ65MaxDrift = new QCheckBox(uiText("q65_max_drift", "Max drift"), rxGroup);
+    m_chkQ65EmeDelay = new QCheckBox(uiText("q65_eme_delay", "EME delay"), rxGroup);
+
+    m_editQ65DxCall = new QLineEdit(rxGroup);
+    m_editQ65DxCall->setPlaceholderText(uiText("dx_callsign", "DX callsign"));
+    m_editQ65DxGrid = new QLineEdit(rxGroup);
+    m_editQ65DxGrid->setPlaceholderText(uiText("dx_grid", "DX grid"));
+
+    m_btnQ65GenerateStd = new QPushButton(uiText("generate_standard_messages", "Generate standard messages"), rxGroup);
+    m_btnQ65Rx = new QPushButton(uiText("rx", "RX"), rxGroup);
+    m_btnQ65Tx = new QPushButton(uiText("tx", "TX"), rxGroup);
+    m_btnQ65Stop = new QPushButton(uiText("button.stop", "STOP"), rxGroup);
+    m_btnQ65ClearAvg = new QPushButton(uiText("q65_clear_avg", "Clear AVG"), rxGroup);
+    for (QPushButton *btn : {m_btnQ65GenerateStd, m_btnQ65Rx, m_btnQ65Tx, m_btnQ65Stop, m_btnQ65ClearAvg}) {
+        if (btn != nullptr) btn->hide();
+    }
+    m_lblQ65Status = new QLabel(uiText("q65_status_idle", "Q65: idle"), rxGroup);
+    m_lblQ65Status->setWordWrap(true);
+    m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 500; color: #3aa8ff;"));
+    m_lblQ65AverageStatus = new QLabel(QStringLiteral("AVG: 0 | 0"), rxGroup);
+    m_lblQ65AverageStatus->setWordWrap(true);
+
+    auto compactLabel = [rxGroup](const QString &label) {
+        QLabel *l = new QLabel(label, rxGroup);
+        l->setWordWrap(false);
+        l->setMinimumWidth(46);
+        l->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
+        return l;
+    };
+    auto compactInput = [](QWidget *widget) {
+        if (widget != nullptr) {
+            widget->setMinimumWidth(78);
+            widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        }
+    };
+    for (QWidget *w : {static_cast<QWidget *>(m_cmbQ65Submode), static_cast<QWidget *>(m_cmbQ65Period),
+                      static_cast<QWidget *>(m_cmbQ65DecodeDepth), static_cast<QWidget *>(m_spinQ65RxFreq),
+                      static_cast<QWidget *>(m_spinQ65TxFreq), static_cast<QWidget *>(m_spinQ65DfTolerance),
+                      static_cast<QWidget *>(m_editQ65DxCall), static_cast<QWidget *>(m_editQ65DxGrid)}) {
+        compactInput(w);
+    }
+    m_chkQ65AutoClearAvg->setText(uiText("q65_auto_clear_avg_short", "Auto clear"));
+    m_chkQ65SingleDecode->setText(uiText("q65_single_decode_short", "Single"));
+    m_chkQ65ApDecode->setText(uiText("q65_ap_decode_short", "AP"));
+    m_chkQ65MaxDrift->setText(uiText("q65_max_drift_short", "Drift"));
+    m_chkQ65EmeDelay->setText(uiText("q65_eme_delay_short", "EME"));
+
+    int row = 0;
+    grid->addWidget(compactLabel(uiText("submode", "Sub")), row, 0);
+    grid->addWidget(m_cmbQ65Submode, row, 1);
+    grid->addWidget(compactLabel(uiText("period", "Period")), row, 2);
+    grid->addWidget(m_cmbQ65Period, row, 3);
+    ++row;
+    grid->addWidget(compactLabel(uiText("decode_depth", "Decode")), row, 0);
+    grid->addWidget(m_cmbQ65DecodeDepth, row, 1);
+    grid->addWidget(compactLabel(uiText("df_tolerance", "DF")), row, 2);
+    grid->addWidget(m_spinQ65DfTolerance, row, 3);
+    ++row;
+    grid->addWidget(compactLabel(uiText("rx_frequency", "RX")), row, 0);
+    grid->addWidget(m_spinQ65RxFreq, row, 1);
+    grid->addWidget(compactLabel(uiText("tx_frequency", "TX")), row, 2);
+    grid->addWidget(m_spinQ65TxFreq, row, 3);
+    ++row;
+    grid->addWidget(m_chkQ65AverageDecode, row, 0, 1, 2);
+    grid->addWidget(m_chkQ65AutoClearAvg, row, 2, 1, 2);
+    ++row;
+    grid->addWidget(m_chkQ65SingleDecode, row, 0, 1, 2);
+    grid->addWidget(m_chkQ65ApDecode, row, 2, 1, 2);
+    ++row;
+    grid->addWidget(m_chkQ65MaxDrift, row, 0, 1, 2);
+    grid->addWidget(m_chkQ65EmeDelay, row, 2, 1, 2);
+    ++row;
+    grid->addWidget(compactLabel(uiText("dx_callsign", "DX")), row, 0);
+    grid->addWidget(m_editQ65DxCall, row, 1);
+    grid->addWidget(compactLabel(uiText("dx_grid", "Grid")), row, 2);
+    grid->addWidget(m_editQ65DxGrid, row, 3);
+    ++row;
+    grid->addWidget(m_lblQ65Status, row++, 0, 1, 4);
+    grid->addWidget(m_lblQ65AverageStatus, row++, 0, 1, 4);
+    grid->setColumnStretch(1, 1);
+    grid->setColumnStretch(3, 1);
+
+    QGroupBox *q65SeqGroup = new QGroupBox(uiText("q65_sequence_status", "Q65 sequence status"), m_pageQ65Settings);
+    QVBoxLayout *q65SeqLayout = new QVBoxLayout(q65SeqGroup);
+    q65SeqLayout->setContentsMargins(8, 8, 8, 8);
+    q65SeqLayout->setSpacing(4);
+    m_lblQ65SequencerStatus = new QLabel(uiText("q65_seq_idle", "Sequencer: idle"), q65SeqGroup);
+    m_lblQ65SequencerStatus->setWordWrap(true);
+    m_lblQ65SequencerStatus->setStyleSheet(QStringLiteral("font-weight: 500;"));
+    q65SeqLayout->addWidget(m_lblQ65SequencerStatus);
+
+    QWidget *q65QsoPanel = createQsoFormPanel(m_pageQ65Settings, QStringLiteral("Q65"), &m_q65QsoForm);
+
+    QGroupBox *txGroup = new QGroupBox(uiText("standard_messages", "Standard messages"), m_pageQ65Settings);
+    QVBoxLayout *txLayout = new QVBoxLayout(txGroup);
+    txLayout->setContentsMargins(8, 8, 8, 8);
+    txLayout->setSpacing(4);
+    if (m_tableQ65TxMessages != nullptr) {
+        m_tableQ65TxMessages->setParent(txGroup);
+        m_tableQ65TxMessages->setMinimumHeight(160);
+        m_tableQ65TxMessages->setMaximumHeight(220);
+        txLayout->addWidget(m_tableQ65TxMessages);
+    }
+
+    outer->addWidget(rxGroup);
+    outer->addWidget(q65SeqGroup);
+    outer->addWidget(q65QsoPanel);
+    outer->addWidget(txGroup);
+    outer->addStretch(1);
+    ui->stkModeSettings->addWidget(m_pageQ65Settings);
+
+    auto apply = [this]() { applyQ65Settings(); };
+    connect(m_cmbQ65Submode, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("Q65/submode"), m_cmbQ65Submode != nullptr ? m_cmbQ65Submode->currentData().toInt() : 1);
+        applyQ65Settings();
+        refreshQ65StandardMessages();
+    });
+    connect(m_cmbQ65Period, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("Q65/period"), m_cmbQ65Period != nullptr ? m_cmbQ65Period->currentData().toInt() : 60);
+        applyQ65Settings();
+        refreshQ65StandardMessages();
+    });
+    connect(m_cmbQ65DecodeDepth, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this]() {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("Q65/decodeDepth"), m_cmbQ65DecodeDepth != nullptr ? m_cmbQ65DecodeDepth->currentData().toInt() : 2);
+        applyQ65Settings();
+    });
+    connect(m_spinQ65RxFreq, QOverload<int>::of(&QSpinBox::valueChanged), this, apply);
+    connect(m_spinQ65TxFreq, QOverload<int>::of(&QSpinBox::valueChanged), this, apply);
+    connect(m_spinQ65DfTolerance, QOverload<int>::of(&QSpinBox::valueChanged), this, apply);
+    connect(m_chkQ65AverageDecode, &QCheckBox::toggled, this, apply);
+    connect(m_chkQ65AutoClearAvg, &QCheckBox::toggled, this, apply);
+    connect(m_chkQ65SingleDecode, &QCheckBox::toggled, this, apply);
+    connect(m_chkQ65ApDecode, &QCheckBox::toggled, this, apply);
+    connect(m_chkQ65MaxDrift, &QCheckBox::toggled, this, apply);
+    connect(m_chkQ65EmeDelay, &QCheckBox::toggled, this, apply);
+    connect(m_editQ65DxCall, &QLineEdit::textChanged, this, [this, apply]() { apply(); refreshQ65StandardMessages(); });
+    connect(m_editQ65DxGrid, &QLineEdit::textChanged, this, &MainWindow::refreshQ65StandardMessages);
+    connect(m_btnQ65GenerateStd, &QPushButton::clicked, this, &MainWindow::refreshQ65StandardMessages);
+    connect(m_btnQ65Rx, &QPushButton::clicked, this, &MainWindow::startQ65RxShell);
+    connect(m_btnQ65Tx, &QPushButton::clicked, this, &MainWindow::startQ65TxShell);
+    connect(m_btnQ65Stop, &QPushButton::clicked, this, &MainWindow::stopQ65Shell);
+    connect(m_btnQ65ClearAvg, &QPushButton::clicked, this, [this]() { if (m_q65Decoder != nullptr) m_q65Decoder->clearAverages(); });
+
+    if (m_q65Decoder == nullptr) {
+        m_q65Decoder = new Q65Decoder(this);
+        connect(m_q65Decoder, &Q65Decoder::decoded, this, &MainWindow::handleQ65DecodeReady, Qt::QueuedConnection);
+        connect(m_q65Decoder, &Q65Decoder::statusChanged, this, [this](const QString &s) {
+            if (m_lblQ65Status != nullptr) m_lblQ65Status->setText(s);
+        }, Qt::QueuedConnection);
+        connect(m_q65Decoder, &Q65Decoder::periodReady, this, [this](int buffered, int period) {
+            if (m_lblQ65AverageStatus != nullptr) {
+                m_lblQ65AverageStatus->setText(QStringLiteral("Last Q65 period: %1/%2 s buffered").arg(buffered).arg(period));
+            }
+        }, Qt::QueuedConnection);
+        connect(m_q65Decoder, &Q65Decoder::averageStatusChanged, this, [this](int usable, int all) {
+            if (m_lblQ65AverageStatus != nullptr) {
+                m_lblQ65AverageStatus->setText(QStringLiteral("AVG: %1 | %2").arg(usable).arg(all));
+            }
+        }, Qt::QueuedConnection);
+    }
+
+    refreshQ65StandardMessages();
+    applyQ65Settings();
+}
 
 void MainWindow::setupFt8Page()
 {
@@ -4091,7 +4895,7 @@ void MainWindow::setupFt8Page()
     m_cmbFt8Band->setToolTip(uiText("ft_band_tooltip", "Select a band to QSY the CAT-connected rig to the standard FT4/FT8 frequency. Off-slot operation is allowed and shown in red."));
     m_lblFt8BandStatus = new QLabel(qsoGroup);
     m_lblFt8BandStatus->setWordWrap(true);
-    m_lblFt8BandStatus->setStyleSheet(QStringLiteral("font-weight: bold;"));
+    m_lblFt8BandStatus->setStyleSheet(QStringLiteral("font-weight: 500;"));
 
     m_editFt8DxCall->setPlaceholderText(uiText("dx_callsign", "DX callsign"));
     m_editFt8DxGrid->setPlaceholderText(uiText("dx_grid", "DX grid"));
@@ -4136,7 +4940,7 @@ void MainWindow::setupFt8Page()
     m_chkFt8AutoLog = new QCheckBox(uiText("ft8_auto_log", "Auto log completed QSOs"), controlGroup);
     m_chkFt8FullAutoQso = new QCheckBox(uiText("ft8_auto_qso", "Auto QSO"), controlGroup);
     m_chkFt8FullAutoQso->setToolTip(uiText("ft8_auto_qso_tooltip", "WSJT-Z-style gated automation. Decoded CQs are buffered and prioritized by new country, new grid square, new band, new mode, distance and SNR before answering. Visible only after Evil Mode is explicitly unlocked."));
-    m_chkFt8FullAutoQso->setStyleSheet(QStringLiteral("QCheckBox { font-weight: bold; color: #8a2b00; }"));
+    m_chkFt8FullAutoQso->setStyleSheet(QStringLiteral("QCheckBox { font-weight: 500; color: #ffb347; }"));
     m_chkFt8HoldTxFreq = new QCheckBox(uiText("hold_tx_frequency", "Hold TX frequency"), controlGroup);
     m_chkFt8HoldTxFreq->setToolTip(uiText("hold_tx_frequency_tooltip", "Legacy shortcut: force the red TX marker to stay fixed. The TX strategy selector in the FT settings page is the primary control."));
     m_cmbFt8TxStrategy = new QComboBox(controlGroup);
@@ -4183,7 +4987,7 @@ void MainWindow::setupFt8Page()
     m_lblFt8TxBanner->setMinimumWidth(260);
     m_lblFt8TxBanner->setMaximumWidth(420);
     m_lblFt8TxBanner->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_lblFt8TxBanner->setStyleSheet(QStringLiteral("QLabel { border: 2px solid #33414d; border-radius: 6px; padding: 6px; background: #17202a; color: #d7e0e7; font-weight: bold; font-size: 12pt; }"));
+    m_lblFt8TxBanner->setStyleSheet(QStringLiteral("QLabel { border: 2px solid #33414d; border-radius: 6px; padding: 6px; background: #17202a; color: #d7e0e7; font-weight: 500; font-size: 10pt; }"));
     m_lblFt8TxBanner->setText(uiText("ft_tx_banner_rx", "RX monitor — no FT TX armed"));
     // Keep the live TX banner beside the operator controls, WSJT-X style, so
     // the next/current message is visible without pushing controls downward.
@@ -4215,7 +5019,7 @@ void MainWindow::setupFt8Page()
     m_ft8SlotClock = new Ft8SlotClockWidget(clockGroup);
     m_lblFt8PeriodStatus = new QLabel(clockGroup);
     m_lblFt8PeriodStatus->setAlignment(Qt::AlignCenter);
-    m_lblFt8PeriodStatus->setStyleSheet("font-weight: bold;");
+    m_lblFt8PeriodStatus->setStyleSheet("font-weight: 500;");
     m_lblFt8PeriodStatus->hide();
     QLabel *utcCaption = new QLabel(uiText("ft8_utc", "UTC"), clockGroup);
     utcCaption->setAlignment(Qt::AlignCenter);
@@ -4226,7 +5030,7 @@ void MainWindow::setupFt8Page()
     m_lcdFt8UtcClock->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_lblFt8WindowStatus = new QLabel(uiText("ft8_rx_window", "RX window"), clockGroup);
     m_lblFt8WindowStatus->setAlignment(Qt::AlignCenter);
-    m_lblFt8WindowStatus->setStyleSheet("font-weight: bold; font-size: 11pt;");
+    m_lblFt8WindowStatus->setStyleSheet("font-weight: 500; font-size: 9pt;");
 
     clockLayout->addWidget(m_ft8SlotClock, 0, Qt::AlignHCenter);
     clockLayout->addWidget(utcCaption);
@@ -4241,7 +5045,7 @@ void MainWindow::setupFt8Page()
     m_lblFt8SlotStatus->setWordWrap(true);
     m_lblFt8SequencerStatus = new QLabel(uiText("ft8_seq_idle", "Sequencer: idle"), sequencerGroup);
     m_lblFt8SequencerStatus->setWordWrap(true);
-    m_lblFt8SequencerStatus->setStyleSheet(QStringLiteral("font-weight: bold;"));
+    m_lblFt8SequencerStatus->setStyleSheet(QStringLiteral("font-weight: 500;"));
     sequencerLayout->addWidget(m_lblFt8SlotStatus);
     sequencerLayout->addWidget(m_lblFt8SequencerStatus);
 
@@ -4302,7 +5106,7 @@ void MainWindow::setupFt8Page()
     m_btnFt8AnalyzeWav = nullptr;
     m_chkFt8EvilMode = new QCheckBox(uiText("ft8_evil_mode", "Evil mode"), settingsGroup);
     m_chkFt8EvilMode->setToolTip(uiText("ft8_evil_mode_tooltip", "Shows WSJT-Z-style Auto CQ / Auto QSO controls only after an explicit typed confirmation. This unlock is deliberately session-only."));
-    m_chkFt8EvilMode->setStyleSheet(QStringLiteral("QCheckBox { font-weight: bold; color: #8a2b00; }"));
+    m_chkFt8EvilMode->setStyleSheet(QStringLiteral("QCheckBox { font-weight: 500; color: #ffb347; }"));
     const QList<QSpinBox *> ft8FrequencySpins = {m_spinFt8RxFreq, m_spinFt8TxFreq};
     for (QSpinBox *spin : ft8FrequencySpins) {
         spin->setRange(100, 3000);
@@ -4467,12 +5271,15 @@ void MainWindow::setupHelpTooltips()
 {
     // v1.18: keep the side tabs full-width.  Older helper defaults narrowed the
     // QTabWidget after setupCustomWidgets(), leaving blank space at the right.
-    ui->sideTabWidget->setMinimumWidth(280);
-    ui->sideTabWidget->setMaximumWidth(340);
+    ui->sideTabWidget->setMinimumWidth(300);
+    ui->sideTabWidget->setMaximumWidth(360);
     ui->sideTabWidget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    ui->sideTabWidget->tabBar()->setElideMode(Qt::ElideNone);
+    ui->sideTabWidget->tabBar()->setUsesScrollButtons(false);
     ui->mainHorizontalSplitter->setStretchFactor(0, 1);
     ui->mainHorizontalSplitter->setStretchFactor(1, 0);
-    ui->mainHorizontalSplitter->setSizes(QList<int>() << 1500 << 300);
+    ui->mainHorizontalSplitter->setHandleWidth(1);
+    ui->mainHorizontalSplitter->setSizes(QList<int>() << 1500 << 320);
 
     ui->faxSettingsGridLayout->setColumnStretch(0, 0);
     ui->faxSettingsGridLayout->setColumnStretch(1, 1);
@@ -4515,6 +5322,38 @@ void MainWindow::setupHelpTooltips()
     ui->lblFaxHint->setVisible(false);
     ui->cmbSstvMode->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     ui->lblSstvHint->setVisible(false);
+    if (ui->pageSstvSettings != nullptr) {
+        ui->pageSstvSettings->setProperty("cockpitCompactPanel", true);
+    }
+    if (ui->grpSstvSettings != nullptr) {
+        ui->grpSstvSettings->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
+        ui->grpSstvSettings->setMaximumHeight(430);
+    }
+    if (ui->sstvSettingsGridLayout != nullptr) {
+        ui->sstvSettingsGridLayout->setContentsMargins(5, 5, 5, 5);
+        ui->sstvSettingsGridLayout->setHorizontalSpacing(5);
+        ui->sstvSettingsGridLayout->setVerticalSpacing(3);
+        for (int r = 0; r < ui->sstvSettingsGridLayout->rowCount(); ++r) {
+            ui->sstvSettingsGridLayout->setRowStretch(r, 0);
+        }
+    }
+    const QList<QPushButton *> sstvSideButtons = {
+        ui->btnSstvAnalyzeWav, ui->btnSstvResetImage, ui->btnSstvSaveImage,
+        ui->btnSstvZoomFit, ui->btnSstvZoom100, ui->btnSstvZoomOut, ui->btnSstvZoomIn
+    };
+    for (QPushButton *b : sstvSideButtons) {
+        if (b != nullptr) {
+            b->setMinimumHeight(24);
+            b->setMaximumHeight(28);
+            b->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        }
+    }
+    if (ui->lineSstvActionsSection != nullptr) {
+        ui->lineSstvActionsSection->setVisible(false);
+    }
+    if (ui->lineSstvZoomSection != nullptr) {
+        ui->lineSstvZoomSection->setVisible(false);
+    }
     const QList<QWidget *> sstvAdvancedHidden = {
         ui->lblSstvHorizontalShift,
         ui->spinSstvHorizontalShift,
@@ -4694,9 +5533,9 @@ void MainWindow::setupHelpTooltips()
         setHelpText(m_spinCwToneHz, "CW receive tone in Hz. Click the waterfall to retune this marker directly.");
         setHelpText(m_spinCwWpm, "Approximate Morse speed. Disable Auto WPM and set this manually when the estimator is hunting on noisy hand-sent CW.");
         setHelpText(m_chkCwAutoWpm, "Let the CW decoder estimate WPM from dot/dash timing. Turn it off if the estimate jumps too much and enter a manual speed.");
-        setHelpText(m_spinCwBandwidthHz, "Tone detector bandwidth. Narrower rejects noise; wider helps drifting or hand-sent signals.");
-        setHelpText(m_chkCwAfc, "Enable narrow AFC around the selected CW tone. With AFC off the green marker must stay exactly where you clicked.");
-        setHelpText(m_spinCwAfcRangeHz, "Maximum AFC search window around the CW marker. ±10 to ±20 Hz is usually enough.");
+        setHelpText(m_spinCwToneHz, "Green RX A CW marker. Left click the waterfall to move it to the signal you want in the main RX text.");
+        setHelpText(m_spinCwWpm, "Manual WPM hint for the skimmer timing classifier when Auto WPM is disabled.");
+        setHelpText(m_chkCwAutoWpm, "Let the skimmer estimate WPM from the selected A/B streams.");
         setHelpText(m_txtCwRx, "Decoded Morse text for the selected CW signal. Click the waterfall to move the green RX marker to the tone you want to copy.");
         setHelpText(m_txtCwTx, "Type CW text to transmit. Unsupported characters are skipped or spaced by the CW transmitter.");
         setHelpText(m_btnCwSend, "Transmit the CW text, or stop the current CW transmission when already sending.");
@@ -5050,7 +5889,63 @@ void MainWindow::setupProcessingConnections()
     connect(m_cwDecoder, &CwDecoder::characterReceived,
             this, &MainWindow::handleCwTextUpdated,
             Qt::QueuedConnection);
-    // CW text is produced only by the bundled ggmorse decoder.
+    // CW RX is produced by the assimilated multi-channel skimmer.  The operator
+    // still controls RX A/RX B with the green/blue waterfall markers; only those
+    // two selected streams are promoted to the main RX terminal.
+    connect(m_cwDecoder, &CwDecoder::priorityTextReceived,
+            this, [this](int rank, const QString &text) {
+                if (rank <= 0) {
+                    appendCwDecoderText(QStringLiteral("A"), text, QColor("#118a2a"), &m_cwPrimaryLineOpen);
+                } else if (rank == 1) {
+                    appendCwDecoderText(QStringLiteral("B"), text, QColor("#0069d9"), &m_cwSecondaryLineOpen);
+                }
+            },
+            Qt::QueuedConnection);
+
+    connect(m_cwDecoder, &CwDecoder::skimmerOverlaysChanged,
+            this, [this](const QStringList &labels, const QVector<double> &frequenciesHz, const QVector<float> &confidences) {
+                if (m_waterfallWidget == nullptr || ui == nullptr || ui->cmbMode == nullptr ||
+                    ui->cmbMode->currentText() != CwDecoder::modeName()) {
+                    return;
+                }
+                QVector<WaterfallTextOverlay> overlays;
+                const int count = qMin(labels.size(), qMin(frequenciesHz.size(), confidences.size()));
+                overlays.reserve(count);
+                static const QRegularExpression priorityPrefixRe(QStringLiteral("^([AB])\\s+\\d+Hz\\s+"));
+                static const QRegularExpression frequencyPrefixRe(QStringLiteral("^\\d+Hz\\s+"));
+                for (int i = 0; i < count; ++i) {
+                    WaterfallTextOverlay overlay;
+                    overlay.frequencyHz = frequenciesHz.at(i);
+
+                    QString label = labels.at(i).simplified();
+                    const QRegularExpressionMatch priorityMatch = priorityPrefixRe.match(label);
+                    const bool priorityA = priorityMatch.hasMatch() && priorityMatch.captured(1) == QStringLiteral("A");
+                    const bool priorityB = priorityMatch.hasMatch() && priorityMatch.captured(1) == QStringLiteral("B");
+                    if (priorityMatch.hasMatch()) {
+                        label.remove(priorityPrefixRe);
+                    } else {
+                        label.remove(frequencyPrefixRe);
+                    }
+                    label = label.simplified();
+                    if (label.isEmpty()) {
+                        continue;
+                    }
+
+                    overlay.label = label;
+                    overlay.streamId = priorityA ? QStringLiteral("CW_A")
+                                     : priorityB ? QStringLiteral("CW_B")
+                                                 : QStringLiteral("CW_%1").arg(qRound(overlay.frequencyHz));
+                    overlay.verticalTrail = true;
+                    overlay.textColor = priorityA ? QColor(230, 255, 230)
+                                      : priorityB ? QColor(220, 238, 255)
+                                                  : QColor(255, 244, 170);
+                    overlay.backgroundColor = priorityA ? QColor(0, 72, 28, 232)
+                                             : priorityB ? QColor(0, 38, 95, 232)
+                                                         : QColor(20, 14, 0, 220);
+                    overlays.append(overlay);
+                }
+                m_waterfallWidget->setTextOverlays(overlays);
+            });
 
     connect(m_cwDecoder, &CwDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -5085,46 +5980,9 @@ void MainWindow::setupProcessingConnections()
                 updateWaterfallMarkers();
             });
 
-    connect(m_cwSecondaryDecoder, &CwDecoder::characterReceived,
-            this, [this](const QString &text) {
-                if (!m_cwSecondaryEnabled) {
-                    return;
-                }
-                appendCwDecoderText(QStringLiteral("B"), text, QColor("#0069d9"), &m_cwSecondaryLineOpen);
-            },
-            Qt::QueuedConnection);
-
-    connect(m_cwSecondaryDecoder, &CwDecoder::statusChanged,
-            this, [this](const QString &status) {
-                if (m_cwSecondaryEnabled) {
-                    handleWeatherFaxStatus(QStringLiteral("CW B: ") + status);
-                }
-            });
-
-    connect(m_cwSecondaryDecoder, &CwDecoder::speedEstimateChanged,
-            this, [this](double wpm) {
-                if (!m_cwSecondaryEnabled) {
-                    return;
-                }
-                m_cwTrackedWpmB = wpm;
-                if (m_lblCwTrackedWpm != nullptr) {
-                    m_lblCwTrackedWpm->setText(uiText("cw_tracked_ab", "Tracked A: %1 WPM · B: %2 WPM")
-                                                   .arg(m_cwTrackedWpmA > 0.1 ? QString::number(m_cwTrackedWpmA, 'f', 1) : QStringLiteral("--"))
-                                                   .arg(m_cwTrackedWpmB, 0, 'f', 1));
-                }
-                updateCwDualRxStatusLabel();
-                updateWaterfallMarkers();
-            });
-
-    connect(m_cwSecondaryDecoder, &CwDecoder::markersChanged,
-            this, [this](const QVector<FrequencyMarker> &) {
-                if (m_waterfallWidget != nullptr && ui != nullptr && ui->cmbMode != nullptr &&
-                    ui->cmbMode->currentText() == CwDecoder::modeName()) {
-                    updateWaterfallMarkers();
-                    updateCwDualRxStatusLabel();
-                }
-            });
-
+    // RX B is no longer a second decoder object. It is a user-selected marker
+    // inside the single skimmer engine, so there are no secondary decoder
+    // signal connections here.
 
     connect(m_hellDecoder, &HellschreiberDecoder::imageUpdated,
             this, [this](const QImage &image) {
@@ -5191,6 +6049,7 @@ void MainWindow::setupLanguageMenu()
     }
 
     m_menuLanguage = new QMenu("Language", this);
+    hardenPopupMenuForFullscreen(m_menuLanguage);
     m_languageActionGroup = new QActionGroup(this);
     m_languageActionGroup->setExclusive(true);
 
@@ -5579,21 +6438,18 @@ void MainWindow::applyUiLanguage()
     if (m_menuLanguage != nullptr) m_menuLanguage->setTitle(uiText("menu.language", "Language"));
     // Startup motto removed in v2.42: keep the menu bar clean.
 
-    if (ui->actionExit != nullptr) ui->actionExit->setText(uiText("action.exit", "Exit"));
-    if (m_actionAppSettings != nullptr) m_actionAppSettings->setText(uiText("action.appSettings", "Settings..."));
-    if (m_actionFtAnalyzeWav != nullptr) {
-        m_actionFtAnalyzeWav->setText(uiText("ft_analyze_wav", "Analyze FT WAV..."));
-        m_actionFtAnalyzeWav->setToolTip(uiText("ft_analyze_wav_tooltip", "Load a recorded FT8/FT4 WAV file and decode it offline through the isolated FT decoder worker. This never keys PTT or starts the TX scheduler."));
-        m_actionFtAnalyzeWav->setStatusTip(m_actionFtAnalyzeWav->toolTip());
+    if (ui->actionExit != nullptr) {
+        ui->actionExit->setText(uiText("action.exit", "Exit"));
+        ui->actionExit->setToolTip(uiText("action.exit.safe", "Safely close MadModem."));
+        ui->actionExit->setStatusTip(ui->actionExit->toolTip());
+        ui->actionExit->setShortcut(QKeySequence(QStringLiteral("Ctrl+Q")));
     }
-    if (m_actionFtAutoTest != nullptr) {
-        m_actionFtAutoTest->setText(uiText("ft_auto_test", "FT Auto test"));
-        m_actionFtAutoTest->setToolTip(uiText("ft_auto_test_tooltip", "Run the bundled FT8 WAV benchmark automatically with the unified adaptive decoder, then write a plain-text report."));
-        m_actionFtAutoTest->setStatusTip(m_actionFtAutoTest->toolTip());
+    if (m_actionAppSettings != nullptr) {
+        // 0.5.63: Settings is a direct menubar action, not a drop-down menu.
+        m_actionAppSettings->setText(uiText("menu.settings", "Settings"));
+        m_actionAppSettings->setToolTip(uiText("action.appSettings", "Settings..."));
+        m_actionAppSettings->setStatusTip(m_actionAppSettings->toolTip());
     }
-    if (ui->actionAudioPttSettings != nullptr) ui->actionAudioPttSettings->setText(uiText("action.audioPtt", "Audio / PTT settings..."));
-    if (m_actionSoundCardCalibration != nullptr) m_actionSoundCardCalibration->setText(uiText("action.soundCardCalibration", "Soundcard calibration..."));
-    if (ui->actionTextMacroSettings != nullptr) ui->actionTextMacroSettings->setText(uiText("action.textMacros", "User/QTH..."));
     if (ui->actionOpenWeatherFaxWav != nullptr) ui->actionOpenWeatherFaxWav->setText(uiText("action.openWefaxWav", "Analyze WEFAX WAV..."));
     if (ui->actionAboutMadModem != nullptr) ui->actionAboutMadModem->setText(uiText("action.about", "About MM"));
     if (m_actionHelpContents != nullptr) {
@@ -5611,8 +6467,6 @@ void MainWindow::applyUiLanguage()
         m_actionWhatsThisMode->setWhatsThis(whatsTip);
     }
     if (m_actionLogbook != nullptr) m_actionLogbook->setText(uiText("action.logbook", "+ Logbook..."));
-    if (m_actionLogbookSettings != nullptr) m_actionLogbookSettings->setText(uiText("action.logbookSettings", "Logbook file settings..."));
-    if (m_actionRigControlSettings != nullptr) m_actionRigControlSettings->setText(uiText("action.rigControlSettings", "CAT / Rig..."));
     if (m_actionSstvEditor != nullptr) m_actionSstvEditor->setText(uiText("action.sstvEditor", "SSTV image editor..."));
 
     if (m_btnSstvEditor != nullptr) m_btnSstvEditor->setText(uiText("button.openSstvEditor", "Open SSTV editor..."));
@@ -5705,12 +6559,7 @@ void MainWindow::setupUiConnections()
 {
     m_actionSstvEditor = new QAction("SSTV image editor...", this);
     m_actionLogbook = new QAction("+ Logbook...", this);
-    m_actionSoundCardCalibration = nullptr;
-    m_actionLogbookSettings = nullptr;
-    m_actionRigControlSettings = nullptr;
     m_actionAppSettings = new QAction("Settings...", this);
-    m_actionFtAnalyzeWav = new QAction("Analyze FT WAV...", this);
-    m_actionFtAutoTest = new QAction("FT Auto test", this);
     m_actionHelpContents = new QAction("Help contents...", this);
     m_actionHelpContents->setShortcut(QKeySequence(QKeySequence::HelpContents));
     m_actionHelpContents->setStatusTip("Open MM inline help.");
@@ -5734,12 +6583,26 @@ void MainWindow::setupUiConnections()
     connect(m_actionLogbook, &QAction::triggered,
             this, &MainWindow::showLogbookDialog);
 
-    if (ui->menuSettings != nullptr) {
+    if (ui->menuSettings != nullptr && ui->menubar != nullptr) {
+        // 0.5.63: the Settings menubar item opens the unified settings dialog
+        // directly.  The old Settings drop-down only contained Settings + FT
+        // developer WAV tools, which made the menu feel like a junk drawer.
+        // FT WAV analysis / auto-test remain available from the dedicated
+        // Settings dialog pages and developer controls, but not as entries in
+        // the top-level Settings menubar item.
+        QAction *oldMenuAction = ui->menuSettings->menuAction();
+        QAction *insertBefore = nullptr;
+        const QList<QAction *> menuActions = ui->menubar->actions();
+        const int oldIndex = menuActions.indexOf(oldMenuAction);
+        if (oldIndex >= 0 && oldIndex + 1 < menuActions.size()) {
+            insertBefore = menuActions.at(oldIndex + 1);
+        }
         ui->menuSettings->clear();
-        ui->menuSettings->addAction(m_actionAppSettings);
-        ui->menuSettings->addSeparator();
-        ui->menuSettings->addAction(m_actionFtAnalyzeWav);
-        ui->menuSettings->addAction(m_actionFtAutoTest);
+        ui->menubar->removeAction(oldMenuAction);
+        ui->menubar->insertAction(insertBefore, m_actionAppSettings);
+        m_actionAppSettings->setText(uiText("menu.settings", "Settings"));
+        m_actionAppSettings->setToolTip(uiText("action.appSettings", "Settings..."));
+        m_actionAppSettings->setStatusTip(m_actionAppSettings->toolTip());
     }
 
 
@@ -5747,10 +6610,6 @@ void MainWindow::setupUiConnections()
 
     connect(m_actionAppSettings, &QAction::triggered,
             this, &MainWindow::showAppSettingsDialog);
-    connect(m_actionFtAnalyzeWav, &QAction::triggered,
-            this, &MainWindow::openFtWavFile);
-    connect(m_actionFtAutoTest, &QAction::triggered,
-            this, &MainWindow::runFtAutoTest);
     connect(ui->actionExit, &QAction::triggered,
             this, &MainWindow::close);
 
@@ -6700,7 +7559,11 @@ void MainWindow::applyPersistentSettingsToRuntime()
         m_mfskDecoder->setAfcRangeHz(static_cast<double>(m_settings.mfskAfcRangeHz));
     }
 
+    m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
+    m_cwSecondaryToneHz = qBound(250, m_settings.cwSecondaryToneHz, 3000);
     m_cwDecoder->setToneHz(static_cast<double>(m_settings.cwToneHz));
+    m_cwDecoder->setSecondaryToneHz(static_cast<double>(m_cwSecondaryToneHz));
+    m_cwDecoder->setSecondaryEnabled(m_cwSecondaryEnabled);
     m_cwDecoder->setAutoWpm(m_settings.cwAutoWpm);
     m_cwDecoder->setWpm(static_cast<double>(m_settings.cwWpm));
     m_cwDecoder->setBandwidthHz(static_cast<double>(m_settings.cwBandwidthHz));
@@ -6793,8 +7656,8 @@ void MainWindow::updateRigControlStatusUi()
         }
         m_lblRigPttStatus->setText(pttText);
         m_lblRigPttStatus->setStyleSheet(m_lastRigPttOn
-            ? QStringLiteral("font-weight: bold; color: #c82020;")
-            : QStringLiteral("font-weight: bold; color: #15803d;"));
+            ? QStringLiteral("font-weight: 500; color: #c82020;")
+            : QStringLiteral("font-weight: 500; color: #15803d;"));
     }
 }
 
@@ -7006,10 +7869,10 @@ void MainWindow::updateFtBandFrequencyUi()
         }
         m_lblFt8BandStatus->setText(text);
         m_lblFt8BandStatus->setStyleSheet(onSlot || !haveCat
-            ? QStringLiteral("font-weight: bold; color: #15803d;")
-            : QStringLiteral("font-weight: bold; color: #b00020;"));
+            ? QStringLiteral("font-weight: 500; color: #15803d;")
+            : QStringLiteral("font-weight: 500; color: #b00020;"));
     }
-    m_cmbFt8Band->setStyleSheet(haveCat && !onSlot ? QStringLiteral("color: #b00020; font-weight: bold;") : QString());
+    m_cmbFt8Band->setStyleSheet(haveCat && !onSlot ? QStringLiteral("color: #b00020; font-weight: 500;") : QString());
 }
 
 void MainWindow::qsyRigToSelectedFtBand()
@@ -7226,95 +8089,6 @@ void MainWindow::updateDspTabForMode(const QString &modeName)
     if (m_spinRttyMaxDecoders != nullptr) m_spinRttyMaxDecoders->setEnabled(multi);
 }
 
-void MainWindow::applyDspTabSettings()
-{
-    if (ui == nullptr || ui->cmbMode == nullptr || m_tabDspSettings == nullptr) {
-        return;
-    }
-
-    const QString modeName = ui->cmbMode->currentText();
-    const QString key = dspModeKeyForModeName(modeName);
-    if (key.isEmpty() || Ft8Mode::isFamilyMode(modeName)) {
-        return;
-    }
-
-    if (m_chkDspSoftwareAgc != nullptr) {
-        setDspAgcEnabledForModeKey(key, m_chkDspSoftwareAgc->isChecked());
-    }
-    if (m_chkDspNoiseReduction != nullptr) {
-        setDspNoiseReductionEnabledForModeKey(key, m_chkDspNoiseReduction->isChecked());
-    }
-
-    if (key == QStringLiteral("CW")) {
-        if (m_chkDspAdaptiveLineEnhancer != nullptr) m_settings.cwAdaptiveLineEnhancerEnabled = m_chkDspAdaptiveLineEnhancer->isChecked();
-    } else if (key == QStringLiteral("RTTY")) {
-        if (m_chkDspAdaptiveLineEnhancer != nullptr) m_settings.rttyAdaptiveLineEnhancerEnabled = m_chkDspAdaptiveLineEnhancer->isChecked();
-        if (m_chkDspRttyMatchedFilter != nullptr) m_settings.rttyMatchedFilterEnabled = m_chkDspRttyMatchedFilter->isChecked();
-        if (m_chkDspRttyMarkSpaceEnhancer != nullptr) m_settings.rttyMarkSpaceEnhancerEnabled = m_chkDspRttyMarkSpaceEnhancer->isChecked();
-        if (m_chkRttyMultiDecode != nullptr) m_settings.rttyMultiDecodeEnabled = m_chkRttyMultiDecode->isChecked();
-        if (m_chkRttyOverlayCallsigns != nullptr) m_settings.rttyOverlayCallsignsEnabled = m_chkRttyOverlayCallsigns->isChecked();
-        if (m_chkRttyContestEnhanced != nullptr) m_settings.rttyContestEnhancedEnabled = m_chkRttyContestEnhanced->isChecked();
-        if (m_chkRttySecondPass != nullptr) m_settings.rttySecondPassEnabled = m_chkRttySecondPass->isChecked();
-        if (m_spinRttyMaxDecoders != nullptr) m_settings.rttyMaxParallelDecoders = m_spinRttyMaxDecoders->value();
-        applyRttySettings();
-    } else if (key == QStringLiteral("BPSK31")) {
-        if (m_chkDspBpskCoherentTracking != nullptr) {
-            m_settings.bpsk31CoherentTrackingEnabled = m_chkDspBpskCoherentTracking->isChecked();
-        }
-        applyBpsk31Settings();
-    } else if (key == QStringLiteral("WEFAX")) {
-        if (m_chkDspImageWaveletDenoise != nullptr) m_settings.weatherFaxWaveletDenoiseEnabled = m_chkDspImageWaveletDenoise->isChecked();
-    } else if (key == QStringLiteral("SSTV")) {
-        if (m_chkDspImageWaveletDenoise != nullptr) m_settings.sstvWaveletDenoiseEnabled = m_chkDspImageWaveletDenoise->isChecked();
-    }
-
-    m_decoderConditioner.reset();
-    savePersistentSettings();
-    updateDspTabForMode(modeName);
-}
-
-QWidget *MainWindow::createDspConditionerControls(const QString &modeKey, QWidget *parent)
-{
-    const QString key = modeKey.trimmed().toUpper();
-    if (key == QStringLiteral("FT") || key == QStringLiteral("FT4") || key == QStringLiteral("FT8")) {
-        return new QWidget(parent);
-    }
-
-    QWidget *box = new QWidget(parent);
-    QGridLayout *grid = new QGridLayout(box);
-    grid->setContentsMargins(0, 0, 0, 0);
-    grid->setHorizontalSpacing(10);
-    grid->setVerticalSpacing(4);
-
-    QCheckBox *agc = new QCheckBox(uiText("dsp_software_agc", "Software AGC"), box);
-    agc->setToolTip(uiText("dsp_software_agc_tooltip", "Slow audio normalizer before this decoder. Useful for RTTY, PSK, MFSK, CW and Hell when QSB makes the tone level move. It is not used in FT4/FT8."));
-    QCheckBox *nr = new QCheckBox(uiText("dsp_noise_reduction", "Noise reduction"), box);
-    nr->setToolTip(uiText("dsp_noise_reduction_tooltip", "Adaptive soft noise reducer before this decoder. It estimates the idle noise floor and attenuates low-level hiss without hard squelching the signal. Leave it off if it distorts weak or image modes."));
-
-    agc->setChecked(dspAgcEnabledForModeKey(key));
-    nr->setChecked(dspNoiseReductionEnabledForModeKey(key));
-    m_dspAgcChecks[key].append(agc);
-    m_dspNoiseReductionChecks[key].append(nr);
-
-    grid->addWidget(agc, 0, 0);
-    grid->addWidget(nr, 0, 1);
-    grid->setColumnStretch(2, 1);
-
-    connect(agc, &QCheckBox::toggled, this, [this, key](bool enabled) {
-        setDspAgcEnabledForModeKey(key, enabled);
-        savePersistentSettings();
-        m_decoderConditioner.reset();
-        appendLog(QStringLiteral("DSP conditioner %1: software AGC %2.").arg(key, enabled ? QStringLiteral("ON") : QStringLiteral("OFF")));
-    });
-    connect(nr, &QCheckBox::toggled, this, [this, key](bool enabled) {
-        setDspNoiseReductionEnabledForModeKey(key, enabled);
-        savePersistentSettings();
-        m_decoderConditioner.reset();
-        appendLog(QStringLiteral("DSP conditioner %1: noise reduction %2.").arg(key, enabled ? QStringLiteral("ON") : QStringLiteral("OFF")));
-    });
-
-    return box;
-}
 
 QString MainWindow::dspModeKeyForModeName(const QString &modeName) const
 {
@@ -7354,6 +8128,7 @@ bool MainWindow::dspAgcEnabledForModeKey(const QString &modeKey) const
     if (key == QStringLiteral("HELL")) return m_settings.hellAgcEnabled;
     return false;
 }
+
 
 void MainWindow::setDspNoiseReductionEnabledForModeKey(const QString &modeKey, bool enabled)
 {
@@ -7874,8 +8649,6 @@ void MainWindow::setReceiverRunning(bool running)
         if (m_btnFt8AnalyzeWav != nullptr) m_btnFt8AnalyzeWav->setEnabled(!m_txRunning && !m_offlineAnalysisActive && !m_ftAutoTestRunning);
         if (m_btnFtDecodeAnalyzeWav != nullptr) m_btnFtDecodeAnalyzeWav->setEnabled(!m_txRunning && !m_offlineAnalysisActive && !m_ftAutoTestRunning);
         if (m_btnFtDecodeAutoTest != nullptr) m_btnFtDecodeAutoTest->setEnabled(!m_txRunning && !m_offlineAnalysisActive && !m_ftAutoTestRunning);
-        if (m_actionFtAnalyzeWav != nullptr) m_actionFtAnalyzeWav->setEnabled(!m_txRunning && !m_offlineAnalysisActive && !m_ftAutoTestRunning);
-        if (m_actionFtAutoTest != nullptr) m_actionFtAutoTest->setEnabled(!m_txRunning && !m_offlineAnalysisActive && !m_ftAutoTestRunning);
     }
 
     ui->btnFaxResetImage->setEnabled(configurable);
@@ -8115,6 +8888,18 @@ void MainWindow::handleModeChanged(const QString &modeName)
             const QImage image = m_hellDecoder->currentImage();
             updateHellRasterDisplay(image);
         }
+    } else if (Msk144Mode::isMode(modeName)) {
+        if (m_pageMsk144Settings != nullptr) {
+            ui->stkModeSettings->setCurrentWidget(m_pageMsk144Settings);
+        }
+        applyMsk144Settings();
+        ui->lblDecoderState->setText("Decoder: MSK144 ready");
+    } else if (Q65Mode::isFamilyMode(modeName)) {
+        if (m_pageQ65Settings != nullptr) {
+            ui->stkModeSettings->setCurrentWidget(m_pageQ65Settings);
+        }
+        applyQ65Settings();
+        ui->lblDecoderState->setText(QStringLiteral("Decoder: %1 ready").arg(Q65Mode::modeName(currentQ65Submode())));
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         if (m_pageFt8Settings != nullptr) {
             ui->stkModeSettings->setCurrentWidget(m_pageFt8Settings);
@@ -8129,7 +8914,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
     }
 
     if (m_btnShowRuntimeLog != nullptr) {
-        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName));
+        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName) || Msk144Mode::isMode(modeName) || Q65Mode::isFamilyMode(modeName));
     }
 
     updateWaterfallMarkers();
@@ -8139,7 +8924,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
 
 bool MainWindow::modeSupportsMind(const QString &modeName) const
 {
-    return Ft8Mode::isFamilyMode(modeName);
+    return Ft8Mode::isFamilyMode(modeName) || Msk144Mode::isMode(modeName);
 }
 
 void MainWindow::updateMindUiForMode(const QString &modeName)
@@ -8147,18 +8932,21 @@ void MainWindow::updateMindUiForMode(const QString &modeName)
     const QString currentMode = modeName.trimmed().isEmpty() && ui != nullptr && ui->cmbMode != nullptr
         ? ui->cmbMode->currentText()
         : modeName.trimmed();
-    const bool ftMindMode = modeSupportsMind(currentMode);
+    const bool mindMode = modeSupportsMind(currentMode);
 
     if (m_ddspController != nullptr) {
-        if (ftMindMode) {
+        if (mindMode) {
             m_ddspController->setRuntimeMode(currentMode);
         } else {
             m_ddspController->setAssistMode(QStringLiteral("off"));
         }
     }
 
-    if (m_ft8RxDecoder != nullptr && !ftMindMode) {
+    if (m_ft8RxDecoder != nullptr && !Ft8Mode::isFamilyMode(currentMode)) {
         m_ft8RxDecoder->setMindIntegrationState(true, false, false, false);
+    }
+    if (m_msk144Decoder != nullptr && !Msk144Mode::isMode(currentMode)) {
+        m_msk144Decoder->setMindIntegrationState(true, false, false, false);
     }
     if (ui == nullptr || ui->sideTabWidget == nullptr || m_ddspPanelWidget == nullptr ||
         ui->sideTabWidget->tabBar() == nullptr) {
@@ -8170,9 +8958,9 @@ void MainWindow::updateMindUiForMode(const QString &modeName)
         return;
     }
 
-    ui->sideTabWidget->tabBar()->setTabVisible(tabIndex, ftMindMode);
-    m_ddspPanelWidget->setVisible(ftMindMode);
-    if (!ftMindMode && ui->sideTabWidget->currentIndex() == tabIndex) {
+    ui->sideTabWidget->tabBar()->setTabVisible(tabIndex, mindMode);
+    m_ddspPanelWidget->setVisible(mindMode);
+    if (!mindMode && ui->sideTabWidget->currentIndex() == tabIndex) {
         const int modeIndex = ui->tabModeSettings != nullptr
             ? ui->sideTabWidget->indexOf(ui->tabModeSettings)
             : -1;
@@ -8189,10 +8977,15 @@ void MainWindow::updateWaterfallMarkers()
     const QString mode = ui->cmbMode->currentText();
     const bool cwMode = (mode == CwDecoder::modeName());
 
-    // CW now uses a single selected marker, not a full-band skimmer.  Keep the
-    // waterfall compact and give the terminal/QSO area the vertical room.
+    // CW keeps operator markers simple: A green, optional B blue.  The skimmer
+    // runs underneath but its internal FFT channels are never drawn as markers.
     if (ui->frameWaterfall != nullptr) {
         ui->frameWaterfall->setMinimumHeight(cwMode ? 200 : 210);
+        ui->frameWaterfall->setContentsMargins(0, 0, 0, 0);
+    }
+    if (ui->waterfallVerticalLayout != nullptr) {
+        ui->waterfallVerticalLayout->setContentsMargins(0, 0, 0, 0);
+        ui->waterfallVerticalLayout->setSpacing(0);
     }
     if (ui->frameSstvImage != nullptr) {
         ui->frameSstvImage->setMinimumHeight(cwMode ? 360 : 360);
@@ -8203,7 +8996,9 @@ void MainWindow::updateWaterfallMarkers()
     }
 
     m_waterfallWidget->setScrollDirection(WaterfallWidget::ScrollDirection::Down);
-    if (!Ft8Mode::isFamilyMode(mode) && mode != RttyDecoder::modeName()) {
+    if (!Ft8Mode::isFamilyMode(mode) &&
+        mode != RttyDecoder::modeName() &&
+        mode != CwDecoder::modeName()) {
         m_waterfallWidget->setTextOverlays({});
     }
 
@@ -8257,47 +9052,25 @@ void MainWindow::updateWaterfallMarkers()
     }
 
     if (mode == CwDecoder::modeName()) {
-        const double toneA = (m_cwDecoder != nullptr)
-                                 ? m_cwDecoder->toneHz()
-                                 : ((m_spinCwToneHz != nullptr) ? m_spinCwToneHz->value() : 700.0);
-        const double toneB = (m_cwSecondaryDecoder != nullptr)
-                                 ? m_cwSecondaryDecoder->toneHz()
-                                 : static_cast<double>(m_cwSecondaryToneHz);
-        const double bandwidth = (m_spinCwBandwidthHz != nullptr)
-                                     ? static_cast<double>(m_spinCwBandwidthHz->value())
-                                     : static_cast<double>(m_settings.cwBandwidthHz);
-        const double halfBw = qMax(10.0, bandwidth * 0.5);
-
         QVector<FrequencyMarker> markers;
-        auto appendCwMarkerSet = [&](double center, const QString &label, const QColor &centerColor) {
-            FrequencyMarker primary;
-            primary.frequencyHz = center;
-            primary.label = label;
-            primary.color = centerColor;
-            primary.width = 2;
-            markers.append(primary);
+        FrequencyMarker rxA;
+        rxA.frequencyHz = (m_spinCwToneHz != nullptr) ? m_spinCwToneHz->value() : m_settings.cwToneHz;
+        rxA.label = QStringLiteral("A");
+        rxA.color = QColor(80, 255, 120);
+        rxA.width = 2;
+        rxA.dashed = false;
+        markers.append(rxA);
 
-            FrequencyMarker low;
-            low.frequencyHz = qMax(0.0, center - halfBw);
-            low.label.clear();
-            low.color = QColor(255, 210, 0);
-            low.dashed = true;
-            low.width = 1;
-            markers.append(low);
-
-            FrequencyMarker high;
-            high.frequencyHz = center + halfBw;
-            high.label.clear();
-            high.color = QColor(255, 210, 0);
-            high.dashed = true;
-            high.width = 1;
-            markers.append(high);
-        };
-
-        appendCwMarkerSet(toneA, uiText("cw_rx_a_marker", "CW RX A"), QColor(80, 255, 120));
         if (m_cwSecondaryEnabled) {
-            appendCwMarkerSet(toneB, uiText("cw_rx_b_marker", "CW RX B"), QColor(80, 170, 255));
+            FrequencyMarker rxB;
+            rxB.frequencyHz = m_cwSecondaryToneHz;
+            rxB.label = QStringLiteral("B");
+            rxB.color = QColor(80, 170, 255);
+            rxB.width = 2;
+            rxB.dashed = false;
+            markers.append(rxB);
         }
+
         m_waterfallWidget->setMarkers(markers);
         return;
     }
@@ -8312,6 +9085,47 @@ void MainWindow::updateWaterfallMarkers()
                                                                               bandwidth,
                                                                               variant,
                                                                               HellschreiberDecoder::fsk105ShiftHz()));
+        return;
+    }
+
+    if (Msk144Mode::isMode(mode)) {
+        QVector<FrequencyMarker> markers;
+        FrequencyMarker rx;
+        rx.frequencyHz = (m_spinMsk144RxFreq != nullptr) ? m_spinMsk144RxFreq->value() : 1500.0;
+        rx.label = QStringLiteral("RX");
+        rx.color = QColor(80, 255, 120);
+        rx.width = 2;
+        rx.dashed = false;
+        markers.append(rx);
+        FrequencyMarker tx;
+        tx.frequencyHz = 1500.0;
+        tx.label = QStringLiteral("TX");
+        tx.color = QColor(255, 80, 80);
+        tx.width = 2;
+        tx.dashed = true;
+        markers.append(tx);
+        m_waterfallWidget->setMarkers(markers);
+        m_waterfallWidget->setTextOverlays({});
+        return;
+    }
+
+    if (Q65Mode::isFamilyMode(mode)) {
+        QVector<FrequencyMarker> markers;
+        FrequencyMarker rx;
+        rx.frequencyHz = (m_spinQ65RxFreq != nullptr) ? m_spinQ65RxFreq->value() : 1500.0;
+        rx.label = QStringLiteral("RX");
+        rx.color = QColor(80, 255, 120);
+        rx.width = 2;
+        rx.dashed = false;
+        markers.append(rx);
+        FrequencyMarker tx;
+        tx.frequencyHz = (m_spinQ65TxFreq != nullptr) ? m_spinQ65TxFreq->value() : 1500.0;
+        tx.label = QStringLiteral("TX");
+        tx.color = QColor(255, 80, 80);
+        tx.width = 2;
+        tx.dashed = true;
+        markers.append(tx);
+        m_waterfallWidget->setMarkers(markers);
         return;
     }
 
@@ -8335,6 +9149,22 @@ void MainWindow::handleWaterfallFrequencyClicked(double frequencyHz, Qt::MouseBu
 
     const int roundedHz = qBound(100, static_cast<int>(qRound(frequencyHz)), 3500);
     const QString mode = ui->cmbMode->currentText();
+
+    if (Msk144Mode::isMode(mode) && m_spinMsk144RxFreq != nullptr) {
+        const int hz = qBound(m_spinMsk144RxFreq->minimum(), roundedHz, m_spinMsk144RxFreq->maximum());
+        m_spinMsk144RxFreq->setValue(hz);
+        applyMsk144Settings();
+        appendLog(QStringLiteral("MSK144 RX frequency from waterfall: %1 Hz.").arg(hz));
+        return;
+    }
+
+    if (Q65Mode::isFamilyMode(mode) && m_spinQ65RxFreq != nullptr) {
+        const int hz = qBound(m_spinQ65RxFreq->minimum(), roundedHz, m_spinQ65RxFreq->maximum());
+        m_spinQ65RxFreq->setValue(hz);
+        applyQ65Settings();
+        appendLog(QStringLiteral("Q65 RX frequency from waterfall: %1 Hz.").arg(hz));
+        return;
+    }
 
     if (mode == RttyDecoder::modeName() &&
         m_spinRttyMarkHz != nullptr &&
@@ -8406,6 +9236,10 @@ void MainWindow::handleWaterfallFrequencyClicked(double frequencyHz, Qt::MouseBu
             m_cwSecondaryToneHz = newTone;
             m_settings.cwSecondaryEnabled = true;
             m_settings.cwSecondaryToneHz = newTone;
+            if (m_cwDecoder != nullptr) {
+                m_cwDecoder->setSecondaryToneHz(static_cast<double>(newTone));
+                m_cwDecoder->setSecondaryEnabled(true);
+            }
             if (m_cwSecondaryDecoder != nullptr) {
                 m_cwSecondaryDecoder->setToneHz(static_cast<double>(newTone));
                 m_cwSecondaryDecoder->reset();
@@ -8558,7 +9392,6 @@ void MainWindow::updateTextModeAfc(const AudioBlock &block)
     const bool textMode = modeName == RttyDecoder::modeName() ||
                           modeName == Bpsk31Decoder::modeName() ||
                           modeName == MfskDecoder::modeName() ||
-                          modeName == CwDecoder::modeName() ||
                           modeName == HellschreiberDecoder::modeName();
     if (!textMode) {
         m_textAfcSamplesSinceUpdate = 0;
@@ -8740,6 +9573,23 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
         return;
     }
 
+    if (Msk144Mode::isMode(modeName)) {
+        if (m_ddspController != nullptr) {
+            m_ddspController->observeMsk144Activity();
+        }
+        if (m_msk144Decoder != nullptr) {
+            m_msk144Decoder->processAudioBlock(block);
+        }
+        return;
+    }
+
+    if (Q65Mode::isFamilyMode(modeName)) {
+        if (m_q65Decoder != nullptr) {
+            m_q65Decoder->processAudioBlock(block);
+        }
+        return;
+    }
+
     updateTextModeAfc(block);
     const AudioBlock conditionedBlock = conditionAudioForActiveMode(block);
 
@@ -8774,11 +9624,10 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
     }
 
     if (modeName == CwDecoder::modeName()) {
+        // CW uses one full-passband skimmer engine.  The UI-selected A/B
+        // markers decide which decoded streams are promoted to the RX textbox.
         if (m_cwDecoder != nullptr) {
-            m_cwDecoder->processAudioBlock(conditionedBlock);
-        }
-        if (m_cwSecondaryEnabled && m_cwSecondaryDecoder != nullptr) {
-            m_cwSecondaryDecoder->processAudioBlock(conditionedBlock);
+            m_cwDecoder->processAudioBlock(block);
         }
         return;
     }
@@ -8788,6 +9637,406 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
         return;
     }
 
+}
+
+
+void MainWindow::applyMsk144Settings()
+{
+    if (m_msk144Decoder == nullptr) {
+        return;
+    }
+    const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
+    const int depth = (m_cmbMsk144DecodeDepth != nullptr) ? m_cmbMsk144DecodeDepth->currentData().toInt() : 2;
+    const int rxHz = (m_spinMsk144RxFreq != nullptr) ? m_spinMsk144RxFreq->value() : 1500;
+    const int dfTol = (m_spinMsk144DfTolerance != nullptr) ? m_spinMsk144DfTolerance->value() : 100;
+    m_msk144Decoder->setPeriodSeconds(period);
+    m_msk144Decoder->setDecodeDepth(depth);
+    m_msk144Decoder->setRxFrequencyHz(rxHz);
+    m_msk144Decoder->setDfToleranceHz(dfTol);
+    m_msk144Decoder->setShortMessagesEnabled(m_chkMsk144ShortMessages != nullptr && m_chkMsk144ShortMessages->isChecked());
+    m_msk144Decoder->setSwlEnabled(m_chkMsk144Swl != nullptr && m_chkMsk144Swl->isChecked());
+    m_msk144Decoder->setContestModeEnabled(m_chkMsk144Contest != nullptr && m_chkMsk144Contest->isChecked());
+    m_msk144Decoder->setMyCall(stationCallsign());
+    m_msk144Decoder->setDxCall(m_editMsk144DxCall != nullptr ? m_editMsk144DxCall->text() : QString());
+    if (m_lblMsk144Status != nullptr) {
+        m_lblMsk144Status->setText(QStringLiteral("MSK144 RX: %1 s, %2, RX %3 Hz, DF ±%4 Hz; TX center 1500 Hz")
+                                       .arg(period)
+                                       .arg(depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep")))
+                                       .arg(rxHz)
+                                       .arg(dfTol));
+    }
+    updateWaterfallMarkers();
+}
+
+void MainWindow::refreshMsk144StandardMessages()
+{
+    if (m_tableMsk144TxMessages == nullptr) {
+        return;
+    }
+    const QString myCall = stationCallsign().isEmpty() ? QStringLiteral("MYCALL") : stationCallsign();
+    const QString myGrid = stationLocator().left(4).toUpper();
+    const QString dxCall = (m_editMsk144DxCall != nullptr) ? m_editMsk144DxCall->text().trimmed().toUpper() : QString();
+    const QString dxGrid = (m_editMsk144DxGrid != nullptr) ? m_editMsk144DxGrid->text().trimmed().left(4).toUpper() : QString();
+    const bool contest = m_chkMsk144Contest != nullptr && m_chkMsk144Contest->isChecked();
+    const bool sh = m_chkMsk144ShortMessages != nullptr && m_chkMsk144ShortMessages->isChecked();
+
+    QStringList msgs;
+    msgs << QStringLiteral("CQ %1 %2").arg(myCall, myGrid.isEmpty() ? QStringLiteral("JN61") : myGrid);
+    if (!dxCall.isEmpty()) {
+        msgs << QStringLiteral("%1 %2 %3").arg(dxCall, myCall, myGrid.isEmpty() ? QStringLiteral("JN61") : myGrid);
+        if (contest) {
+            msgs << QStringLiteral("%1 %2 R %3").arg(dxCall, myCall, dxGrid.isEmpty() ? QStringLiteral("JN61") : dxGrid);
+            msgs << QStringLiteral("%1 %2 RRR").arg(dxCall, myCall);
+            msgs << QStringLiteral("CQ %1 %2").arg(myCall, myGrid.isEmpty() ? QStringLiteral("JN61") : myGrid);
+        } else if (sh) {
+            msgs << QStringLiteral("%1 %2 -01").arg(dxCall, myCall);
+            msgs << QStringLiteral("<%1 %2> R+00").arg(dxCall, myCall);
+            msgs << QStringLiteral("<%1 %2> RRR").arg(dxCall, myCall);
+            msgs << QStringLiteral("<%1 %2> 73").arg(dxCall, myCall);
+        } else {
+            msgs << QStringLiteral("%1 %2 -01").arg(dxCall, myCall);
+            msgs << QStringLiteral("%1 %2 R+00").arg(dxCall, myCall);
+            msgs << QStringLiteral("%1 %2 RRR").arg(dxCall, myCall);
+            msgs << QStringLiteral("%1 %2 73").arg(dxCall, myCall);
+        }
+    } else {
+        msgs << QStringLiteral("CQ %1 %2").arg(myCall, myGrid.isEmpty() ? QStringLiteral("JN61") : myGrid);
+        msgs << QStringLiteral("%1 TEST").arg(myCall);
+        msgs << QStringLiteral("%1 73").arg(myCall);
+    }
+    while (msgs.size() < 7) msgs << QString();
+
+    const int oldRow = m_tableMsk144TxMessages->currentRow();
+    m_tableMsk144TxMessages->setRowCount(7);
+    for (int r = 0; r < 7; ++r) {
+        QTableWidgetItem *txItem = new QTableWidgetItem(QStringLiteral("Tx%1").arg(r + 1));
+        txItem->setFlags(txItem->flags() & ~Qt::ItemIsEditable);
+        m_tableMsk144TxMessages->setItem(r, 0, txItem);
+        m_tableMsk144TxMessages->setItem(r, 1, new QTableWidgetItem(msgs.value(r).trimmed()));
+    }
+    m_tableMsk144TxMessages->selectRow(qBound(0, oldRow < 0 ? 0 : oldRow, 6));
+    updateTxPreview();
+}
+
+void MainWindow::startMsk144RxShell()
+{
+    if (ui != nullptr && ui->cmbMode != nullptr && !Msk144Mode::isMode(ui->cmbMode->currentText())) {
+        ui->cmbMode->setCurrentText(Msk144Mode::modeName());
+    }
+    applyMsk144Settings();
+    startRx();
+}
+
+void MainWindow::startMsk144TxShell()
+{
+    if (ui != nullptr && ui->cmbMode != nullptr && !Msk144Mode::isMode(ui->cmbMode->currentText())) {
+        ui->cmbMode->setCurrentText(Msk144Mode::modeName());
+    }
+    refreshMsk144StandardMessages();
+    applyMsk144Settings();
+    startImageTx();
+}
+
+void MainWindow::stopMsk144Shell()
+{
+    if (m_txRunning) {
+        stopImageTx();
+        return;
+    }
+    if (m_rxRunning) {
+        stopRx();
+    }
+    if (m_msk144Decoder != nullptr) {
+        m_msk144Decoder->flushPeriod();
+    }
+}
+
+void MainWindow::handleMsk144DecodeReady(const Msk144Decode &decode)
+{
+    if (m_tableMsk144Rx != nullptr) {
+        const int row = m_tableMsk144Rx->rowCount();
+        m_tableMsk144Rx->insertRow(row);
+        m_tableMsk144Rx->setItem(row, 0, new QTableWidgetItem(decode.utc.time().toString(QStringLiteral("HHmmss"))));
+        m_tableMsk144Rx->setItem(row, 1, new QTableWidgetItem(QString::number(decode.snrDb)));
+        m_tableMsk144Rx->setItem(row, 2, new QTableWidgetItem(QString::number(decode.tSeconds, 'f', 1)));
+        m_tableMsk144Rx->setItem(row, 3, new QTableWidgetItem(QString::number(decode.dfHz)));
+        m_tableMsk144Rx->setItem(row, 4, new QTableWidgetItem(decode.message));
+        m_tableMsk144Rx->scrollToBottom();
+    }
+
+    appendLog(QStringLiteral("MSK144 decode: %1 dB T %2 DF %3: %4")
+                  .arg(decode.snrDb)
+                  .arg(decode.tSeconds, 0, 'f', 1)
+                  .arg(decode.dfHz)
+                  .arg(decode.message));
+
+    const QString call = extractCallsignFromText(decode.message);
+    if (!call.isEmpty()) {
+        if (m_editMsk144DxCall != nullptr && m_editMsk144DxCall->text().trimmed().isEmpty() && call != stationCallsign()) {
+            m_editMsk144DxCall->setText(call);
+        }
+        if (m_msk144QsoForm != nullptr && m_msk144QsoForm->callsign != nullptr &&
+            m_msk144QsoForm->callsign->text().trimmed().isEmpty() && call != stationCallsign()) {
+            m_msk144QsoForm->callsign->setText(call);
+        }
+    }
+    refreshMsk144StandardMessages();
+    updateMsk144SequencerFromDecode(decode.message, decode.snrDb);
+}
+
+
+void MainWindow::updateMsk144SequencerFromDecode(const QString &message, int snrDb)
+{
+    if (m_tableMsk144TxMessages == nullptr || m_lblMsk144SequencerStatus == nullptr) {
+        return;
+    }
+    const QString my = stationCallsign().trimmed().toUpper();
+    const QString msg = message.trimmed().toUpper();
+    if (my.isEmpty() || msg.isEmpty() || !msg.contains(my)) {
+        return;
+    }
+
+    const QString dx = extractCallsignFromText(msg);
+    int row = -1;
+    QString reason;
+    if (msg.contains(QStringLiteral(" RR73")) || msg.contains(QStringLiteral(" RRR")) || msg.endsWith(QStringLiteral(" 73"))) {
+        row = 5; // courtesy/final 73
+        reason = uiText("seq_completed", "QSO completed / send 73 if needed");
+    } else if (msg.contains(QRegularExpression(QStringLiteral("\\bR[+-]?[0-9]{2}\\b")))) {
+        row = 4; // acknowledge with RR73
+        reason = uiText("seq_send_rr73", "received R-report; selected RR73");
+    } else if (msg.contains(QRegularExpression(QStringLiteral("\\b[+-]?[0-9]{2}\\b")))) {
+        row = 3; // reply with R-report
+        reason = uiText("seq_send_r_report", "received report; selected R-report");
+    } else if (!dx.isEmpty()) {
+        row = 2; // send report after calls/grid exchange
+        reason = uiText("seq_send_report", "received directed call/grid; selected report");
+    }
+
+    if (row >= 0) {
+        row = qBound(0, row, m_tableMsk144TxMessages->rowCount() - 1);
+        m_tableMsk144TxMessages->selectRow(row);
+        QTableWidgetItem *item = m_tableMsk144TxMessages->item(row, 1);
+        const QString selected = item != nullptr ? item->text().trimmed() : QString();
+        m_lblMsk144SequencerStatus->setText(QStringLiteral("Sequencer: %1 | Tx%2 %3 | SNR %4 dB")
+                                                .arg(reason)
+                                                .arg(row + 1)
+                                                .arg(selected)
+                                                .arg(snrDb));
+        updateTxPreview();
+    }
+}
+
+void MainWindow::handleMsk144Ping(double frequencyHz, int snrDb, double tSeconds)
+{
+    // Keep ping detection as a textual/status hint only.  The waterfall must not
+    // accumulate transient MSK dB labels: they flicker, hide real traces, and are
+    // not operator-selectable markers.  Decoded messages remain in the RX table.
+    if (m_lblMsk144PeriodStatus != nullptr) {
+        m_lblMsk144PeriodStatus->setText(QStringLiteral("MSK144 ping near %1 Hz: %2 dB at T=%3 s")
+                                             .arg(qRound(frequencyHz))
+                                             .arg(snrDb)
+                                             .arg(tSeconds, 0, 'f', 1));
+    }
+}
+
+void MainWindow::clearMsk144RxTable()
+{
+    if (m_tableMsk144Rx != nullptr) {
+        m_tableMsk144Rx->setRowCount(0);
+    }
+    m_msk144PingOverlays.clear();
+    updateWaterfallMarkers();
+}
+
+Q65Mode::Submode MainWindow::currentQ65Submode() const
+{
+    if (m_cmbQ65Submode != nullptr) {
+        const int value = m_cmbQ65Submode->currentData().toInt();
+        switch (value) {
+        case 2: return Q65Mode::Submode::B;
+        case 4: return Q65Mode::Submode::C;
+        case 8: return Q65Mode::Submode::D;
+        default: return Q65Mode::Submode::A;
+        }
+    }
+    if (ui == nullptr || ui->cmbMode == nullptr) return Q65Mode::Submode::A;
+    return Q65Mode::submodeForMode(ui->cmbMode->currentText());
+}
+
+void MainWindow::applyQ65Settings()
+{
+    if (m_q65Decoder == nullptr) return;
+    const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
+    const int depth = (m_cmbQ65DecodeDepth != nullptr) ? m_cmbQ65DecodeDepth->currentData().toInt() : 2;
+    const int rxHz = (m_spinQ65RxFreq != nullptr) ? m_spinQ65RxFreq->value() : 1500;
+    const int dfTol = (m_spinQ65DfTolerance != nullptr) ? m_spinQ65DfTolerance->value() : 100;
+    const Q65Mode::Submode submode = currentQ65Submode();
+
+    m_q65Decoder->setSubmode(submode);
+    m_q65Decoder->setPeriodSeconds(period);
+    m_q65Decoder->setDecodeDepth(depth);
+    m_q65Decoder->setRxFrequencyHz(rxHz);
+    m_q65Decoder->setDfToleranceHz(dfTol);
+    m_q65Decoder->setAveragingEnabled(m_chkQ65AverageDecode != nullptr && m_chkQ65AverageDecode->isChecked());
+    m_q65Decoder->setAutoClearAverages(m_chkQ65AutoClearAvg != nullptr && m_chkQ65AutoClearAvg->isChecked());
+    m_q65Decoder->setSingleDecode(m_chkQ65SingleDecode != nullptr && m_chkQ65SingleDecode->isChecked());
+    m_q65Decoder->setApDecodeEnabled(m_chkQ65ApDecode != nullptr && m_chkQ65ApDecode->isChecked());
+    m_q65Decoder->setMaxDriftEnabled(m_chkQ65MaxDrift != nullptr && m_chkQ65MaxDrift->isChecked());
+    m_q65Decoder->setEmeDelayEnabled(m_chkQ65EmeDelay != nullptr && m_chkQ65EmeDelay->isChecked());
+    m_q65Decoder->setMyCall(stationCallsign());
+    m_q65Decoder->setDxCall(m_editQ65DxCall != nullptr ? m_editQ65DxCall->text() : QString());
+    m_q65Decoder->setDxGrid(m_editQ65DxGrid != nullptr ? m_editQ65DxGrid->text() : QString());
+
+    if (m_lblQ65Status != nullptr) {
+        m_lblQ65Status->setText(QStringLiteral("%1 RX: %2 s, %3, RX %4 Hz, DF ±%5 Hz; TX %6 Hz")
+                                    .arg(Q65Mode::modeName(submode))
+                                    .arg(period)
+                                    .arg(depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep")))
+                                    .arg(rxHz)
+                                    .arg(dfTol)
+                                    .arg(m_spinQ65TxFreq != nullptr ? m_spinQ65TxFreq->value() : 1500));
+    }
+    updateWaterfallMarkers();
+}
+
+void MainWindow::refreshQ65StandardMessages()
+{
+    if (m_tableQ65TxMessages == nullptr) return;
+    const QString myCall = stationCallsign().isEmpty() ? QStringLiteral("MYCALL") : stationCallsign();
+    const QString myGrid = stationLocator().left(4).toUpper();
+    const QString dxCall = (m_editQ65DxCall != nullptr) ? m_editQ65DxCall->text().trimmed().toUpper() : QString();
+    const QString dxGrid = (m_editQ65DxGrid != nullptr) ? m_editQ65DxGrid->text().trimmed().left(4).toUpper() : QString();
+
+    QStringList msgs;
+    msgs << QStringLiteral("CQ %1 %2").arg(myCall, myGrid.isEmpty() ? QStringLiteral("JN61") : myGrid);
+    if (!dxCall.isEmpty()) {
+        msgs << QStringLiteral("%1 %2 %3").arg(dxCall, myCall, myGrid.isEmpty() ? QStringLiteral("JN61") : myGrid);
+        msgs << QStringLiteral("%1 %2 -10").arg(dxCall, myCall);
+        msgs << QStringLiteral("%1 %2 R-10").arg(dxCall, myCall);
+        msgs << QStringLiteral("%1 %2 RR73").arg(dxCall, myCall);
+        msgs << QStringLiteral("%1 %2 73").arg(dxCall, myCall);
+        if (!dxGrid.isEmpty()) msgs << QStringLiteral("%1 %2 %3").arg(dxCall, myCall, dxGrid);
+    } else {
+        msgs << QStringLiteral("CQ %1 %2").arg(myCall, myGrid.isEmpty() ? QStringLiteral("JN61") : myGrid);
+        msgs << QStringLiteral("%1 TEST").arg(myCall);
+        msgs << QStringLiteral("%1 73").arg(myCall);
+    }
+    while (msgs.size() < 7) msgs << QString();
+
+    const int oldRow = m_tableQ65TxMessages->currentRow();
+    m_tableQ65TxMessages->setRowCount(7);
+    for (int r = 0; r < 7; ++r) {
+        QTableWidgetItem *txItem = new QTableWidgetItem(QStringLiteral("Tx%1").arg(r + 1));
+        txItem->setFlags(txItem->flags() & ~Qt::ItemIsEditable);
+        m_tableQ65TxMessages->setItem(r, 0, txItem);
+        m_tableQ65TxMessages->setItem(r, 1, new QTableWidgetItem(msgs.value(r).trimmed()));
+    }
+    m_tableQ65TxMessages->selectRow(qBound(0, oldRow < 0 ? 0 : oldRow, 6));
+    updateTxPreview();
+}
+
+void MainWindow::startQ65RxShell()
+{
+    if (ui != nullptr && ui->cmbMode != nullptr && !Q65Mode::isFamilyMode(ui->cmbMode->currentText())) {
+        ui->cmbMode->setCurrentText(Q65Mode::familyName());
+    }
+    applyQ65Settings();
+    startRx();
+}
+
+void MainWindow::startQ65TxShell()
+{
+    if (ui != nullptr && ui->cmbMode != nullptr && !Q65Mode::isFamilyMode(ui->cmbMode->currentText())) {
+        ui->cmbMode->setCurrentText(Q65Mode::familyName());
+    }
+    refreshQ65StandardMessages();
+    applyQ65Settings();
+    startImageTx();
+}
+
+void MainWindow::stopQ65Shell()
+{
+    if (m_txRunning) { stopImageTx(); return; }
+    if (m_rxRunning) stopRx();
+    if (m_q65Decoder != nullptr) m_q65Decoder->flushPeriod();
+}
+
+void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
+{
+    if (m_tableQ65Rx != nullptr) {
+        const int row = m_tableQ65Rx->rowCount();
+        m_tableQ65Rx->insertRow(row);
+        m_tableQ65Rx->setItem(row, 0, new QTableWidgetItem(decode.utc.time().toString(QStringLiteral("HHmmss"))));
+        m_tableQ65Rx->setItem(row, 1, new QTableWidgetItem(QString::number(decode.snrDb)));
+        m_tableQ65Rx->setItem(row, 2, new QTableWidgetItem(QString::number(decode.dtSeconds, 'f', 1)));
+        m_tableQ65Rx->setItem(row, 3, new QTableWidgetItem(QString::number(decode.dfHz)));
+        m_tableQ65Rx->setItem(row, 4, new QTableWidgetItem(decode.message));
+        m_tableQ65Rx->scrollToBottom();
+    }
+    appendLog(QStringLiteral("Q65 decode: %1 dB DT %2 DF %3: %4")
+                  .arg(decode.snrDb)
+                  .arg(decode.dtSeconds, 0, 'f', 1)
+                  .arg(decode.dfHz)
+                  .arg(decode.message));
+    const QString call = extractCallsignFromText(decode.message);
+    if (!call.isEmpty() && call != stationCallsign()) {
+        if (m_editQ65DxCall != nullptr && m_editQ65DxCall->text().trimmed().isEmpty()) m_editQ65DxCall->setText(call);
+        if (m_q65QsoForm != nullptr && m_q65QsoForm->callsign != nullptr && m_q65QsoForm->callsign->text().trimmed().isEmpty()) {
+            m_q65QsoForm->callsign->setText(call);
+        }
+    }
+    refreshQ65StandardMessages();
+    updateQ65SequencerFromDecode(decode.message, decode.snrDb);
+}
+
+
+void MainWindow::updateQ65SequencerFromDecode(const QString &message, int snrDb)
+{
+    if (m_tableQ65TxMessages == nullptr || m_lblQ65SequencerStatus == nullptr) {
+        return;
+    }
+    const QString my = stationCallsign().trimmed().toUpper();
+    const QString msg = message.trimmed().toUpper();
+    if (my.isEmpty() || msg.isEmpty() || !msg.contains(my)) {
+        return;
+    }
+
+    const QString dx = extractCallsignFromText(msg);
+    int row = -1;
+    QString reason;
+    if (msg.contains(QStringLiteral(" RR73")) || msg.contains(QStringLiteral(" RRR")) || msg.endsWith(QStringLiteral(" 73"))) {
+        row = 5;
+        reason = uiText("seq_completed", "QSO completed / send 73 if needed");
+    } else if (msg.contains(QRegularExpression(QStringLiteral("\\bR[+-]?[0-9]{2}\\b")))) {
+        row = 4;
+        reason = uiText("seq_send_rr73", "received R-report; selected RR73");
+    } else if (msg.contains(QRegularExpression(QStringLiteral("\\b[+-]?[0-9]{2}\\b")))) {
+        row = 3;
+        reason = uiText("seq_send_r_report", "received report; selected R-report");
+    } else if (!dx.isEmpty()) {
+        row = 2;
+        reason = uiText("seq_send_report", "received directed call/grid; selected report");
+    }
+
+    if (row >= 0) {
+        row = qBound(0, row, m_tableQ65TxMessages->rowCount() - 1);
+        m_tableQ65TxMessages->selectRow(row);
+        QTableWidgetItem *item = m_tableQ65TxMessages->item(row, 1);
+        const QString selected = item != nullptr ? item->text().trimmed() : QString();
+        m_lblQ65SequencerStatus->setText(QStringLiteral("Sequencer: %1 | Tx%2 %3 | SNR %4 dB")
+                                             .arg(reason)
+                                             .arg(row + 1)
+                                             .arg(selected)
+                                             .arg(snrDb));
+        updateTxPreview();
+    }
+}
+
+void MainWindow::clearQ65RxTable()
+{
+    if (m_tableQ65Rx != nullptr) m_tableQ65Rx->setRowCount(0);
+    if (m_q65Decoder != nullptr) m_q65Decoder->clearAverages();
 }
 
 void MainWindow::applyWeatherFaxSettings()
@@ -9323,6 +10572,8 @@ void MainWindow::applyCwSettings()
     const bool softwareAgc = false;
 
     m_cwDecoder->setToneHz(static_cast<double>(toneHz));
+    m_cwDecoder->setSecondaryToneHz(static_cast<double>(m_cwSecondaryToneHz));
+    m_cwDecoder->setSecondaryEnabled(m_cwSecondaryEnabled);
     m_cwDecoder->setAutoWpm(autoWpm);
     m_cwDecoder->setWpm(static_cast<double>(wpm));
     m_cwDecoder->setBandwidthHz(static_cast<double>(bandwidthHz));
@@ -9529,28 +10780,19 @@ void MainWindow::updateCwDualRxStatusLabel()
         return;
     }
 
-    const double toneA = (m_cwDecoder != nullptr)
-                             ? m_cwDecoder->toneHz()
-                             : static_cast<double>(m_settings.cwToneHz);
-    const double toneB = (m_cwSecondaryDecoder != nullptr)
-                             ? m_cwSecondaryDecoder->toneHz()
-                             : static_cast<double>(m_cwSecondaryToneHz);
     const QString wpmA = (m_cwTrackedWpmA > 0.1)
                              ? QString::number(m_cwTrackedWpmA, 'f', 1)
                              : QStringLiteral("--");
-    const QString wpmB = (m_cwTrackedWpmB > 0.1)
-                             ? QString::number(m_cwTrackedWpmB, 'f', 1)
-                             : QStringLiteral("--");
 
-    if (m_cwSecondaryEnabled) {
-        m_lblCwDualRx->setText(uiText("cw_dual_rx_status_enabled",
-                                      "A green: %1 Hz / %2 WPM · B blue: %3 Hz / %4 WPM")
-                                   .arg(qRound(toneA)).arg(wpmA)
-                                   .arg(qRound(toneB)).arg(wpmB));
-    } else {
-        m_lblCwDualRx->setText(uiText("cw_dual_rx_status",
-                                      "A green: left click on CW tone · B blue: right click to enable"));
-    }
+    const int toneA = (m_spinCwToneHz != nullptr) ? m_spinCwToneHz->value() : m_settings.cwToneHz;
+    const QString bText = m_cwSecondaryEnabled
+                              ? QStringLiteral(" · RX B %1 Hz").arg(m_cwSecondaryToneHz)
+                              : QStringLiteral(" · RX B off");
+    m_lblCwDualRx->setText(uiText("cw_skimmer_status",
+                                  "CW skimmer: RX A %1 Hz%2 · tracked %3 WPM")
+                               .arg(toneA)
+                               .arg(bText)
+                               .arg(wpmA));
 
     if (m_btnCwDisableSecondary != nullptr) {
         m_btnCwDisableSecondary->setEnabled(m_cwSecondaryEnabled);
@@ -9559,20 +10801,11 @@ void MainWindow::updateCwDualRxStatusLabel()
 
 void MainWindow::disableCwSecondaryRx()
 {
-    if (!m_cwSecondaryEnabled) {
-        updateCwDualRxStatusLabel();
-        return;
-    }
-
     m_cwSecondaryEnabled = false;
     m_settings.cwSecondaryEnabled = false;
     m_cwSecondaryLineOpen = false;
-    if (m_cwCurrentLineChannel == QLatin1String("B")) {
-        m_cwCurrentLineChannel.clear();
-    }
-    m_cwTrackedWpmB = 0.0;
-    if (m_cwSecondaryDecoder != nullptr) {
-        m_cwSecondaryDecoder->reset();
+    if (m_cwDecoder != nullptr) {
+        m_cwDecoder->setSecondaryEnabled(false);
     }
     savePersistentSettings();
     updateCwDualRxStatusLabel();
@@ -10211,8 +11444,8 @@ void MainWindow::updateFt8SlotStatus()
     if (m_lblFt8WindowStatus != nullptr) {
         m_lblFt8WindowStatus->setText(window);
         m_lblFt8WindowStatus->setStyleSheet(txWindow
-            ? QStringLiteral("font-weight: bold; font-size: 11pt; color: #c82020;")
-            : QStringLiteral("font-weight: bold; font-size: 11pt; color: #15803d;"));
+            ? QStringLiteral("font-weight: 500; font-size: 9pt; color: #c82020;")
+            : QStringLiteral("font-weight: 500; font-size: 9pt; color: #15803d;"));
     }
     if (m_lblFt8SlotStatus != nullptr) {
         const int nextTxSeconds = (millisecondsToNextFt8TxPeriod() + 999) / 1000;
@@ -10280,8 +11513,8 @@ void MainWindow::handleFtSlotUpdated(const QString &modeLabel,
     if (m_lblFt8WindowStatus != nullptr) {
         m_lblFt8WindowStatus->setText(window);
         m_lblFt8WindowStatus->setStyleSheet(txWindow
-            ? QStringLiteral("font-weight: bold; font-size: 11pt; color: #c82020;")
-            : QStringLiteral("font-weight: bold; font-size: 11pt; color: #15803d;"));
+            ? QStringLiteral("font-weight: 500; font-size: 9pt; color: #c82020;")
+            : QStringLiteral("font-weight: 500; font-size: 9pt; color: #15803d;"));
     }
     if (m_lblFt8SlotStatus != nullptr) {
         const int nextTxSeconds = (millisecondsToNextFt8TxPeriod() + 999) / 1000;
@@ -10589,7 +11822,7 @@ void MainWindow::updateFt8TxBannerUi()
                         htmlEscaped(tag),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(m_ftSession.lastTxMessage));
-        style = QStringLiteral("QLabel { border: 2px solid #8a1f1f; border-radius: 6px; padding: 6px; background: #3b1010; color: #ffe5e5; font-weight: bold; font-size: 12pt; }");
+        style = QStringLiteral("QLabel { border: 2px solid #8a1f1f; border-radius: 6px; padding: 6px; background: #3b1010; color: #ffe5e5; font-weight: 500; font-size: 10pt; }");
         toolTip = uiText("ft_tx_banner_on_air_tip", "The FT transmitter is on air now. This is the exact message currently being sent.");
     } else if (schedulerArmed) {
         const QString row = rowLabelForMessage(m_pendingFt8TxMessage);
@@ -10601,7 +11834,7 @@ void MainWindow::updateFt8TxBannerUi()
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(when),
                         htmlEscaped(m_pendingFt8TxMessage));
-        style = QStringLiteral("QLabel { border: 2px solid #a06400; border-radius: 6px; padding: 6px; background: #332100; color: #fff0cc; font-weight: bold; font-size: 12pt; }");
+        style = QStringLiteral("QLabel { border: 2px solid #a06400; border-radius: 6px; padding: 6px; background: #332100; color: #fff0cc; font-weight: 500; font-size: 10pt; }");
         toolTip = uiText("ft_tx_banner_armed_tip", "The TX scheduler is armed: PTT/audio will become mutex with RX only at the selected UTC transmit boundary.");
     } else if (sequencerReady) {
         const QString row = rowLabelForMessage(m_pendingFt8TxMessage);
@@ -10613,7 +11846,7 @@ void MainWindow::updateFt8TxBannerUi()
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(when),
                         htmlEscaped(m_pendingFt8TxMessage));
-        style = QStringLiteral("QLabel { border: 2px solid #1f6b4a; border-radius: 6px; padding: 6px; background: #10251b; color: #d9ffe9; font-weight: bold; font-size: 12pt; }");
+        style = QStringLiteral("QLabel { border: 2px solid #1f6b4a; border-radius: 6px; padding: 6px; background: #10251b; color: #d9ffe9; font-weight: 500; font-size: 10pt; }");
         toolTip = uiText("ft_tx_banner_seq_ready_tip", "The QSO sequencer has selected the next message, but the TX scheduler is intentionally not armed yet; RX continues to collect and decode the current slot.");
     } else if (!m_ftSession.lastTxMessage.trimmed().isEmpty() && !m_ftSession.lastTxWasTune) {
         const QString row = rowLabelForMessage(m_ftSession.lastTxMessage);
@@ -10622,11 +11855,11 @@ void MainWindow::updateFt8TxBannerUi()
                         htmlEscaped(uiText("ft_tx_banner_last_tx", "last TX")),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(m_ftSession.lastTxMessage));
-        style = QStringLiteral("QLabel { border: 2px solid #245a36; border-radius: 6px; padding: 6px; background: #102218; color: #d8ffe2; font-weight: bold; font-size: 12pt; }");
+        style = QStringLiteral("QLabel { border: 2px solid #245a36; border-radius: 6px; padding: 6px; background: #102218; color: #d8ffe2; font-weight: 500; font-size: 10pt; }");
         toolTip = uiText("ft_tx_banner_rx_last_tip", "Receiver is active. The banner shows the last completed FT transmission.");
     } else {
         text = QStringLiteral("<b>%1</b>").arg(htmlEscaped(uiText("ft_tx_banner_rx", "RX monitor — no FT TX armed")));
-        style = QStringLiteral("QLabel { border: 2px solid #33414d; border-radius: 6px; padding: 6px; background: #17202a; color: #d7e0e7; font-weight: bold; font-size: 12pt; }");
+        style = QStringLiteral("QLabel { border: 2px solid #33414d; border-radius: 6px; padding: 6px; background: #17202a; color: #d7e0e7; font-weight: 500; font-size: 10pt; }");
         toolTip = uiText("ft_tx_banner_idle_tip", "FT receiver monitor is active and no TX message is currently armed.");
     }
 
@@ -10746,10 +11979,19 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                       .arg(stats.osdGf2TotalMs, 0, 'f', 1));
     }
 
-    if (stats.mindAssistTried > 0 || stats.mindAssistRecovered > 0 || stats.mindAssistUnavailable > 0) {
-        appendLog(QStringLiteral("FT MIND Ranker: scored %1, pruned %2, unavailable %3, avg success %4%")
+    if (m_ddspController != nullptr && !stats.offline) {
+        m_ddspController->updateFtMindGainStats(stats.mindAssistExtraDecodes,
+                                                stats.mindAssistRecovered,
+                                                stats.mindAssistTried,
+                                                stats.mindAssistAvgConfidence);
+    }
+
+    if (stats.mindAssistTried > 0 || stats.mindAssistRecovered > 0 ||
+        stats.mindAssistExtraDecodes > 0 || stats.mindAssistUnavailable > 0) {
+        appendLog(QStringLiteral("FT MIND Ranker: scored %1, pruned %2, extra %3, unavailable %4, avg success %5%")
                       .arg(stats.mindAssistTried)
                       .arg(stats.mindAssistRecovered)
+                      .arg(stats.mindAssistExtraDecodes)
                       .arg(stats.mindAssistUnavailable)
                       .arg(stats.mindAssistAvgConfidence, 0, 'f', 1));
     }
@@ -14645,7 +15887,7 @@ void MainWindow::runFtAutoTest()
                                    .arg(mindStatusForReport.rankerPositiveSamples)
                                    .arg(mindStatusForReport.rankerNegativeSamples)
                             << QStringLiteral("")
-                            << QStringLiteral("File	Mode	OK	Reference	Decodes	Delta	Result	Candidates	Passes	Search ms	LDPC ms	Subtract ms	Total ms	Attempted	Sync gate	LDPC tried	LDPC fail	LDPC fail %	CRC fail	Unpack fail	Unpack fail %	Msg reject	Dedup drop	Unresolved hash	Visible hash calls	OK sync	LDPC-fail sync	OK hard	LDPC-fail hard	OK LLR	LDPC-fail LLR	OSD GF2 tried	OSD GF2 recovered	OSD GF2 rank fail	OSD GF2 pivot skips	OSD GF2 O0	OSD GF2 O1	OSD GF2 O2	OSD GF2 postCRC	OSD GF2 budget skip	OSD GF2 ms	MIND scored	MIND pruned	MIND unavailable	MIND avg success %	Summary");
+                            << QStringLiteral("File	Mode	OK	Reference	Decodes	Delta	Result	Candidates	Passes	Search ms	LDPC ms	Subtract ms	Total ms	Attempted	Sync gate	LDPC tried	LDPC fail	LDPC fail %	CRC fail	Unpack fail	Unpack fail %	Msg reject	Dedup drop	Unresolved hash	Visible hash calls	OK sync	LDPC-fail sync	OK hard	LDPC-fail hard	OK LLR	LDPC-fail LLR	OSD GF2 tried	OSD GF2 recovered	OSD GF2 rank fail	OSD GF2 pivot skips	OSD GF2 O0	OSD GF2 O1	OSD GF2 O2	OSD GF2 postCRC	OSD GF2 budget skip	OSD GF2 ms	MIND scored	MIND pruned	MIND extra	MIND unavailable	MIND avg success %	Summary");
 
     appendLog(QStringLiteral("FT Auto test started: %1 file(s), Unified adaptive engine, WAV directory %2")
                   .arg(wavFiles.size())
@@ -14911,13 +16153,14 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
         const double osdGf2Ms = haveStats ? m_lastFt8PerfStats.osdGf2TotalMs : 0.0;
         const int mindScored = haveStats ? m_lastFt8PerfStats.mindAssistTried : 0;
         const int mindPruned = haveStats ? m_lastFt8PerfStats.mindAssistRecovered : 0;
+        const int mindExtra = haveStats ? m_lastFt8PerfStats.mindAssistExtraDecodes : 0;
         const int mindUnavailable = haveStats ? m_lastFt8PerfStats.mindAssistUnavailable : 0;
         const double mindAvg = haveStats ? m_lastFt8PerfStats.mindAssistAvgConfidence : 0.0;
         const int expected = ftAutoTestExpectedDecodes(item.fileName);
         const int delta = (expected > 0) ? (decodeCount - expected) : 0;
         const QString result = ftAutoTestResultLabel(ok, decodeCount, expected);
         const QString compactMessage = message.simplified();
-        const QString line = QStringLiteral("%1	%2	%3	%4	%5	%6	%7	%8	%9	%10	%11	%12	%13	%14	%15	%16	%17	%18	%19	%20	%21	%22	%23	%24	%25	%26	%27	%28	%29	%30	%31	%32	%33	%34	%35	%36	%37	%38	%39	%40	%41	%42	%43	%44	%45	%46")
+        const QString line = QStringLiteral("%1	%2	%3	%4	%5	%6	%7	%8	%9	%10	%11	%12	%13	%14	%15	%16	%17	%18	%19	%20	%21	%22	%23	%24	%25	%26	%27	%28	%29	%30	%31	%32	%33	%34	%35	%36	%37	%38	%39	%40	%41	%42	%43	%44	%45	%46	%47")
                                  .arg(item.fileName)
                                  .arg(item.depthLabel)
                                  .arg(ok ? QStringLiteral("YES") : QStringLiteral("NO"))
@@ -14961,6 +16204,7 @@ void MainWindow::handleFtOfflineAnalysisFinished(const QString &filePath, bool o
                                   .arg(QString::number(osdGf2Ms, 'f', 1))
                                   .arg(mindScored)
                                   .arg(mindPruned)
+                                  .arg(mindExtra)
                                   .arg(mindUnavailable)
                                   .arg(QString::number(mindAvg, 'f', 1))
                                   .arg(compactMessage);
@@ -16079,6 +17323,19 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
         }
     });
 
+    // Force Settings to be a real full-screen workbench before exec() enters
+    // the modal loop.  Relying only on showEvent/showMaximized was not robust
+    // with the custom frameless cockpit chrome on all Linux WMs.
+    dialog.setWindowFlag(Qt::Window, true);
+    dialog.setWindowFlag(Qt::FramelessWindowHint, true);
+    dialog.setWindowModality(Qt::ApplicationModal);
+    if (QScreen *screen = this->screen()) {
+        dialog.setGeometry(screen->geometry());
+    } else if (QScreen *screen = QGuiApplication::primaryScreen()) {
+        dialog.setGeometry(screen->geometry());
+    }
+    dialog.showFullScreen();
+
     if (m_ddspController != nullptr) {
         m_ddspController->setActivityHint(QStringLiteral("settings"));
     }
@@ -16141,109 +17398,6 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
     }
 }
 
-void MainWindow::showAudioPttSettings()
-{
-    if (m_rxRunning || m_txRunning) {
-        QMessageBox::information(
-            this,
-            uiTextFromSource("text", "Audio / PTT settings"),
-            uiTextFromSource("text", "Stop RX/TX before changing audio or PTT settings.")
-            );
-        return;
-    }
-
-    AudioSettingsDialog dialog(m_settings, this);
-    applyUiLanguageToObjectTree(&dialog);
-
-    if (dialog.exec() != QDialog::Accepted) {
-        appendLog("Audio / PTT settings cancelled.");
-        return;
-    }
-
-    m_settings = dialog.settings();
-
-    savePersistentSettings();
-    refreshDevices();
-    applyPersistentSettingsToRuntime();
-
-    appendLog("Audio / PTT settings updated.");
-    appendLog("Audio input: " + selectedAudioInputLabel());
-    appendLog(QString("Audio sample rate: %1 Hz").arg(m_settings.audioSampleRate));
-
-    if (!m_settings.audioOutputName.isEmpty()) {
-        appendLog("Audio output: " + m_settings.audioOutputName);
-    }
-
-    appendLog("PTT method: " + m_settings.pttMethod);
-    if (!m_settings.pttPortName.isEmpty()) {
-        appendLog("PTT serial port: " + m_settings.pttPortName);
-    } else {
-        appendLog("PTT serial port: not selected");
-    }
-}
-
-
-void MainWindow::showSoundCardCalibration()
-{
-    if (m_rxRunning || m_txRunning) {
-        QMessageBox::information(
-            this,
-            uiTextFromSource("text", "Soundcard calibration"),
-            uiTextFromSource("text", "Stop RX/TX before calibrating the sound card.")
-            );
-        return;
-    }
-
-    SoundCardCalibrationDialog dialog(m_settings, this);
-    dialog.setTextTranslator([this](const QString &source) {
-        return uiTextFromSource("text", source);
-    });
-    applyUiLanguageToObjectTree(&dialog);
-
-    if (dialog.exec() != QDialog::Accepted) {
-        appendLog("Soundcard calibration cancelled.");
-        return;
-    }
-
-    m_settings = dialog.settings();
-    savePersistentSettings();
-    applyPersistentSettingsToRuntime();
-
-    appendLog(QString("Soundcard calibration updated: RX %1 ppm, TX %2 ppm.")
-                  .arg(m_settings.audioRxClockPpm, 0, 'f', 2)
-                  .arg(m_settings.audioTxClockPpm, 0, 'f', 2));
-    appendLog(QString("Live RX effective sample rate: %1 Hz.").arg(m_audioEngine != nullptr ? m_audioEngine->sampleRate() : m_settings.audioSampleRate));
-}
-
-
-void MainWindow::showTextMacroSettings()
-{
-    if (m_txRunning) {
-        QMessageBox::information(
-            this,
-            uiTextFromSource("text", "User/QTH"),
-            uiTextFromSource("text", "Stop TX before changing User/QTH.")
-            );
-        return;
-    }
-
-    TextMacroSettingsDialog dialog(m_settings, this);
-    applyUiLanguageToObjectTree(&dialog);
-
-    if (dialog.exec() != QDialog::Accepted) {
-        appendLog("User/QTH cancelled.");
-        return;
-    }
-
-    m_settings = dialog.settings();
-    savePersistentSettings();
-    loadFt8SettingsToUi();
-    applyPersistentSettingsToRuntime();
-    refreshTextMacroButtons();
-    refreshFt8StandardMessages();
-
-    appendLog("User/QTH updated.");
-}
 
 void MainWindow::openSstvImageEditor()
 {
@@ -16375,130 +17529,7 @@ void MainWindow::updateSstvTxPreparedImage()
     updateTxControlState();
 }
 
-void MainWindow::showLogbookSettings()
-{
-    QString currentPath = m_logbook.fileName().trimmed();
-    if (currentPath.isEmpty()) {
-        currentPath = AdifLogbook::defaultPath();
-    }
 
-    LogbookSettingsDialog dialog(currentPath, AdifLogbook::defaultPath(), this);
-    dialog.setTextTranslator([this](const QString &source) {
-        return uiTextFromSource("text", source);
-    });
-    applyUiLanguageToObjectTree(&dialog);
-
-    if (dialog.exec() != QDialog::Accepted) {
-        return;
-    }
-
-    const QString newPath = dialog.selectedPath().trimmed();
-    if (newPath.isEmpty() || QFileInfo(newPath).absoluteFilePath() == QFileInfo(currentPath).absoluteFilePath()) {
-        return;
-    }
-
-    // Do not force-save/rewrite the current ADIF just because the user is
-    // switching to another logbook path.  Real ADIF files may contain many
-    // fields not shown by MM; unnecessary rewriting is unsafe.
-    m_logbook.setFileName(newPath);
-    m_settings.logbookFilePath = newPath;
-    savePersistentSettings();
-
-    QString loadError;
-    if (!m_logbook.load(&loadError)) {
-        QMessageBox::warning(this,
-                             uiText("logbook", "Logbook"),
-                             uiText("cannot_load_logbook", "Cannot load logbook:") + " " + loadError);
-        return;
-    }
-
-    refreshLogbookHighlights();
-    appendLog(uiText("logbook_file_changed", "Logbook file changed:") + " " + QDir::toNativeSeparators(newPath));
-    refreshQsoMaps();
-}
-
-void MainWindow::showRigControlSettings()
-{
-    if (m_txRunning) {
-        QMessageBox::information(this,
-                                 uiText("rig_control", "CAT / Rig control"),
-                                 uiText("stop_tx_before_rig_settings", "Stop TX before changing CAT / rig-control settings."));
-        return;
-    }
-
-    RigControlSettingsDialog dialog(m_settings, this);
-    dialog.setTextTranslator([this](const QString &source) {
-        return uiTextFromSource("text", source);
-    });
-    // Do not run the generic object-tree translator on this dialog.
-    // RigControlSettingsDialog owns dynamic Hamlib model/manufacturer combo boxes
-    // and has its own refreshLabels()/setTextTranslator() path.  The generic
-    // walker can touch dynamic combo contents and complex scroll-area children,
-    // which made the CAT/Hamlib panel intermittently appear as an empty box on
-    // some Qt/style states.  Keep CAT localization local and deterministic.
-
-    QPointer<RigControlSettingsDialog> dialogPtr(&dialog);
-    connect(&dialog, &RigControlSettingsDialog::catTestRequested, this, [this, dialogPtr](const HamlibController::Config &cfg) {
-        appendLog(QStringLiteral("CAT TEST: queued on isolated worker."));
-        if (m_rigController == nullptr) {
-            if (dialogPtr) dialogPtr->setExternalTestStatus(QStringLiteral("TEST FAILED — no CAT controller"), false);
-            return;
-        }
-        QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, cfg, dialogPtr]() {
-            controller->configure(cfg);
-            const bool okOpen = controller->connectRig();
-            if (okOpen) {
-                controller->pollNow();
-            }
-            const double hz = controller->lastFrequencyHz();
-            const QString message = (okOpen && hz > 0.0)
-                ? QStringLiteral("TEST OK — frequency: %1 MHz").arg(hz / 1000000.0, 0, 'f', 6)
-                : QStringLiteral("TEST FAILED — %1").arg(controller->lastStatus().isEmpty() ? QStringLiteral("no valid frequency returned") : controller->lastStatus());
-            QMetaObject::invokeMethod(qApp, [dialogPtr, message, ok = (okOpen && hz > 0.0)]() {
-                if (dialogPtr) dialogPtr->setExternalTestStatus(message, ok);
-            }, Qt::QueuedConnection);
-        }, Qt::QueuedConnection);
-    });
-    connect(&dialog, &RigControlSettingsDialog::pttTestRequested, this, [this, dialogPtr](const HamlibController::Config &cfg, bool enabled) {
-        appendLog(enabled ? QStringLiteral("PTT TEST: ON queued on isolated worker.")
-                          : QStringLiteral("PTT TEST: OFF queued on isolated worker."));
-        if (enabled && !ensureStationIdentityForTx(QStringLiteral("PTT TEST"))) {
-            if (dialogPtr) dialogPtr->setExternalTestStatus(uiText("station_identity_required", "Station identity required"), false);
-            return;
-        }
-        if (m_rigController == nullptr) {
-            if (dialogPtr) dialogPtr->setExternalTestStatus(QStringLiteral("PTT TEST FAILED — no CAT controller"), false);
-            return;
-        }
-        QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, cfg, enabled, dialogPtr]() {
-            controller->configure(cfg);
-            const bool ok = controller->setPtt(enabled);
-            const QString message = ok
-                ? (enabled ? QStringLiteral("PTT TEST OK — TX requested") : QStringLiteral("PTT TEST OK — RX requested"))
-                : QStringLiteral("PTT TEST FAILED — %1").arg(controller->lastStatus().isEmpty() ? QStringLiteral("no detailed error returned") : controller->lastStatus());
-            QMetaObject::invokeMethod(qApp, [dialogPtr, message, ok]() {
-                if (dialogPtr) dialogPtr->setExternalTestStatus(message, ok);
-            }, Qt::QueuedConnection);
-        }, Qt::QueuedConnection);
-    });
-
-    if (dialog.exec() != QDialog::Accepted) {
-        appendLog("CAT/Rig settings cancelled; restoring previous CAT runtime configuration.");
-        applyPersistentSettingsToRuntime();
-        return;
-    }
-
-    m_settings = dialog.settings();
-    savePersistentSettings();
-    applyPersistentSettingsToRuntime();
-
-    appendLog(QString("CAT/Rig updated: CAT %1, CAT PTT %2, model %3, route %4, path %5.")
-                  .arg(m_settings.hamlibCatEnabled ? QStringLiteral("ON") : QStringLiteral("OFF"),
-                       m_settings.hamlibPttEnabled ? QStringLiteral("ON") : QStringLiteral("OFF"))
-                  .arg(m_settings.hamlibRigModel)
-                  .arg(m_settings.hamlibTxAudioRoute.isEmpty() ? QStringLiteral("default") : m_settings.hamlibTxAudioRoute)
-                  .arg(m_settings.hamlibRigPath.isEmpty() ? QStringLiteral("default") : m_settings.hamlibRigPath));
-}
 
 void MainWindow::showLogbookDialog()
 {
@@ -16847,6 +17878,10 @@ void MainWindow::startRx()
         applyHellSettings();
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         applyFt8Settings();
+    } else if (Msk144Mode::isMode(modeName)) {
+        applyMsk144Settings();
+    } else if (Q65Mode::isFamilyMode(modeName)) {
+        applyQ65Settings();
     } else {
         appendLog(modeName + " is not implemented yet.");
         return;
@@ -16909,6 +17944,27 @@ void MainWindow::startRx()
         }
     } else if (modeName == HellschreiberDecoder::modeName()) {
         m_hellDecoder->reset();
+    } else if (Msk144Mode::isMode(modeName)) {
+        if (m_msk144Decoder != nullptr) {
+            m_msk144Decoder->reset();
+        }
+        if (m_tableMsk144Rx != nullptr && !preserveTextTerminal) {
+            m_tableMsk144Rx->setRowCount(0);
+        }
+        if (m_lblMsk144SequencerStatus != nullptr) {
+            m_lblMsk144SequencerStatus->setText(uiText("msk144_seq_idle", "Sequencer: idle"));
+        }
+        m_msk144PingOverlays.clear();
+    } else if (Q65Mode::isFamilyMode(modeName)) {
+        if (m_q65Decoder != nullptr) {
+            m_q65Decoder->reset();
+        }
+        if (m_tableQ65Rx != nullptr && !preserveTextTerminal) {
+            m_tableQ65Rx->setRowCount(0);
+        }
+        if (m_lblQ65SequencerStatus != nullptr) {
+            m_lblQ65SequencerStatus->setText(uiText("q65_seq_idle", "Sequencer: idle"));
+        }
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         if (m_tableFt8Rx != nullptr && !preserveTextTerminal) {
             m_tableFt8Rx->setRowCount(0);
@@ -16960,13 +18016,11 @@ void MainWindow::startRx()
                       .arg((m_chkMfskAfc != nullptr && m_chkMfskAfc->isChecked()) ? "ON" : "OFF")
                       .arg(m_spinMfskAfcRangeHz != nullptr ? m_spinMfskAfcRangeHz->value() : 50));
     } else if (modeName == CwDecoder::modeName()) {
-        appendLog(QString("CW settings: tone %1 Hz, speed %2 WPM, Auto WPM %3, bandwidth %4 Hz, AFC %5 ±%6 Hz.")
+        appendLog(QString("CW skimmer settings: RX A %1 Hz, RX B %2, speed hint %3 WPM, Auto WPM %4.")
                       .arg(m_spinCwToneHz != nullptr ? m_spinCwToneHz->value() : 700)
+                      .arg(m_cwSecondaryEnabled ? QString::number(m_cwSecondaryToneHz) + QStringLiteral(" Hz") : QStringLiteral("off"))
                       .arg(m_spinCwWpm != nullptr ? m_spinCwWpm->value() : 20)
-                      .arg((m_chkCwAutoWpm != nullptr && m_chkCwAutoWpm->isChecked()) ? "ON" : "OFF")
-                      .arg(m_spinCwBandwidthHz != nullptr ? m_spinCwBandwidthHz->value() : 120)
-                      .arg((m_chkCwAfc != nullptr && m_chkCwAfc->isChecked()) ? "ON" : "OFF")
-                      .arg(m_spinCwAfcRangeHz != nullptr ? m_spinCwAfcRangeHz->value() : 20));
+                      .arg((m_chkCwAutoWpm != nullptr && m_chkCwAutoWpm->isChecked()) ? "ON" : "OFF"));
     } else if (modeName == HellschreiberDecoder::modeName()) {
         const HellschreiberDecoder::Variant variant = (m_cmbHellVariant != nullptr)
                                                          ? HellschreiberDecoder::variantFromKey(m_cmbHellVariant->currentData().toString())
@@ -16978,6 +18032,23 @@ void MainWindow::startRx()
                       .arg(m_spinHellBandwidthHz != nullptr ? m_spinHellBandwidthHz->value() : 245)
                       .arg((m_chkHellAfc != nullptr && m_chkHellAfc->isChecked()) ? "ON" : "OFF")
                       .arg(m_spinHellAfcRangeHz != nullptr ? m_spinHellAfcRangeHz->value() : 20));
+    } else if (Msk144Mode::isMode(modeName)) {
+        const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
+        const int rx = (m_spinMsk144RxFreq != nullptr) ? m_spinMsk144RxFreq->value() : 1500;
+        const int dfTol = (m_spinMsk144DfTolerance != nullptr) ? m_spinMsk144DfTolerance->value() : 100;
+        const int depth = (m_cmbMsk144DecodeDepth != nullptr) ? m_cmbMsk144DecodeDepth->currentData().toInt() : 2;
+        const QString depthName = depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep"));
+        appendLog(QStringLiteral("MSK144 settings: RX %1 Hz, DF ±%2 Hz, period %3 s, decode %4, TX center 1500 Hz.")
+                      .arg(rx).arg(dfTol).arg(period).arg(depthName));
+    } else if (Q65Mode::isFamilyMode(modeName)) {
+        const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
+        const int rx = (m_spinQ65RxFreq != nullptr) ? m_spinQ65RxFreq->value() : 1500;
+        const int tx = (m_spinQ65TxFreq != nullptr) ? m_spinQ65TxFreq->value() : 1500;
+        const int dfTol = (m_spinQ65DfTolerance != nullptr) ? m_spinQ65DfTolerance->value() : 100;
+        const int depth = (m_cmbQ65DecodeDepth != nullptr) ? m_cmbQ65DecodeDepth->currentData().toInt() : 2;
+        const QString depthName = depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep"));
+        appendLog(QStringLiteral("%1 settings: RX %2 Hz, TX %3 Hz, DF ±%4 Hz, period %5 s, decode %6.")
+                      .arg(Q65Mode::modeName(currentQ65Submode())).arg(rx).arg(tx).arg(dfTol).arg(period).arg(depthName));
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
         appendLog(QString("%1 settings: RX marker %2 Hz, TX marker %3 Hz, band %4, slot %5 s. %6")
@@ -17236,7 +18307,9 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
                           modeName == MfskDecoder::modeName() ||
                           modeName == CwDecoder::modeName() ||
                           modeName == HellschreiberDecoder::modeName() ||
-                          Ft8Mode::isFamilyMode(modeName);
+                          Ft8Mode::isFamilyMode(modeName) ||
+                          Msk144Mode::isMode(modeName) ||
+                          Q65Mode::isFamilyMode(modeName);
 
     if (!textMode && (m_txSourceImage.isNull() || m_txImageOwnerMode != modeName)) {
         return nullptr;
@@ -17333,6 +18406,49 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
             HellschreiberDecoder::fsk105ShiftHz(),
             hellPaperScale()
             ));
+    }
+
+    if (Msk144Mode::isMode(modeName)) {
+        QString msg;
+        int row = (m_tableMsk144TxMessages != nullptr) ? m_tableMsk144TxMessages->currentRow() : -1;
+        if (row < 0) row = 0;
+        if (m_tableMsk144TxMessages != nullptr && row >= 0 && row < m_tableMsk144TxMessages->rowCount()) {
+            QTableWidgetItem *item = m_tableMsk144TxMessages->item(row, 1);
+            if (item != nullptr) msg = item->text().trimmed();
+        }
+        if (msg.isEmpty()) {
+            msg = QStringLiteral("CQ %1 %2").arg(stationCallsign(), stationLocator().left(4)).trimmed();
+        }
+        const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
+        Msk144Transmitter *msk = new Msk144Transmitter(msg, txSampleRate, period, false, 1500.0);
+        if (!msk->generationSucceeded()) {
+            appendLog(QStringLiteral("MSK144 TX generator failed: %1").arg(msk->generationError()));
+            delete msk;
+            return nullptr;
+        }
+        return std::unique_ptr<TxModulator>(msk);
+    }
+
+    if (Q65Mode::isFamilyMode(modeName)) {
+        QString msg;
+        int row = (m_tableQ65TxMessages != nullptr) ? m_tableQ65TxMessages->currentRow() : -1;
+        if (row < 0) row = 0;
+        if (m_tableQ65TxMessages != nullptr && row >= 0 && row < m_tableQ65TxMessages->rowCount()) {
+            QTableWidgetItem *item = m_tableQ65TxMessages->item(row, 1);
+            if (item != nullptr) msg = item->text().trimmed();
+        }
+        if (msg.isEmpty()) {
+            msg = QStringLiteral("CQ %1 %2").arg(stationCallsign(), stationLocator().left(4)).trimmed();
+        }
+        const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
+        const double txHz = (m_spinQ65TxFreq != nullptr) ? static_cast<double>(m_spinQ65TxFreq->value()) : 1500.0;
+        Q65Transmitter *q65 = new Q65Transmitter(msg, txSampleRate, period, currentQ65Submode(), txHz);
+        if (!q65->generationSucceeded()) {
+            appendLog(QStringLiteral("Q65 TX generator failed: %1").arg(q65->generationError()));
+            delete q65;
+            return nullptr;
+        }
+        return std::unique_ptr<TxModulator>(q65);
     }
 
     if (Ft8Mode::isFamilyMode(modeName)) {
@@ -17478,6 +18594,17 @@ void MainWindow::updateTxPreview()
         m_lblTxMode->setText(QString("CW TX/RX: %1 Hz, %2 WPM").arg(tone).arg(wpm));
         const QString text = (m_txtCwTx != nullptr) ? m_txtCwTx->toPlainText() : QString();
         m_txPreparedImage = CwTransmitter::previewTextImage(text);
+    } else if (Msk144Mode::isMode(modeName)) {
+        const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
+        const int rx = (m_spinMsk144RxFreq != nullptr) ? m_spinMsk144RxFreq->value() : 1500;
+        m_lblTxMode->setText(QStringLiteral("MSK144: RX %1 Hz, TX center 1500 Hz, %2 s").arg(rx).arg(period));
+        m_txPreparedImage = QImage();
+    } else if (Q65Mode::isFamilyMode(modeName)) {
+        const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
+        const int rx = (m_spinQ65RxFreq != nullptr) ? m_spinQ65RxFreq->value() : 1500;
+        const int tx = (m_spinQ65TxFreq != nullptr) ? m_spinQ65TxFreq->value() : 1500;
+        m_lblTxMode->setText(QStringLiteral("%1: RX %2 Hz, TX %3 Hz, %4 s").arg(Q65Mode::modeName(currentQ65Submode())).arg(rx).arg(tx).arg(period));
+        m_txPreparedImage = QImage();
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
         const int rx = m_spinFt8RxFreq != nullptr ? m_spinFt8RxFreq->value() : 1500;
@@ -17514,6 +18641,22 @@ void MainWindow::updateTxPreview()
     } else if (modeName == CwDecoder::modeName()) {
         const int chars = (m_txtCwTx != nullptr) ? m_txtCwTx->toPlainText().size() : 0;
         m_lblTxImageName->setText(QString("CW text: %1 char(s)").arg(chars));
+    } else if (Msk144Mode::isMode(modeName)) {
+        QString msg;
+        const int row = (m_tableMsk144TxMessages != nullptr) ? qMax(0, m_tableMsk144TxMessages->currentRow()) : 0;
+        if (m_tableMsk144TxMessages != nullptr && row < m_tableMsk144TxMessages->rowCount() && m_tableMsk144TxMessages->item(row, 1) != nullptr) {
+            msg = m_tableMsk144TxMessages->item(row, 1)->text();
+        }
+        m_lblTxImageName->setText(msg.trimmed().isEmpty() ? QStringLiteral("MSK144: no TX message selected")
+                                                          : QStringLiteral("MSK144 selected: %1").arg(msg.left(48)));
+    } else if (Q65Mode::isFamilyMode(modeName)) {
+        QString msg;
+        const int row = (m_tableQ65TxMessages != nullptr) ? qMax(0, m_tableQ65TxMessages->currentRow()) : 0;
+        if (m_tableQ65TxMessages != nullptr && row < m_tableQ65TxMessages->rowCount() && m_tableQ65TxMessages->item(row, 1) != nullptr) {
+            msg = m_tableQ65TxMessages->item(row, 1)->text();
+        }
+        m_lblTxImageName->setText(msg.trimmed().isEmpty() ? QStringLiteral("Q65: no TX message selected")
+                                                          : QStringLiteral("%1 selected: %2").arg(Q65Mode::modeName(currentQ65Submode()), msg.left(48)));
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
         const QString msg = selectedFt8TxMessage();
@@ -17557,7 +18700,9 @@ void MainWindow::updateTxControlState()
     const bool cwMode = modeName == CwDecoder::modeName();
     const bool sstvMode = modeName == SstvDecoder::modeName();
     const bool ft8Mode = Ft8Mode::isFamilyMode(modeName);
-    const bool textMode = rttyMode || bpskMode || mfskMode || cwMode || hellMode;
+    const bool msk144Mode = Msk144Mode::isMode(modeName);
+    const bool q65Mode = Q65Mode::isFamilyMode(modeName);
+    const bool textMode = rttyMode || bpskMode || mfskMode || cwMode || hellMode || msk144Mode || q65Mode;
     const bool rxOnlyTextMode = ft8Mode;
     const bool hasImage = !m_txSourceImage.isNull() && m_txImageOwnerMode == modeName;
     const bool hasRttyText = rttyMode && m_txtRttyTx != nullptr && !m_txtRttyTx->toPlainText().trimmed().isEmpty();
@@ -17565,7 +18710,9 @@ void MainWindow::updateTxControlState()
     const bool hasMfskText = mfskMode && m_txtMfskTx != nullptr && !m_txtMfskTx->toPlainText().trimmed().isEmpty();
     const bool hasCwText = cwMode && m_txtCwTx != nullptr && !m_txtCwTx->toPlainText().trimmed().isEmpty();
     const bool hasHellText = hellMode && m_txtHellTx != nullptr && !m_txtHellTx->toPlainText().trimmed().isEmpty();
-    const bool hasSource = textMode ? (hasRttyText || hasBpskText || hasMfskText || hasCwText || hasHellText) : hasImage;
+    const bool hasMskMessage = msk144Mode && m_tableMsk144TxMessages != nullptr && m_tableMsk144TxMessages->rowCount() > 0;
+    const bool hasQ65Message = q65Mode && m_tableQ65TxMessages != nullptr && m_tableQ65TxMessages->rowCount() > 0;
+    const bool hasSource = textMode ? (hasRttyText || hasBpskText || hasMfskText || hasCwText || hasHellText || hasMskMessage || hasQ65Message) : hasImage;
     const bool rxBusy = m_rxRunning || (m_audioEngine != nullptr && m_audioEngine->isRunning());
     const bool canStartTx = textMode
                                 ? (hasSource && !m_txRunning && !m_offlineAnalysisActive)
@@ -17578,7 +18725,7 @@ void MainWindow::updateTxControlState()
         m_grpTxImage->setVisible(!textMode && !rxOnlyTextMode);
     }
     if (m_btnShowRuntimeLog != nullptr) {
-        m_btnShowRuntimeLog->setVisible(ft8Mode);
+        m_btnShowRuntimeLog->setVisible(ft8Mode || msk144Mode || q65Mode);
     }
 
     m_btnLoadTxImage->setVisible(!textMode && !rxOnlyTextMode);
@@ -17913,7 +19060,9 @@ void MainWindow::startImageTx()
     const bool hellMode = activeModeName == HellschreiberDecoder::modeName();
     const bool cwMode = activeModeName == CwDecoder::modeName();
     const bool ft8Mode = Ft8Mode::isFamilyMode(activeModeName);
-    const bool textMode = rttyMode || bpskMode || mfskMode || cwMode || hellMode || ft8Mode;
+    const bool msk144Mode = Msk144Mode::isMode(activeModeName);
+    const bool q65Mode = Q65Mode::isFamilyMode(activeModeName);
+    const bool textMode = rttyMode || bpskMode || mfskMode || cwMode || hellMode || ft8Mode || msk144Mode || q65Mode;
 
     const bool liveRxRunning = m_rxRunning ||
                                (m_audioEngine != nullptr && m_audioEngine->isRunning());
@@ -17980,6 +19129,21 @@ void MainWindow::startImageTx()
         return;
     }
 
+    if (msk144Mode) {
+        refreshMsk144StandardMessages();
+        if (m_tableMsk144TxMessages == nullptr || m_tableMsk144TxMessages->rowCount() == 0) {
+            QMessageBox::information(this, QStringLiteral("MSK144 TX"), QStringLiteral("Generate or select an MSK144 message before starting TX."));
+            return;
+        }
+    }
+    if (q65Mode) {
+        refreshQ65StandardMessages();
+        if (m_tableQ65TxMessages == nullptr || m_tableQ65TxMessages->rowCount() == 0) {
+            QMessageBox::information(this, QStringLiteral("Q65 TX"), QStringLiteral("Generate or select a Q65 message before starting TX."));
+            return;
+        }
+    }
+
     m_currentTxIsTextMode = textMode;
     m_returnToRxAfterTx = textMode;
     m_txFinishedNaturally = false;
@@ -18006,6 +19170,10 @@ void MainWindow::startImageTx()
         applyHellSettings();
     } else if (Ft8Mode::isFamilyMode(activeModeName)) {
         applyFt8Settings();
+    } else if (Msk144Mode::isMode(activeModeName)) {
+        applyMsk144Settings();
+    } else if (Q65Mode::isFamilyMode(activeModeName)) {
+        applyQ65Settings();
     }
 
     std::unique_ptr<TxModulator> modulator = buildCurrentTxModulator();
@@ -18522,77 +19690,25 @@ void MainWindow::handleTxProgress(double progress)
 
 void MainWindow::resetRttyTxScopeState()
 {
-    m_rttyTxScopePhase = 0.0;
-    m_rttyTxScopeTrace.clear();
-
+    // RTTY tuning scope is an RX-only instrument.  On TX start, just clear the
+    // RX trace so a stale crossed ellipse is not mistaken for a live decode.
     if (m_rttyScopeWidget != nullptr) {
-        m_rttyScopeWidget->setTrace(m_rttyTxScopeTrace, 0.0, false);
+        m_rttyScopeWidget->setTrace(QVector<QPointF>(), 0.0, false);
     }
 }
 
-void MainWindow::updateRttyScopeFromTxToneState(bool mark, double progress)
-{
-    if (m_rttyScopeWidget == nullptr) {
-        return;
-    }
-
-    /*
-     * TX REAL-TIME SAFETY NOTE
-     * ------------------------
-     * Do not demodulate generated PCM to drive a TX tuning display.  The RTTY
-     * transmitter already knows whether the current element is Mark or Space.
-     * The CRT is therefore driven from that metadata only, keeping the audio
-     * callback and generated waveform free from visual-instrument workload.
-     */
-    QVector<QPointF> newPoints;
-    newPoints.reserve(32);
-
-    const double phaseStep = 0.24;
-    const double minor = 0.18;
-    const double wobble = 0.04 * std::sin(progress * 25.0);
-
-    for (int i = 0; i < 32; ++i) {
-        const double s = std::sin(m_rttyTxScopePhase);
-        const double c = std::cos(m_rttyTxScopePhase);
-
-        if (mark) {
-            // Mark drives the X axis; Y receives a small quadrature thickness.
-            newPoints.append(QPointF(0.84 * s,
-                                     (minor + wobble) * c));
-        } else {
-            // Space drives the Y axis; X receives a small quadrature thickness.
-            newPoints.append(QPointF((minor + wobble) * c,
-                                     0.84 * s));
-        }
-
-        m_rttyTxScopePhase += phaseStep;
-        if (m_rttyTxScopePhase > 2.0 * 3.14159265358979323846) {
-            m_rttyTxScopePhase -= 2.0 * 3.14159265358979323846;
-        }
-    }
-
-    m_rttyTxScopeTrace += newPoints;
-    const int maxPoints = 480;
-    if (m_rttyTxScopeTrace.size() > maxPoints) {
-        m_rttyTxScopeTrace.remove(0, m_rttyTxScopeTrace.size() - maxPoints);
-    }
-
-    m_rttyScopeWidget->setTrace(m_rttyTxScopeTrace, 18.0, true);
-}
-
-// -----------------------------------------------------------------------------
-// PTT / TX test
-// -----------------------------------------------------------------------------
 
 void MainWindow::testPtt()
 {
-    if (!ensureStationIdentityForTx(QStringLiteral("PTT TEST"))) {
+    if (m_pttTestTimer.isActive()) {
+        m_pttTestTimer.stop();
+        finishPttTest();
         return;
     }
 
     if (m_rxRunning) {
         const QString reason = uiText("ptt_test_rx_running", "PTT test is blocked while RX is running. Stop RX first, then try the PTT test again.");
-        appendLog("PTT test blocked: " + reason);
+        appendLog(QStringLiteral("PTT test blocked: ") + reason);
         showTxBlockedWarning(QStringLiteral("PTT TEST"),
                              reason,
                              AppSettingsDialog::InitialPage::AudioPtt,
@@ -18600,9 +19716,11 @@ void MainWindow::testPtt()
         return;
     }
 
-    if (m_txRunning) {
+    if (m_txRunning ||
+        m_ftTxWorkerRunning ||
+        (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
         const QString reason = uiText("ptt_test_tx_running", "PTT test is blocked because TX/PTT is already active.");
-        appendLog("PTT test blocked: " + reason);
+        appendLog(QStringLiteral("PTT test blocked: ") + reason);
         showTxBlockedWarning(QStringLiteral("PTT TEST"),
                              reason,
                              AppSettingsDialog::InitialPage::AudioPtt,
@@ -18610,102 +19728,17 @@ void MainWindow::testPtt()
         return;
     }
 
-    const QString pttMethod = m_settings.pttMethod.trimmed().toLower();
-    const QString pttPort = selectedPttPort().trimmed();
-    const bool pttUsesCatPort = pttPort.isEmpty() ||
-                                pttPort.compare(QStringLiteral("CAT"), Qt::CaseInsensitive) == 0 ||
-                                pttPort.compare(m_settings.hamlibSerialPath.trimmed(), Qt::CaseInsensitive) == 0;
-    const bool pttViaRigController = (pttMethod == QStringLiteral("cat_hamlib")) ||
-                                     ((pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr")) &&
-                                      m_settings.hamlibCatEnabled && pttUsesCatPort);
-    if (pttViaRigController) {
-        if (m_rigController == nullptr || !invokeRigPttBlocking(true)) {
-            const QString detail = (m_rigController != nullptr) ? m_rigController->lastStatus().trimmed() : QString();
-            const QString reason = detail.isEmpty()
-                ? uiText("ptt_test_hamlib_failed", "PTT test failed: CAT/Hamlib PTT could not be keyed. Check radio model, CAT serial/TCP endpoint, baud rate and PTT method.")
-                : uiText("ptt_test_hamlib_failed_detail", "PTT test failed: CAT/Hamlib PTT could not be keyed: %1").arg(detail);
-            appendLog(reason);
-            showTxBlockedWarning(QStringLiteral("PTT TEST"),
-                                 reason,
-                                 AppSettingsDialog::InitialPage::RadioCat,
-                                 uiText("open_audio_cat_settings", "Open Audio/PTT + CAT settings"));
-            return;
-        }
-        m_offlineAnalysisActive = false;
-        m_txRunning = true;
-        setReceiverRunning(false);
-        appendLog(QString("Hamlib CAT PTT ON for 1 second (%1).").arg(m_settings.hamlibTxAudioRoute.isEmpty() ? QStringLiteral("default") : m_settings.hamlibTxAudioRoute));
-        m_pttTestTimer.start(1000);
-        return;
-    }
-    if (pttMethod == QStringLiteral("none")) {
-        const QString reason = uiText("ptt_test_disabled", "PTT test skipped: PTT method is set to None/audio only. Select CAT/Hamlib, RTS or DTR if the radio must be keyed by MadModem.");
-        appendLog(reason);
-        showTxBlockedWarning(QStringLiteral("PTT TEST"),
-                             reason,
-                             AppSettingsDialog::InitialPage::AudioPtt,
-                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
-        return;
-    }
-    const bool useDtr = (pttMethod == QStringLiteral("serial_dtr"));
-
-    const QString portName = pttPort;
-
-    if (portName.isEmpty()) {
-        const QString reason = uiText("ptt_test_serial_port_missing", "PTT test failed: serial RTS/DTR PTT is selected, but no serial PTT port is configured.");
-        appendLog(reason);
-        showTxBlockedWarning(QStringLiteral("PTT TEST"),
-                             reason,
-                             AppSettingsDialog::InitialPage::AudioPtt,
-                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
-        return;
-    }
-
-    if (m_pttSerial.isOpen()) {
-        m_pttSerial.setRequestToSend(false);
-        m_pttSerial.setDataTerminalReady(false);
-        m_pttSerial.close();
-    }
-
-    m_pttSerial.setPortName(portName);
-    m_pttSerial.setBaudRate(QSerialPort::Baud9600);
-    m_pttSerial.setDataBits(QSerialPort::Data8);
-    m_pttSerial.setParity(QSerialPort::NoParity);
-    m_pttSerial.setStopBits(QSerialPort::OneStop);
-    m_pttSerial.setFlowControl(QSerialPort::NoFlowControl);
-
-    if (!m_pttSerial.open(QIODevice::ReadWrite)) {
-        const QString reason = uiText("ptt_test_serial_open_failed", "PTT test failed on %1: %2").arg(portName, m_pttSerial.errorString());
-        appendLog(reason);
-        showTxBlockedWarning(QStringLiteral("PTT TEST"),
-                             reason,
-                             AppSettingsDialog::InitialPage::AudioPtt,
-                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
-        return;
-    }
-
-    const bool ok = useDtr ? m_pttSerial.setDataTerminalReady(true)
-                           : m_pttSerial.setRequestToSend(true);
-    if (!ok) {
-        const QString reason = uiText("ptt_test_serial_line_failed", "PTT %1 ON failed on %2: %3")
-            .arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), portName, m_pttSerial.errorString());
-        appendLog(reason);
-        showTxBlockedWarning(QStringLiteral("PTT TEST"),
-                             reason,
-                             AppSettingsDialog::InitialPage::AudioPtt,
-                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
-        m_pttSerial.close();
+    if (!keyPttForTx()) {
         return;
     }
 
     m_offlineAnalysisActive = false;
     m_txRunning = true;
     setReceiverRunning(false);
-
-    appendLog(QString("PTT %1 ON on %2 for 1 second.").arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), portName));
-
+    appendLog(uiText("ptt_test_on_one_second", "PTT test ON for 1 second."));
     m_pttTestTimer.start(1000);
 }
+
 
 void MainWindow::finishPttTest()
 {

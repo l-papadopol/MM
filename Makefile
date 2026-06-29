@@ -24,7 +24,7 @@ all: linux
 
 hamlib-linux:
 	HAMLIB_PREFIX="$(HAMLIB_LINUX_ROOT)" HAMLIB_STATIC=on HAMLIB_SHARED=off JOBS=$(JOBS) \
-		"$(CURDIR)/third_party/hamlib_lgpl/build_hamlib.sh"
+		bash "$(CURDIR)/third_party/hamlib_lgpl/build_hamlib.sh"
 
 linux: hamlib-linux
 	cmake -S . -B build-linux -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
@@ -40,7 +40,7 @@ hamlib-windows:
 		exit 1; \
 	}
 	MXE_ROOT="$(MXE_ROOT)" MXE_TARGET="$(MXE_TARGET)" HAMLIB_PREFIX="$(HAMLIB_WIN_ROOT)" JOBS=$(JOBS) \
-		"$(CURDIR)/third_party/hamlib_lgpl/build_hamlib_mxe.sh"
+		bash "$(CURDIR)/third_party/hamlib_lgpl/build_hamlib_mxe.sh"
 
 win64-static: hamlib-windows
 	PATH="$(MXE_ROOT)/usr/bin:$$PATH" "$(MXE_CMAKE)" -S . -B build-win64-static \
@@ -73,5 +73,5 @@ help:
 	@echo "  make clean          Clean MadModem build trees"
 	@echo "  make distclean      Remove MadModem and Hamlib build/install trees"
 	@echo ""
-	@echo "Quick all-in-one Linux + Windows build: ./build_all.sh"
+	@echo "Quick all-in-one Linux + Windows build: ./build_all.sh (or: bash build_all.sh if your extractor stripped executable bits)"
 	@echo "Variables: BUILD_TYPE=$(BUILD_TYPE), JOBS=$(JOBS), MXE_ROOT=$(MXE_ROOT), MXE_TARGET=$(MXE_TARGET)"

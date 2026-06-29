@@ -12,6 +12,8 @@
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QHBoxLayout>
+#include <QInputDialog>
+#include <QMouseEvent>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -32,6 +34,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <utility>
 
 namespace {
@@ -748,8 +751,12 @@ private:
 class FlowEdgeItem final : public QGraphicsPathItem
 {
 public:
-    FlowEdgeItem(FlowNodeItem *from, FlowNodeItem *to, const QString &port, QGraphicsItem *parent = nullptr)
-        : QGraphicsPathItem(parent), m_from(from), m_to(to), m_port(port.trimmed())
+    FlowEdgeItem(FlowNodeItem *from,
+                 FlowNodeItem *to,
+                 const QString &port,
+                 const QVector<QPointF> &waypoints = {},
+                 QGraphicsItem *parent = nullptr)
+        : QGraphicsPathItem(parent), m_from(from), m_to(to), m_port(port.trimmed()), m_waypoints(waypoints)
     {
         setFlags(QGraphicsItem::ItemIsSelectable);
         setAcceptHoverEvents(true);
@@ -769,6 +776,19 @@ public:
     QString fromId() const { return m_from != nullptr ? m_from->id() : QString(); }
     QString toId() const { return m_to != nullptr ? m_to->id() : QString(); }
     QString port() const { return m_port; }
+    QVector<QPointF> waypoints() const { return m_waypoints; }
+
+    void setPort(const QString &port)
+    {
+        m_port = port.trimmed().toLower();
+        update();
+    }
+
+    void setWaypoints(const QVector<QPointF> &waypoints)
+    {
+        m_waypoints = waypoints;
+        updatePath();
+    }
 
     void detach()
     {
@@ -791,31 +811,53 @@ public:
         const QPointF b = m_to->inputAnchor();
 
         QPainterPath p(a);
-        const QString lp = m_port.trimmed().toLower();
-        const bool sideExit = (m_from->kind() == QLatin1String("condition") ||
-                               m_from->kind() == QLatin1String("compare") ||
-                               m_from->kind() == QLatin1String("loop")) &&
-                              (lp == QLatin1String("yes") || lp == QLatin1String("true") || lp == QLatin1String("ok") ||
-                               lp == QLatin1String("retry") || lp == QLatin1String("loop") || lp == QLatin1String("next") ||
-                               lp == QLatin1String("no") || lp == QLatin1String("false") || lp == QLatin1String("done") ||
-                               lp == QLatin1String("exit"));
+        if (!m_waypoints.isEmpty()) {
+            QPointF last = a;
+            for (const QPointF &wp : std::as_const(m_waypoints)) {
+                const QPointF corner1(wp.x(), last.y());
+                if (QLineF(last, corner1).length() > 1.0) {
+                    p.lineTo(corner1);
+                }
+                if (QLineF(corner1, wp).length() > 1.0) {
+                    p.lineTo(wp);
+                }
+                last = wp;
+            }
+            const QPointF corner2(b.x(), last.y());
+            if (QLineF(last, corner2).length() > 1.0) {
+                p.lineTo(corner2);
+            }
+            p.lineTo(b);
+            setPath(p);
+            return;
+        }
 
-        if (sideExit) {
-            const bool leftExit = (lp == QLatin1String("no") || lp == QLatin1String("false") ||
-                                   lp == QLatin1String("done") || lp == QLatin1String("exit"));
-            const qreal sideOffset = leftExit ? -38.0 : 38.0;
-            const QPointF p1(a.x() + sideOffset, a.y());
-            const qreal midY = (a.y() + b.y()) * 0.5;
-            const QPointF p2(p1.x(), midY);
-            const QPointF p3(b.x(), midY);
-            p.lineTo(p1);
-            p.lineTo(p2);
-            p.lineTo(p3);
+        const QString lp = m_port.trimmed().toLower();
+        const bool branch = (m_from->kind() == QLatin1String("condition") ||
+                             m_from->kind() == QLatin1String("compare") ||
+                             m_from->kind() == QLatin1String("loop"));
+        const bool leftExit = (lp == QLatin1String("no") || lp == QLatin1String("false") ||
+                               lp == QLatin1String("done") || lp == QLatin1String("exit"));
+        const bool rightExit = branch && !leftExit &&
+                               (lp == QLatin1String("yes") || lp == QLatin1String("true") ||
+                                lp == QLatin1String("ok") || lp == QLatin1String("retry") ||
+                                lp == QLatin1String("loop") || lp == QLatin1String("next"));
+
+        // Automatic orthogonal routing uses outside lanes instead of a single shared midpoint.
+        // This keeps the default graph readable and avoids the old criss-cross spaghetti.
+        if (branch && (leftExit || rightExit)) {
+            const qreal lanePad = 74.0;
+            const qreal laneX = leftExit ? qMin(a.x(), b.x()) - lanePad : qMax(a.x(), b.x()) + lanePad;
+            const qreal leaveY = a.y();
+            const qreal enterY = b.y() - 24.0;
+            p.lineTo(QPointF(laneX, leaveY));
+            p.lineTo(QPointF(laneX, enterY));
+            p.lineTo(QPointF(b.x(), enterY));
             p.lineTo(b);
         } else {
-            const qreal midY = (a.y() + b.y()) * 0.5;
-            p.lineTo(QPointF(a.x(), midY));
-            p.lineTo(QPointF(b.x(), midY));
+            const qreal leaveY = a.y() + qBound<qreal>(28.0, qAbs(b.y() - a.y()) * 0.25, 80.0);
+            p.lineTo(QPointF(a.x(), leaveY));
+            p.lineTo(QPointF(b.x(), leaveY));
             p.lineTo(b);
         }
         setPath(p);
@@ -829,13 +871,23 @@ public:
         if (!m_port.isEmpty()) {
             obj.insert(QStringLiteral("port"), m_port);
         }
+        if (!m_waypoints.isEmpty()) {
+            QJsonArray points;
+            for (const QPointF &pt : m_waypoints) {
+                QJsonObject p;
+                p.insert(QStringLiteral("x"), qRound(pt.x()));
+                p.insert(QStringLiteral("y"), qRound(pt.y()));
+                points.append(p);
+            }
+            obj.insert(QStringLiteral("points"), points);
+        }
         return obj;
     }
 
     QPainterPath shape() const override
     {
         QPainterPathStroker stroker;
-        stroker.setWidth(12.0);
+        stroker.setWidth(14.0);
         stroker.setCapStyle(Qt::RoundCap);
         stroker.setJoinStyle(Qt::RoundJoin);
         return stroker.createStroke(path());
@@ -846,7 +898,8 @@ public:
         Q_UNUSED(option)
         Q_UNUSED(widget)
         painter->setRenderHint(QPainter::Antialiasing, true);
-        painter->setPen(QPen(isSelected() ? QColor(25, 96, 180) : QColor(88, 95, 104),
+        const QColor edgeColor = isSelected() ? QColor(255, 176, 64) : QColor(82, 92, 104);
+        painter->setPen(QPen(edgeColor,
                              isSelected() ? 3.0 : 2.0,
                              Qt::SolidLine,
                              Qt::RoundCap,
@@ -858,7 +911,7 @@ public:
         }
 
         const QPointF b = m_to->inputAnchor();
-        const QPointF before = path().pointAtPercent(0.97);
+        const QPointF before = path().pointAtPercent(0.96);
         QLineF line(before, b);
         if (line.length() > 0.1) {
             const double angle = std::atan2(-line.dy(), line.dx());
@@ -869,18 +922,18 @@ public:
             QPolygonF arrow;
             arrow << b << p1 << p2;
             painter->setPen(Qt::NoPen);
-            painter->setBrush(isSelected() ? QColor(25, 96, 180) : QColor(88, 95, 104));
+            painter->setBrush(edgeColor);
             painter->drawPolygon(arrow);
         }
 
         if (!m_port.isEmpty()) {
             const QPointF mid = path().pointAtPercent(0.5);
             const QString label = normalizedPortLabel(m_port);
-            QRectF labelRect(mid.x() - 26.0, mid.y() - 11.0, 52.0, 22.0);
-            painter->setBrush(Qt::white);
-            painter->setPen(QPen(QColor(154, 158, 164), 1.0));
-            painter->drawRoundedRect(labelRect, 8.0, 8.0);
-            painter->setPen(QColor(45, 45, 45));
+            QRectF labelRect(mid.x() - 31.0, mid.y() - 11.0, 62.0, 22.0);
+            painter->setBrush(QColor(20, 20, 20));
+            painter->setPen(QPen(QColor(255, 176, 64), 1.0));
+            painter->drawRoundedRect(labelRect, 7.0, 7.0);
+            painter->setPen(QColor(255, 190, 96));
             painter->drawText(labelRect, Qt::AlignCenter, label);
         }
     }
@@ -889,6 +942,7 @@ private:
     FlowNodeItem *m_from = nullptr;
     FlowNodeItem *m_to = nullptr;
     QString m_port;
+    QVector<QPointF> m_waypoints;
 };
 
 void FlowNodeItem::updateEdges()
@@ -918,9 +972,35 @@ public:
         setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
         setResizeAnchor(QGraphicsView::AnchorViewCenter);
         setViewportUpdateMode(QGraphicsView::BoundingRectViewportUpdate);
-        setBackgroundBrush(QColor(248, 249, 251));
-        setFrameShape(QFrame::StyledPanel);
+        setBackgroundBrush(QColor(10, 10, 10));
+        setFrameShape(QFrame::NoFrame);
     }
+
+    void beginInteractiveConnection()
+    {
+        cancelInteractiveConnection();
+        m_connectMode = true;
+        setDragMode(QGraphicsView::NoDrag);
+        viewport()->setCursor(Qt::CrossCursor);
+    }
+
+    void cancelInteractiveConnection()
+    {
+        if (scene() != nullptr && m_preview != nullptr) {
+            scene()->removeItem(m_preview);
+            delete m_preview;
+        }
+        m_preview = nullptr;
+        m_from = nullptr;
+        m_points.clear();
+        m_connectMode = false;
+        setDragMode(QGraphicsView::RubberBandDrag);
+        viewport()->unsetCursor();
+    }
+
+    std::function<void(FlowNodeItem *, FlowNodeItem *, const QVector<QPointF> &)> finishConnection;
+    std::function<void(const QString &, bool)> statusMessage;
+    std::function<void(FlowEdgeItem *)> edgeEdited;
 
 protected:
     void wheelEvent(QWheelEvent *event) override
@@ -935,12 +1015,117 @@ protected:
         event->accept();
     }
 
+    void mousePressEvent(QMouseEvent *event) override
+    {
+        if (!m_connectMode) {
+            QGraphicsView::mousePressEvent(event);
+            return;
+        }
+
+        if (event->button() == Qt::RightButton || event->button() == Qt::MiddleButton) {
+            cancelInteractiveConnection();
+            if (statusMessage) {
+                statusMessage(MadModemI18n::text(QStringLiteral("Connection drawing cancelled.")), false);
+            }
+            event->accept();
+            return;
+        }
+        if (event->button() != Qt::LeftButton) {
+            event->ignore();
+            return;
+        }
+
+        const QPointF scenePos = mapToScene(event->pos());
+        FlowNodeItem *node = nullptr;
+        if (QGraphicsItem *hit = itemAt(event->pos())) {
+            node = dynamic_cast<FlowNodeItem *>(hit);
+            if (node == nullptr && hit->parentItem() != nullptr) {
+                node = dynamic_cast<FlowNodeItem *>(hit->parentItem());
+            }
+        }
+
+        if (m_from == nullptr) {
+            if (node == nullptr) {
+                if (statusMessage) {
+                    statusMessage(MadModemI18n::text(QStringLiteral("Click a source block to start the arrow.")), true);
+                }
+                event->accept();
+                return;
+            }
+            m_from = node;
+            m_points.clear();
+            ensurePreview();
+            updatePreview(scenePos);
+            if (statusMessage) {
+                statusMessage(MadModemI18n::text(QStringLiteral("Arrow started. Click empty space for bend points, then click the destination block.")), false);
+            }
+            event->accept();
+            return;
+        }
+
+        if (node != nullptr && node != m_from) {
+            FlowNodeItem *from = m_from;
+            QVector<QPointF> points = m_points;
+            cancelInteractiveConnection();
+            if (finishConnection) {
+                finishConnection(from, node, points);
+            }
+            event->accept();
+            return;
+        }
+
+        m_points.append(scenePos);
+        updatePreview(scenePos);
+        if (statusMessage) {
+            statusMessage(MadModemI18n::text(QStringLiteral("Bend point added. Click another bend point or click the destination block.")), false);
+        }
+        event->accept();
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override
+    {
+        if (m_connectMode && m_from != nullptr) {
+            updatePreview(mapToScene(event->pos()));
+            event->accept();
+            return;
+        }
+        QGraphicsView::mouseMoveEvent(event);
+    }
+
+    void mouseDoubleClickEvent(QMouseEvent *event) override
+    {
+        if (!m_connectMode && event->button() == Qt::LeftButton) {
+            FlowEdgeItem *edge = nullptr;
+            if (QGraphicsItem *hit = itemAt(event->pos())) {
+                edge = dynamic_cast<FlowEdgeItem *>(hit);
+            }
+            if (edge != nullptr) {
+                bool ok = false;
+                const QString label = QInputDialog::getText(this,
+                                                            MadModemI18n::text(QStringLiteral("Arrow label")),
+                                                            MadModemI18n::text(QStringLiteral("Label")),
+                                                            QLineEdit::Normal,
+                                                            edge->port(),
+                                                            &ok);
+                if (ok) {
+                    edge->setPort(label);
+                    if (edgeEdited) {
+                        edgeEdited(edge);
+                    }
+                }
+                event->accept();
+                return;
+            }
+        }
+        QGraphicsView::mouseDoubleClickEvent(event);
+    }
+
     void drawBackground(QPainter *painter, const QRectF &rect) override
     {
-        painter->fillRect(rect, QColor(248, 249, 251));
+        painter->fillRect(rect, QColor(10, 10, 10));
         const qreal grid = 24.0;
-        QPen majorPen(QColor(220, 223, 228), 1.0);
-        QPen minorPen(QColor(236, 238, 241), 1.0);
+        QPen majorPen(QColor(48, 53, 57), 1.0);
+        QPen minorPen(QColor(26, 29, 31), 1.0);
         const qreal left = std::floor(rect.left() / grid) * grid;
         const qreal top = std::floor(rect.top() / grid) * grid;
         for (qreal x = left; x < rect.right(); x += grid) {
@@ -952,6 +1137,44 @@ protected:
             painter->drawLine(QLineF(rect.left(), y, rect.right(), y));
         }
     }
+
+private:
+    void ensurePreview()
+    {
+        if (scene() == nullptr || m_preview != nullptr) {
+            return;
+        }
+        m_preview = new QGraphicsPathItem();
+        m_preview->setZValue(0.5);
+        QPen pen(QColor(255, 176, 64), 2.0, Qt::DashLine, Qt::RoundCap, Qt::RoundJoin);
+        m_preview->setPen(pen);
+        scene()->addItem(m_preview);
+    }
+
+    void updatePreview(const QPointF &cursor)
+    {
+        if (m_from == nullptr || m_preview == nullptr) {
+            return;
+        }
+        QPointF start = m_from->outputAnchor(QString());
+        QPainterPath p(start);
+        QPointF last = start;
+        for (const QPointF &wp : std::as_const(m_points)) {
+            const QPointF corner(wp.x(), last.y());
+            p.lineTo(corner);
+            p.lineTo(wp);
+            last = wp;
+        }
+        const QPointF corner(cursor.x(), last.y());
+        p.lineTo(corner);
+        p.lineTo(cursor);
+        m_preview->setPath(p);
+    }
+
+    bool m_connectMode = false;
+    FlowNodeItem *m_from = nullptr;
+    QVector<QPointF> m_points;
+    QGraphicsPathItem *m_preview = nullptr;
 };
 
 class NodeEditorDialog final : public QDialog
@@ -1173,6 +1396,18 @@ QString uniqueIdForScene(QGraphicsScene *scene, const QString &base)
     return QStringLiteral("%1_%2").arg(candidate).arg(n);
 }
 
+QVector<QPointF> edgeWaypointsFromJson(const QJsonObject &obj)
+{
+    QVector<QPointF> points;
+    const QJsonArray arr = obj.value(QStringLiteral("points")).toArray();
+    for (const QJsonValue &value : arr) {
+        const QJsonObject p = value.toObject();
+        points.append(QPointF(p.value(QStringLiteral("x")).toDouble(),
+                              p.value(QStringLiteral("y")).toDouble()));
+    }
+    return points;
+}
+
 bool edgeAlreadyExists(QGraphicsScene *scene, const QString &fromId, const QString &toId, const QString &port)
 {
     for (FlowEdgeItem *edge : sceneEdges(scene)) {
@@ -1278,6 +1513,29 @@ AutoQsoFlowEditorWidget::AutoQsoFlowEditorWidget(QWidget *parent)
     m_scene->setSceneRect(0, 0, 1180, 1400);
     m_view = new FlowGraphicsView(this);
     m_view->setScene(m_scene);
+    FlowGraphicsView *flowView = static_cast<FlowGraphicsView *>(m_view);
+    flowView->statusMessage = [this](const QString &message, bool warning) { setStatus(message, warning); };
+    flowView->finishConnection = [this](FlowNodeItem *from, FlowNodeItem *to, const QVector<QPointF> &points) {
+        if (from == nullptr || to == nullptr || from == to) {
+            setStatus(MadModemI18n::text(QStringLiteral("Invalid connection.")), true);
+            return;
+        }
+        if (edgeAlreadyExists(m_scene, from->id(), to->id(), QString())) {
+            setStatus(MadModemI18n::text(QStringLiteral("Connection already exists.")), true);
+            return;
+        }
+        FlowEdgeItem *edge = new FlowEdgeItem(from, to, QString(), points);
+        m_scene->addItem(edge);
+        m_scene->clearSelection();
+        edge->setSelected(true);
+        refreshSceneBounds();
+        emit flowChanged();
+        setStatus(MadModemI18n::text(QStringLiteral("Connection added. Double-click the arrow to set its label.")));
+    };
+    flowView->edgeEdited = [this](FlowEdgeItem *) {
+        emit flowChanged();
+        setStatus(MadModemI18n::text(QStringLiteral("Arrow label updated. Press OK in Settings to save the flow.")));
+    };
     m_view->setMinimumHeight(420);
     workspace->addLayout(toolbar);
     workspace->addWidget(m_view, 1);
@@ -1455,7 +1713,7 @@ void AutoQsoFlowEditorWidget::rebuildSceneFromJson(const QString &json)
         if (from == nullptr || to == nullptr) {
             continue;
         }
-        m_scene->addItem(new FlowEdgeItem(from, to, obj.value(QStringLiteral("port")).toString()));
+        m_scene->addItem(new FlowEdgeItem(from, to, obj.value(QStringLiteral("port")).toString(), edgeWaypointsFromJson(obj)));
     }
 
     refreshSceneBounds();
@@ -1688,63 +1946,17 @@ void AutoQsoFlowEditorWidget::editSelectedNode()
 
 void AutoQsoFlowEditorWidget::connectNodes()
 {
-    if (m_scene == nullptr) {
+    if (m_scene == nullptr || m_view == nullptr) {
         return;
     }
-    QList<FlowNodeItem *> nodes = sceneNodes(m_scene);
-    if (nodes.size() < 2) {
+    if (sceneNodes(m_scene).size() < 2) {
         setStatus(MadModemI18n::text(QStringLiteral("At least two blocks are required to create a connection.")), true);
         return;
     }
-
-    QList<FlowNodeItem *> selected;
-    for (QGraphicsItem *item : m_scene->selectedItems()) {
-        if (FlowNodeItem *node = dynamic_cast<FlowNodeItem *>(item)) {
-            selected.append(node);
-        }
+    if (FlowGraphicsView *flowView = dynamic_cast<FlowGraphicsView *>(m_view)) {
+        flowView->beginInteractiveConnection();
+        setStatus(MadModemI18n::text(QStringLiteral("Connection mode: click source block, click empty space for optional bends, then click destination block. Right-click cancels; double-click an arrow to label it.")));
     }
-    std::sort(selected.begin(), selected.end(), [](const FlowNodeItem *a, const FlowNodeItem *b) {
-        if (qFuzzyCompare(a->pos().y(), b->pos().y())) {
-            return a->pos().x() < b->pos().x();
-        }
-        return a->pos().y() < b->pos().y();
-    });
-
-    ConnectionEditorDialog dlg(nodes, this);
-    if (selected.size() >= 2) {
-        dlg.preselect(selected.at(0)->id(), selected.at(1)->id());
-    } else if (selected.size() == 1) {
-        dlg.preselect(selected.first()->id(), QString());
-    }
-    if (dlg.exec() != QDialog::Accepted) {
-        return;
-    }
-
-    const QString fromId = dlg.fromId();
-    const QString toId = dlg.toId();
-    const QString port = dlg.port();
-    if (fromId.isEmpty() || toId.isEmpty() || fromId == toId) {
-        setStatus(MadModemI18n::text(QStringLiteral("Invalid connection: choose two different blocks.")), true);
-        return;
-    }
-    if (edgeAlreadyExists(m_scene, fromId, toId, port)) {
-        setStatus(MadModemI18n::text(QStringLiteral("Connection already exists.")), true);
-        return;
-    }
-    FlowNodeItem *from = findNodeById(m_scene, fromId);
-    FlowNodeItem *to = findNodeById(m_scene, toId);
-    if (from == nullptr || to == nullptr) {
-        setStatus(MadModemI18n::text(QStringLiteral("Cannot create connection: missing block.")), true);
-        return;
-    }
-
-    FlowEdgeItem *edge = new FlowEdgeItem(from, to, port);
-    m_scene->addItem(edge);
-    m_scene->clearSelection();
-    edge->setSelected(true);
-    refreshSceneBounds();
-    emit flowChanged();
-    setStatus(MadModemI18n::text(QStringLiteral("Connection added. Press OK in Settings to save the flow.")));
 }
 
 void AutoQsoFlowEditorWidget::deleteSelectedArrows()

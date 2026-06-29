@@ -412,8 +412,8 @@ void RigControlSettingsDialog::buildUi()
     m_lblCompiled = new QLabel(this);
     m_lblCompiled->setWordWrap(true);
     m_lblCompiled->setStyleSheet(HamlibController::isCompiledWithHamlib()
-                                     ? QStringLiteral("color: #118a2a; font-weight: bold;")
-                                     : QStringLiteral("color: #b00020; font-weight: bold;"));
+                                     ? QStringLiteral("color: #118a2a; font-weight: 500;")
+                                     : QStringLiteral("color: #b00020; font-weight: 500;"));
     outer->addWidget(m_lblCompiled);
 
     QGroupBox *catGroup = new QGroupBox;
@@ -1355,8 +1355,8 @@ void RigControlSettingsDialog::setTestStatus(const QString &message, bool ok)
     if (m_lblTestStatus != nullptr) {
         m_lblTestStatus->setText(message);
         m_lblTestStatus->setStyleSheet(ok
-            ? QStringLiteral("color: #118a2a; font-weight: bold;")
-            : QStringLiteral("color: #b00020; font-weight: bold;"));
+            ? QStringLiteral("color: #118a2a; font-weight: 500;")
+            : QStringLiteral("color: #b00020; font-weight: 500;"));
     }
 
     if (m_lblCatLed != nullptr) {

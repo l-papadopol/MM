@@ -1,358 +1,295 @@
-## 0.5.42
+## 0.5.76d — MSK144 async RX and mode panel cleanup
 
-- Removed the fake rotator LED/status lamp from the Rotator tab.
-- Kept scheduler controls limited to WEFAX/MeteoFax and RTTY.
-- No decoder, CAT/PTT, CW, Feld Hell, RTTY, FT8/FT4, MFSK, logbook, map, or rotator-control logic changes.
+- Moved MSK144 period decode to a worker thread so period-end decode no longer freezes the UI.
+- Removed transient MSK dB text labels from the waterfall; ping activity is reported only in status/log.
+- Removed duplicate per-mode RX/TX/STOP/Clear/Generate buttons from MSK144/Q65 Mode panels; top RX/TX controls remain authoritative.
+- Renamed MSK144/Q65 sequence status boxes so they no longer show FT8 wording.
 
-## 0.5.39
+## 0.5.76b — Q65 DecoderQ65 math/FFTW compile hotfix
 
-- Fixed RTTY Auto polarity link error by adding the missing `RttyDecoder::setAutoReverseEnabled(bool)` and `autoReverseEnabled()` definitions.
-- No functional changes outside the RTTY auto-polarity compile/link fix.
+- Fixed Q65 full MSHV RX bridge compile errors caused by C99/GNU complex constructs when compiling the MSHV-translated decoder as C++.
+- Added `third_party/mshv_gpl/port/HvDecoderMs/mshv_complex_compat.h`.
+- Cast MSHV `double complex*` buffers to FFTW `fftw_complex*` at FFTW plan creation points.
+- No UI/feature changes versus 0.5.76.
 
-## 0.5.37
+## 0.5.76 — MSHV MSK144/Q65 RX completion pass
 
-- Feld Hell: paper zoom now preserves glyph aspect ratio by scaling both X and Y.
-- Feld Hell: existing paper pixels are preserved during zoom changes.
+- Promoted Q65 RX from shell/buffer to the FFTW-backed MSHV `DecoderQ65` bridge when FFTW3 or bundled MSHV FFTW is available.
+- Wired Q65 decode output into MadModem `Q65Decode` events and AVG counters.
+- Added MSK144 coherent multi-frame averaging attempts following MSHV/WSJT-X depth semantics: Fast=single-frame path, Normal adds 4-frame average, Deep adds 4/5/7-frame averages.
+- Kept MIND as MSK144 candidate ranker only; validation remains classical sync/demod/LDPC/unpack.
 
+## 0.5.75b — full static audit hotfix
 
-## 0.5.36
+- Fixed MIND Assist domain gate in `setAssistMode()`: MSK144 no longer uses FT8/FT4 readiness when Assist is requested.
+- Fixed MainWindow integration so MSK144 candidate reordering is enabled only when Assist is actually active, not merely queued.
+- Fixed MIND profile view so manual FT8/FT4/MSK144 views do not reuse the active profile statistics incorrectly.
+- Fixed Q65 QSO UTC updater to include the Q65 form.
+- Removed developer-facing Q65/MSK144 status chatter from runtime UI.
+- Added static audit report.
 
-- Feld Hell paper height is now a pure display zoom: changing it preserves already received/transmitted paper pixels instead of clearing the paper.
-- Feld Hell local TX is appended in red to the same paper tape instead of replacing the paper with a separate TX preview.
-- Renamed the Hell column-rate control to Paper speed, keeping 17.5 col/s as the standard default for Feld Hell/FSK-105.
-- Preserved the stable 0.5.33/0.5.35 RX vertical orientation.
+## 0.5.75a — MSK144 MIND domain gate
 
-## 0.5.25 - fldigi-aligned text modem core pass
+- Fix MIND MSK144 cold-start UI: FT8/FT4 ranker accuracy is no longer displayed as MSK144 readiness when MSK144 samples are zero.
+- Add MSK144-specific Assist gate; Assist cannot promote MSK144 candidates until real MSK144 samples and validation exist.
+- Keep Training mode available for collecting MSK144 ping/chunk examples.
 
-MadModem 0.5.25 applies a single consolidated text-mode DSP pass using fldigi as the GPL reference. PSK31/63 no longer averages a whole symbol across phase reversals and now samples at the recovered symbol eye centre with a stronger envelope-dip clock resync and corrected Varicode quality/inversion feedback. MFSK16 soft decisions now follow fldigi's softdecode more closely: full-scale soft bits, hard-symbol vote weighting and persistent single-tone CWI avoidance feed the existing R=1/2 K=7 FEC/Varicode path. Feld Hell keeps the corrected bottom-to-top visual raster orientation and compact paper scaling. CW keeps the heavy MIND human-fist path while preserving the fldigi/ggmorse-style timing, adaptive WPM, gap tracking and native event decoder.
+## 0.5.75 — MIND ranker for MSK144
 
-## 0.5.24 - CW heavy MIND human-fist recovery
+- Extended MIND from FT4/FT8-only visibility to FT4/FT8 + MSK144 candidate ranking.
+- Added MSK144 ping/chunk feature extraction using the same 58×8 ranker input geometry.
+- MSK144 MIND Training mode now exports positive/negative candidate examples from real period decode attempts.
+- MSK144 MIND Assist mode reorders candidate time/DF chunks before the classical decoder attempts them.
+- Final MSK144 validation remains fully classical: sync, demodulation, LDPC/CRC/unpack/parser. MIND never validates or fabricates messages.
+- MIND side panel now shows MSK144 profile, samples and data split alongside FT8/FT4.
 
-MadModem 0.5.24 makes CW MIND Active materially affect CW copy. In Active mode ggmorse remains available for speed/cost estimation, but its text stream is suppressed and the MIND-biased native Morse event decoder becomes the output path. MIND can now steer dit/dah, intra-letter, letter-gap and word-gap decisions with lower confidence thresholds designed for human straight-key timing, while Training remains non-invasive and Off remains hard-bypass. CW profile training is allowed to run in very small low-priority slices during live CW so the event profile becomes usable while the user is actually copying.
+## 0.5.74d — Mode panel cleanup and waterfall scale fix
 
-## 0.5.23 - Hell orientation and visible CW/RTTY MIND assist
+- Removed visible explanatory/help paragraphs from CW/MSK144/Q65 Mode panels.
+- Repacked Q65 controls into a compact two-column layout to avoid overlapping/truncated fields.
+- Kept QSO Info and standard messages in the right Mode panel, but without bottom filler text.
+- Raised/reserved the waterfall frequency-scale band so Hz labels are not clipped in fullscreen.
 
-MadModem 0.5.23 keeps the 0.5.22 standard MFSK16 work and fixes the Feld Hell visual paper orientation: received Hell glyphs are no longer drawn upside-down. It also makes CW/RTTY MIND behaviour explicit and useful: CW/RTTY profile training now catches up during safe idle gaps instead of waiting only for heavy settings/logbook idle, Active shows ready/training state, and low-level CW/RTTY assist becomes available once the small profile validation gate is reached. Training mode remains non-invasive and Off remains a hard bypass.
+## 0.5.74d — CW warning cleanup and Q65 finalization guardrails
 
-## 0.5.22 - Standard MFSK16 Varicode/FEC
+- Fixed the remaining compile-blocking MSHV relative include-path regressions inherited from the original source tree layout.
+- Cleaned the visible CW skimmer `-Wall -Wextra` warnings from the latest build log: signed/unsigned comparisons, empty debug macro bodies, unused debug-only parameters, and the deprecated Eigen init call.
+- Kept Q65 TX on the assimilated MSHV GenQ65 path and kept Q65 RX in a safe buffered bridge until the FFTW3-backed DecoderQ65 worker is explicitly enabled.
+- Added CMake guardrails for the optional full MSHV Q65 RX bridge: it requires FFTW3 and no longer risks breaking ordinary Linux/MXE builds when FFTW is absent.
 
-MadModem 0.5.22 keeps the validated 0.5.19/0.5.21 baseline and replaces the old internal/framed MFSK16 receiver with a standard MFSK16 text pipeline: 16 tones at 15.625 baud, Gray tone weighting, IZ8BLY/gMFSK-style Varicode, R=1/2 K=7 convolutional FEC and the 10-stage 4x4 diagonal deinterleaver. MFSK16 TX now uses the same standard chain. MFSK32 remains marked legacy/experimental until a matching standard path is added.
+## 0.5.74a — Q65/MSK144 MSHV include-path hotfix
 
-## 0.5.21 - Text-mode RX cleanup
-
-MadModem 0.5.21 returns to the validated 0.5.19 baseline and focuses on text-mode receive cleanup. BPSK31/BPSK63 RX adds conservative symbol-clock reacquisition from PSK envelope dips and early auto-polarity recovery for inverted Varicode streams. Feld Hell now uses the standard 14-row raster timing with a half-height paper view and a more compact waterfall layout. RTTY remains unchanged because the supplied 170 Hz / 45.45 baud test is already decoding. The MFSK16 receiver is still marked experimental: it is a framed internal receiver, not yet a fldigi-compatible MFSK16 Varicode/FEC decoder.
-
-## 0.5.19 - CW dual RX usability / filter markers
-
-- Colour/tag CW terminal output with A>/B> prefixes for green and blue RX markers.
-- Add a Mode-panel button to disable RX B and remove the secondary blue marker.
-- Show CW passband cutoff lines as yellow dashed markers around selected tones.
-- Report A/B tone and tracked WPM in the CW Mode panel; RX B keeps independent AFC/Auto-WPM tracking while sharing bandwidth/WPM settings.
-
-
-## MadModem 0.5.18
-
-- Fix PSK/BPSK31 receive lock acquisition: the decoder no longer learns a clean PSK carrier as noise before opening squelch.
-- Varicode validity is now used as an additional PSK lock validator before text is emitted, reducing blank RX terminals on valid BPSK31 signals.
-- Keep Windows dual CPU builds from 0.5.11 and all 0.5.17 Settings/User-QTH fixes.
-
-## 0.5.17 - User/QTH settings page rebuild hotfix
-
-- Rebuilt the User / QTH / Macros Settings tab as a native QWidget page instead of embedding the old TextMacroSettingsDialog.
-- Fixes the blank User / QTH / Macros tab regression seen after 0.5.11 on some Qt platforms.
-- Preserves synchronization of User/QTH fields with FT callsign/grid settings and keeps macro editing in the unified Settings dialog.
-
-## MadModem 0.5.14 - CW dual RX and clearer MIND panel
-
-## 0.5.16 - Settings embedded pages hotfix
-
-- Fixed the unified Settings dialog embedding path: child QDialog pages are now re-parented and explicitly shown after changing them to Qt::Widget. This prevents the User / QTH / Macros page from opening as a blank tab on Windows/Linux builds.
-- Keeps the 0.5.15 fix that ignores stale serial PTT COM-port values when PTT is set to CAT/Hamlib, so rotator endpoint conflict detection only reserves the PTT port for Serial RTS/DTR.
+- Added Q65A/Q65B/Q65C/Q65D mode entries.
+- Added Q65 activity page, QSO form and Tx1..Tx7 message table.
+- Added Q65 settings panel: period, decode depth, RX/TX frequency, DF tolerance, averaging, AP decode, max drift and EME delay.
+- Integrated active MSHV Q65 TX generation (`GenQ65`) with no non-standard fallback waveform.
+- Staged full MSHV `DecoderQ65`/`decoderpom` RX source as GPL reference for the next bridge step; default RX buffers periods and does not emit fake decodes.
+- Updated version to 0.5.74.
 
 
-- Fixed a false rotator endpoint conflict when the old serial PTT combo still contained a COM port but the active PTT method was CAT/Hamlib.
-- Rotator endpoints are now compared with the PTT serial port only when PTT is actually Serial RTS or Serial DTR.
-- The live rotator warning now uses the current Settings dialog state, so switching PTT mode inside the dialog clears stale warnings immediately.
+## 0.5.73b - MSK144 MSHV include path build hotfix
+
+- Fixed the ported MSHV `pack_unpack_msg.h` include path after moving `HvPackUnpackMsg` under `third_party/mshv_gpl/port/`.
+- The original upstream relative include `../../../HvTxW/hvqthloc.h` was correct in the MSHV tree, but wrong in the MadModem port layout; it is now `../../HvTxW/hvqthloc.h`.
+- No functional MSK144 DSP/UI changes in this hotfix.
 
 
-- Added real CW dual-RX operation: left-click waterfall sets green RX A, right-click sets/enables blue RX B.
-- RX A and RX B run separate CW decoders on the same conditioned audio with shared WPM/bandwidth/AFC settings.
-- RX B output is tagged as `B>` in the CW terminal; markers are shown separately on the waterfall.
-- Simplified the MIND panel wording: Off/Training/Active are explained in user language and profile-specific text explains FT, CW and RTTY roles.
-- Kept MIND Off hard-bypass semantics and the dual Windows CPU build outputs from 0.5.11.
 
-## MadModem 0.5.12 - Logbook statistics PDF and display settings
+## MadModem 0.5.73a — MSK144 decode-depth UI correction
 
-- Removed the "strike through worked calls" checkbox from the Logbook toolbar. The option now lives in Settings -> Logbook / FT colours -> Logbook display.
-- Added a Logbook action to generate a printable statistics PDF from selected QSOs, the current search result, or the full ADIF logbook.
-- Fixed FT decode row highlighting so the heavy red dashed outline is no longer applied to every valid not-yet-worked callsign; it is reserved for high-priority new-DXCC style highlights.
-- The statistics PDF includes QSO totals, unique calls, unique DXCC/countries, unique grids, first/last QSO, distribution by mode, distribution by band, top countries, top grids, and time summaries.
-- Kept the dual Windows CPU build workflow from 0.5.11: MadModem.exe for AVX2/FMA CPUs and MadModem-Legacy.exe for older systems such as Xeon X5680.
+- Moved MSK144 decode depth out of the crowded mode panel and into a global `Decode -> MSK144 decode depth` menu, matching the MSHV-style placement.
+- Kept the real MSHV mapping: `Fast = 1`, `Normal = 2`, `Deep = 3`; default remains `Normal`.
+- Saved the selection as `MSK144/decodeDepth` and made the MSK144 status/log report the active depth.
 
-## MadModem 0.5.11 - Dual Windows CPU builds
+## MadModem 0.5.73 — MSK144 one-shot experimental integration
 
-- Updates `build_all.sh` so Windows/MXE builds produce two executables by default.
-- `MadModem.exe` is now the AVX2/FMA optimized Windows executable for modern CPUs.
-- `MadModem-Legacy.exe` is the portable Windows executable for older CPUs without AVX/AVX2, including Xeon X5680-era systems.
-- Updates `tools/package_mm_zip.sh` so the final `mm.zip` can include both Windows executables.
-- Keeps Linux build behavior unchanged and preserves the 0.5.10 CPU portability fix for the legacy executable.
-
-## MadModem 0.5.10 - Windows portable CPU hotfix
-
-- Fixes a Windows 10 startup crash traced from a ProcDump minidump to exception `0xC000001D` (illegal instruction) inside `MadModem.exe`.
-- Disables global AVX2/FMA/SSE4.2 compiler flags by default; generic Windows builds now keep a portable x86-64 baseline.
-- Keeps runtime AVX2/FMA FT kernels guarded by CPU feature detection, instead of making the whole executable AVX2-only.
-- Leaves the 0.5.9 CW Active Event Assist and MIND Training/Active behavior unchanged.
-- Developer-only AVX2 builds remain possible with `-DMADMODEM_AVX2_BUILD=ON`, but must not be used for general Windows packages.
+- Added experimental MSK144 mode with 15 s / 30 s period control.
+- Added MSK144 RX table, QSO form, waterfall RX marker and standard-message table.
+- Added GPL MSHV-derived MSK144 TX generator and conservative LDPC-validated RX frame search.
+- TX center is fixed at the protocol-standard 1500 Hz; non-standard diagnostic fallback waveform is removed.
+- Added documentation in `docs/msk144/IMPLEMENTATION_0_5_73.md`.
 
 
-## MadModem 0.5.9 - CW Active Event Assist
+## 0.5.73
+- Removed the visible Clear terminal / Load text / Clear input utility row from generic text terminal pages to recover vertical RX/TX workspace.
+- Added MSK144 assimilation survey documentation under docs/msk144; no half-implemented MSK144 mode is exposed yet.
 
-- Integrates CW Human Fist Recovery with MIND Training/Active through real event samples.
-- The classical CW detector remains the authoritative text decoder; MIND learns key-down timing events, not final text.
-- Emits live CW event samples for dit, dah, intra-character gap, letter gap and word gap using a 256-point robust normalized tone-envelope feature.
-- Adds DeepDspController::submitCwEventSample() and routes CwDecoder event samples into the separated CW profile queue.
-- MIND Off remains hard-bypassed: no CW event feature queueing or training is performed when Off is selected.
+## 0.5.73
 
-## 0.5.9 — CW Active Event Assist
+- Fixed the cockpit fullscreen title-bar controls: minimize, maximize/restore and close now use real Qt standard title-bar icons instead of text placeholders that could be elided as `...` on some desktop themes.
+- The maximize button now switches automatically to the restore icon when the main window is fullscreen/maximized.
+- Enlarged the custom title-bar buttons slightly to avoid glyph/icon clipping on high-DPI themes.
 
-- Improves CW copy for human straight-key/keyer timing by adding robust moving-window dot tracking.
-- Adds adaptive character/word gap thresholds to reduce both split callsigns and glued radio tokens.
-- Enables ggmorse internal high/low-pass filtering around the selected CW note.
-- Uses asymmetric envelope attack/release for sharper dits with smoother QSB resilience.
-- Adds conservative CW text normalization for common glued/split radio tokens such as `DEIW6DRH`, `CQIZ6NNH`, and `IZ6NN H`.
-
-## 0.5.6 — MIND UI terminology and layout cleanup
-
-- Renamed visible MIND modes from `Shadow` to `Training` and from `Assisted` to `Active`; internal persisted values remain backward-compatible.
-- Reorganized the MIND side-panel status block into wrapped single-column rows to avoid clipped labels in narrow layouts.
-- Localized the new MIND strings and the compact status labels for English, Italian, French, German, Norwegian and Czech.
-- AutoTest reports now display `training`/`active` terminology while keeping the same Off hard-bypass and Active ultra-deep behavior.
-
-## 0.5.6 — MIND Multi-Mode Assist Foundation
-
-- Keeps the structural MIND Off hard bypass from 0.5.2: Off touches no FT candidate feature extraction, callback, queue, lock or training path.
-- Removes the AutoTest-specific MIND freeze: benchmarks now use the same native candidate-driven deferral used during live FT operation.
-- Every FT training sample/candidate burst resets a short neural-work cooldown, so heavy background training starts only after the decoder has stopped pushing candidates.
-- AutoTest reports explicitly show the native deferral policy.
-
-- Added a hard bypass for MIND Assist Off: the FT decoder no longer builds ranker feature vectors, emits native MIND training samples, invokes callbacks or touches MIND locks when MIND is Off.
-- Decoder integration now distinguishes sample export from scoring: model-missing Training/Active can collect data, but cannot score/prune; Active scores only when the model is loaded and ready.
-- MIND training remains suspended during FT AutoTest/decode-critical windows and now uses a short cooldown before resuming.
-- AutoTest report adds explicit MIND status such as `bypassed` or `model missing (data collection)`.
-- The target is to restore pure native 0.5.0/0.5.x FT timing whenever MIND Assist is Off.
-
-## 0.5.1-mind-autonomous-trainer
-
-## 0.5.1 — MIND Ranker v1
-
-- Version bump from 0.5.0 to 0.5.1 for the MIND candidate-ranker development line.
-- 0.5.0 remains the pre-ranker FT decoder baseline; 0.5.1 adds the new probabilistic FT candidate ranker/pruner architecture.
+## 0.5.73c
+- Fixed cockpit terminal readability after callsign highlighting: normal RX text remains amber instead of black-on-black.
+- Clicking a highlighted callsign in CW/BPSK/RTTY/MFSK RX terminals now auto-fills the current QSO Call field.
+- Hardened Mode/Language pop-up menus for frameless true-fullscreen operation on Linux window managers where QMenu could fall behind the fullscreen window.
+- Improved CW vertical OSD contrast with bright glyphs and a small shadow/halo.
 
 
-- Removed user-facing MIND trainer controls: no Training checkbox, no Trainer budget spinbox, no Save/Load/Reset model buttons.
-- Converted MIND training to an autonomous low-priority background service with adaptive idle budget.
-- Training now backs off to zero during FT timing-critical decode sections and active CW receive/operate periods, uses tiny slices during realtime receive, and may use larger slices while the user is in logbook/settings/runtime-log idle workflows.
-- Kept `MIND Assist: Off / Training / Active` visible; final FT text remains accepted only through LDPC/CRC/unpack/parser validation.
-- Updated `mind_stats.json` to version 9 with adaptive trainer budget diagnostics.
-- FT8/FT4 decoder core, TX, CAT/PTT, scheduler and AutoQSO behavior are unchanged.
+## 0.5.73b
+
+- CW waterfall OSD: decoded skimmer text now appears as persistent vertical glyph trails beside the signal instead of flashing horizontal labels.
+- Waterfall scale labels: reserved scale bands prevent bottom/side frequency labels from being cut or crossed by grid/marker lines in all modes.
 
 
-## 0.5.1 MIND Eigen/OpenMP batch trainer
+## 0.5.73a - CW skimmer manual A/B UI correction
 
-- Quarantined the external trainer process experiment and kept the single-process MIND trainer path.
-- Added required OpenMP support for the optimized MIND build.
-- Enabled Eigen parallel initialization and automatic CPU-thread selection.
-- Added AVX2/FMA/SSE4.2 release flags for the optimized x86_64 baseline.
-- Reworked FT native MIND training from repeated Matrix×Vector sample loops to true batched Matrix×Matrix training.
-- Added MIND stats for Eigen threads, batch size and training throughput.
+- CW waterfall now shows only operator A/B markers; internal FFT skimmer channels are hidden.
+- CW RX textbox is controlled by user-selected RX A/RX B, not by automatic top-two channel ranking.
+- Skimmer OSD labels appear only for actual decoded text, not for raw channel/SNR activity.
+- Old ggmorse/selected-tone CW decoder source removed from the active tree to avoid zombie code.
+
+## MadModem 0.5.71 - Fullscreen cockpit console + zombie cleanup
+
+- Main window now starts as a true fullscreen cockpit console with the custom in-app minimize/maximize/close controls still visible.
+- File menu keeps a safe Exit action (Ctrl+Q) that closes through MainWindow::close().
+- Fixed menubar ordering after Settings became a direct action: File, Mode, Settings, Language, Help.
+- Settings tab labels no longer change width due to selected-tab bold text; tabs use normal weight and no eliding.
+- Removed stale standalone Settings actions/methods and dead RTTY synthetic TX scope code found in the 0.5.70 zombie survey.
+- Removed the obsolete 0.5.27 TX/PTT preflight README from the source root.
+- No decoder, DSP, CAT/PTT, rotator, logbook backend or modem protocol changes.
 
 
-## 0.5.1-mind-cw-bootcamp-compilefix
+## MadModem 0.5.70 - Settings real fullscreen hotfix
 
-- Fixed GCC/Qt build failure in `ai/DeepDspProfileNet.cpp` by explicitly serializing Eigen matrix/vector dimensions as `qint32` before passing them to `QDataStream`.
-- No decoder, TX, CAT/PTT, scheduler or AutoQSO behavior changed.
+- Settings dialog now forces a true fullscreen cockpit workbench instead of relying on window-manager maximized state.
+- The dialog is promoted to a top-level frameless application-modal window before exec() and re-applies fullscreen after Qt polishing.
+- No DSP, decoder, CAT/PTT, rotator, logbook or modem logic changes.
 
-## MadModem 0.5.1-i18n-title-fix
+## 0.5.69 - Cockpit message boxes + fullscreen Settings
+- Warning/information/question message boxes now use frameless cockpit styling instead of the native grey title bar.
+- Settings opens maximized as a full cockpit workbench and stays maximized when switching to/from MM Flow Studio.
+- No modem decoder, CAT/PTT, rotator or logbook backend changes.
 
-- Rolled back from the MSK144 experimental branch to the stable i18n-full-review source line.
-- Fixed the main window title so `MadModem 0.5.1` is treated as a non-translatable product/version identifier.
-- Removed erroneous localized dictionary keys for `MadModem 0.5.1` and hardened the translation harvester so they are not regenerated.
+## 0.5.68 - Cockpit window screw cleanup
+- Removed corner screw overlays from top-level windows/dialog chrome because they overlapped title bars, tabs and inner borders in real layouts.
+- Kept the cockpit metal bezel/border styling for main window and Settings dialog.
+- Left dedicated instrument-internal screws untouched where they are part of the widget drawing.
+- No decoder, CAT/PTT or modem logic changes.
+
+## 0.5.67 - Cockpit Settings dialog breathing room
+
+- Enlarged the unified Settings dialog by roughly 20% horizontally and vertically.
+- Raised the Settings minimum size accordingly so cockpit chrome, tabs and form pages do not feel cramped.
+- Kept MM Flow expansion logic aligned with the new Settings baseline size.
+- No decoder, CAT, PTT, FT, CW, RTTY, Hell, MFSK, rotator or logbook backend changes.
+
+## 0.5.66 - Cockpit main chrome density
+
+- Reduced the custom cockpit main-window title bar height, title text and window-control buttons by about 30%.
+- Kept the dark cockpit frame/chrome and menu layout.
+- No decoder, CAT, PTT, modem or logbook runtime logic changes.
+
+## 0.5.65 - Cockpit main-window chrome
+
+- Added cockpit chrome to the actual main window, not only dialogs.
+- The native grey OS title bar is replaced with a dark frameless MadModem title bar.
+- Added main-window cockpit border and minimize/maximize/close controls.
+- Existing menu bar is preserved inside the themed header.
+- Runtime modem, decoder, CAT, PTT and logbook logic are unchanged.
+
+
+
+## 0.5.64 - Cockpit embedded dialog chrome hotfix
+
+- Top-level dialogs keep the cockpit title bar, instrument border and corner screws.
+- Embedded settings pages no longer receive a title bar or red close/ellipsis button.
+- Reused QDialog pages inside Settings are now explicitly marked as embedded widgets and stripped of stale cockpit chrome if it was installed before embedding.
+- No modem DSP, CAT, PTT, rotator or logbook backend changes.
+## 0.5.63 - Cockpit dialog chrome and Settings menu cleanup
+- Added custom cockpit chrome for application dialogs: frameless dark title bar, instrument-style border and opt-in screw overlay.
+- Disabled checked checkboxes no longer look active/green; only enabled checked boxes use the bright green fill.
+- Converted the top-level Settings menubar item into a direct action that opens the unified Settings dialog. Removed the old Settings drop-down entries for FT WAV analysis/auto-test from that menu.
+- Runtime decoder/CAT/PTT logic unchanged.
+
+
+
+## MadModem 0.5.62 - MM Flow routed arrows / QSO Info polish
+
+- MM Flow: the Connect tool now enters interactive arrow drawing mode. Click the source block, optionally click empty canvas points to create orthogonal bends, then click the destination block.
+- MM Flow: double-click an arrow to edit its label. Labels and manual bend points are saved in the flow JSON.
+- MM Flow: default auto-routing now uses outside lanes for branches instead of a single shared midpoint, reducing overlaps in the default graph.
+- MM Flow: canvas background now follows the dark cockpit theme instead of the old white flow grid.
+- UI: renamed the QSO-log side panel/group title to "QSO Info" in every language.
+- Runtime modem, CAT/PTT, decoder and DSP code unchanged.
+
+## 0.5.61 - Cockpit SSTV/RTTY polish
+- Forced the SSTV image tab title to the short “SSTV” string in every UI language so it no longer truncates.
+- Removed the redundant RTTY tuning-scope explanatory labels under the scope.
+- No modem DSP, CAT, PTT or decoder changes.
+
+
+## 0.5.60 - Cockpit side-panel QSO cleanup
+- Shortened the SSTV image tab label to “SSTV”.
+- Moved text-mode QSO log fields for RTTY, PSK, MFSK, CW and Hell from the central activity page into the Mode side panel.
+- Removed the redundant Hell explanatory label from the bottom of its Mode page.
+- Switched QSO map page/background rendering to dark cockpit-compatible tones.
+- No decoder, CAT, PTT, FT8/FT4, RTTY, CW or Hell DSP logic changes.
+
+
+## 0.5.59 - Cockpit waterfall edge + green checkbox hotfix
+- Fixed the cockpit waterfall lower edge: the outer groupbox no longer paints a separate amber/brown bottom line over the waterfall frame.
+- The actual waterfall frame now owns the single visible instrument border.
+- Checked checkboxes now use semantic green fill consistently across the UI instead of amber/orange.
+- Runtime modem, decoder, CAT/PTT and rotator logic unchanged.
+
+
+## 0.5.58 - Cockpit waterfall lower-margin repair
+
+- Repaired cockpit waterfall chrome after screenshot review.
+- Removed nested frame padding below/around the OpenGL waterfall surface.
+- Made `grpWaterfall` a flat instrument holder and `frameWaterfall` the actual instrument surface.
+- Kept the cockpit theme, combo/spin arrows, wider tabs and compact typography from 0.5.57.
+- No modem, CAT, PTT, FT8/FT4, CW, RTTY or Hell runtime logic changes.
+
+## 0.5.57 - Cockpit layout repair after screenshot test
+
+- Reduced empty chrome above and around the waterfall by compacting the untitled waterfall frame and its layout margins.
+- Restored visible drop-down/spin arrows for cockpit combo boxes and spin boxes.
+- Compacted the SSTV side panel: fixed-height action buttons, lower spacing, hidden divider lines and maximum-height settings group.
+- Made side tabs wider and disabled tab eliding/scroll buttons for Mode/Rotator/MIND labels.
+- Removed the visible heavy splitter bar between main content and side panel.
+- No decoder, CAT, PTT or modem runtime changes.
+
+## 0.5.56 - Cockpit typography and tab density cleanup
+
+- Removed remaining heavy bold styling from the cockpit theme.
+- Reduced tab/button/input typography weight and padding so side tabs such as Rotator/MIND fit without clipping.
+- Removed RTTY local 11pt overrides that made the Mode sidebar too bulky.
+- Kept the black/amber avionics style while reducing UI compression.
+- No decoder, CAT, PTT, FT8/FT4, RTTY or Hell runtime logic changes.
+
+# MadModem 0.5.53 cockpit avionics UI completion
+
+## 0.5.55 - Cockpit density and screw cleanup
+
+- Reduced the cockpit theme visual weight after real UI testing.
+- Bezel/screw overlays are now opt-in only instead of being installed on every nested frame/group/tab widget.
+- Reduced global border thickness, padding, tab minimum widths and control margins to avoid compressing mode panels and Settings tabs.
+- Kept the dark avionics palette, amber text, green RX and red TX semantic colours.
+- Preserved the 0.5.54 build-script permission self-heal.
+
+
+This build completes the broad cockpit/avionics visual pass started in 0.5.52. It keeps the runtime behaviour from the previous line and focuses on a coherent dark high-contrast UI: amber labels, black instrument panels, metallic bezels, corner-screw overlays, cockpit-styled controls, and integrated MIND/VU/waterfall framing.
+
+Important: decoder, CAT/PTT, TS-890, FT8/FT4 core, CW runtime, RTTY, Feld Hell, MFSK, scheduler, logbook, maps and rotator logic are not changed by this UI pass.
+
+Packaging fix: all shell scripts, including build_all.sh and third_party/hamlib_lgpl/*.sh, are explicitly executable in the source package.
+
+---
 
 # Changelog
 
-## 0.5.1-mind-assist-cw-ftneeded
+## 0.5.52 - Cockpit / avionics UI theme
 
-- Added `MIND Assist: Off / Training / Active` in the MIND panel and persisted the selected mode in `mind_stats.json`.
-- Kept FT message acceptance fail-closed: MIND mode selection does not bypass CRC, unpack or standard-message parser validation.
-- Changed the FT decode dashed red outline from CQ-only/new-country-only to “needed station” logic for any valid decoded callsign not already present in the ADIF logbook.
-- Preserved CQ colouring while allowing non-CQ ongoing-QSO lines to be marked as needed so the operator can call the station after 73.
-- Removed the generic DSP tab and moved `Software AGC` into the CW Mode settings under AFC.
-- Updated runtime translations for the new MIND Assist and CW Software AGC strings.
-- FT8/FT4 decoder core, TX, scheduler, CAT/PTT and AutoQSO logic are unchanged.
+- Added global dark cockpit UI theme via `utils/CockpitTheme.*`.
+- Applied amber/nixie-like default text, black instrument panels, metallic borders and high-contrast input widgets.
+- Preserved semantic RX/TX colours and existing MIND Nixie gain gauge.
+- No intentional changes to PTT/CAT, decoder cores, scheduler, logbook, maps or rotator logic.
 
-## MadModem 0.5.1-i18n-full-review
+## 0.5.51 - CW 3 kHz retune + Auto WPM tracking hotfix
 
-- Added a shared `MadModemI18n::RuntimeI18n` bridge so runtime-created dialogs/widgets can use the same INI dictionaries as the main UI.
-- Reworked dynamic UI text in AutoQSO Flow Editor, rotator side panel, QSO map widgets, help dialog, SSTV editor and text macro/user-QTH dialog.
-- Extended the translation harvester/audit to include `MadModemI18n::text`, `MadModemI18n::placeholder`, `L18n`, `P18n`, `tr` and `QObject::tr` call sites.
-- Refreshed English, Italian, French, German, Norwegian and Czech dictionaries to 1580 aligned runtime keys with zero non-technical English fallbacks in the static audit.
-- Decoder, FT scheduler, AutoQSO radio logic, audio DSP, CAT/PTT and TX paths are unchanged from the production baseline plus ADIF time-filter patch.
+- Expanded CW receive tone clamp from 2000 Hz to 3000 Hz.
+- Expanded CW tone spinbox/settings clamp from 2500 Hz to 3000 Hz.
+- Relaxed Auto WPM tracking acceptance for real carriers using preconditioner SNR plus ggmorse cost, while keeping heavy smoothing.
+- No decoder core, CAT/PTT, FT, RTTY or Hell behavior changes beyond CW receive tuning/tracking.
 
-## MadModem 0.5.1-adif-time-filter
+## 0.5.50
 
-- Added ADIF export options for precise UTC time intervals based on `QSO_DATE` + `TIME_ON`.
-- Interval matching uses `start <= TIME_ON < end` to avoid duplicate QSOs when exporting consecutive activity windows.
-- Updated multilingual UI strings and online help for the new logbook export filter.
-- Decoder, FT scheduler, AutoQSO and radio/audio paths are unchanged from the production baseline.
+- CW: added a dedicated baseband preconditioner before ggmorse.
+- CW: raw live audio is mixed around the selected CW tone, narrow-filtered, soft-squelched and then re-modulated for ggmorse.
+- CW: ggmorse remains the only text decoder; no native/fuzzy CW decoder was restored.
+- CW: status now reports preconditioner SNR (`preSNR`) along with ggmorse cost/threshold.
+- Source layout from 0.5.49 is preserved: mode-specific TX code remains under `modems/<mode>/tx/`, common TX API under `core/tx/`.
 
-## MadModem 0.5.1 — production consolidation
-
-- Consolidated the validated `0.5.1-alpha.26` FT8 GF(2) OSD full order-1 decoder as the production baseline.
-- Expected FT8 Auto Test total remains 88 decodes on the bundled WAV set: 26 / 25 / 16 / 21.
-- Rejected later FT8 beta lab experiments (`beta02`..`beta08`) from the production baseline because they did not improve the validated decode count.
-- Cleaned production documentation: removed scattered historical v2.x one-off notes and replaced them with consolidated release/architecture notes.
-- Included `compare_ft8_wsjtx_madmodem.sh` in the full source tree for optional WSJT-X/jt9 comparison.
-- Preserved executable permissions for shell scripts.
-
-## Historical baseline
-
-The decoder core in this release comes from the last validated improvement line:
-
-- `0.5.1-alpha.26_ft_osd_gf2_order1_full`
-- GF(2) OSD fallback: order-1 complete over 91 information bits.
-- Order-2 search disabled.
-- Later micro-sweep/reinject/coherent-metric beta experiments were laboratory-only.
-
-## 0.5.1-ddsp-shadow-learning-lab
-
-- Added the experimental MIND side tab.
-- Integrated bundled tiny-dnn header-only sources under `third_party/tiny_dnn/`.
-- Added `DeepDspController`, a fail-closed shadow-learning backend that trains only from messages already accepted by the existing classic decoders.
-- MIND observes FT8/FT4, RTTY and CW receive audio and learns in the background from confirmed decode text.
-- MIND Assist remains disabled until the model reaches a perfect local validation window; it does not currently inject extra decodes, key PTT, affect AutoQSO, change CAT, or replace the stable decoders.
-
-## 0.5.1-madnness-shadow-learning-lab-fix1
-
-- Fixed Linux/GCC build failure in `ai/DeepDspController.cpp` caused by ambiguous `tanh()` resolution between libm and neural activation layers.
-- Made old neural activations explicitly namespace-qualified.
-- Added MIND manual label teaching controls for CW/RTTY so an operator can enter corrected text checked by ear or by known QSO patterns.
-- Disabled unsafe automatic CW character-level MIND labels; CW has no CRC/parity, so raw decoder characters are not treated as truth labels.
-- Updated MIND runtime translations and translation harvesting for `T(QStringLiteral(...))` strings.
+No changes to PTT/CAT/TS-890, FT8/FT4 core, RTTY core, Feld Hell, MFSK, scheduler, logbook, maps or rotator.
 
 
-MIND Eigen update:
-- Replaced active TinyDNN dependency with MadModem internal MIND Eigen MLP.
-- Added MIND training-completion/decode-success percentage.
-- Added live neural matrix activity widget.
-- MIND remains shadow/fail-closed; no decoder, TX, CAT or AutoQSO assist is enabled by default.
+## 0.5.54 - Build script permission hardening
 
-
-MIND Eigen rename/update:
-- Renamed the user-facing DDSP tab/labels to MIND.
-- Replaced the manual neural inner loops with Eigen-backed matrix operations inside the internal MIND engine.
-- Bundled Eigen under `third_party/eigen/` as header-only source.
-- Checkpoint path now uses `mind_native_ft_eigen_v2.model`.
-
-## 0.5.1-madnness-persistent-eigen-profile
-- Standardized the experimental neural lab name to MIND across the UI, logs, documentation and translations.
-- Moved the active Eigen MLP profile from the generic 68→96→64→32 laboratory shape to the FT-family shadow profile 464→128→64→77.
-- Added persistent MIND checkpoint storage under the writable MadModem application data directory, with atomic model writes and a companion `mind_stats.json` statistics file.
-- The MIND panel now shows architecture, validation success, readiness percentage, checkpoint path, last checkpoint time and stats path.
-- MIND remains fail-closed: no assisted decodes, AutoQSO, TX, CAT or PTT path is enabled by this lab package.
-
-## 0.5.1-madnness-offline-prime-fix
-- Fixed MIND shadow learning during offline FT WAV analysis and bundled Auto Test: the selected WAV is now used to prime MIND audio features before CRC-valid FT8/FT4 decode labels arrive.
-- The MIND matrix activity and sample counters now update after offline WAV decodes instead of staying at zero.
-- The visible learned-sample counter now survives checkpoint/stat reload by using the persisted FT/RTTY/CW sample counters when the in-memory training queue is empty.
-- MIND remains shadow/fail-closed and does not add decodes, drive AutoQSO, key TX, or touch CAT/PTT.
-
-## 0.5.1-mind-compact-panel
-- Shortened the experimental neural side tab to the user-facing name MIND.
-- Reorganized the neural side tab into compact Status, Brain activity, Control, Model and Teach sections.
-- Removed long checkpoint paths from visible labels; full paths are now available as tooltips.
-- Kept the neural lab fail-closed: no assisted decode injection, AutoQSO, TX, CAT or PTT control.
-
-## 0.5.1-mind-perf-guard
-- Isolated MIND from FT decoder timing: FT WAV analysis and FT Auto test now suspend neural training/checkpoint writes while the decoder is running; labels are queued and trained later during idle slices.
-- Reduced default MIND idle training budget to 2 ms and capped it to 25 ms; the user may set 0 ms to collect labels without training.
-- Throttled MIND UI/status updates and changed auto-checkpointing from frequent 15-second saves to a conservative 5-minute cadence.
-- Offline WAV priming now uses a lightweight fingerprint instead of feeding the full WAV into the MIND feature extractor.
-
-## 0.5.1 MIND CPU-only guard
-
-- Confirmed MIND as a CPU-only Eigen shadow-learning backend.
-- GPU/OpenCL acceleration is intentionally not included: MIND training remains deferred and low-budget on CPU so decoder timing stays predictable.
-- Added visible MIND backend status in the side panel: `Backend: CPU Eigen (CPU only)`.
-- Kept MIND fail-closed: no assisted decodes, no AutoQSO control, no TX/PTT/CAT interaction.
-## 0.5.1-mind-ui-warmup-fix
-- Polished the MIND side panel after field testing: group-box title spacing was increased to prevent clipped/overlapping labels on Qt themes with larger title metrics.
-- The progress bar now shows a warm-up state while confirmed labels are being collected, instead of presenting early validation as a misleading 0% ready state.
-- MIND remains CPU-only, deferred, fail-closed and outside timing-critical FT decode sections.
-
-### MIND v2 native FT candidate training
-- Replaced the old FT audio/text fingerprint lab path with native FT8 candidate samples.
-- MIND now learns from `dataMagnitudes[58][8]` flattened to 464 inputs and the CRC-valid 174-bit LDPC codeword as target.
-- The checkpoint is now `mind_native_ft_eigen_v2.model`; old v1 fingerprint checkpoints are intentionally ignored.
-- UI now separates bit accuracy, message/codeword exact accuracy and readiness.
-- No MIND inference/training runs inside the FT decoder timing-critical path; the decoder only emits queued gold-label samples after LDPC+CRC+unpack succeeds.
-- MIND remains shadow-only and cannot key TX, CAT, PTT or AutoQSO.
-
-- MIND v2 native FT follow-up: stale v1 stats files are now moved aside, v2 stats are saved soon after native FT gold samples arrive, and warm-up progress is based on validation samples rather than raw sample count.
-
-## 0.5.1 MIND multi-profile visual panel
-- MIND panel now exposes a Profile view selector: Auto, FT8, FT4, CW, RTTY.
-- Brain activity visualization now changes layer geometry according to the selected profile:
-  - FT8/FT4: 464 → 128 → 64 → 174
-  - CW: 256 → 96 → 48 → 6
-  - RTTY: 96 → 64 → 32 → 8
-- Added split FT8/FT4 sample counters in MIND status/statistics.
-- Auto profile view follows the currently observed mode/profile; manual view can inspect each planned dedicated network.
-- No decoder, TX, CAT, PTT, scheduler or AutoQSO behavior changed.
-
-## 0.5.1 MIND CW bootcamp
-- Added a dedicated MIND CW synthetic bootcamp path for the CW profile.
-- Added a dynamic Eigen profile network for CW: 256 -> 96 -> 48 -> 6.
-- Added a Run CW bootcamp control in the MIND panel.
-- Kept FT8/FT4 decoder, TX, CAT/PTT and AutoQSO untouched.
-
-### MIND trainer thread / FT gold replay buffer
-- MIND training now runs from a dedicated low-priority QThread instead of sharing the UI/decoder path.
-- CRC-valid native FT samples are persisted to `mind_ft_gold_samples_v1.dat` and reloaded as the FT gold replay buffer on startup.
-- MIND statistics now expose `Validation`, `Ready`, `Bit`, `Best Bit`, replay-buffer size and dataset path more clearly.
-- No TX, CAT/PTT, scheduler, AutoQSO, FT decoder or MSK144 logic is changed.
-
-### MIND UI cleanup
-- Removed redundant section titles from the MIND side tab to save vertical space and reduce visual noise.
-- Removed the separate Ready/Pronto label; the main progress bar now uses the guarded MIND progress score directly.
-- Removed the ambiguous visible Validation progress wording; the panel now focuses on Bit, Best Bit, Replay and Loss.
-- Removed the bottom safety note label while keeping MIND fail-closed in code: no TX, CAT/PTT, scheduler, AutoQSO or decoder behavior changed.
-
-
-## MIND dedicated full-speed trainer
-- MIND FT/CW training now runs on a dedicated normal-priority trainer QThread with a 20 ms service interval.
-- Trainer budget range increased to 0..250 ms; default set to 50 ms so offline training can use meaningful CPU instead of idling around a few percent.
-- Replay buffer and gold dataset persistence remain unchanged; decoder/audio/CAT/PTT/AutoQSO are untouched.
-- `mind_stats.json` version bumped to 6 and records `trainer_thread=dedicated_fullspeed_qthread` plus `trainer_budget_ms`.
-
-## 2026-06-19 - MIND OpenMP UI no-CW-teach cleanup
-- Removed the visible CW/RTTY manual teaching and CW bootcamp controls from the MIND production panel.
-- Reduced MIND status repaint frequency while full-speed OpenMP batch training is active to limit visible flicker.
-- Kept FT native gold-sample collection, replay buffer, Eigen/OpenMP batch training and model/stat persistence unchanged.
-
-## 0.5.1 MIND autonomous latency/status fix
-- Fixed MIND status showing CW protection while the selected runtime mode is FT8/FT4.
-- Restored persisted bit/validation readiness on startup so A6 models do not appear as Bit 0 / Best 100 after reload.
-- Added explicit model/dataset state in the MIND panel and clearer matrix idle text.
-- Suppressed trainer-thread status repaint churn during FT AutoTest/decode-critical windows.
-- Updated realtime activity tracking so autonomous training backs off correctly during live RX, especially CW.
-
-## 0.5.35
-
-- Feld Hell: preserve the stable RX paper Y orientation from 0.5.33 while retaining the new shared paper-height slider.
-
-### 0.5.44 - VU meter margin hotfix
-
-- Adjusted the compact vertical LED VU meter width and internal margins so the dB readout is not clipped.
-- No decoder, CAT/PTT, CW, RTTY, Feld Hell, FT8/FT4, scheduler, map or logbook changes.
-
+- Hardened `build_all.sh` against archive managers that strip executable bits from nested scripts.
+- `build_all.sh` now invokes bundled helper scripts through `bash`, so Hamlib build helpers work even if their executable bit is lost.
+- Added `fix_permissions.sh` for one-command permission repair after extraction.
+- Updated the Makefile to invoke bundled Hamlib helper scripts through `bash` as well.
+- No decoder, CAT/PTT, UI runtime, radio, or modem logic changes.
