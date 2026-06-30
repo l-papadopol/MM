@@ -36,6 +36,9 @@ option(MADMODEM_AVX2_BUILD
 option(MADMODEM_ENABLE_LTO
     "Enable CMake IPO/LTO for Release builds. OFF by default because GCC LTO has produced undefined MainWindow private-slot references on some Linux builds."
     OFF)
+option(MADMODEM_MACOS_BUNDLE
+    "Build MadModem as a native macOS .app bundle when compiling on Apple platforms."
+    ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -58,7 +61,13 @@ if(MADMODEM_MAX_OPTIMIZE)
     add_compile_options($<$<CONFIG:Release>:-O3>)
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
         add_compile_options($<$<CONFIG:Release>:-pipe> $<$<CONFIG:Release>:-fomit-frame-pointer> $<$<CONFIG:Release>:-ffunction-sections> $<$<CONFIG:Release>:-fdata-sections>)
-        add_link_options($<$<CONFIG:Release>:-Wl,--gc-sections>)
+        if(APPLE)
+            # Apple ld64 does not support GNU ld's --gc-sections.
+            # -dead_strip is the nearest safe macOS equivalent for Release bundles.
+            add_link_options($<$<CONFIG:Release>:-Wl,-dead_strip>)
+        else()
+            add_link_options($<$<CONFIG:Release>:-Wl,--gc-sections>)
+        endif()
     endif()
 endif()
 
@@ -503,6 +512,68 @@ if(WIN32)
     endif()
 endif()
 
+# -------------------------------------------------------------------------
+# macOS application bundle
+# -------------------------------------------------------------------------
+
+if(APPLE AND MADMODEM_MACOS_BUNDLE)
+    if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+        set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0" CACHE STRING "Minimum macOS deployment target" FORCE)
+    endif()
+    set(MADMODEM_MACOS_BUNDLE_ID "org.iz6nnh.madmodem" CACHE STRING "macOS bundle identifier")
+    set(MADMODEM_MACOS_ICON "${CMAKE_CURRENT_BINARY_DIR}/MadModem.icns")
+
+    add_custom_command(
+        OUTPUT "${MADMODEM_MACOS_ICON}"
+        COMMAND "${CMAKE_COMMAND}"
+            "-DINPUT_ICON=${CMAKE_CURRENT_SOURCE_DIR}/icons/madmodem_1024.png"
+            "-DOUTPUT_ICON=${MADMODEM_MACOS_ICON}"
+            -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/GenerateMacOSIcon.cmake"
+        DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/icons/madmodem_1024.png"
+                "${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/GenerateMacOSIcon.cmake"
+        COMMENT "Generating MadModem.icns for macOS bundle"
+        VERBATIM
+    )
+
+    target_sources(MadModem PRIVATE "${MADMODEM_MACOS_ICON}")
+    set_source_files_properties("${MADMODEM_MACOS_ICON}" PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+
+    set_target_properties(MadModem PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "MadModem"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "${MADMODEM_MACOS_BUNDLE_ID}"
+        MACOSX_BUNDLE_ICON_FILE "MadModem.icns"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/Info.plist.in"
+    )
+
+    # MadModem currently expects cty.csv and the optional FT test WAV directory
+    # beside QCoreApplication::applicationDirPath(). In a macOS bundle that is
+    # Contents/MacOS, so copy the runtime data there for unsigned CI packages.
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv")
+        add_custom_command(TARGET MadModem POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv"
+                "$<TARGET_BUNDLE_CONTENT_DIR:MadModem>/MacOS/cty.csv"
+            COMMENT "Copying cty.csv into MadModem.app/Contents/MacOS"
+            VERBATIM
+        )
+    endif()
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/wav")
+        add_custom_command(TARGET MadModem POST_BUILD
+            COMMAND "${CMAKE_COMMAND}" -E make_directory
+                "$<TARGET_BUNDLE_CONTENT_DIR:MadModem>/MacOS/tests/wav"
+            COMMAND "${CMAKE_COMMAND}" -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/tests/wav"
+                "$<TARGET_BUNDLE_CONTENT_DIR:MadModem>/MacOS/tests/wav"
+            COMMENT "Copying bundled FT test WAVs into MadModem.app"
+            VERBATIM
+        )
+    endif()
+endif()
+
 
 add_dependencies(MadModem MadModemHelpFiles)
 if(TARGET MadModemQtHelp)
@@ -512,6 +583,11 @@ endif()
 # Keep string literals and resource-generated UI text UTF-8 on Windows/MinGW/MSVC.
 if(MSVC)
     target_compile_options(MadModem PRIVATE /utf-8)
+elseif(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # Apple Clang already emits UTF-8 narrow strings by default; keep only the
+    # explicit input encoding flag to avoid compiler-version-specific charset
+    # option issues on GitHub macOS runners.
+    target_compile_options(MadModem PRIVATE -finput-charset=UTF-8)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(MadModem PRIVATE -finput-charset=UTF-8 -fexec-charset=UTF-8)
 endif()
@@ -868,18 +944,33 @@ install(TARGETS MadModem
 )
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv")
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv"
-        DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
+    if(APPLE AND MADMODEM_MACOS_BUNDLE)
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv"
+            DESTINATION MadModem.app/Contents/MacOS
+        )
+    else()
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv"
+            DESTINATION ${CMAKE_INSTALL_BINDIR}
+        )
+    endif()
 endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/wav")
-    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/wav/"
-        DESTINATION ${CMAKE_INSTALL_BINDIR}/tests/wav
-        FILES_MATCHING
-            PATTERN "*.wav"
-            PATTERN "README.md"
-    )
+    if(APPLE AND MADMODEM_MACOS_BUNDLE)
+        install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/wav/"
+            DESTINATION MadModem.app/Contents/MacOS/tests/wav
+            FILES_MATCHING
+                PATTERN "*.wav"
+                PATTERN "README.md"
+        )
+    else()
+        install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tests/wav/"
+            DESTINATION ${CMAKE_INSTALL_BINDIR}/tests/wav
+            FILES_MATCHING
+                PATTERN "*.wav"
+                PATTERN "README.md"
+        )
+    endif()
 endif()
 
 if(UNIX AND NOT APPLE)

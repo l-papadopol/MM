@@ -1,3 +1,18 @@
+# MadModem 0.5.76f
+
+- Prepared the CMake project for native macOS `.app` bundle generation with `MACOSX_BUNDLE`.
+- Added macOS-safe Release linker handling: Apple uses `-dead_strip` instead of GNU `--gc-sections`.
+- Added generated `MadModem.icns`, `Info.plist` metadata and microphone permission text.
+- Added GitHub Actions workflow for unsigned arm64 and Intel macOS artifacts.
+- Added `scripts/build_macos.sh`, `scripts/package_macos.sh` and `docs/platform/MACOS_GITHUB_ACTIONS.md`.
+- No FT/CW/RTTY/MSK/Q65 decoder, audio, CAT/PTT or UI-behaviour changes intended.
+
+# 0.5.76e
+
+- Fixed FT first/second-period indicators disappearing when period controls are disabled by an armed QSO/TX plan.
+- Added Settings controls for decode table font size and row height.
+- Applied decode-table readability settings to FT, MSK144 and Q65 tables.
+
 ## 0.5.76d — MSK144 async RX and mode panel cleanup
 
 - Moved MSK144 period decode to a worker thread so period-end decode no longer freezes the UI.

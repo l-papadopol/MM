@@ -18,7 +18,7 @@ MXE_CMAKE  := $(MXE_ROOT)/usr/bin/$(MXE_TARGET)-cmake
 HAMLIB_LINUX_ROOT ?= $(CURDIR)/third_party/hamlib_lgpl/install-linux-x86_64
 HAMLIB_WIN_ROOT   ?= $(CURDIR)/third_party/hamlib_lgpl/install-win64-static
 
-.PHONY: all linux windows win64-static hamlib-linux hamlib-windows run clean distclean help
+.PHONY: all linux windows win64-static macos package-macos hamlib-linux hamlib-windows run clean distclean help
 
 all: linux
 
@@ -32,6 +32,12 @@ linux: hamlib-linux
 	cmake --build build-linux -j$(JOBS)
 
 windows: win64-static
+
+macos:
+	bash "$(CURDIR)/scripts/build_macos.sh"
+
+package-macos: macos
+	bash "$(CURDIR)/scripts/package_macos.sh"
 
 hamlib-windows:
 	@test -x "$(MXE_CMAKE)" || { \
@@ -56,10 +62,11 @@ run: linux
 clean:
 	cmake --build build-linux --target clean 2>/dev/null || true
 	cmake --build build-win64-static --target clean 2>/dev/null || true
+	cmake --build build-macos-$$(uname -m) --target clean 2>/dev/null || true
 
 # Keep Hamlib install prefixes by default. Remove them only with distclean.
 distclean:
-	rm -rf build-linux build-win64-static dist \
+	rm -rf build-linux build-win64-static build-macos-* dist \
 		third_party/hamlib_lgpl/build-* \
 		third_party/hamlib_lgpl/install-linux-x86_64 \
 		third_party/hamlib_lgpl/install-win64-static
@@ -69,9 +76,12 @@ help:
 	@echo "  make linux          Build bundled Hamlib + native Linux binary"
 	@echo "  make win64-static   Build bundled Hamlib + Windows static EXE using MXE"
 	@echo "  make windows        Alias of win64-static"
+	@echo "  make macos          Build native macOS .app bundle on a Mac/Homebrew host"
+	@echo "  make package-macos  Build and package unsigned macOS ZIP/DMG"
 	@echo "  make run            Build and run Linux binary"
 	@echo "  make clean          Clean MadModem build trees"
 	@echo "  make distclean      Remove MadModem and Hamlib build/install trees"
 	@echo ""
 	@echo "Quick all-in-one Linux + Windows build: ./build_all.sh (or: bash build_all.sh if your extractor stripped executable bits)"
+	@echo "macOS CI build: GitHub Actions -> Build macOS unsigned"
 	@echo "Variables: BUILD_TYPE=$(BUILD_TYPE), JOBS=$(JOBS), MXE_ROOT=$(MXE_ROOT), MXE_TARGET=$(MXE_TARGET)"

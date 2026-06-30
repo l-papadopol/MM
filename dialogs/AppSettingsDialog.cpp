@@ -263,6 +263,7 @@ void populateRotatorPortCombo(QComboBox *combo, const QString &current)
     ports << current.trimmed()
           << QStringLiteral("/dev/ttyUSB0") << QStringLiteral("/dev/ttyUSB1")
           << QStringLiteral("/dev/ttyACM0") << QStringLiteral("/dev/ttyACM1")
+          << QStringLiteral("/dev/cu.usbserial") << QStringLiteral("/dev/cu.usbmodem")
           << QStringLiteral("COM1") << QStringLiteral("COM2") << QStringLiteral("COM3") << QStringLiteral("COM4")
           << QStringLiteral("COM5") << QStringLiteral("COM6") << QStringLiteral("COM7") << QStringLiteral("COM8")
           << QStringLiteral("rotctld:localhost:4533");
@@ -278,7 +279,7 @@ void populateRotatorPortCombo(QComboBox *combo, const QString &current)
     if (combo->count() == 0) combo->addItem(QString());
     const int idx = combo->findText(current.trimmed(), Qt::MatchFixedString);
     combo->setCurrentIndex(idx >= 0 ? idx : 0);
-    combo->lineEdit()->setPlaceholderText(MadModemI18n::text(QStringLiteral("independent rotator port, e.g. /dev/ttyUSB1, COM5 or rotctld:localhost:4533")));
+    combo->lineEdit()->setPlaceholderText(MadModemI18n::text(QStringLiteral("independent rotator port, e.g. /dev/ttyUSB1, /dev/cu.usbserial, COM5 or rotctld:localhost:4533")));
 }
 
 QString rotatorBandObjectKey(QString band)
@@ -934,6 +935,32 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     displayLayout->addWidget(m_chkLogbookStrikeWorkedCalls);
     layout->addWidget(displayGroup);
 
+    QGroupBox *decodeTableGroup = new QGroupBox(L(QStringLiteral("Decode table readability")), holder);
+    decodeTableGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    QGridLayout *decodeTableGrid = new QGridLayout(decodeTableGroup);
+    decodeTableGrid->setContentsMargins(10, 8, 10, 10);
+    decodeTableGrid->setHorizontalSpacing(10);
+    decodeTableGrid->setVerticalSpacing(6);
+
+    m_spinDecodeTableFontSize = new QSpinBox(decodeTableGroup);
+    m_spinDecodeTableFontSize->setRange(8, 18);
+    m_spinDecodeTableFontSize->setSuffix(QStringLiteral(" pt"));
+    m_spinDecodeTableFontSize->setValue(qBound(8, m_initialSettings.decodeTableFontPointSize, 18));
+    m_spinDecodeTableFontSize->setToolTip(L(QStringLiteral("Font size used by FT/MSK/Q65 decode tables.")));
+
+    m_spinDecodeTableRowHeight = new QSpinBox(decodeTableGroup);
+    m_spinDecodeTableRowHeight->setRange(16, 48);
+    m_spinDecodeTableRowHeight->setSuffix(QStringLiteral(" px"));
+    m_spinDecodeTableRowHeight->setValue(qBound(16, m_initialSettings.decodeTableRowHeightPx, 48));
+    m_spinDecodeTableRowHeight->setToolTip(L(QStringLiteral("Row height used by FT/MSK/Q65 decode tables. Lower values show more decodes at once.")));
+
+    decodeTableGrid->addWidget(new QLabel(L(QStringLiteral("Font size")), decodeTableGroup), 0, 0);
+    decodeTableGrid->addWidget(m_spinDecodeTableFontSize, 0, 1);
+    decodeTableGrid->addWidget(new QLabel(L(QStringLiteral("Row height")), decodeTableGroup), 0, 2);
+    decodeTableGrid->addWidget(m_spinDecodeTableRowHeight, 0, 3);
+    decodeTableGrid->setColumnStretch(4, 1);
+    layout->addWidget(decodeTableGroup);
+
     QWidget *colourEditor = makeFtColourEditor();
     colourEditor->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
     layout->addWidget(colourEditor);
@@ -1151,7 +1178,7 @@ QWidget *AppSettingsDialog::makeRotatorPage()
         conn->addWidget(path, 1, 1, 1, 3);
         conn->addWidget(new QLabel(L(QStringLiteral("Speed")), connGroup), 2, 0);
         conn->addWidget(baud, 2, 1);
-        QLabel *endpointHint = new QLabel(L(QStringLiteral("Use a dedicated serial port such as /dev/ttyUSB1 or COM5, or a dedicated rotctld endpoint such as rotctld:localhost:4533.")), connGroup);
+        QLabel *endpointHint = new QLabel(L(QStringLiteral("Use a dedicated serial port such as /dev/ttyUSB1, /dev/cu.usbserial or COM5, or a dedicated rotctld endpoint such as rotctld:localhost:4533.")), connGroup);
         endpointHint->setWordWrap(true);
         conn->addWidget(endpointHint, 3, 0, 1, 4);
         conn->setColumnStretch(1, 1);
@@ -1787,6 +1814,12 @@ void AppSettingsDialog::collectSettings()
     }
     if (m_chkLogbookStrikeWorkedCalls != nullptr) {
         merged.logbookStrikeWorkedCalls = m_chkLogbookStrikeWorkedCalls->isChecked();
+    }
+    if (m_spinDecodeTableFontSize != nullptr) {
+        merged.decodeTableFontPointSize = m_spinDecodeTableFontSize->value();
+    }
+    if (m_spinDecodeTableRowHeight != nullptr) {
+        merged.decodeTableRowHeightPx = m_spinDecodeTableRowHeight->value();
     }
 
     if (m_schedulerPage != nullptr) {

@@ -164,6 +164,8 @@ private:
     QCheckBox *m_chkHighlightNewCountry = nullptr;
     QCheckBox *m_chkWatchListIcon = nullptr;
     QCheckBox *m_chkLogbookStrikeWorkedCalls = nullptr;
+    QSpinBox *m_spinDecodeTableFontSize = nullptr;
+    QSpinBox *m_spinDecodeTableRowHeight = nullptr;
     QPlainTextEdit *m_editFtBlacklist = nullptr;
     QPlainTextEdit *m_editFtWatchList = nullptr;
     QComboBox *m_cmbAutoQsoDuplicatePolicy = nullptr;

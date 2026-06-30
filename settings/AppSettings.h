@@ -45,6 +45,8 @@ public:
     QStringList logbookVisibleFields;
     int waterfallColorScalePercent = 80;
     QString waterfallPalette = "madmodem";
+    int decodeTableFontPointSize = 9;
+    int decodeTableRowHeightPx = 20;
     double audioRxClockPpm = 0.0;
     double audioTxClockPpm = 0.0;
 

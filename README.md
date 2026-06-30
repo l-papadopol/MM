@@ -1,3 +1,11 @@
+# MadModem 0.5.76f
+
+macOS/GitHub Actions preparation over 0.5.76e. This build does not change the modem/DSP/CAT runtime path; it adds a native macOS `.app` bundle target, macOS-safe CMake linker flags, generated `.icns` icon support, unsigned packaging scripts, and a manual GitHub Actions workflow for arm64 and Intel macOS runners. See `docs/platform/MACOS_GITHUB_ACTIONS.md`.
+
+# MadModem 0.5.76e
+
+FT/UI readability hotfix over 0.5.76d: FT period radio indicators remain visible even while a QSO/TX plan is armed, and decode tables now have configurable font size and row height in Settings.
+
 # MadModem 0.5.76d
 
 Runtime hotfix over 0.5.76b: MSK144/Q65 RX now enters the active decoder paths instead of the old “not implemented yet” guard.  The MSK144/Q65 Mode panels also get compact sequence-status boxes in the same position/style family as FT8/FT4.

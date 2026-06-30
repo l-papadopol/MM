@@ -198,6 +198,8 @@ void AppSettings::load()
     Q_UNUSED(settings.value("Display/waterfallPalette"));
     waterfallColorScalePercent = 80;
     waterfallPalette = "madmodem";
+    decodeTableFontPointSize = qBound(8, settings.value("Display/decodeTableFontPointSize", decodeTableFontPointSize).toInt(), 18);
+    decodeTableRowHeightPx = qBound(16, settings.value("Display/decodeTableRowHeightPx", decodeTableRowHeightPx).toInt(), 48);
     audioRxClockPpm = settings.value("Audio/rxClockPpm", audioRxClockPpm).toDouble();
     audioTxClockPpm = settings.value("Audio/txClockPpm", audioTxClockPpm).toDouble();
     if (audioRxClockPpm < -5000.0 || audioRxClockPpm > 5000.0) {
@@ -693,6 +695,8 @@ bool AppSettings::save() const
     settings.setValue("Logbook/visibleFields", logbookVisibleFields);
     settings.setValue("Display/waterfallColorScalePercent", waterfallColorScalePercent);
     settings.setValue("Display/waterfallPalette", waterfallPalette);
+    settings.setValue("Display/decodeTableFontPointSize", decodeTableFontPointSize);
+    settings.setValue("Display/decodeTableRowHeightPx", decodeTableRowHeightPx);
     settings.setValue("Audio/rxClockPpm", audioRxClockPpm);
     settings.setValue("Audio/txClockPpm", audioTxClockPpm);
 

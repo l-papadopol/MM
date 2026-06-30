@@ -1229,6 +1229,8 @@ private:
      * @brief Applies persistent settings to decoder/runtime state.
      */
     void applyPersistentSettingsToRuntime();
+    void applyDecodeTableVisualSettings();
+    void applyDecodeTableVisualSettings(QTableWidget *table);
 
     void updateRigControlStatusUi();
     void setupCatRotatorModule();

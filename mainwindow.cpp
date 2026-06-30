@@ -3348,6 +3348,7 @@ void MainWindow::setupTextTerminalPages()
     m_tableMsk144Rx->setColumnWidth(1, 42);
     m_tableMsk144Rx->setColumnWidth(2, 42);
     m_tableMsk144Rx->setColumnWidth(3, 52);
+    applyDecodeTableVisualSettings(m_tableMsk144Rx);
     connect(m_tableMsk144Rx, &QTableWidget::cellClicked, this, [this](int row, int) {
         if (m_tableMsk144Rx == nullptr || row < 0 || row >= m_tableMsk144Rx->rowCount()) return;
         QTableWidgetItem *msgItem = m_tableMsk144Rx->item(row, 4);
@@ -3371,6 +3372,7 @@ void MainWindow::setupTextTerminalPages()
     m_tableMsk144TxMessages->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
     m_tableMsk144TxMessages->setMaximumHeight(190);
     m_tableMsk144TxMessages->setColumnWidth(0, 40);
+    applyDecodeTableVisualSettings(m_tableMsk144TxMessages);
 
     m_btnMsk144ClearRx = new QPushButton(uiText("clear_messages", "Clear messages"), m_msk144DisplayPage);
     connect(m_btnMsk144ClearRx, &QPushButton::clicked, this, &MainWindow::clearMsk144RxTable);
@@ -3402,6 +3404,7 @@ void MainWindow::setupTextTerminalPages()
     m_tableQ65Rx->setColumnWidth(1, 42);
     m_tableQ65Rx->setColumnWidth(2, 42);
     m_tableQ65Rx->setColumnWidth(3, 52);
+    applyDecodeTableVisualSettings(m_tableQ65Rx);
     connect(m_tableQ65Rx, &QTableWidget::cellClicked, this, [this](int row, int) {
         if (m_tableQ65Rx == nullptr || row < 0 || row >= m_tableQ65Rx->rowCount()) return;
         QTableWidgetItem *msgItem = m_tableQ65Rx->item(row, 4);
@@ -3425,6 +3428,7 @@ void MainWindow::setupTextTerminalPages()
     m_tableQ65TxMessages->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
     m_tableQ65TxMessages->setMaximumHeight(190);
     m_tableQ65TxMessages->setColumnWidth(0, 40);
+    applyDecodeTableVisualSettings(m_tableQ65TxMessages);
 
     m_btnQ65ClearRx = new QPushButton(uiText("clear_messages", "Clear messages"), m_q65DisplayPage);
     connect(m_btnQ65ClearRx, &QPushButton::clicked, this, &MainWindow::clearQ65RxTable);
@@ -4844,6 +4848,7 @@ void MainWindow::setupFt8Page()
     m_tableFt8Rx->setColumnWidth(8, 130); // Country
     m_tableFt8Rx->setAlternatingRowColors(true);
     m_tableFt8Rx->setItemDelegate(new FtDecodeRowDelegate(m_tableFt8Rx));
+    applyDecodeTableVisualSettings(m_tableFt8Rx);
     rxLayout->addWidget(m_tableFt8Rx);
 
     QGroupBox *qsoActivityGroup = new QGroupBox(uiText("ft_qso_activity", "QSO activity / RX frequency"), splitter);
@@ -4865,6 +4870,7 @@ void MainWindow::setupFt8Page()
     m_tableFt8QsoHistory->setColumnWidth(3, 42); // DT
     m_tableFt8QsoHistory->setColumnWidth(4, 58); // Freq
     m_tableFt8QsoHistory->setAlternatingRowColors(false);
+    applyDecodeTableVisualSettings(m_tableFt8QsoHistory);
     qsoActivityLayout->addWidget(m_tableFt8QsoHistory);
 
     splitter->addWidget(rxGroup);
@@ -5168,6 +5174,7 @@ void MainWindow::setupFt8Page()
     m_tableFt8TxMessages->setToolTip(uiText("ft_tx_arrow_tooltip", "The arrow marks the standard message currently selected or armed by the FT auto-sequencer."));
     m_tableFt8TxMessages->selectRow(0);
     setFt8ActiveTxRow(0);
+    applyDecodeTableVisualSettings(m_tableFt8TxMessages);
     txLayout->addWidget(m_tableFt8TxMessages);
 
     settingsLayout->addWidget(settingsGroup);
@@ -7505,8 +7512,48 @@ void MainWindow::invokeRigSetFrequency(double frequencyHz)
 }
 
 
+void MainWindow::applyDecodeTableVisualSettings(QTableWidget *table)
+{
+    if (table == nullptr) {
+        return;
+    }
+
+    const int fontPt = qBound(8, m_settings.decodeTableFontPointSize, 18);
+    const int rowPx = qBound(16, m_settings.decodeTableRowHeightPx, 48);
+
+    QFont f = table->font();
+    f.setPointSize(fontPt);
+    table->setFont(f);
+    if (table->horizontalHeader() != nullptr) {
+        table->horizontalHeader()->setFont(f);
+    }
+    if (table->verticalHeader() != nullptr) {
+        table->verticalHeader()->setDefaultSectionSize(rowPx);
+        table->verticalHeader()->setMinimumSectionSize(qMin(rowPx, 16));
+    }
+    for (int r = 0; r < table->rowCount(); ++r) {
+        table->setRowHeight(r, rowPx);
+    }
+}
+
+void MainWindow::applyDecodeTableVisualSettings()
+{
+    applyDecodeTableVisualSettings(m_tableFt8Rx);
+    applyDecodeTableVisualSettings(m_tableFt8QsoHistory);
+    applyDecodeTableVisualSettings(m_tableMsk144Rx);
+    applyDecodeTableVisualSettings(m_tableQ65Rx);
+    // Keep the standard-message tables readable but compact as well; they are
+    // decode/QSO workflow tables, not free-form editors.
+    applyDecodeTableVisualSettings(m_tableFt8TxMessages);
+    applyDecodeTableVisualSettings(m_tableMsk144TxMessages);
+    applyDecodeTableVisualSettings(m_tableQ65TxMessages);
+}
+
+
 void MainWindow::applyPersistentSettingsToRuntime()
 {
+    applyDecodeTableVisualSettings();
+
     if (m_audioEngine != nullptr) {
         m_audioEngine->setClockCorrectionPpm(m_settings.audioRxClockPpm);
     }

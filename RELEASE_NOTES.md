@@ -1,3 +1,18 @@
+# MadModem 0.5.76f — macOS GitHub Actions preparation
+
+- Adds a conservative macOS `.app` bundle target for CMake builds.
+- Adds GitHub Actions workflow `Build macOS unsigned` for Apple Silicon and Intel artifacts.
+- Adds unsigned ZIP/DMG packaging scripts using `macdeployqt`; non-Qt Homebrew dylibs are bundled best-effort with `dylibbundler`.
+- Adds macOS `Info.plist`, generated `.icns` icon support and microphone permission text.
+- Keeps modem DSP, decoders, CAT/PTT, logbook and normal Linux/Windows build paths unchanged.
+
+# MadModem 0.5.76e — FT period indicator and decode-table readability
+
+- Keeps the selected FT first/second-period indicator green even when the active QSO/TX plan temporarily locks period controls.
+- Adds Settings controls for decode table font size and row height.
+- Applies the table readability settings to FT, MSK144 and Q65 decode/activity tables.
+
+
 # MadModem 0.5.76d — MSK144 async RX and mode panel cleanup
 
 - Fixed the RX start guard that still rejected MSK144 and Q65 as “not implemented yet”.

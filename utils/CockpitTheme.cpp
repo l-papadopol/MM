@@ -696,12 +696,12 @@ QCheckBox::indicator:disabled {
     border-color: #3a3025;
 }
 QCheckBox::indicator:checked:disabled {
-    background: #151515;
-    border-color: #504432;
+    background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #5dff78, stop:1 #1fd845);
+    border-color: #b8ffc5;
 }
 QRadioButton::indicator:checked:enabled { background: #32ff5c; border-color: #b2ffc2; }
 QRadioButton::indicator:disabled { background: #050505; border-color: #3a3025; }
-QRadioButton::indicator:checked:disabled { background: #151515; border-color: #504432; }
+QRadioButton::indicator:checked:disabled { background: #32ff5c; border-color: #b2ffc2; }
 QLabel { background: transparent; color: #ffb347; }
 QLCDNumber { background-color: #020202; color: #ff9b24; border: 1px solid #53351c; border-radius: 6px; }
 QProgressBar { background-color: #020202; color: #ffe0a0; border: 1px solid #463728; border-radius: 6px; text-align: center; min-height: 18px; }
