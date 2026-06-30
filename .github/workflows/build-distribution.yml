@@ -92,6 +92,14 @@ jobs:
             mingw-w64-x86_64-qt5-imageformats
             mingw-w64-x86_64-fftw
 
+      - name: Verify MSYS2 Qt deploy tools
+        run: |
+          pacman -S --needed --noconfirm mingw-w64-x86_64-qt5-tools
+          echo "PATH=$PATH"
+          echo "MINGW_PREFIX=${MINGW_PREFIX:-/mingw64}"
+          ls -la "${MINGW_PREFIX:-/mingw64}/bin"/*deploy*qt* 2>/dev/null || true
+          command -v windeployqt || command -v windeployqt-qt5 || true
+
       - name: Build Windows variants
         env:
           MADMODEM_MIND_OPENMP: ON
