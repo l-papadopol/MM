@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QtHelpProject version="1.0">
+    <namespace>org.madmodem.mm.050a1.it</namespace>
+    <virtualFolder>doc</virtualFolder>
+    <filterSection>
+        <filterAttribute>MM</filterAttribute>
+        <filterAttribute>0.5.1</filterAttribute>
+        <filterAttribute>it</filterAttribute>
+        <toc>
+            <section title="Guida MM" ref="it/index.html">
+                <section title="Avvio rapido" ref="it/quickstart.html"/>
+                <section title="Audio, CAT e PTT" ref="it/audio_cat_ptt.html"/>
+                <section title="Waterfall e marker" ref="it/waterfall.html"/>
+                <section title="Modi testuali" ref="it/text_modes.html"/>
+                <section title="CW / Morse" ref="it/cw.html"/>
+                <section title="FT4 / FT8" ref="it/ft8_ft4.html"/>
+                <section title="Rotatore" ref="it/rotator.html"/>
+                <section title="Scheduler" ref="it/scheduler.html"/>
+                <section title="MM Flow Studio" ref="it/mm_flow_studio.html"/>
+                <section title="MM Flow Studio / AutoQSO" ref="it/evil_mode.html"/>
+                <section title="Logbook e mappa" ref="it/logbook_map.html"/>
+                <section title="Risoluzione problemi" ref="it/troubleshooting.html"/>
+            </section>
+        </toc>
+        <keywords>
+            <keyword name="MM" ref="it/index.html"/>
+            <keyword name="help" ref="it/index.html"/>
+            <keyword name="manual" ref="it/index.html"/>
+            <keyword name="quick start" ref="it/quickstart.html"/>
+            <keyword name="setup" ref="it/quickstart.html"/>
+            <keyword name="audio" ref="it/audio_cat_ptt.html"/>
+            <keyword name="CAT" ref="it/audio_cat_ptt.html"/>
+            <keyword name="PTT" ref="it/audio_cat_ptt.html"/>
+            <keyword name="rig" ref="it/audio_cat_ptt.html"/>
+            <keyword name="waterfall" ref="it/waterfall.html"/>
+            <keyword name="marker" ref="it/waterfall.html"/>
+            <keyword name="RTTY" ref="it/text_modes.html"/>
+            <keyword name="PSK" ref="it/text_modes.html"/>
+            <keyword name="CW" ref="it/cw.html"/>
+            <keyword name="FT8" ref="it/ft8_ft4.html"/>
+            <keyword name="FT4" ref="it/ft8_ft4.html"/>
+            <keyword name="bearing" ref="it/ft8_ft4.html"/>
+            <keyword name="sequencer" ref="it/ft8_ft4.html"/>
+            <keyword name="TX guard" ref="it/ft8_ft4.html"/>
+            <keyword name="rotator" ref="it/rotator.html"/>
+            <keyword name="CatRotator" ref="it/rotator.html"/>
+            <keyword name="Hamlib rotator" ref="it/rotator.html"/>
+            <keyword name="azimuth" ref="it/rotator.html"/>
+            <keyword name="elevation" ref="it/rotator.html"/>
+            <keyword name="auto calibration" ref="it/rotator.html"/>
+            <keyword name="peak search" ref="it/rotator.html"/>
+            <keyword name="SPSA" ref="it/rotator.html"/>
+            <keyword name="Nelder-Mead" ref="it/rotator.html"/>
+            <keyword name="golden section" ref="it/rotator.html"/>
+            <keyword name="inertia" ref="it/rotator.html"/>
+            <keyword name="scheduler" ref="it/scheduler.html"/>
+            <keyword name="rotator scheduler" ref="it/scheduler.html"/>
+            <keyword name="MM Flow Studio" ref="it/mm_flow_studio.html"/>
+            <keyword name="flow" ref="it/mm_flow_studio.html"/>
+            <keyword name="automation" ref="it/mm_flow_studio.html"/>
+            <keyword name="event bus" ref="it/mm_flow_studio.html"/>
+            <keyword name="capability manager" ref="it/mm_flow_studio.html"/>
+            <keyword name="AutoQSO" ref="it/evil_mode.html"/>
+            <keyword name="logbook" ref="it/logbook_map.html"/>
+            <keyword name="ADIF" ref="it/logbook_map.html"/>
+            <keyword name="map" ref="it/logbook_map.html"/>
+            <keyword name="Layers" ref="it/logbook_map.html"/>
+            <keyword name="Maidenhead" ref="it/logbook_map.html"/>
+            <keyword name="DXCC" ref="it/logbook_map.html"/>
+            <keyword name="troubleshooting" ref="it/troubleshooting.html"/>
+        </keywords>
+        <files>
+            <file>it/*.html</file>
+            <file>style.css</file>
+        </files>
+    </filterSection>
+</QtHelpProject>
