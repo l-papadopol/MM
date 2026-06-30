@@ -1,3 +1,19 @@
+# MadModem 0.5.76h
+
+
+## 0.5.76h - macOS CI header-shadow fix
+
+- macOS GitHub Actions fix: removed the root `VERSION` filename because AppleClang/libc++ includes the standard `<version>` header and macOS runners use a case-insensitive filesystem.
+- Package scripts now read `MADMODEM_VERSION.txt`.
+- Standalone macOS workflow is manual-only; the multi-platform distribution workflow remains the normal tag/release pipeline.
+- No modem/DSP/CAT runtime changes.
+
+- Added `.github/workflows/build-distribution.yml` to build Linux, Windows and macOS release artifacts on GitHub-hosted runners.
+- Added Linux CI build/package scripts under `scripts/`.
+- Added Windows MSYS2/MinGW64 CI build/package scripts under `scripts/`.
+- Added `docs/platform/GITHUB_ACTIONS_DISTRIBUTION.md` with manual and tag-release instructions.
+- Runtime code path unchanged: no DSP, decoder, CAT, UI or sequencer behavior changes.
+
 # MadModem 0.5.76f
 
 - Prepared the CMake project for native macOS `.app` bundle generation with `MACOSX_BUNDLE`.

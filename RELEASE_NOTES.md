@@ -1,3 +1,14 @@
+# MadModem 0.5.76h — macOS CI header-shadow fix
+
+
+## 0.5.76h - macOS CI header-shadow fix
+
+- Renamed the root plain-text version file from `VERSION` to `MADMODEM_VERSION.txt`.
+- Fixes AppleClang/libc++ failing on macOS CI because `<version>` resolved to the project root `VERSION` file on case-insensitive APFS runners.
+- No decoder/DSP/CAT/UI runtime logic changed.
+
+This release-preparation step extends the previous macOS CI work to a full GitHub-hosted package factory. It adds Linux, Windows/MSYS2 and macOS artifact generation plus optional GitHub Release upload on `v*` tags. The modem runtime core is intentionally unchanged.
+
 # MadModem 0.5.76f — macOS GitHub Actions preparation
 
 - Adds a conservative macOS `.app` bundle target for CMake builds.

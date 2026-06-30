@@ -1,0 +1,204 @@
+name: Build distribution packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  linux-x86_64:
+    name: Linux x86_64 package
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config zip rsync \
+            autoconf automake libtool gettext autopoint \
+            qtbase5-dev qttools5-dev qttools5-dev-tools \
+            qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev \
+            libqt5serialport5-dev libqt5opengl5-dev libgl1-mesa-dev
+
+      - name: Build Linux package tree
+        env:
+          MADMODEM_MIND_OPENMP: ON
+          MADMODEM_Q65_FULL: OFF
+        run: |
+          bash scripts/build_linux_github.sh
+
+      - name: Package Linux artifact
+        run: |
+          bash scripts/package_linux_github.sh
+          ls -lh dist/packages
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MadModem-Linux-x86_64
+          path: |
+            dist/packages/MadModem-*-Linux-x86_64.tar.gz
+            dist/packages/MadModem-*-Linux-x86_64.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-x86_64:
+    name: Windows x86_64 package
+    runs-on: windows-2025
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2 MinGW64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          path-type: minimal
+          install: >-
+            base-devel
+            git
+            zip
+            unzip
+            rsync
+            autoconf
+            automake-wrapper
+            libtool
+            gettext-devel
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-qt5-base
+            mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-qt5-declarative
+            mingw-w64-x86_64-qt5-location
+            mingw-w64-x86_64-qt5-multimedia
+            mingw-w64-x86_64-qt5-serialport
+            mingw-w64-x86_64-qt5-svg
+            mingw-w64-x86_64-qt5-imageformats
+            mingw-w64-x86_64-fftw
+
+      - name: Build Windows variants
+        env:
+          MADMODEM_MIND_OPENMP: ON
+          MADMODEM_Q65_FULL: OFF
+          MADMODEM_WINDOWS_BUILD_LEGACY: on
+          MADMODEM_WINDOWS_BUILD_AVX2: on
+        run: |
+          bash scripts/build_windows_msys2.sh
+
+      - name: Package Windows artifacts
+        env:
+          MADMODEM_WINDOWS_BUILD_LEGACY: on
+          MADMODEM_WINDOWS_BUILD_AVX2: on
+        run: |
+          bash scripts/package_windows_msys2.sh
+          ls -lh dist/packages
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MadModem-Windows-x86_64
+          path: |
+            dist/packages/MadModem-*-Windows-x86_64-legacy.zip
+            dist/packages/MadModem-*-Windows-x86_64-avx2.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  macos:
+    name: macOS ${{ matrix.arch }} unsigned package
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          - arch: x86_64
+            runner: macos-15-intel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install macOS build dependencies
+        run: |
+          brew update
+          brew install cmake ninja qt qtlocation hamlib pkgconf rsync dylibbundler
+
+      - name: Build MadModem.app
+        env:
+          MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
+          MADMODEM_MIND_OPENMP: OFF
+          MADMODEM_Q65_FULL: OFF
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+        run: |
+          bash scripts/build_macos.sh
+
+      - name: Package unsigned macOS app
+        env:
+          MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
+          MADMODEM_ADHOC_SIGN: on
+        run: |
+          bash scripts/package_macos.sh
+          ls -lh dist/macos
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MadModem-macOS-${{ matrix.arch }}-unsigned
+          path: |
+            dist/macos/*.zip
+            dist/macos/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+  github-release:
+    name: Publish GitHub Release on tag
+    needs:
+      - linux-x86_64
+      - windows-x86_64
+      - macos
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all package artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List release assets
+        run: |
+          find release-assets -maxdepth 2 -type f -print -exec ls -lh {} \;
+
+      - name: Create GitHub Release and upload packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          title="MadModem ${tag}"
+          notes_file="RELEASE_NOTES.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" release-assets/* --clobber
+          else
+            gh release create "$tag" release-assets/* --title "$title" --notes-file "$notes_file"
+          fi

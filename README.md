@@ -1,3 +1,7 @@
+# MadModem 0.5.76h
+
+GitHub Actions distribution hotfix over 0.5.76g. This build keeps the modem/DSP/CAT runtime unchanged, fixes macOS AppleClang/libc++ `<version>` header shadowing by renaming the root version text file to `MADMODEM_VERSION.txt`, and keeps CI packaging for Linux, Windows/MSYS2 and macOS. See `docs/platform/GITHUB_ACTIONS_DISTRIBUTION.md`.
+
 # MadModem 0.5.76f
 
 macOS/GitHub Actions preparation over 0.5.76e. This build does not change the modem/DSP/CAT runtime path; it adds a native macOS `.app` bundle target, macOS-safe CMake linker flags, generated `.icns` icon support, unsigned packaging scripts, and a manual GitHub Actions workflow for arm64 and Intel macOS runners. See `docs/platform/MACOS_GITHUB_ACTIONS.md`.
