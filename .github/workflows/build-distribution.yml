@@ -90,6 +90,8 @@ jobs:
             mingw-w64-x86_64-qt5-serialport
             mingw-w64-x86_64-qt5-svg
             mingw-w64-x86_64-qt5-imageformats
+            mingw-w64-x86_64-qt5-translations
+            mingw-w64-x86_64-angleproject
             mingw-w64-x86_64-fftw
 
       - name: Verify MSYS2 Qt deploy tools
@@ -99,6 +101,7 @@ jobs:
           echo "MINGW_PREFIX=${MINGW_PREFIX:-/mingw64}"
           ls -la "${MINGW_PREFIX:-/mingw64}/bin"/*deploy*qt* 2>/dev/null || true
           command -v windeployqt || command -v windeployqt-qt5 || true
+          test -x "${MINGW_PREFIX:-/mingw64}/bin/windeployqt-qt5.exe" || { echo "windeployqt-qt5.exe missing after pacman install"; pacman -Ql mingw-w64-x86_64-qt5-tools | grep -i deploy || true; }
 
       - name: Build Windows variants
         env:
@@ -147,6 +150,10 @@ jobs:
         run: |
           brew update
           brew install cmake ninja qt qtlocation hamlib pkgconf rsync dylibbundler
+
+      - name: macOS source portability preflight
+        run: |
+          bash scripts/check_macos_portability.sh
 
       - name: Build MadModem.app
         env:
