@@ -22,7 +22,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build pkg-config zip rsync \
+            build-essential cmake ninja-build pkg-config rsync \
             autoconf automake libtool gettext autopoint \
             qtbase5-dev qttools5-dev qttools5-dev-tools \
             qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev \
@@ -44,89 +44,82 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MadModem-Linux-x86_64
-          path: |
-            dist/packages/MadModem-*-Linux-x86_64.tar.gz
-            dist/packages/MadModem-*-Linux-x86_64.zip
+          path: dist/packages/MadModem-*-Linux-x86_64.tar.gz
           if-no-files-found: error
           retention-days: 14
 
-  windows-x86_64:
-    name: Windows x86_64 package
-    runs-on: windows-2025
-
-    defaults:
-      run:
-        shell: msys2 {0}
+  windows-mxe:
+    name: Windows x86_64 MXE static packages
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup MSYS2 MinGW64
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          path-type: minimal
-          install: >-
-            base-devel
-            git
-            zip
-            unzip
-            rsync
-            autoconf
-            automake-wrapper
-            libtool
-            gettext-devel
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-pkgconf
-            mingw-w64-x86_64-qt5-base
-            mingw-w64-x86_64-qt5-tools
-            mingw-w64-x86_64-qt5-declarative
-            mingw-w64-x86_64-qt5-location
-            mingw-w64-x86_64-qt5-multimedia
-            mingw-w64-x86_64-qt5-serialport
-            mingw-w64-x86_64-qt5-svg
-            mingw-w64-x86_64-qt5-imageformats
-            mingw-w64-x86_64-qt5-translations
-            mingw-w64-x86_64-angleproject
-            mingw-w64-x86_64-fftw
-
-      - name: Verify MSYS2 Qt deploy tools
+      - name: Install host tools for MXE/Hamlib
         run: |
-          pacman -S --needed --noconfirm mingw-w64-x86_64-qt5-tools
-          echo "PATH=$PATH"
-          echo "MINGW_PREFIX=${MINGW_PREFIX:-/mingw64}"
-          ls -la "${MINGW_PREFIX:-/mingw64}/bin"/*deploy*qt* 2>/dev/null || true
-          command -v windeployqt || command -v windeployqt-qt5 || true
-          test -x "${MINGW_PREFIX:-/mingw64}/bin/windeployqt-qt5.exe" || { echo "windeployqt-qt5.exe missing after pacman install"; pacman -Ql mingw-w64-x86_64-qt5-tools | grep -i deploy || true; }
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates gnupg software-properties-common lsb-release \
+            build-essential cmake ninja-build pkg-config zip rsync \
+            autoconf automake libtool gettext autopoint curl git python3
 
-      - name: Build Windows variants
+      - name: Install MXE static Qt5 toolchain
+        run: |
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 86B72ED9
+          for codename in "$(lsb_release -sc)" noble jammy focal; do
+            echo "Trying MXE APT repository codename: ${codename}"
+            echo "deb [arch=amd64] https://pkg.mxe.cc/repos/apt ${codename} main" | sudo tee /etc/apt/sources.list.d/mxe.list
+            if sudo apt-get update && apt-cache show mxe-x86-64-w64-mingw32.static-qtbase >/dev/null 2>&1; then
+              echo "MXE APT repository selected: ${codename}"
+              break
+            fi
+          done
+          apt-cache policy mxe-x86-64-w64-mingw32.static-qtbase || true
+          sudo apt-get install -y --no-install-recommends \
+            mxe-x86-64-w64-mingw32.static-cc \
+            mxe-x86-64-w64-mingw32.static-cmake \
+            mxe-x86-64-w64-mingw32.static-pkgconf \
+            mxe-x86-64-w64-mingw32.static-qtbase \
+            mxe-x86-64-w64-mingw32.static-qttools \
+            mxe-x86-64-w64-mingw32.static-qtdeclarative \
+            mxe-x86-64-w64-mingw32.static-qtlocation \
+            mxe-x86-64-w64-mingw32.static-qtmultimedia \
+            mxe-x86-64-w64-mingw32.static-qtserialport \
+            mxe-x86-64-w64-mingw32.static-qtsvg \
+            mxe-x86-64-w64-mingw32.static-qtimageformats \
+            mxe-x86-64-w64-mingw32.static-fftw
+          test -x /usr/lib/mxe/usr/bin/x86_64-w64-mingw32.static-cmake
+          /usr/lib/mxe/usr/bin/x86_64-w64-mingw32.static-g++ --version | head -1
+
+      - name: Build Windows MXE static variants
         env:
+          MXE_ROOT: /usr/lib/mxe
+          MXE_TARGET: x86_64-w64-mingw32.static
           MADMODEM_MIND_OPENMP: ON
           MADMODEM_Q65_FULL: OFF
           MADMODEM_WINDOWS_BUILD_LEGACY: on
           MADMODEM_WINDOWS_BUILD_AVX2: on
         run: |
-          bash scripts/build_windows_msys2.sh
+          bash scripts/build_windows_mxe.sh
 
-      - name: Package Windows artifacts
+      - name: Package Windows MXE static artifacts
         env:
+          MXE_ROOT: /usr/lib/mxe
+          MXE_TARGET: x86_64-w64-mingw32.static
           MADMODEM_WINDOWS_BUILD_LEGACY: on
           MADMODEM_WINDOWS_BUILD_AVX2: on
         run: |
-          bash scripts/package_windows_msys2.sh
+          bash scripts/package_windows_mxe.sh
           ls -lh dist/packages
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MadModem-Windows-x86_64
+          name: MadModem-Windows-x86_64-MXE-static
           path: |
-            dist/packages/MadModem-*-Windows-x86_64-legacy.zip
-            dist/packages/MadModem-*-Windows-x86_64-avx2.zip
+            dist/packages/MadModem-*-Windows-x86_64-legacy-static.zip
+            dist/packages/MadModem-*-Windows-x86_64-avx2-static.zip
           if-no-files-found: error
           retention-days: 14
 
@@ -186,7 +179,7 @@ jobs:
     name: Publish GitHub Release on tag
     needs:
       - linux-x86_64
-      - windows-x86_64
+      - windows-mxe
       - macos
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/')
