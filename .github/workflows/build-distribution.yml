@@ -194,18 +194,30 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: List release assets
+      - name: Install release validation tools
         run: |
-          find release-assets -maxdepth 2 -type f -print -exec ls -lh {} \;
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends unzip
+
+      - name: List and validate release assets
+        run: |
+          bash scripts/validate_release_assets.sh release-assets
 
       - name: Create GitHub Release and upload packages
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           tag="${GITHUB_REF_NAME}"
           title="MadModem ${tag}"
           notes_file="RELEASE_NOTES.md"
           if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists: deleting old assets before uploading fresh packages"
+            gh release view "$tag" --json assets -q '.assets[].name' | while IFS= read -r asset; do
+              [[ -z "$asset" ]] && continue
+              echo "Deleting stale release asset: $asset"
+              gh release delete-asset "$tag" "$asset" -y || true
+            done
             gh release upload "$tag" release-assets/* --clobber
           else
             gh release create "$tag" release-assets/* --title "$title" --notes-file "$notes_file"
