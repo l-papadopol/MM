@@ -148,7 +148,7 @@ jobs:
       - name: Install macOS build dependencies
         run: |
           brew update
-          brew install cmake ninja qt qtlocation hamlib pkgconf rsync dylibbundler
+          brew install cmake ninja qt qtserialport qtmultimedia qtlocation qttools hamlib pkgconf rsync
 
       - name: macOS source portability preflight
         run: |
