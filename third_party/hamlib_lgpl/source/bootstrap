@@ -1,0 +1,83 @@
+#!/bin/sh
+
+# Run this to generate all the initial makefiles, etc.
+
+# Taken from glib CVS
+
+# Change the following to match the versions installed on your system
+LIBTOOLIZE=libtoolize
+AUTORECONF=autoreconf
+AUTOMAKE=automake
+PKGCONFIG=pkg-config
+
+# Check if we compile on OSX and resolve the name conflict with
+# Apple's tool for creating Mach-O dynamic libraries.
+
+case $(uname) in Darwin*) LIBTOOLIZE=glibtoolize ;; esac
+
+# variables below this line should not need modification
+SRCDIR=$(dirname "$0")
+test -z "$SRCDIR" && SRCDIR=.
+
+ORIGDIR=$(pwd)
+
+PROJECT=hamlib
+
+TEST_TYPE=-f
+FILE=include/hamlib/rig.h
+
+DIE=0
+
+("$AUTORECONF" --version) > /dev/null 2>&1 || {
+        echo
+        echo "You must have autoreconf installed to compile $PROJECT."
+        echo "Download the appropriate package for your distribution,"
+        DIE=1
+}
+
+("$AUTOMAKE" --version) > /dev/null 2>&1 || {
+        echo
+        echo "You must have automake installed to compile $PROJECT."
+        echo "Download the appropriate package for your distribution,"
+        DIE=1
+}
+
+("$LIBTOOLIZE" --version) > /dev/null 2>&1 || {
+        echo
+        echo "You must have libtool installed to compile $PROJECT."
+        echo "Download the appropriate package for your distribution."
+        DIE=1
+}
+
+("$PKGCONFIG" --version) > /dev/null 2>&1 || {
+        echo
+        echo "You must have pkg-config 0.29.2 or newer (replaced by pkgconf"
+        echo "for the most part) installed to compile $PROJECT."
+        echo "Download the appropriate package for your distribution."
+        DIE=1
+}
+
+if test "$DIE" -eq 1; then
+        exit 1
+fi
+
+cd "$SRCDIR"
+
+test $TEST_TYPE $FILE || {
+        echo "You must run this script in the top-level $PROJECT directory"
+        exit 1
+}
+
+###################################################################
+### autoreconf is now the preferred way to process configure.ac ###
+### which should handle compiler variations and ensures that    ###
+### subtools are processed in the correct order.                ###
+###################################################################
+
+echo "Running '$AUTORECONF -i' to process configure.ac"
+echo "and generate the configure script."
+
+# Tell autoreconf to install needed build system files
+"$AUTORECONF" -i
+
+cd "$ORIGDIR"
