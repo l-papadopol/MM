@@ -1,3 +1,9 @@
+
+### 0.5.76 - GitHub homepage README and screenshot scaffold
+
+- Replaced the old technical README with the new bilingual GitHub project homepage text.
+- Added `docs/images/README.md` as a placeholder for the planned screenshot gallery.
+
 ## 0.5.76
 ### Windows QSO map HTTPS runtime hotfix
 - Windows/MSYS2 standalone packages now explicitly bundle Qt/OpenSSL runtime DLLs (`libssl*.dll` and `libcrypto*.dll`).

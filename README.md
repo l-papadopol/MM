@@ -1,232 +1,306 @@
+# MadModem
+## All-in-one digital modem for ham radio
 
-### 0.5.76v - GitHub standalone packaging correction
+**Less fragmentation, more radio.**  
+**Meno frammentazione, più radio.**
 
-- Windows release job returns to MSYS2/MinGW64 dynamic packages, but packages are now standalone: after windeployqt a recursive objdump dependency closure copies all non-system DLL dependencies and fails if anything remains unresolved.
-- Windows artifacts are named legacy-standalone and avx2-standalone; they are no longer advertised as MXE static.
-- macOS packaging no longer passes -qmldir to macdeployqt; it bundles only the minimal QML modules required by the QSO map to avoid optional QtStateMachine/Qt3D/VirtualKeyboard deployment failures.
-- macOS framework validation still requires QtSerialPort.framework inside MadModem.app.
+MadModem is an experimental all-in-one digital modem and station hub for amateur radio operators. It brings together digital modes, radio CAT control, antenna rotor control, QSO mapping and logbook tools in a single application.
 
-# MadModem 0.5.76u
-
-GitHub release hardening over 0.5.76u. Existing release assets are deleted before upload so stale 0.5.76p/MSYS2 packages cannot remain beside new MXE/static artifacts. Release packaging now emits build marker files and validates uploaded asset names against MADMODEM_VERSION.txt. macOS bundle metadata uses the package version from MADMODEM_VERSION.txt while CMake keeps its numeric project version. Runtime/DSP/CAT/audio/UI code is unchanged.
-
-# MadModem 0.5.76u
-
-GitHub release packaging correction over 0.5.76p. Windows release artifacts are now built on GitHub as MSYS2/MinGW64 standalone dynamic packages, with recursive runtime-DLL closure and separate legacy/AVX2 ZIPs. macOS packaging verifies that linked Qt frameworks such as QtSerialPort are present inside the .app bundle. Linux release output is a single tar.gz.
-
-# MadModem 0.5.76i
-
-This source package includes GitHub Actions hardening for Windows/MSYS2 and macOS unsigned distribution builds.
-
-# MadModem 0.5.76h
-
-GitHub Actions distribution hotfix over 0.5.76g. This build keeps the modem/DSP/CAT runtime unchanged, fixes macOS AppleClang/libc++ `<version>` header shadowing by renaming the root version text file to `MADMODEM_VERSION.txt`, and keeps CI packaging for Linux, Windows/MSYS2 and macOS. See `docs/platform/GITHUB_ACTIONS_DISTRIBUTION.md`.
-
-# MadModem 0.5.76f
-
-macOS/GitHub Actions preparation over 0.5.76e. This build does not change the modem/DSP/CAT runtime path; it adds a native macOS `.app` bundle target, macOS-safe CMake linker flags, generated `.icns` icon support, unsigned packaging scripts, and a manual GitHub Actions workflow for arm64 and Intel macOS runners. See `docs/platform/MACOS_GITHUB_ACTIONS.md`.
-
-# MadModem 0.5.76e
-
-FT/UI readability hotfix over 0.5.76d: FT period radio indicators remain visible even while a QSO/TX plan is armed, and decode tables now have configurable font size and row height in Settings.
-
-# MadModem 0.5.76d
-
-Runtime hotfix over 0.5.76b: MSK144/Q65 RX now enters the active decoder paths instead of the old “not implemented yet” guard.  The MSK144/Q65 Mode panels also get compact sequence-status boxes in the same position/style family as FT8/FT4.
-
-MSHV RX completion pass for Q65 and MSK144: Q65 can now use the FFTW-backed `DecoderQ65` bridge; MSK144 has coherent 4/5/7-frame averaging in the classical decoder path while MIND remains only a candidate ranker.
-
-# MadModem 0.5.75b
-
-Audit hotfix after the MSK144 MIND domain-gate bug. Fixes domain-specific MIND Assist gating, prevents queued MSK144 Assist from reordering candidates before readiness, fixes Q65 UTC refresh, and removes developer/status chatter from Q65/MSK144 runtime status. See `docs/audit/STATIC_AUDIT_0_5_75B.md`.
-
-# MadModem 0.5.75a
-
-## MadModem 0.5.75a — MSK144 MIND domain-gated ranker
-
-0.5.75a keeps the 0.5.74d UI cleanup and adds MIND Training/Assist support for MSK144 candidate ranking. Q65 TX uses the assimilated MSHV `GenQ65` generator directly; the full MSHV `DecoderQ65` RX source is staged as GPL reference while the active RX bridge remains conservative and does not emit fake decodes.
-
-
-## MadModem 0.5.73b — MSK144 include-path build hotfix
-
-0.5.73b fixes the MSHV-derived `pack_unpack_msg.h` relative include path in the MadModem port layout. No functional MSK144 DSP/UI behaviour is changed from 0.5.73a.
-
-
-- Moved MSK144 decode depth out of the crowded mode panel and into a global `Decode -> MSK144 decode depth` menu, matching the MSHV-style placement.
-- Kept the real MSHV mapping: `Fast = 1`, `Normal = 2`, `Deep = 3`; default remains `Normal`.
-- Saved the selection as `MSK144/decodeDepth` and made the MSK144 status/log report the active depth.
-
-
-One-shot experimental MSK144 integration on top of the 0.5.72e CW/fullscreen/UI baseline. CW skimmer UI fixes remain included; MSK144 adds a dedicated mode page, 15/30 s periods, standard messages, MSHV-derived TX generation, and LDPC-validated RX frame search for on-air validation.
-
-
-
-### 0.5.71 cockpit cleanup note
-
-MadModem now opens as a fullscreen cockpit-style console while preserving in-app window controls. The unified Settings workbench remains fullscreen. Stale standalone Settings menu actions and dead RTTY synthetic TX-scope code were removed; modem decoder/CAT/PTT logic is unchanged.
-
-## MadModem 0.5.73 — MSK144 one-shot experimental integration
-
-- Added experimental MSK144 mode with 15 s / 30 s period control.
-- Added MSK144 RX table, QSO form, waterfall RX marker and standard-message table.
-- Added GPL MSHV-derived MSK144 TX generator and conservative LDPC-validated RX frame search.
-- TX center is fixed at the protocol-standard 1500 Hz; non-standard diagnostic fallback waveform is removed.
-- Added documentation in `docs/msk144/IMPLEMENTATION_0_5_73.md`.
-
-
-## MadModem 0.5.70 - Settings real fullscreen hotfix
-
-- Settings dialog now forces a true fullscreen cockpit workbench instead of relying on window-manager maximized state.
-- The dialog is promoted to a top-level frameless application-modal window before exec() and re-applies fullscreen after Qt polishing.
-- No DSP, decoder, CAT/PTT, rotator, logbook or modem logic changes.
-
-## 0.5.69 - Cockpit message boxes + fullscreen Settings
-- Warning/information/question message boxes now use frameless cockpit styling instead of the native grey title bar.
-- Settings opens maximized as a full cockpit workbench and stays maximized when switching to/from MM Flow Studio.
-- No modem decoder, CAT/PTT, rotator or logbook backend changes.
-
-## 0.5.68 - Cockpit window screw cleanup
-- Removed corner screw overlays from top-level windows/dialog chrome because they overlapped title bars, tabs and inner borders in real layouts.
-- Kept the cockpit metal bezel/border styling for main window and Settings dialog.
-- Left dedicated instrument-internal screws untouched where they are part of the widget drawing.
-- No decoder, CAT/PTT or modem logic changes.
-
-## 0.5.67 - Cockpit Settings dialog breathing room
-
-- Enlarged the unified Settings dialog by roughly 20% horizontally and vertically.
-- Raised the Settings minimum size accordingly so cockpit chrome, tabs and form pages do not feel cramped.
-- Kept MM Flow expansion logic aligned with the new Settings baseline size.
-- No decoder, CAT, PTT, FT, CW, RTTY, Hell, MFSK, rotator or logbook backend changes.
-
-## 0.5.66 - Cockpit main chrome density
-
-- Reduced the custom cockpit main-window title bar height, title text and window-control buttons by about 30%.
-- Kept the dark cockpit frame/chrome and menu layout.
-- No decoder, CAT, PTT, modem or logbook runtime logic changes.
-
-## 0.5.65 - Cockpit main-window chrome
-
-- Added cockpit chrome to the actual main window, not only dialogs.
-- The native grey OS title bar is replaced with a dark frameless MadModem title bar.
-- Added main-window cockpit border and minimize/maximize/close controls.
-- Existing menu bar is preserved inside the themed header.
-- Runtime modem, decoder, CAT, PTT and logbook logic are unchanged.
-
-
-
-## 0.5.64 - Cockpit embedded dialog chrome hotfix
-
-- Top-level dialogs keep the cockpit title bar, instrument border and corner screws.
-- Embedded settings pages no longer receive a title bar or red close/ellipsis button.
-- Reused QDialog pages inside Settings are now explicitly marked as embedded widgets and stripped of stale cockpit chrome if it was installed before embedding.
-- No modem DSP, CAT, PTT, rotator or logbook backend changes.
-### 0.5.63 Cockpit dialog/menu cleanup
-
-Dialogs now use a MadModem cockpit-style frameless title bar with instrument border treatment, disabled checked boxes no longer appear active, and the Settings menu-bar item opens the unified settings dialog directly instead of showing a drop-down with FT WAV tools.
-
-
-
-## MadModem 0.5.62 - MM Flow routed arrows / QSO Info polish
-
-- MM Flow: the Connect tool now enters interactive arrow drawing mode. Click the source block, optionally click empty canvas points to create orthogonal bends, then click the destination block.
-- MM Flow: double-click an arrow to edit its label. Labels and manual bend points are saved in the flow JSON.
-- MM Flow: default auto-routing now uses outside lanes for branches instead of a single shared midpoint, reducing overlaps in the default graph.
-- MM Flow: canvas background now follows the dark cockpit theme instead of the old white flow grid.
-- UI: renamed the QSO-log side panel/group title to "QSO Info" in every language.
-- Runtime modem, CAT/PTT, decoder and DSP code unchanged.
-
-# MadModem 0.5.61
-
-This cockpit UI polish build keeps the short SSTV tab label in all translations and removes redundant RTTY tuning-scope help labels. Decoder, CAT and PTT logic are unchanged.
-
-
-Cockpit UI cleanup: SSTV tab title is shortened, text-mode QSO entry fields move into the Mode side panel, Hell removes the redundant bottom hint, and QSO map backgrounds use dark cockpit-compatible tones. Runtime decoder/CAT/PTT logic is unchanged.
-
-
-### 0.5.59 cockpit UI note
-The cockpit theme now uses green checked boxes consistently and removes the stray amber/brown lower border around the waterfall instrument.
-
-
-### 0.5.58 Cockpit waterfall layout repair
-
-The cockpit theme now treats the waterfall as the instrument surface instead of wrapping it in nested chrome. This removes the misleading lower margin seen in 0.5.57 while preserving the dark/amber avionics style. Runtime modem, CAT and PTT logic are unchanged.
-
-### 0.5.57 cockpit layout repair
-
-MadModem 0.5.57 keeps the cockpit/avionics theme but fixes the first real-layout issues found in 0.5.56: less wasted waterfall chrome, visible combo arrows, compact SSTV controls, wider tabs and an unobtrusive splitter handle. Decoder, CAT, PTT and modem runtime code are unchanged.
-
-### 0.5.56 cockpit UI readability pass
-
-MadModem 0.5.56 keeps the dark cockpit/avionics theme while reducing label weight, tab padding and local oversized RTTY controls. The UI should take less space and avoid tab label clipping while retaining the black/amber instrument look.
-
-# MadModem 0.5.53 cockpit avionics UI completion
-
-### 0.5.55 cockpit density cleanup
-
-The cockpit/avionics theme remains enabled by default, but the first heavy pass has been refined: screw/bezel overlays are no longer applied automatically to every nested container, padding and borders are lighter, and tab labels are allowed to use more of the available width. This keeps the aircraft-panel look without wasting space or truncating Settings tabs unnecessarily.
-
-
-This build completes the broad cockpit/avionics visual pass started in 0.5.52. It keeps the runtime behaviour from the previous line and focuses on a coherent dark high-contrast UI: amber labels, black instrument panels, metallic bezels, corner-screw overlays, cockpit-styled controls, and integrated MIND/VU/waterfall framing.
-
-Important: decoder, CAT/PTT, TS-890, FT8/FT4 core, CW runtime, RTTY, Feld Hell, MFSK, scheduler, logbook, maps and rotator logic are not changed by this UI pass.
-
-Packaging fix: all shell scripts, including build_all.sh and third_party/hamlib_lgpl/*.sh, are explicitly executable in the source package.
+MadModem è un modem digitale tutto-in-uno sperimentale per radioamatori. Riunisce modi digitali, controllo CAT della radio, controllo rotore, mappa QSO e logbook in un’unica applicazione.
 
 ---
 
-# MadModem 0.5.52
+## What is MadModem?
 
-MadModem 0.5.52 introduces the first global **Cockpit / Avionics** user-interface theme.
+MadModem is designed for radio amateurs who want to operate different digital modes without constantly switching between many separate applications. It covers both historical modes such as RTTY and modern modes such as FT8/FT4, while also integrating station tools that are usually handled by separate programs.
 
-This release keeps the 0.5.51 CW 3 kHz retune and Auto-WPM hotfix, the 0.5.50 CW baseband preconditioner, the 0.5.49 source-tree TX layout cleanup, and all recent RTTY/Feld Hell/MIND UI work.
+MadModem è pensato per radioamatori che vogliono operare in diversi modi digitali senza dover passare continuamente da un programma all’altro. Include modi storici come RTTY e modi moderni come FT8/FT4, integrando anche strumenti di stazione che normalmente richiederebbero software separati.
 
-## UI cockpit theme
+The goal is simple: one practical hub for digital ham radio activity.
 
-The application now applies a dark, high-contrast cockpit-style theme at startup:
+L’obiettivo è semplice: un unico hub pratico per l’attività digitale radioamatoriale.
 
-- matte black / charcoal window background;
-- amber/nixie-like text as the default technical UI colour;
-- dark instrument-style panels and group boxes;
-- metallic borders and stronger bevels;
-- cockpit-style tabs, buttons, combo boxes, spin boxes and input fields;
-- green/red semantic colours preserved for RX/TX and active/alarm states;
-- MIND Nixie gain gauge integrated with the same dark instrument style.
+---
 
-The theme is implemented in `utils/CockpitTheme.*` and applied from `main.cpp` so it works in Linux and static MXE Windows builds without requiring an external QSS file.
+## Why MadModem?
 
-## Source layout
+MadModem was born from a practical need: reducing software fragmentation in the ham radio shack. Instead of using separate applications for FT8, RTTY, SSTV, CAT control, antenna rotor control, logbook and mapping, MadModem aims to provide a single integrated operating environment.
 
-The source layout introduced in 0.5.49 is preserved:
+MadModem nasce da un’esigenza concreta: ridurre la frammentazione software in stazione radio. Invece di usare applicazioni separate per FT8, RTTY, SSTV, controllo CAT, rotore d’antenna, logbook e mappa, MadModem vuole offrire un unico ambiente operativo integrato.
 
-- mode-specific transmitters live under `modems/<mode>/tx/`;
-- shared TX interfaces live under `core/tx/`;
-- there is no ambiguous top-level `tx/` directory.
+It is aimed especially at:
 
-## What was not changed
+- experimental radio amateurs;
+- operators interested in historical digital modes;
+- users who prefer one integrated program instead of many separate tools.
 
-This release is UI-focused. It does not alter:
+È rivolto soprattutto a:
 
-- PTT/CAT/Hamlib or TS-890 handling;
-- FT8/FT4 decoder core;
-- RTTY decoder core;
-- Feld Hell DSP/timing;
-- MFSK;
-- scheduler logic;
-- logbook, maps or rotator logic.
+- radioamatori sperimentatori;
+- appassionati di modi digitali storici;
+- utenti che preferiscono un software unico invece di tanti programmi separati.
 
+---
 
-### Build script permissions
+## Project status
 
-The full-source zip stores Unix executable bits for all `*.sh` scripts. If your archive manager strips them anyway, run:
+MadModem is experimental but usable. It is under active development and is tested primarily on Linux. Windows and macOS builds are available and functional, but some features may still require testing and refinement.
+
+MadModem è sperimentale ma utilizzabile. È in sviluppo attivo e viene testato principalmente su Linux. Sono disponibili build funzionanti per Windows e macOS, ma alcune funzionalità possono essere ancora da testare e rifinire.
+
+The most tested and currently most mature digital modes are:
+
+- FT8;
+- FT4;
+- RTTY.
+
+Le modalità più testate e attualmente più mature sono:
+
+- FT8;
+- FT4;
+- RTTY.
+
+Other modes are present in the project, but should be considered experimental or still under refinement.
+
+Gli altri modi sono presenti nel progetto, ma devono essere considerati sperimentali o ancora in fase di affinamento.
+
+---
+
+## Main features
+
+### Integrated digital modes
+
+MadModem includes multiple digital modes in a single application, covering both modern weak-signal operation and historical text/image modes.
+
+MadModem include più modi digitali in una sola applicazione, coprendo sia i modi moderni per segnali deboli sia modi storici testuali e immagine.
+
+### FT8 / FT4 workflow
+
+FT8 and FT4 are among the most tested modes in MadModem. The application includes receive/transmit support and an integrated operating workflow for digital QSOs.
+
+FT8 e FT4 sono tra i modi più testati in MadModem. L’applicazione include supporto RX/TX e un flusso operativo integrato per i QSO digitali.
+
+### RTTY and historical digital modes
+
+RTTY is one of the strongest and most tested parts of the project. MadModem also aims to preserve and modernize the experience of older digital modes inside a more integrated application.
+
+RTTY è una delle parti più solide e testate del progetto. MadModem punta anche a preservare e modernizzare l’esperienza dei modi digitali storici dentro un’applicazione più integrata.
+
+### SSTV, WEFAX and image modes
+
+MadModem includes support for image-oriented modes such as SSTV and WEFAX/MeteoFax. These areas are present and under active testing/refinement.
+
+MadModem include supporto per modi orientati all’immagine come SSTV e WEFAX/MeteoFax. Queste aree sono presenti e in fase di test e rifinitura.
+
+### CW and experimental modes
+
+CW, Feld Hell/Hellschreiber, BPSK/QPSK, MFSK, MSK144 and Q65 are included as experimental or developing areas of the project.
+
+CW, Feld Hell/Hellschreiber, BPSK/QPSK, MFSK, MSK144 e Q65 sono inclusi come aree sperimentali o in sviluppo.
+
+### CAT radio control through Hamlib
+
+MadModem integrates CAT radio control through Hamlib, allowing the application to communicate with compatible radios for frequency, mode and PTT management. CAT is designed to work together with the digital modes, logbook, map and rotor tools.
+
+MadModem integra il controllo CAT della radio tramite Hamlib, permettendo al software di comunicare con radio compatibili per gestione di frequenza, modo operativo e PTT. Il CAT è pensato per lavorare insieme ai modi digitali, al logbook, alla mappa e al controllo rotore.
+
+### Antenna rotor control
+
+MadModem includes integrated antenna rotor control, with support for standard azimuth rotors and alt-az systems. It supports manual pointing, automatic pointing and lunar tracking, making rotor management part of the same operating environment instead of a separate tool.
+
+MadModem include il controllo integrato del rotore d’antenna, con supporto per rotori azimutali classici e sistemi alt-az. Supporta puntamento manuale, puntamento automatico e tracking lunare, integrando la gestione del rotore nello stesso ambiente operativo.
+
+### Integrated logbook
+
+MadModem includes an integrated logbook with QSO recording, search/query tools and advanced export, including ADIF support and filtering by period, mode, callsign and locator.
+
+MadModem include un logbook integrato con registrazione QSO, strumenti di ricerca/query ed export avanzato, incluso supporto ADIF e filtri per periodo, modo, nominativo e locator.
+
+### QSO map and Maidenhead locator support
+
+MadModem includes an integrated QSO map with Maidenhead locator support. It can show the operator’s home position, visualize contacts geographically and connect the radio activity with the logbook and digital modes.
+
+MadModem include una mappa QSO integrata con supporto ai locator Maidenhead. Permette di visualizzare la posizione della stazione, i collegamenti effettuati e il rapporto geografico tra attività radio, logbook e modi digitali.
+
+### Multilingual interface
+
+MadModem includes a multilingual interface. Translations are available or in progress for:
+
+- Italian;
+- English;
+- French;
+- German;
+- Norwegian;
+- Czech.
+
+Some translations may still be incomplete or require refinement.
+
+MadModem include un’interfaccia multilingua. Le traduzioni sono disponibili o in lavorazione per:
+
+- Italiano;
+- Inglese;
+- Francese;
+- Tedesco;
+- Norvegese;
+- Ceco.
+
+Alcune traduzioni possono essere ancora incomplete o da rifinire.
+
+---
+
+## Supported digital modes
+
+### Well tested / Più testati
+
+- FT8
+- FT4
+- RTTY
+
+### Experimental or under refinement / Sperimentali o da rifinire
+
+- SSTV
+- CW
+- Feld Hell / Hellschreiber
+- WEFAX / MeteoFax
+- BPSK / QPSK
+- MFSK
+- MSK144
+- Q65
+
+---
+
+## Supported platforms
+
+MadModem is developed and tested primarily on Linux. Prebuilt experimental packages are also available for Windows and macOS when generated by the release workflow.
+
+MadModem viene sviluppato e testato principalmente su Linux. Sono disponibili anche pacchetti sperimentali per Windows e macOS quando generati dal workflow di release.
+
+Current target platforms:
+
+- Linux x86_64
+- Windows x86_64
+- macOS Apple Silicon
+- macOS Intel
+
+---
+
+## Screenshots
+
+Screenshots will be added in the `docs/images/` directory.
+
+Le schermate verranno aggiunte nella cartella `docs/images/`.
+
+Planned screenshot gallery:
+
+- Main window with FT8/FT4 waterfall;
+- RTTY operation;
+- rotor/CatRotator and tracking tools;
+- logbook with query/export;
+- QSO map and Maidenhead view;
+- settings window.
+
+Galleria schermate prevista:
+
+- finestra principale con waterfall FT8/FT4;
+- operatività RTTY;
+- rotore/CatRotator e strumenti di tracking;
+- logbook con query/export;
+- mappa QSO e vista Maidenhead;
+- finestra impostazioni.
+
+<!--
+Suggested image paths for future screenshots:
+
+![MadModem main FT8 view](docs/images/madmodem-main-ft8.png)
+![MadModem RTTY view](docs/images/madmodem-rtty.png)
+![MadModem rotor control](docs/images/madmodem-rotor.png)
+![MadModem logbook](docs/images/madmodem-logbook.png)
+![MadModem QSO map](docs/images/madmodem-map.png)
+![MadModem settings](docs/images/madmodem-settings.png)
+-->
+
+---
+
+## Download
+
+Download the latest release from the GitHub Releases page.  
+Prebuilt packages are provided for Linux, Windows and macOS when available.
+
+Scarica l’ultima versione dalla pagina GitHub Releases.  
+Quando disponibili, vengono forniti pacchetti già compilati per Linux, Windows e macOS.
+
+---
+
+## Building from source
+
+MadModem can be built from source using the provided build scripts.
+
+The project is written in C++/Qt and requires a working Qt development environment, CMake, a modern C++ compiler and the required development libraries for audio, serial/CAT, DSP and packaging support. Some third-party components, including Hamlib, may be bundled or built as part of the source tree depending on the platform.
+
+On Linux, the main helper script is:
 
 ```bash
-bash fix_permissions.sh
 ./build_all.sh
 ```
 
-`build_all.sh` also calls nested helper scripts through `bash`, so Hamlib helpers do not require their executable bit after a damaged extraction.
-### GitHub CI note for 0.5.76u
+Typical build requirements include:
 
-0.5.76v is a packaging-only release line: Windows release artifacts are MSYS2/MinGW64 standalone dynamic legacy/AVX2 builds produced by GitHub, macOS bundles are checked for missing Qt frameworks, and Linux emits a single tar.gz. No modem/DSP/CAT/audio/MIND runtime retune is intended.
+- CMake;
+- a modern C++ compiler with C++17 support;
+- Qt 5 development packages;
+- Hamlib or bundled Hamlib support;
+- FFTW3;
+- OpenMP-capable compiler/runtime;
+- audio and serial port development libraries;
+- standard build tools for the target platform.
 
-The macOS GitHub build now runs `scripts/check_macos_portability.sh` before CMake. This intentionally fails early if a stale root `VERSION/version` file, active Qt5-only `QRegExp`, missing MSHV Boost Clang shim, or unguarded `QTextCodec` would make AppleClang/Qt6 fail later.
+MadModem può essere compilato da sorgente usando gli script inclusi nel repository.
+
+Il progetto è scritto in C++/Qt e richiede un ambiente di sviluppo Qt funzionante, CMake, un compilatore C++ moderno e le librerie di sviluppo necessarie per audio, seriale/CAT, DSP e packaging. Alcuni componenti di terze parti, incluso Hamlib, possono essere inclusi o compilati insieme al sorgente a seconda della piattaforma.
+
+Su Linux lo script principale è:
+
+```bash
+./build_all.sh
+```
+
+Requisiti tipici di compilazione:
+
+- CMake;
+- compilatore C++ moderno con supporto C++17;
+- pacchetti di sviluppo Qt 5;
+- Hamlib o supporto Hamlib incluso nel sorgente;
+- FFTW3;
+- compilatore/runtime con supporto OpenMP;
+- librerie di sviluppo per audio e porta seriale;
+- strumenti di build standard per la piattaforma di destinazione.
+
+---
+
+## Author
+
+MadModem is developed by **Lucian-Ioan Papadopol, IZ6NNH**.
+
+The project comes from practical ham radio use, digital modes experimentation, homebrew electronics and the broader MadExp laboratory activity.
+
+MadModem è sviluppato da **Lucian-Ioan Papadopol, IZ6NNH**.
+
+Il progetto nasce dall’attività radio reale, dalla sperimentazione sui modi digitali, dall’elettronica homebrew e dall’attività più ampia del laboratorio MadExp.
+
+Author links:
+
+- MadExp: <https://www.madexp.it/>
+- QRZ profile: <https://www.qrz.com/db/IZ6NNH>
+
+---
+
+## License
+
+MadModem is released under the **GNU GPLv3** license.
+
+MadModem includes or interfaces with third-party open-source components. See `THIRD_PARTY_NOTICES.md` for details.
+
+MadModem è rilasciato sotto licenza **GNU GPLv3**.
+
+MadModem include o si interfaccia con componenti open-source di terze parti. Per i dettagli vedere `THIRD_PARTY_NOTICES.md`.
+

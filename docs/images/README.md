@@ -1,6 +1,8 @@
 # MadModem screenshots
 
-Suggested screenshot filenames for the main GitHub README:
+This directory is reserved for screenshots used by the GitHub homepage / README.
+
+Planned filenames:
 
 - `madmodem-main-ft8.png`
 - `madmodem-rtty.png`
@@ -9,4 +11,4 @@ Suggested screenshot filenames for the main GitHub README:
 - `madmodem-map.png`
 - `madmodem-settings.png`
 
-After adding the images, uncomment the screenshot block in the main `README.md`.
+The images will be added after the README text is finalized.
