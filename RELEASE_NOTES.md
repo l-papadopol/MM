@@ -1,4 +1,7 @@
-## 0.5.76 - Final release
+## 0.5.76
+### Windows QSO map HTTPS runtime hotfix
+The Windows standalone package now explicitly includes the OpenSSL runtime DLLs required by Qt Network for HTTPS tile downloads. This prevents the QSO map from falling back to the offline map only because `libssl`/`libcrypto` were not bundled.
+ - Final release
 
 - Final source label for the validated 0.5.76 release/tag.
 - Keeps the validated Linux/macOS/Windows packaging workflow.

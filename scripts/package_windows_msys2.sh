@@ -142,6 +142,76 @@ find_dll_in_search_dirs() {
     return 1
 }
 
+
+# Qt loads OpenSSL at runtime through QSslSocket, so libssl/libcrypto are not
+# always visible in the static import table scanned by objdump.  Without these
+# DLLs QSslSocket::supportsSsl() is false and the Windows QSO map falls back to
+# the offline map even though the normal DLL dependency closure is complete.
+bundle_qt_ssl_runtime() {
+    local package_dir="$1"
+    local mingw_prefix="${MINGW_PREFIX:-/mingw64}"
+    local bin_dir="$mingw_prefix/bin"
+    local copied_ssl=0
+    local copied_crypto=0
+    local copied_tls_plugin=0
+    local source_path=""
+    local base_name=""
+    local plugin_dir=""
+
+    echo "==> Bundling Qt/OpenSSL runtime for HTTPS map tiles"
+
+    shopt -s nullglob
+    for source_path in \
+        "$bin_dir"/libssl*.dll \
+        "$bin_dir"/libcrypto*.dll; do
+        [[ -f "$source_path" ]] || continue
+        base_name="$(basename "$source_path")"
+        case "$(printf '%s' "$base_name" | tr '[:lower:]' '[:upper:]')" in
+            LIBSSL*.DLL)
+                echo "  + Qt SSL DLL: $base_name"
+                cp -u "$source_path" "$package_dir/"
+                copied_ssl=1
+                ;;
+            LIBCRYPTO*.DLL)
+                echo "  + Qt crypto DLL: $base_name"
+                cp -u "$source_path" "$package_dir/"
+                copied_crypto=1
+                ;;
+        esac
+    done
+
+    # Qt 5 normally uses the OpenSSL backend built into QtNetwork.  Qt 6 / some
+    # distro builds may also ship TLS backend plugins; copy them opportunistically
+    # when present.  This is harmless for Qt 5 packages and useful for portability.
+    for plugin_dir in \
+        "$mingw_prefix/share/qt5/plugins/tls" \
+        "$mingw_prefix/lib/qt5/plugins/tls" \
+        "$mingw_prefix/share/qt6/plugins/tls" \
+        "$mingw_prefix/lib/qt6/plugins/tls"; do
+        if [[ -d "$plugin_dir" ]]; then
+            mkdir -p "$package_dir/tls"
+            for source_path in "$plugin_dir"/*.dll; do
+                [[ -f "$source_path" ]] || continue
+                echo "  + Qt TLS plugin: $(basename "$source_path")"
+                cp -u "$source_path" "$package_dir/tls/"
+                copied_tls_plugin=1
+            done
+        fi
+    done
+    shopt -u nullglob
+
+    if [[ "$copied_ssl" -eq 0 || "$copied_crypto" -eq 0 ]]; then
+        echo "ERROR: OpenSSL runtime DLLs were not found in $bin_dir." >&2
+        echo "Qt HTTPS support on Windows requires libssl*.dll and libcrypto*.dll in the standalone package." >&2
+        echo "Install the matching MSYS2 MinGW OpenSSL runtime/devel package before packaging." >&2
+        exit 1
+    fi
+
+    if [[ "$copied_tls_plugin" -eq 0 ]]; then
+        echo "  (no separate Qt TLS plugin directory found; normal for Qt 5/OpenSSL builds)"
+    fi
+}
+
 collect_binary_dependencies() {
     local package_dir="$1"
     find "$package_dir" -type f \( -iname '*.exe' -o -iname '*.dll' \) -print0 \
@@ -264,6 +334,10 @@ package_variant() {
             cp -f "$qch" "$package_dir/help/MM_${lang}.qch"
         fi
     done
+
+    # QSslSocket loads OpenSSL dynamically, so it is not enough to scan the
+    # import table.  Bundle OpenSSL explicitly before the generic closure/report.
+    bundle_qt_ssl_runtime "$package_dir"
 
     # windeployqt copies Qt DLLs/plugins, but not the complete indirect MSYS2
     # runtime closure (ICU, PCRE2, zstd, harfbuzz, libgomp, etc.).  Run the

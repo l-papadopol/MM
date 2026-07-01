@@ -1,4 +1,9 @@
-## 0.5.76 - Final release
+## 0.5.76
+### Windows QSO map HTTPS runtime hotfix
+- Windows/MSYS2 standalone packages now explicitly bundle Qt/OpenSSL runtime DLLs (`libssl*.dll` and `libcrypto*.dll`).
+- This fixes `QSslSocket::supportsSsl() == false` in portable Windows packages, which forced the QSO map to use the offline fallback even when online OSM HTTPS tiles should work.
+- The packaging script now fails early if the matching MSYS2 OpenSSL runtime is missing during Windows packaging.
+ - Final release
 
 - Final source label for the validated 0.5.76 release/tag.
 - Keeps the validated Linux/macOS/Windows packaging workflow.
