@@ -199,10 +199,12 @@ Planned screenshot gallery:
 - QSO map and Maidenhead view;
 - settings window.
 
-Galleria schermate prevista:
+Galleria schermate:
 
 - finestra principale con waterfall FT8/FT4;
+![MadModem main FT8 view](docs/images/madmodem-main-ft8.png)
 - operatività RTTY;
+![MadModem RTTY view](docs/images/madmodem-rtty.png)
 - rotore/CatRotator e strumenti di tracking;
 - logbook con query/export;
 - mappa QSO e vista Maidenhead;
