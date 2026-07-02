@@ -58,10 +58,7 @@ AudioSettingsDialog::AudioSettingsDialog(const AppSettings &initialSettings,
     }
     ui->cmbPttMethod->setCurrentIndex(pttMethodIndex >= 0 ? pttMethodIndex : ui->cmbPttMethod->findData(QStringLiteral("none")));
     connect(ui->cmbPttMethod, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this]() {
-                const QString method = ui->cmbPttMethod->currentData().toString();
-                ui->cmbPttPort->setEnabled(method == QStringLiteral("serial_rts") || method == QStringLiteral("serial_dtr"));
-            });
+            this, [this]() { updatePttSerialUi(); });
 
     const int sampleRateIndex = ui->cmbSampleRate->findData(m_settings.audioSampleRate);
     ui->cmbSampleRate->setCurrentIndex(sampleRateIndex >= 0 ? sampleRateIndex : 1);
@@ -102,6 +99,7 @@ void AudioSettingsDialog::refreshLabels()
     if (ui->lblSampleRate != nullptr) ui->lblSampleRate->setText(L(QStringLiteral("Sample rate")));
     if (ui->lblPttMethod != nullptr) ui->lblPttMethod->setText(L(QStringLiteral("PTT method")));
     if (ui->lblPttPort != nullptr) ui->lblPttPort->setText(L(QStringLiteral("PTT serial port")));
+    updatePttSerialUi();
     if (ui->btnRefresh != nullptr) ui->btnRefresh->setText(L(QStringLiteral("Refresh")));
     if (ui->cmbPttMethod != nullptr && ui->cmbPttMethod->count() >= 4) {
         const int current = ui->cmbPttMethod->currentIndex();
@@ -234,8 +232,27 @@ void AudioSettingsDialog::refreshDevices()
     selectByBackendName(ui->cmbAudioInput, currentInput);
     selectByBackendName(ui->cmbAudioOutput, currentOutput);
     selectByBackendName(ui->cmbPttPort, currentPtt);
+    updatePttSerialUi();
+}
+
+void AudioSettingsDialog::updatePttSerialUi()
+{
+    if (ui == nullptr || ui->cmbPttMethod == nullptr || ui->cmbPttPort == nullptr) {
+        return;
+    }
     const QString method = ui->cmbPttMethod->currentData().toString();
-    ui->cmbPttPort->setEnabled(method == QStringLiteral("serial_rts") || method == QStringLiteral("serial_dtr"));
+    const bool serialPtt = (method == QStringLiteral("serial_rts") || method == QStringLiteral("serial_dtr"));
+    ui->cmbPttPort->setEnabled(serialPtt);
+    if (ui->lblPttPort != nullptr) {
+        ui->lblPttPort->setEnabled(serialPtt);
+    }
+    const QString tip = serialPtt
+        ? L(QStringLiteral("Dedicated serial port used only for RTS/DTR PTT."))
+        : L(QStringLiteral("Disabled because PTT is handled by CAT/Hamlib or audio-only mode; serial rotator ports are not reserved here."));
+    ui->cmbPttPort->setToolTip(tip);
+    if (ui->lblPttPort != nullptr) {
+        ui->lblPttPort->setToolTip(tip);
+    }
 }
 
 void AudioSettingsDialog::addUniqueDeviceItem(QComboBox *combo,

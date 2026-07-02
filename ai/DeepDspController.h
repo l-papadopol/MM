@@ -20,7 +20,7 @@ public:
         bool enabled = true;
         bool assistEnabled = false;
         bool assistRequested = false;
-        QString assistMode = QStringLiteral("shadow"); // internal value: displayed as Training
+        QString assistMode = QStringLiteral("assisted"); // fixed operator mode: assist requested, readiness-gated
         bool ready = false;
         bool assistReady = false;
         double estimatedExactFrameAccuracy = 0.0;
@@ -162,7 +162,7 @@ private:
 private:
     bool m_enabled = true;
     bool m_assistEnabled = false;
-    QString m_assistMode = QStringLiteral("shadow"); // internal value: displayed as Training
+    QString m_assistMode = QStringLiteral("assisted"); // fixed operator mode: assist requested, readiness-gated
     bool m_decodeCritical = false;
     qint64 m_decodeCriticalCooldownUntilMs = 0; // legacy explicit guard, kept for future live-critical use
     qint64 m_neuralWorkDeferredUntilMs = 0;     // native candidate-driven cooldown after FT label bursts

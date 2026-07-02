@@ -9,6 +9,7 @@
 #include <QFont>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QProgressBar>
@@ -232,8 +233,22 @@ void CatRotatorPanel::buildUi()
 
     connect(m_btnConnect, &QPushButton::clicked, this, [this]() {
         if (m_controller == nullptr) return;
-        if (m_controller->isConnected()) m_controller->disconnectRotator();
-        else m_controller->connectRotator();
+        if (m_controller->isConnected()) {
+            m_controller->disconnectRotator();
+            return;
+        }
+        const CatRotatorController::Config cfg = m_controller->config();
+        if (!cfg.enabled) {
+            const QString reason = cfg.disabledReason.trimmed().isEmpty()
+                ? MadModemI18n::text(QStringLiteral("Rotator: disabled in settings"))
+                : cfg.disabledReason.trimmed();
+            QMessageBox::warning(this,
+                                 MadModemI18n::text(QStringLiteral("Rotator unavailable")),
+                                 reason);
+            updateStatusLabel();
+            return;
+        }
+        m_controller->connectRotator();
     });
     connect(m_btnStop, &QPushButton::clicked, this, [this]() {
         if (m_controller != nullptr) m_controller->stop();

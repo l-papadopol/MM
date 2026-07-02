@@ -35,6 +35,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QShowEvent>
+#include <QSize>
 #include <QSizePolicy>
 #include <QStringList>
 #include <QSet>
@@ -606,11 +607,23 @@ AppSettingsDialog::AppSettingsDialog(const AppSettings &settings,
             this, &AppSettingsDialog::updateAutoQsoFlowWindowMode);
 
     m_buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    m_buttons->setCenterButtons(false);
+    auto tuneBottomButton = [](QPushButton *button) {
+        if (button == nullptr) return;
+        button->setMinimumSize(QSize(112, 34));
+        button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+        QFont f = button->font();
+        f.setPointSizeF(qMax(10.0, f.pointSizeF() + 1.0));
+        f.setBold(true);
+        button->setFont(f);
+    };
     if (QPushButton *ok = m_buttons->button(QDialogButtonBox::Ok)) {
         ok->setText(L(QStringLiteral("OK")));
+        tuneBottomButton(ok);
     }
     if (QPushButton *cancel = m_buttons->button(QDialogButtonBox::Cancel)) {
         cancel->setText(L(QStringLiteral("Cancel")));
+        tuneBottomButton(cancel);
     }
     connect(m_buttons, &QDialogButtonBox::accepted, this, &AppSettingsDialog::accept);
     connect(m_buttons, &QDialogButtonBox::rejected, this, &AppSettingsDialog::reject);

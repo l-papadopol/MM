@@ -624,7 +624,7 @@ void DeepDspController::submitNativeMsk144Sample(const QVector<float> &candidate
         m_activeProfile = QStringLiteral("MSK144");
         // MSK144 pings are latency-sensitive.  Queue labels now, but defer heavy
         // trainer work briefly so the period decoder can finish first.
-        m_neuralWorkDeferredUntilMs = QDateTime::currentMSecsSinceEpoch() + 1500;
+        m_neuralWorkDeferredUntilMs = QDateTime::currentMSecsSinceEpoch() + 250;
         ++m_msk144Samples;
         ++m_nativeFtSamples;
         m_statsDirty = true;
@@ -665,7 +665,7 @@ void DeepDspController::submitNativeFtSample(const QString &mode,
         // trainer GEMM work.  This is not an AutoTest special case; it is the
         // same behavior desired during live FT slots where decoding must finish
         // before background learning resumes.
-        m_neuralWorkDeferredUntilMs = QDateTime::currentMSecsSinceEpoch() + 3000;
+        m_neuralWorkDeferredUntilMs = QDateTime::currentMSecsSinceEpoch() + 250;
         ++m_ftSamples;
         if (domain == QStringLiteral("FT8")) ++m_ft8Samples;
         else if (domain == QStringLiteral("FT4")) ++m_ft4Samples;
@@ -1042,7 +1042,7 @@ int DeepDspController::adaptiveTrainingBudgetMs(qint64 nowMs, int *batchCap) con
 
     if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off") ||
         m_decodeCritical || nowMs < m_decodeCriticalCooldownUntilMs ||
-        nowMs < m_neuralWorkDeferredUntilMs || m_network == nullptr) {
+        m_network == nullptr) {
         if (batchCap != nullptr) *batchCap = 0;
         return 0;
     }
@@ -1056,9 +1056,17 @@ int DeepDspController::adaptiveTrainingBudgetMs(qint64 nowMs, int *batchCap) con
     } else if (m_activityHint == QStringLiteral("interactive")) {
         budget = 0;
         cap = 0;
+    } else if (nowMs < m_neuralWorkDeferredUntilMs) {
+        // Keep only a very small post-candidate quiet window.  Older builds
+        // postponed training for seconds after every FT candidate burst, so the
+        // trainer appeared to run only while transmitting.
+        budget = 2;
+        cap = 8;
     } else if (recentRealtime) {
-        budget = 0;
-        cap = 0;
+        // Continuous low-priority learning during RX: small enough to protect
+        // FT timing, but not frozen until the operator transmits.
+        budget = 4;
+        cap = 16;
     } else {
         budget = 12;
         cap = 64;
@@ -1081,7 +1089,7 @@ void DeepDspController::trainIdleSlice()
 
         if (!m_enabled || normalizedAssistMode(m_assistMode) == QStringLiteral("off") ||
             m_decodeCritical || nowMs < m_decodeCriticalCooldownUntilMs ||
-            nowMs < m_neuralWorkDeferredUntilMs || m_network == nullptr) {
+            m_network == nullptr) {
             const bool changed = (m_lastAdaptiveBudgetMs != 0 || m_lastAdaptiveBatchSize != 0);
             m_lastAdaptiveBudgetMs = 0;
             m_lastAdaptiveBatchSize = 0;

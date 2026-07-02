@@ -1,3 +1,17 @@
+## 0.5.76 - Rotator, MIND and Settings UI hotfix
+
+### 0.5.76 rotor safety correction
+- Restored the rotator band/profile safety gate for manual Connect.
+- When the selected rotator cannot be used on the current band, the Rotator panel now shows a warning popup instead of looking dead.
+- Kept the Windows OpenSSL runtime packaging fix, the new bilingual README and the runtime/UI fixes.
+
+
+- CatRotator Connect is no longer disabled by the current band/profile guard; explicit manual connection remains available while automatic QSO tracking is still band-gated.
+- The unified Settings OK/Cancel buttons are larger and easier to hit.
+- Audio/PTT now greys out the PTT serial-port selector when CAT/Hamlib PTT or audio-only PTT is selected, avoiding the false impression that a rotator serial port is being reserved for PTT.
+- MIND is fixed in Assist-requested mode and the selector is removed from the side panel. Training remains autonomous and continuous at low priority while assisted ranking is still readiness-gated.
+- MIND profile view now follows the active FT8/FT4/MSK144 runtime profile automatically.
+- The MIND gain counter was reduced to consume less side-panel space.
 
 ### 0.5.76 - GitHub homepage README and screenshot scaffold
 

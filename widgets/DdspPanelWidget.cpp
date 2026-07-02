@@ -21,6 +21,7 @@
 #include <QRadialGradient>
 #include <QSpinBox>
 #include <QSizePolicy>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 #include <cmath>
@@ -142,7 +143,8 @@ public:
     explicit MindNixieGaugeWidget(QWidget *parent = nullptr)
         : QWidget(parent)
     {
-        setMinimumHeight(112);
+        setMinimumHeight(66);
+        setMaximumHeight(78);
         setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         setToolTip(T(QStringLiteral("MIND extra decodes for the current FT session.")));
     }
@@ -192,9 +194,9 @@ protected:
                    T(QStringLiteral("MIND GAIN")));
 
         const QString digits = QStringLiteral("%1").arg(qMin(999, m_extraSession), 3, 10, QLatin1Char('0'));
-        const QRectF digitArea = r.adjusted(16, 24, -16, -8);
-        const qreal gap = qMax<qreal>(8.0, digitArea.width() * 0.035);
-        const qreal tileW = qMin((digitArea.width() - 2.0 * gap) / 3.0, digitArea.height() * 0.76);
+        const QRectF digitArea = r.adjusted(18, 20, -18, -6);
+        const qreal gap = qMax<qreal>(7.0, digitArea.width() * 0.030);
+        const qreal tileW = qMin((digitArea.width() - 2.0 * gap) / 3.0, digitArea.height() * 0.66);
         const qreal tileH = digitArea.height();
         const qreal totalW = tileW * 3.0 + gap * 2.0;
         qreal x = digitArea.center().x() - totalW / 2.0;
@@ -450,42 +452,17 @@ DdspPanelWidget::DdspPanelWidget(DeepDspController *controller, QWidget *parent)
     matrixLayout->addLayout(profileRow);
     matrixLayout->addWidget(m_matrixWidget);
 
-    auto *grpControl = new QGroupBox(this);
-    auto *controlLayout = new QGridLayout(grpControl);
-    controlLayout->setContentsMargins(8, 8, 8, 8);
-    controlLayout->setHorizontalSpacing(6);
-    controlLayout->setVerticalSpacing(4);
-
-    auto *assistLabel = new QLabel(T(QStringLiteral("MIND")), grpControl);
-    m_cmbAssistMode = new QComboBox(grpControl);
-    m_cmbAssistMode->addItem(T(QStringLiteral("Off")), QStringLiteral("off"));
-    m_cmbAssistMode->addItem(T(QStringLiteral("Training")), QStringLiteral("shadow"));
-    m_cmbAssistMode->addItem(T(QStringLiteral("Assist")), QStringLiteral("assisted"));
-    m_cmbAssistMode->setToolTip(T(QStringLiteral("FT/MSK144 candidate priority.")));
-
-    auto *autonomyLabel = new QLabel(grpControl);
-    autonomyLabel->setVisible(false);
-
-    controlLayout->addWidget(assistLabel, 0, 0);
-    controlLayout->addWidget(m_cmbAssistMode, 0, 1, 1, 2);
-    controlLayout->addWidget(autonomyLabel, 1, 0, 1, 3);
-
-    // The production MIND panel is exposed only for FT4/FT8 and MSK144.
-    // CW/RTTY/BPSK/Q65/text-mode teaching and neural helpers remain hidden.
-
+    // MIND mode is deliberately fixed to Assist-requested.  The old selector
+    // made it too easy to leave the ranker off or in a misleading state; the
+    // controller now keeps training continuously and only enables assisted
+    // ranking when the readiness gate says the model is mature enough.
 
     outer->addWidget(grpStatus);
     outer->addWidget(grpMatrix);
-    outer->addWidget(grpControl);
     outer->addStretch(1);
 
     if (m_controller != nullptr) {
-        connect(m_cmbAssistMode, QOverload<int>::of(&QComboBox::currentIndexChanged),
-                this, [this](int) {
-                    if (m_controller != nullptr && m_cmbAssistMode != nullptr) {
-                        m_controller->setAssistMode(m_cmbAssistMode->currentData().toString());
-                    }
-                });
+        m_controller->setAssistMode(QStringLiteral("assisted"));
         connect(m_cmbProfileView, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, &DdspPanelWidget::profileSelectionChanged);
         connect(m_controller, &DeepDspController::statusChanged,
@@ -563,6 +540,15 @@ void DdspPanelWidget::updateStatus(const DeepDspController::Status &status)
     if (m_lblModeMeaning != nullptr) {
         m_lblModeMeaning->clear();
         m_lblModeMeaning->setVisible(false);
+    }
+    const QString activeProfileForUi = status.activeProfile.trimmed().toUpper();
+    if (m_cmbProfileView != nullptr &&
+        (activeProfileForUi == QStringLiteral("FT8") || activeProfileForUi == QStringLiteral("FT4") || activeProfileForUi == QStringLiteral("MSK144"))) {
+        const int activeIdx = m_cmbProfileView->findData(activeProfileForUi);
+        if (activeIdx >= 0 && m_cmbProfileView->currentIndex() != activeIdx) {
+            const QSignalBlocker block(m_cmbProfileView);
+            m_cmbProfileView->setCurrentIndex(activeIdx);
+        }
     }
     const QString profile = effectiveProfile(status);
     if (m_lblProfileMeaning != nullptr) {
@@ -666,21 +652,5 @@ void DdspPanelWidget::updateStatus(const DeepDspController::Status &status)
         m_lblLastCheckpoint->setText(T(QStringLiteral("Checkpoint")) + QStringLiteral(": ") + status.lastCheckpointText);
         m_lblLastCheckpoint->setToolTip(T(QStringLiteral("Stats")) + QStringLiteral(": ") + status.statsPath +
                                         QStringLiteral("\n") + T(QStringLiteral("Gold dataset")) + QStringLiteral(": ") + status.goldDatasetPath);
-    }
-    if (m_cmbAssistMode != nullptr) {
-        const QString mode = status.assistMode.trimmed().toLower().isEmpty()
-                             ? QStringLiteral("shadow")
-                             : status.assistMode.trimmed().toLower();
-        const int idx = m_cmbAssistMode->findData(mode);
-        if (idx >= 0 && m_cmbAssistMode->currentIndex() != idx) {
-            m_cmbAssistMode->blockSignals(true);
-            m_cmbAssistMode->setCurrentIndex(idx);
-            m_cmbAssistMode->blockSignals(false);
-        }
-        QString tip = T(QStringLiteral("FT/MSK144 candidate priority."));
-        if (status.assistRequested && !status.assistEnabled && !status.readinessReason.isEmpty()) {
-            tip += QStringLiteral("\n") + status.readinessReason;
-        }
-        m_cmbAssistMode->setToolTip(tip);
     }
 }

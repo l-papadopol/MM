@@ -80,6 +80,7 @@ private:
      */
     QString friendlyAudioName(const QString &backendName) const;
     void refreshLabels();
+    void updatePttSerialUi();
     QString L(const QString &source) const;
 
 private:

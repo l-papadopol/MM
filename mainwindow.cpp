@@ -9048,10 +9048,13 @@ void MainWindow::updateMindUiForMode(const QString &modeName)
     const bool mindMode = modeSupportsMind(currentMode);
 
     if (m_ddspController != nullptr) {
+        // MIND is now operator-fixed in Assist-requested mode.  Non-FT modes
+        // still hard-bypass decoder integration below, but the autonomous
+        // trainer remains alive on the persistent FT replay dataset instead of
+        // being turned off every time the operator leaves FT8/FT4.
+        m_ddspController->setAssistMode(QStringLiteral("assisted"));
         if (mindMode) {
             m_ddspController->setRuntimeMode(currentMode);
-        } else {
-            m_ddspController->setAssistMode(QStringLiteral("off"));
         }
     }
 
@@ -16918,8 +16921,9 @@ mm::CatRotatorController::Config MainWindow::catRotatorConfigFromSettings() cons
     }
 
     // Do not silently fall back to the active profile when the current band is
-    // known but no rotator profile is assigned to it.  Example: a 2 m rotator
-    // must not move when the radio/app is on 20 m.
+    // known but no rotator profile is assigned to it. Example: a 2 m rotator
+    // must not move when the radio/app is on 20 m. Manual Connect remains
+    // blocked too; the panel shows cfg.disabledReason as a clear warning.
     const bool rotatorAllowedForCurrentBand = !currentBandKnown || profileMatchedCurrentBand;
     if (selected < 0) {
         selected = qBound(0, m_settings.rotatorActiveProfile, 2);

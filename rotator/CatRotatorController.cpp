@@ -287,7 +287,10 @@ void CatRotatorController::configure(const Config &config)
 void CatRotatorController::connectRotator()
 {
     if (!m_config.enabled) {
-        setStatus(QStringLiteral("CatRotator is disabled in settings."));
+        const QString reason = m_config.disabledReason.trimmed();
+        setStatus(reason.isEmpty()
+            ? QStringLiteral("CatRotator is disabled in settings.")
+            : reason);
         return;
     }
     if (m_connected) {
