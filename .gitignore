@@ -1,0 +1,43 @@
+# Build trees
+build-*/
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Distribution/package output
+dist/
+MM/
+mm.zip
+*.AppImage
+
+# Bundled dependency build/install outputs
+third_party/hamlib_lgpl/install*/
+third_party/hamlib_lgpl/source/*.o
+third_party/hamlib_lgpl/source/*.lo
+third_party/hamlib_lgpl/source/*.la
+third_party/hamlib_lgpl/source/.deps/
+third_party/hamlib_lgpl/source/.libs/
+
+# Generated binaries/libraries
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dll
+*.dll.a
+*.dylib
+*.exe
+*.pdb
+
+# Generated Qt help
+*.qch
+*.qhc
+
+# Editor/OS noise
+*~
+*.swp
+.DS_Store
+Thumbs.db
