@@ -24,6 +24,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Verify selected source version
+        run: |
+          bash scripts/ci_release_version_guard.sh
 
       - name: Install dependencies
         run: |

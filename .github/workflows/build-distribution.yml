@@ -17,6 +17,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Verify selected source version
+        run: |
+          bash scripts/ci_release_version_guard.sh
 
       - name: Install Linux build dependencies
         run: |
@@ -59,6 +65,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Verify selected source version
+        shell: bash
+        run: |
+          bash scripts/ci_release_version_guard.sh
 
       - name: Setup MSYS2 MinGW64
         uses: msys2/setup-msys2@v2
@@ -144,6 +157,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Verify selected source version
+        run: |
+          bash scripts/ci_release_version_guard.sh
 
       - name: Install macOS build dependencies
         run: |
@@ -193,6 +212,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Verify selected source version
+        run: |
+          bash scripts/ci_release_version_guard.sh
 
       - name: Download all package artifacts
         uses: actions/download-artifact@v4
@@ -215,7 +240,8 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
-          title="MadModem ${tag}"
+          version="$(tr -d '\r\n[:space:]' < MADMODEM_VERSION.txt)"
+          title="MadModem ${version}"
           notes_file="RELEASE_NOTES.md"
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release $tag already exists: deleting old assets before uploading fresh packages"
