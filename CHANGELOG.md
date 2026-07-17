@@ -4,6 +4,7 @@
 
 ### Interface and platform fixes
 
+- Restored Qt 6/macOS portability in the active MSHV MSK144/MSK40 sources by replacing removed `QRegExp`/`QString::midRef()` API references with `QRegularExpression`/`QString::mid()`.
 - Corrected Windows combo-box dropdown visibility while preserving the internal Qt popup container.
 - Unified dropdown styling on Linux, Windows and macOS: dark cockpit background, slightly lighter than the surrounding panel, amber text and high-contrast selection.
 - Kept the fullscreen cockpit window controls and safe application-exit path.

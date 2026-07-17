@@ -661,7 +661,7 @@ bool DecoderMs::check_hash_msk40_swl(int hash_in,int rpt,QString &msg)
 /*bool DecoderMs::isValidCallsign(QString callsign)
 {
     bool valid = true;
-    QRegExp rx("(\\d+)");
+    QRegularExpression rx(QStringLiteral("(\\d+)"));
 
     if (callsign.count()< 3) // A callsign must be longer than two characters
         valid = false;
@@ -1556,7 +1556,7 @@ void DecoderMs::msk144signalquality(double complex *cframe,double snr,double fre
     if (msg.at(0).toLatin1()=='<')
     {
         int next_ = msg.indexOf(">");//2.00
-        if (msg.midRef(0,next_+1).contains(" "))//2.00
+        if (msg.mid(0,next_+1).contains(" "))//2.00
         {
             NSYM = 40;
             NSPM = 240;

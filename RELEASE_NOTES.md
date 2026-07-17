@@ -4,6 +4,8 @@ MadModem 0.5.78 is a consolidation release focused on source hygiene, cross-plat
 
 ## What changed
 
+The active MSHV MSK144/MSK40 source path is now Qt 6 compatible on macOS: obsolete `QRegExp` and `QString::midRef()` references were replaced with `QRegularExpression` and `QString::mid()`. The same compatibility correction was applied to the retained upstream 2766 source mirror checked by CI.
+
 The Windows dropdown regression is fixed: a `QComboBox` list now opens normally instead of remaining invisible while the mouse wheel still changes its value. The correction retains Qt's private popup hierarchy and raises only the actual popup container. The list background is now consistent on all platforms and is deliberately a little lighter than the main cockpit background.
 
 The active FT8 decoder no longer contains the retired MIND integration scaffolding. Removed code included callbacks, state flags, passive scores, candidate-ranking branches, training-sample export and associated diagnostics. This cleanup does not introduce a new decoding policy; it makes explicit the classic path that the preceding build already used after MIND was disabled.

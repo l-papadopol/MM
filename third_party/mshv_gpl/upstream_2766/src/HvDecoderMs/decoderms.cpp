@@ -443,9 +443,9 @@ QString DecoderMs::FormatFoldMsg(QString str)
     if (beg==0 || end==str.count()-1 || beg==str.count()) s = str;
     else
     {
-        s.append(str.midRef((end+1),(str.count()-(end+1))));    //qDebug()<<"2="<<s<<end+1;
-        s.append(str.midRef(0,beg));                            //qDebug()<<"3="<<s<<beg;
-        s.append(str.midRef(beg,(end-beg+1)));                  //qDebug()<<"4="<<s<<beg<<end;
+        s.append(str.mid((end+1),(str.count()-(end+1))));    //qDebug()<<"2="<<s<<end+1;
+        s.append(str.mid(0,beg));                            //qDebug()<<"3="<<s<<beg;
+        s.append(str.mid(beg,(end-beg+1)));                  //qDebug()<<"4="<<s<<beg<<end;
     }
     return s;
 }
@@ -485,7 +485,7 @@ QString DecoderMs::AlignMsgSpecWord(QString msg,QString word, bool &f_align)
                 else
                 {
                     f_start_str = false;
-                    s.append(msg.midRef(beg,(end-beg)));
+                    s.append(msg.mid(beg,(end-beg)));
                     s.append(" ");
                     //qDebug()<<s;
                 }
