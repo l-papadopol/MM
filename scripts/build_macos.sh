@@ -32,6 +32,7 @@ fi
 
 QT_PREFIX="${QT_PREFIX:-$(brew --prefix qt 2>/dev/null || true)}"
 HAMLIB_PREFIX="${HAMLIB_PREFIX:-$(brew --prefix hamlib 2>/dev/null || true)}"
+FFTW_PREFIX="${FFTW_PREFIX:-$(brew --prefix fftw 2>/dev/null || true)}"
 
 if [[ -z "$QT_PREFIX" || ! -d "$QT_PREFIX" ]]; then
     echo "ERROR: Qt not found. Run: brew install qt qtlocation" >&2
@@ -41,8 +42,12 @@ if [[ -z "$HAMLIB_PREFIX" || ! -d "$HAMLIB_PREFIX" ]]; then
     echo "ERROR: Hamlib not found. Run: brew install hamlib" >&2
     exit 1
 fi
+if [[ -z "$FFTW_PREFIX" || ! -d "$FFTW_PREFIX" ]]; then
+    echo "ERROR: FFTW3 not found. Run: brew install fftw" >&2
+    exit 1
+fi
 
-CMAKE_PREFIX_PATH_VALUE="$QT_PREFIX"
+CMAKE_PREFIX_PATH_VALUE="$QT_PREFIX;$FFTW_PREFIX"
 for formula in qtlocation qtmultimedia qtserialport qtdeclarative; do
     prefix="$(brew --prefix "$formula" 2>/dev/null || true)"
     if [[ -n "$prefix" && -d "$prefix" ]]; then
@@ -59,6 +64,7 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
     -DCMAKE_OSX_ARCHITECTURES="$ARCHS" \
     -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
+    -DMADMODEM_FFTW3_ROOT="$FFTW_PREFIX" \
     -DMADMODEM_REQUIRE_HAMLIB=ON \
     -DMADMODEM_MACOS_BUNDLE=ON \
     -DMADMODEM_ENABLE_Q65_FULL_MSHV_DECODER="$Q65_FULL" \

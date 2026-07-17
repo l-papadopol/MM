@@ -9,6 +9,7 @@ HAMLIB_PREFIX="${HAMLIB_WIN_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-ms
 Q65_FULL="${MADMODEM_Q65_FULL:-OFF}"
 BUILD_LEGACY="${MADMODEM_WINDOWS_BUILD_LEGACY:-on}"
 BUILD_AVX2="${MADMODEM_WINDOWS_BUILD_AVX2:-on}"
+FFTW_PREFIX="${MADMODEM_FFTW3_ROOT:-${MINGW_PREFIX:-/mingw64}}"
 
 export PATH="${MINGW_PREFIX:-/mingw64}/bin:/usr/bin:$PATH"
 
@@ -48,6 +49,10 @@ if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1; the
     echo "ERROR: cmake/ninja not found. Install mingw-w64-x86_64-cmake and mingw-w64-x86_64-ninja." >&2
     exit 1
 fi
+if ! pkg-config --exists fftw3 2>/dev/null; then
+    echo "ERROR: FFTW3 development files not found. Install mingw-w64-x86_64-fftw." >&2
+    exit 1
+fi
 WINDEPLOYQT_BIN="$(find_windeployqt || true)"
 if [[ -z "$WINDEPLOYQT_BIN" ]]; then
     echo "WARNING: windeployqt not found during build preflight." >&2
@@ -75,6 +80,7 @@ build_variant() {
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
         -DCMAKE_PREFIX_PATH="${MINGW_PREFIX:-/mingw64}" \
         -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
+        -DMADMODEM_FFTW3_ROOT="$FFTW_PREFIX" \
         -DMADMODEM_REQUIRE_HAMLIB=ON \
         -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
         -DMADMODEM_ENABLE_Q65_FULL_MSHV_DECODER="$Q65_FULL" \

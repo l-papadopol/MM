@@ -32,7 +32,8 @@ jobs:
             autoconf automake libtool gettext autopoint \
             qtbase5-dev qttools5-dev qttools5-dev-tools \
             qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev \
-            libqt5serialport5-dev libqt5opengl5-dev libgl1-mesa-dev
+            libqt5serialport5-dev libqt5opengl5-dev libgl1-mesa-dev \
+            libfftw3-dev
 
       - name: Build Linux package tree
         env:
@@ -165,7 +166,7 @@ jobs:
       - name: Install macOS build dependencies
         run: |
           brew update
-          brew install cmake ninja qt qtserialport qtmultimedia qtlocation qttools hamlib pkgconf rsync
+          brew install cmake ninja qt qtserialport qtmultimedia qtlocation qttools hamlib fftw pkgconf rsync
 
       - name: macOS source portability preflight
         run: |

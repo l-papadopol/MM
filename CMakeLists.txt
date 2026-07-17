@@ -241,6 +241,37 @@ endif()
 
 
 # -------------------------------------------------------------------------
+# FFTW3 dependency shared by the active MSHV MSK144/MSK40 decoder path and
+# by the optional full Q65 receive bridge.  decoderpom.cpp is part of the
+# MSK144 target unconditionally, therefore FFTW3 is a mandatory link
+# dependency even when MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER is OFF.
+# -------------------------------------------------------------------------
+set(MADMODEM_FFTW3_ROOT "" CACHE PATH "Optional FFTW3 installation prefix")
+find_path(MADMODEM_FFTW3_INCLUDE_DIR
+    NAMES fftw3.h
+    HINTS "${MADMODEM_FFTW3_ROOT}"
+    PATH_SUFFIXES include
+)
+find_library(MADMODEM_FFTW3_LIBRARY
+    NAMES fftw3 libfftw3
+    HINTS "${MADMODEM_FFTW3_ROOT}"
+    PATH_SUFFIXES lib lib64
+)
+
+if(NOT MADMODEM_FFTW3_INCLUDE_DIR OR NOT MADMODEM_FFTW3_LIBRARY)
+    message(FATAL_ERROR
+        "FFTW3 is required by the active MSK144/MSK40 decoder. "
+        "Install the FFTW3 development package (Debian/Ubuntu: libfftw3-dev; "
+        "MSYS2: mingw-w64-x86_64-fftw; macOS/Homebrew: fftw) or set "
+        "MADMODEM_FFTW3_ROOT to its installation prefix.")
+endif()
+
+add_library(madmodem_fftw3 INTERFACE)
+target_include_directories(madmodem_fftw3 INTERFACE "${MADMODEM_FFTW3_INCLUDE_DIR}")
+target_link_libraries(madmodem_fftw3 INTERFACE "${MADMODEM_FFTW3_LIBRARY}")
+message(STATUS "MSHV decoder FFTW3: ${MADMODEM_FFTW3_LIBRARY}")
+
+# -------------------------------------------------------------------------
 # GPL MSHV-derived MSK144 TX support and MM MSK144 mode shell
 # -------------------------------------------------------------------------
 add_library(madmodem_msk144 STATIC
@@ -270,7 +301,7 @@ target_include_directories(madmodem_msk144 PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/HvDecoderMs"
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/HvDecoderMsMsk"
 )
-target_link_libraries(madmodem_msk144 PUBLIC ${QT}::Core ${QT}::Widgets)
+target_link_libraries(madmodem_msk144 PUBLIC ${QT}::Core ${QT}::Widgets madmodem_fftw3)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(madmodem_msk144 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
 endif()
@@ -301,52 +332,26 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(madmodem_q65 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
 endif()
 
-# Full MSHV DecoderQ65/decoderpom RX bridge. Q65 RX needs FFTW3 exactly like
-# upstream MSHV. Keep this optional/autodetected so Linux/MXE builds without
-# FFTW remain green; when FFTW3 is found the bridge sources can be promoted
-# without touching MainWindow or the UI layer.
+# Full MSHV DecoderQ65/decoderpom RX bridge.  The bridge remains optional,
+# while FFTW3 itself is already mandatory for the active MSK144/MSK40 path.
 option(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER
-    "Build the full MSHV DecoderQ65 FFTW-backed RX bridge. Uses system FFTW3 when available, otherwise bundled MSHV FFTW static libs on known platforms."
+    "Build the full MSHV DecoderQ65 FFTW-backed RX bridge."
     ON)
 if(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER)
-    find_path(MADMODEM_FFTW3_INCLUDE_DIR fftw3.h)
-    find_library(MADMODEM_FFTW3_LIBRARY NAMES fftw3 libfftw3)
-
-    set(MADMODEM_BUNDLED_FFTW3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw")
-    set(MADMODEM_BUNDLED_FFTW3_LIBRARY "")
-    if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
-        set(MADMODEM_BUNDLED_FFTW3_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw/win/libfftw3v3310_gcc730_64bit.a")
-    elseif(WIN32)
-        set(MADMODEM_BUNDLED_FFTW3_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw/win/libfftw3v3310_gcc730_32bit.a")
-    elseif(UNIX AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
-        set(MADMODEM_BUNDLED_FFTW3_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw/lin_pc/libfftw3v3310_gcc1121_64bit.a")
-    endif()
-
-    if(NOT MADMODEM_FFTW3_INCLUDE_DIR AND EXISTS "${MADMODEM_BUNDLED_FFTW3_INCLUDE_DIR}/fftw3.h")
-        set(MADMODEM_FFTW3_INCLUDE_DIR "${MADMODEM_BUNDLED_FFTW3_INCLUDE_DIR}")
-    endif()
-    if(NOT MADMODEM_FFTW3_LIBRARY AND EXISTS "${MADMODEM_BUNDLED_FFTW3_LIBRARY}")
-        set(MADMODEM_FFTW3_LIBRARY "${MADMODEM_BUNDLED_FFTW3_LIBRARY}")
-    endif()
-
-    if(MADMODEM_FFTW3_INCLUDE_DIR AND MADMODEM_FFTW3_LIBRARY)
-        target_sources(madmodem_q65 PRIVATE
-            third_party/mshv_gpl/port/HvDecoderMs/decoderpom.h
-            third_party/mshv_gpl/port/HvDecoderMs/decoderpom.cpp
-            third_party/mshv_gpl/port/HvDecoderMs/decoderq65.h
-            third_party/mshv_gpl/port/HvDecoderMs/decoderq65.cpp
-        )
-        target_compile_definitions(madmodem_q65 PRIVATE MADMODEM_Q65_FULL_MSHV_DECODER=1)
-        target_include_directories(madmodem_q65 PRIVATE
-            "${MADMODEM_FFTW3_INCLUDE_DIR}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/HvDecoderMs"
-            "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw"
-        )
-        target_link_libraries(madmodem_q65 PRIVATE "${MADMODEM_FFTW3_LIBRARY}")
-        message(STATUS "Q65 full MSHV RX bridge enabled with FFTW3: ${MADMODEM_FFTW3_LIBRARY}")
-    else()
-        message(WARNING "MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER=ON but FFTW3/header could not be found; Q65 RX falls back to safe buffered mode")
-    endif()
+    target_sources(madmodem_q65 PRIVATE
+        third_party/mshv_gpl/port/HvDecoderMs/decoderpom.h
+        third_party/mshv_gpl/port/HvDecoderMs/decoderpom.cpp
+        third_party/mshv_gpl/port/HvDecoderMs/decoderq65.h
+        third_party/mshv_gpl/port/HvDecoderMs/decoderq65.cpp
+    )
+    target_compile_definitions(madmodem_q65 PRIVATE MADMODEM_Q65_FULL_MSHV_DECODER=1)
+    target_include_directories(madmodem_q65 PRIVATE
+        "${MADMODEM_FFTW3_INCLUDE_DIR}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/HvDecoderMs"
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port/Hv_Lib_fftw"
+    )
+    target_link_libraries(madmodem_q65 PUBLIC madmodem_fftw3)
+    message(STATUS "Q65 full MSHV RX bridge enabled")
 endif()
 
 # -------------------------------------------------------------------------

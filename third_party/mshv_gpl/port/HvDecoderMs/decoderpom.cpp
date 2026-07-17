@@ -46,7 +46,7 @@ using std::tanh;
 #define SLPASTEP 1000 //1000 importent SLPAMIN > SLPASTEP
 static bool _block_th_all_ = false;        //need to be static for all
 static int _wait_t_ = SLPAMIN - SLPASTEP;  //need to be static for all
-static int setup_c2c_d2c_(bool &wait,fftw_plan &p,double complex *a,int nfft,int isign,int iform,double *d = 0)
+static int setup_c2c_d2c_(bool &wait,fftw_plan &p,mshv_complex *a,int nfft,int isign,int iform,double *d = 0)
 {
     if (_block_th_all_ || !wait)
     {
@@ -67,9 +67,9 @@ static int setup_c2c_d2c_(bool &wait,fftw_plan &p,double complex *a,int nfft,int
 #define NPAMA_ 2048
 #define NPAMAX 1441000  //q65 max=1440000 PI4 max 768000
 #define NSMALL 16384
-void HvThr::four2a_c2c(double complex *a,double complex *a1,fftw_plan *pc,int &cpc,int nfft,int isign,int iform)
+void HvThr::four2a_c2c(mshv_complex *a,mshv_complex *a1,fftw_plan *pc,int &cpc,int nfft,int isign,int iform)
 {
-    double complex aa[NSMALL+10];
+    mshv_complex aa[NSMALL+10];
 
     if (cpc>NPMAX || nfft>NPAMAX) return;
 
@@ -119,10 +119,10 @@ void HvThr::four2a_c2c(double complex *a,double complex *a1,fftw_plan *pc,int &c
     fftw_execute(pc[z]);
     for (int i = 0; i < nfft; ++i) a[i]=a1[i];
 }
-void HvThr::four2a_d2c(double complex *a,double complex *a1,double *d,double *d1,fftw_plan *pd,int &cpd,
+void HvThr::four2a_d2c(mshv_complex *a,mshv_complex *a1,double *d,double *d1,fftw_plan *pd,int &cpd,
                        int nfft,int isign,int iform)
 {
-    double complex aa[NSMALL+10];
+    mshv_complex aa[NSMALL+10];
 
     if (cpd>NPMAX || nfft>NPAMAX) return;
 
@@ -201,23 +201,23 @@ void HvThr::DestroyPlans(fftw_plan *pc,int &cpc,fftw_plan *pd,int &cpd,bool imid
 //// class F2A ///
 static int nplan_c2c0 = 0;
 static fftw_plan plan_c2c0[NPMAX+NAMA_];
-static double complex ca_c2c0[NPAMAX+NPAMA_];
+static mshv_complex ca_c2c0[NPAMAX+NPAMA_];
 static int nplan_c2c1 = 0;
 static fftw_plan plan_c2c1[NPMAX+NAMA_];
-static double complex ca_c2c1[NPAMAX+NPAMA_];
+static mshv_complex ca_c2c1[NPAMAX+NPAMA_];
 static int nplan_c2c2 = 0;
 static fftw_plan plan_c2c2[NPMAX+NAMA_];
-static double complex ca_c2c2[NPAMAX+NPAMA_];
+static mshv_complex ca_c2c2[NPAMAX+NPAMA_];
 static int nplan_c2c3 = 0;
 static fftw_plan plan_c2c3[NPMAX+NAMA_];
-static double complex ca_c2c3[NPAMAX+NPAMA_];
+static mshv_complex ca_c2c3[NPAMAX+NPAMA_];
 static int nplan_c2c4 = 0;
 static fftw_plan plan_c2c4[NPMAX+NAMA_];
-static double complex ca_c2c4[NPAMAX+NPAMA_];
+static mshv_complex ca_c2c4[NPAMAX+NPAMA_];
 static int nplan_c2c5 = 0;
 static fftw_plan plan_c2c5[NPMAX+NAMA_];
-static double complex ca_c2c5[NPAMAX+NPAMA_];
-void F2a::four2a_c2c(double complex *a,int nfft,int isign,int iform,int thr)
+static mshv_complex ca_c2c5[NPAMAX+NPAMA_];
+void F2a::four2a_c2c(mshv_complex *a,int nfft,int isign,int iform,int thr)
 {
     if 		(thr==0) HvThr0.four2a_c2c(a,ca_c2c0,plan_c2c0,nplan_c2c0,nfft,isign,iform);
     else if (thr==1) HvThr1.four2a_c2c(a,ca_c2c1,plan_c2c1,nplan_c2c1,nfft,isign,iform);
@@ -229,28 +229,28 @@ void F2a::four2a_c2c(double complex *a,int nfft,int isign,int iform,int thr)
 static int nplan_d2c0 = 0;
 static fftw_plan plan_d2c0[NPMAX+NAMA_];
 static double da_d2c0[NPAMAX+NPAMA_];
-static double complex ca_d2c0[NPAMAX+NPAMA_];
+static mshv_complex ca_d2c0[NPAMAX+NPAMA_];
 static int nplan_d2c1 = 0;
 static fftw_plan plan_d2c1[NPMAX+NAMA_];
 static double da_d2c1[NPAMAX+NPAMA_];
-static double complex ca_d2c1[NPAMAX+NPAMA_];
+static mshv_complex ca_d2c1[NPAMAX+NPAMA_];
 static int nplan_d2c2 = 0;
 static fftw_plan plan_d2c2[NPMAX+NAMA_];
 static double da_d2c2[NPAMAX+NPAMA_];
-static double complex ca_d2c2[NPAMAX+NPAMA_];
+static mshv_complex ca_d2c2[NPAMAX+NPAMA_];
 static int nplan_d2c3 = 0;
 static fftw_plan plan_d2c3[NPMAX+NAMA_];
 static double da_d2c3[NPAMAX+NPAMA_];
-static double complex ca_d2c3[NPAMAX+NPAMA_];
+static mshv_complex ca_d2c3[NPAMAX+NPAMA_];
 static int nplan_d2c4 = 0;
 static fftw_plan plan_d2c4[NPMAX+NAMA_];
 static double da_d2c4[NPAMAX+NPAMA_];
-static double complex ca_d2c4[NPAMAX+NPAMA_];
+static mshv_complex ca_d2c4[NPAMAX+NPAMA_];
 static int nplan_d2c5 = 0;
 static fftw_plan plan_d2c5[NPMAX+NAMA_];
 static double da_d2c5[NPAMAX+NPAMA_];
-static double complex ca_d2c5[NPAMAX+NPAMA_];
-void F2a::four2a_d2c(double complex *a,double *d,int nfft,int isign,int iform,int thr)
+static mshv_complex ca_d2c5[NPAMAX+NPAMA_];
+void F2a::four2a_d2c(mshv_complex *a,double *d,int nfft,int isign,int iform,int thr)
 {
     if 		(thr==0) HvThr0.four2a_d2c(a,ca_d2c0,d,da_d2c0,plan_d2c0,nplan_d2c0,nfft,isign,iform);
     else if (thr==1) HvThr1.four2a_d2c(a,ca_d2c1,d,da_d2c1,plan_d2c1,nplan_d2c1,nfft,isign,iform);
@@ -279,24 +279,24 @@ void F2a::DestroyPlansAll(bool imid)
 	for (int i = 0; i < (NPAMAX/10); ++i)//NPAMAX=1441000
 	{
 		//NPAMAX=421Mb, NPAMAX/2=256Mb, NPAMAX/4=170Mb, NPAMAX/10=124Mb <- from RAM memory
-		ca_c2c0[i] = 0.0+0.0*I;
+		ca_c2c0[i] = 0.0+0.0*mshv_i();
 		da_d2c0[i] = 0.0;
-		ca_d2c0[i] = 0.0+0.0*I;
-		ca_c2c1[i] = 0.0+0.0*I;
+		ca_d2c0[i] = 0.0+0.0*mshv_i();
+		ca_c2c1[i] = 0.0+0.0*mshv_i();
 		da_d2c1[i] = 0.0;
-		ca_d2c1[i] = 0.0+0.0*I;
-		ca_c2c2[i] = 0.0+0.0*I;
+		ca_d2c1[i] = 0.0+0.0*mshv_i();
+		ca_c2c2[i] = 0.0+0.0*mshv_i();
 		da_d2c2[i] = 0.0;
-		ca_d2c2[i] = 0.0+0.0*I;
-		ca_c2c3[i] = 0.0+0.0*I;
+		ca_d2c2[i] = 0.0+0.0*mshv_i();
+		ca_c2c3[i] = 0.0+0.0*mshv_i();
 		da_d2c3[i] = 0.0;
-		ca_d2c3[i] = 0.0+0.0*I;
-		ca_c2c4[i] = 0.0+0.0*I;
+		ca_d2c3[i] = 0.0+0.0*mshv_i();
+		ca_c2c4[i] = 0.0+0.0*mshv_i();
 		da_d2c4[i] = 0.0;
-		ca_d2c4[i] = 0.0+0.0*I;
-		ca_c2c5[i] = 0.0+0.0*I;
+		ca_d2c4[i] = 0.0+0.0*mshv_i();
+		ca_c2c5[i] = 0.0+0.0*mshv_i();
 		da_d2c5[i] = 0.0;
-		ca_d2c5[i] = 0.0+0.0*I;
+		ca_d2c5[i] = 0.0+0.0*mshv_i();
 	}
     //for (int i = 0; i < NPMAX; ++i)
     //{
@@ -651,30 +651,30 @@ c900:
     //if (xpct==0.0) xpct=0.0000001;//for the future ???
     return xpct;
 }
-void PomAll::zero_double_comp_beg_end(double complex*d,int begin,int end)
+void PomAll::zero_double_comp_beg_end(mshv_complex*d,int begin,int end)
 {
-    for (int i = begin; i<end; ++i) d[i]=0.0+0.0*I;
+    for (int i = begin; i<end; ++i) d[i]=0.0+0.0*mshv_i();
 }
-double PomAll::ps_hv(double complex z)
+double PomAll::ps_hv(mshv_complex z)
 {
     double d;//(real(c(i))**2 + aimag(c(i))**2)
-    d = creal(z)*creal(z) + cimag(z)*cimag(z);//d = pow(creal(z),2) + pow(cimag(z),2);
+    d = mshv_creal(z)*mshv_creal(z) + mshv_cimag(z)*mshv_cimag(z);//d = pow(mshv_creal(z),2) + pow(mshv_cimag(z),2);
     return d;
 }
-/*double PomAll::ps_hv001(double complex z)
+/*double PomAll::ps_hv001(mshv_complex z)
 {
     double d;
-    d = (creal(z)*creal(z)*0.01) + (cimag(z)*cimag(z)*0.01);
+    d = (mshv_creal(z)*mshv_creal(z)*0.01) + (mshv_cimag(z)*mshv_cimag(z)*0.01);
     return d;
 }*/
-void PomAll::cshift1(double complex *a,int cou_a,int ish)
+void PomAll::cshift1(mshv_complex *a,int cou_a,int ish)
 {
     //HV for single shift vareable
     //Left Shift 	ISHFT 	ISHFT(N,M) (M > 0) 	<< 	n<<m 	n shifted left by m bits
     //Right Shift 	ISHFT 	ISHFT(N,M) (M < 0) 	>> 	n>>m 	n shifted right by m bits
-    //double complex t[cou_a];  //garmi hv v1.42
-    //double complex t[cou_a*2+ish+50];  //garmi hv v1.43 ok
-    double complex *t = new double complex[cou_a+100]; //garmi pri goliam count hv v1.43 correct ok
+    //mshv_complex t[cou_a];  //garmi hv v1.42
+    //mshv_complex t[cou_a*2+ish+50];  //garmi hv v1.43 ok
+    mshv_complex *t = new mshv_complex[cou_a+100]; //garmi pri goliam count hv v1.43 correct ok
     for (int i=0; i< cou_a; i++) t[i]=a[i];
     if (ish>0)
     {
@@ -699,8 +699,8 @@ void PomAll::dshift1(double *a,int cou_a,int ish)
     //HV for single shift vareable
     //Left Shift 	ISHFT 	ISHFT(N,M) (M > 0) 	<< 	n<<m 	n shifted left by m bits
     //Right Shift 	ISHFT 	ISHFT(N,M) (M < 0) 	>> 	n>>m 	n shifted right by m bits
-    //double complex t[cou_a];  //garmi hv v1.42
-    //double complex t[cou_a*2+ish+50];  //garmi hv v1.43 ok
+    //mshv_complex t[cou_a];  //garmi hv v1.42
+    //mshv_complex t[cou_a*2+ish+50];  //garmi hv v1.43 ok
     double *t = new double[cou_a+100]; //garmi pri goliam count hv v1.43 correct ok
     for (int i=0; i< cou_a; i++) t[i]=a[i];
     if (ish>0)
@@ -721,13 +721,13 @@ void PomAll::dshift1(double *a,int cou_a,int ish)
     }
     delete [] t;
 }
-double complex PomAll::sum_dca_mplay_conj_dca(double complex *a,int a_beg,int a_end,double complex *b)
+mshv_complex PomAll::sum_dca_mplay_conj_dca(mshv_complex *a,int a_beg,int a_end,mshv_complex *b)
 {
-    double complex sum = 0.0+0.0*I;
+    mshv_complex sum = 0.0+0.0*mshv_i();
     int b_c = 0;
     for (int i = a_beg; i < a_end; i++)//1.68 i++ ok
     {
-        sum+=a[i]*conj(b[b_c]);
+        sum+=a[i]*mshv_conj(b[b_c]);
         b_c++;
     }
     return sum;
@@ -1044,11 +1044,11 @@ void PomFt::normalizebmetvar(double *bmet,int n)
     if (bmetsig<=0.000001) bmetsig=0.000001;
     for (int z = 0; z < n; ++z) bmet[z]/=bmetsig;
 }
-void PomFt::twkfreq1(double complex *ca,int npts,double fsample,double *a,double complex *cb)
+void PomFt::twkfreq1(mshv_complex *ca,int npts,double fsample,double *a,mshv_complex *cb)
 {
     //! Mix the complex signal
-    double complex w=1.0+1.0*I;
-    //double complex wstep=1.0+1.0*I;
+    mshv_complex w=1.0+1.0*mshv_i();
+    //mshv_complex wstep=1.0+1.0*mshv_i();
     int x0=0.5*(npts);//x0=0.5*(npts+1)
     double s=2.0/(double)npts;//s=2.0/npts
     if (fsample==0.0) fsample=0.00000001;//2.76
@@ -1059,7 +1059,7 @@ void PomFt::twkfreq1(double complex *ca,int npts,double fsample,double *a,double
         double p3=2.5*pow(x,3.0) - 1.5*x;                     //p3=2.5*(x**3) - 1.5*x
         double p4=4.375*pow(x,4.0) - 3.75*pow(x,2.0) + 0.375;    //p4=4.375*(x**4) - 3.75*(x**2) + 0.375
         double dphi=(a[0] + x*a[1] + p2*a[2] + p3*a[3] + p4*a[4]) * (twopi/fsample);
-        double complex wstep=cos(dphi)+sin(dphi)*I;//wstep=cmplx(cos(dphi),sin(dphi))
+        mshv_complex wstep=cos(dphi)+sin(dphi)*mshv_i();//wstep=cmplx(cos(dphi),sin(dphi))
         w=w*wstep;
         cb[i]=w*ca[i];
     }
@@ -1381,13 +1381,13 @@ void PomFt::TryDecAp7(double *llra,double *llrb,double *llrc,double *llrd,bool *
         }
     }
 }
-/*void PomFt::twkfreq2(double complex *c3,double complex *c4,int npts,double fsample,double fshift)
+/*void PomFt::twkfreq2(mshv_complex *c3,mshv_complex *c4,int npts,double fsample,double fshift)
 {
     //! Adjust frequency of complex waveform
     double twopi=6.283185307;
-    double complex w=1.0+1.0*I;
+    mshv_complex w=1.0+1.0*mshv_i();
     double dphi=fshift*twopi/fsample;
-    double complex wstep=cos(dphi)+sin(dphi)*I;
+    mshv_complex wstep=cos(dphi)+sin(dphi)*mshv_i();
     for (int i =0; i<npts; ++i)
     {//do i=1,npts
         w=w*wstep;
@@ -1632,8 +1632,8 @@ void PomFt::bshift1(bool *a,int cou_a,int ish)
     //HV for single shift vareable
     //Left Shift 	ISHFT 	ISHFT(N,M) (M > 0) 	<< 	n<<m 	n shifted left by m bits
     //Right Shift 	ISHFT 	ISHFT(N,M) (M < 0) 	>> 	n>>m 	n shifted right by m bits
-    //double complex t[cou_a];  //garmi hv v1.42
-    //double complex t[cou_a*2+ish+50];  //garmi hv v1.43 ok
+    //mshv_complex t[cou_a];  //garmi hv v1.42
+    //mshv_complex t[cou_a*2+ish+50];  //garmi hv v1.43 ok
     bool *t = new bool[cou_a+100]; //garmi pri goliam count hv v1.43 correct ok
     for (int i=0; i< cou_a; i++) t[i]=a[i];
     if (ish>0)

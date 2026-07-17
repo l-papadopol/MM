@@ -20,7 +20,7 @@ FFTW-backed Q65 bridge on macOS CI:
 - `MADMODEM_Q65_FULL=OFF`
 
 This is deliberate. The goal is to make the first `.app` package green before
-adding extra compiler/runtime dependencies such as `libomp` or `fftw`.
+adding extra compiler/runtime dependencies such as `libomp`. FFTW3 is now an explicit build dependency because the active MSK144/MSK40 decoder uses it.
 
 ## Dependencies installed by CI
 

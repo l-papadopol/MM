@@ -72,7 +72,7 @@ Typical requirements:
 - CMake and a C++17 compiler;
 - Qt 5 or Qt 6 development packages for Widgets, SerialPort, Multimedia, PrintSupport and Network;
 - Hamlib, supplied by the system or built from the bundled source;
-- FFTW3 for the full Q65 bridge when enabled;
+- FFTW3 development files for the active MSK144/MSK40 decoder and the optional full Q65 bridge;
 - normal platform audio, serial and packaging development tools.
 
 The CMake configuration keeps a multilingual embedded-HTML help fallback. When `qhelpgenerator` is available, it also generates localized `.qch` manuals.
@@ -83,7 +83,7 @@ Lo script Linux principale è:
 ./build_all.sh
 ```
 
-Servono normalmente CMake, un compilatore C++17, i pacchetti di sviluppo Qt 5 o Qt 6, Hamlib e gli strumenti di sviluppo audio/seriale della piattaforma. FFTW3 è necessario quando viene abilitato il bridge Q65 completo. La guida HTML multilingua rimane disponibile anche senza `qhelpgenerator`.
+Servono normalmente CMake, un compilatore C++17, i pacchetti di sviluppo Qt 5 o Qt 6, Hamlib e gli strumenti di sviluppo audio/seriale della piattaforma. FFTW3 è necessario per il decoder MSK144/MSK40 attivo e viene riutilizzato dal bridge Q65 completo quando abilitato. La guida HTML multilingua rimane disponibile anche senza `qhelpgenerator`.
 
 ## Translation maintenance / Manutenzione traduzioni
 

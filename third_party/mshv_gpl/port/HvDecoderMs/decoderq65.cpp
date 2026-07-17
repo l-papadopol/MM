@@ -729,8 +729,8 @@ void DecoderQ65::smo121(double *x,int beg,int nz)
 void DecoderQ65::q65_symspec(double *iwave,int iz,int jz,double s1_[800][7000])
 {
     //! Compute symbol spectra with NSTEP time-steps per symbol.
-    double complex c0[17000];//c0(0:nsps-1)  120 nsps=16000;
-    //double complex *c0= new double complex[17000];
+    mshv_complex c0[17000];//c0(0:nsps-1)  120 nsps=16000;
+    //mshv_complex *c0= new mshv_complex[17000];
     double dc0[17000];
 
     int nfft=nsps;
@@ -746,14 +746,14 @@ void DecoderQ65::q65_symspec(double *iwave,int iz,int jz,double s1_[800][7000])
             dc0[k]=fac*iwave[i]; //c0(k)=fac*cmplx(xx,yy)
             /*double xx = iwave[i];
             double yy = iwave[i+1];
-            c0[k]=fac*(xx+yy*I);*/
+            c0[k]=fac*(xx+yy*mshv_i());*/
             k++;
         }
-        for (int z = 0; z < 16100 ; ++z) c0[z]=0.0+0.0*I;//c0(k+1:)=0.
+        for (int z = 0; z < 16100 ; ++z) c0[z]=0.0+0.0*mshv_i();//c0(k+1:)=0.
         f2a.four2a_d2c(c0,dc0,nfft,-1,0); //call four2a(c0,nfft,1,-1,0) / !r2c FFT  f2a.four2a_d2c(cx_ft8,x,NFFT1,-1,0,decid);//call four2a(cx,NFFT1,1,-1,0)
         for (int i = 0; i < iz ; ++i)
         {//do i=1,iz
-            s1_[j][i]=(creal(c0[i])*creal(c0[i]) + cimag(c0[i])*cimag(c0[i]));//s1(i,j)=real(c0(i))**2 + aimag(c0(i))**2
+            s1_[j][i]=(mshv_creal(c0[i])*mshv_creal(c0[i]) + mshv_cimag(c0[i])*mshv_cimag(c0[i]));//s1(i,j)=real(c0(i))**2 + aimag(c0(i))**2
         } //qDebug()<<"nsmo"<<j<<iz<<s1_[100][100]<<s1_[200][300];
         //! For large Doppler spreads, should we smooth the spectra here? //c++   ==.EQ. !=.NE. >.GT. <.LT. >=.GE. <=.LE.
         //qDebug()<<nsmo;
@@ -2277,7 +2277,7 @@ void DecoderQ65::q65apset(QString mycall12,QString hiscall12,int *apsym2)
     apsym2[29]=99;
     return;
 }
-void DecoderQ65::ana64(double *iwave,int npts,double complex *c0)
+void DecoderQ65::ana64(double *iwave,int npts,mshv_complex *c0)
 {
     /*integer*2 iwave(npts)                      !Raw data at 12000 Hz
     complex c0(0:npts-1)                       !Complex data at 6000 Hz*/
@@ -2287,16 +2287,16 @@ void DecoderQ65::ana64(double *iwave,int npts,double complex *c0)
     double fac=(2.0/(32767.0*(double)nfft1))*0.01;// hv correction duble   32767.0  8388607.0
     for (int i=0; i<npts ; ++i) c0[i]=fac*iwave[i];//c0(0:npts-1)=fac*iwave(1:npts)
     f2a.four2a_c2c(c0,nfft1,-1,1);//four2a(c0,nfft1,1,-1,1) //!Forward c2c FFT
-    for (int i=nfft2/2; i<nfft2; ++i) c0[i]=0.0+0.0*I;//c0(nfft2/2+1:nfft2-1)=0.
-    c0[0]=0.5*c0[0];// //c0(0)=0.5*c0(0)   (0.5+0.5*I)
+    for (int i=nfft2/2; i<nfft2; ++i) c0[i]=0.0+0.0*mshv_i();//c0(nfft2/2+1:nfft2-1)=0.
+    c0[0]=0.5*c0[0];// //c0(0)=0.5*c0(0)   (0.5+0.5*mshv_i())
     f2a.four2a_c2c(c0,nfft2,1,1); //call four2a(c0,nfft2,1,1,1)              //!Inverse c2c FFT; c0 is analytic sig
 }
-void DecoderQ65::twkfreq(double complex *c3,double complex *c4,int npts,double fsample,double *a)
+void DecoderQ65::twkfreq(mshv_complex *c3,mshv_complex *c4,int npts,double fsample,double *a)
 {
     double twopi=6.283185307;
     //! Mix the complex signal
-    double complex w=1.0+1.0*I;
-    //double complex wstep=1.0+1.0*I;
+    mshv_complex w=1.0+1.0*mshv_i();
+    //mshv_complex wstep=1.0+1.0*mshv_i();
     int x0=0.5*(npts);//x0=0.5*(npts+1)
     double s=2.0/(double)npts;//s=2.0/npts
     for (int i =0; i<npts; ++i)
@@ -2306,16 +2306,16 @@ void DecoderQ65::twkfreq(double complex *c3,double complex *c4,int npts,double f
         //double p3=2.5*pow(x,3.0) - 1.5*x;                     //p3=2.5*(x**3) - 1.5*x
         //double p4=4.375*pow(x,4.0) - 3.75*pow(x,2.0) + 0.375;    //p4=4.375*(x**4) - 3.75*(x**2) + 0.375
         double dphi=(a[0] + x*a[1] + p2*a[2]) * (twopi/fsample);
-        double complex wstep=cos(dphi)+sin(dphi)*I;//wstep=cmplx(cos(dphi),sin(dphi))
+        mshv_complex wstep=cos(dphi)+sin(dphi)*mshv_i();//wstep=cmplx(cos(dphi),sin(dphi))
         w=w*wstep;
         c4[i]=w*c3[i];
     }
 }
-void DecoderQ65::spec64(double complex *c0,int nsps,int jpk,float *s3f,int LL,int NN)//int npts,
+void DecoderQ65::spec64(mshv_complex *c0,int nsps,int jpk,float *s3f,int LL,int NN)//int npts,
 {
     //const int MAXFFT = 20736;    //8000=120s
-    double complex cs[21736];//(0:MAXFFT-1)=20736
-    //double complex *cs = new double complex[21736];
+    mshv_complex cs[21736];//(0:MAXFFT-1)=20736
+    //mshv_complex *cs = new mshv_complex[21736];
     double pom1[70][700];//63/640
     //double (*pom1)[700] = new double[70][700];//63/640    //double (*ccf_)[14000] = new double[300][14000];
     double xbase0[700];// max LL = 640
@@ -2354,8 +2354,8 @@ void DecoderQ65::spec64(double complex *c0,int nsps,int jpk,float *s3f,int LL,in
             }
             //else i=i-1;
             //if(k==1)qDebug()<<i<<LL;
-            //s3[j]=(creal(cs[i])*creal(cs[i]) + cimag(cs[i])*cimag(cs[i]));//s3(ii,j)=real(cs(i))**2 + aimag(cs(i))**2
-            pom1[j][ii]=(creal(cs[i])*creal(cs[i]) + cimag(cs[i])*cimag(cs[i]));
+            //s3[j]=(mshv_creal(cs[i])*mshv_creal(cs[i]) + mshv_cimag(cs[i])*mshv_cimag(cs[i]));//s3(ii,j)=real(cs(i))**2 + aimag(cs(i))**2
+            pom1[j][ii]=(mshv_creal(cs[i])*mshv_creal(cs[i]) + mshv_cimag(cs[i])*mshv_cimag(cs[i]));
         }
         j++;
     }
@@ -2410,14 +2410,14 @@ void DecoderQ65::spec64(double complex *c0,int nsps,int jpk,float *s3f,int LL,in
     if (base==0.0) base=0.000001;
     for (int i = 0; i < NN*LL; ++i) s3f[i]=(float)(s3d[i]/base);
 }
-void DecoderQ65::q65_loops(double complex *c00,int npts2,int nsps2,int nsubmode,int ndepth,int jpk0,
+void DecoderQ65::q65_loops(mshv_complex *c00,int npts2,int nsps2,int nsubmode,int ndepth,int jpk0,
                            double xdt0,double f0,int iaptype,double &xdt1,double &f1,double &snr2,
                            int *dat4,int &idec,bool sing_dec)
 {
     idec=-1;
     //ircbest=9999
-    //double complex c0[721000];//allocate(c0(0:npts2-1)) 1440000/2=720000;
-    double complex *c0 = new double complex[721000];
+    //mshv_complex c0[721000];//allocate(c0(0:npts2-1)) 1440000/2=720000;
+    mshv_complex *c0 = new mshv_complex[721000];
     int irc=-99;
     double s3lim=20.0;
     double baud=6000.0/(double)nsps2;
@@ -2581,8 +2581,8 @@ void DecoderQ65::q65_decode0(double *iwave,double nfa0,double nfb0,double fqso,i
     int jpk0 = 0;
     int npts=ntrperiod*12000;//max 120*12000=1440000;
     //int nfft1=ntrperiod*12000;//max 120*12000=1440000;
-    //double complex c00[1441000];//=1440000   allocate (c00(0:nfft1-1))
-    double complex *c00 = new double complex[1441000];
+    //mshv_complex c00[1441000];//=1440000   allocate (c00(0:nfft1-1))
+    mshv_complex *c00 = new mshv_complex[1441000];
 
     int nQSOprogress = s_nQSOprogress;//for the moment
     int iaptype = 0;//for the moment

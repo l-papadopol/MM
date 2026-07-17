@@ -13,19 +13,6 @@
 
 #include "../HvDecoderMs/mshv_complex_compat.h"
 
-// The upstream MSHV MSK decoder was written with C99 complex helpers.
-// In this C++/Qt adapter some libstdc++ configurations do not expose cabs()
-// in the global namespace. Use GCC's complex real/imag operators directly so
-// this helper is also safe when the header is parsed by Qt MOC before the
-// compatibility macros are expanded elsewhere.
-static inline double madmodem_mshv_cabs(double complex z)
-{
-    return std::hypot(__real__(z), __imag__(z));
-}
-#ifndef cabs
-#define cabs(z) madmodem_mshv_cabs(z)
-#endif
-
 #include "../HvDecoderMs/decoderpom.h"
 #include "../HvGenMsk/genmesage_msk.h"
 
@@ -81,11 +68,11 @@ private:
     void SetNexColor(bool f);
     void EndRtdPeriod();
     QString RemBegEndWSpaces(QString);
-    double complex dot_product_dca_dca(double complex *a,int b_a,double complex *b,int b_b,int count);
+    mshv_complex dot_product_dca_dca(mshv_complex *a,int b_a,mshv_complex *b,int b_b,int count);
     double dot_product_da_da(double *a, double *b, int size, int offset_b);
-    double complex dot_product_dca_sum_dca_dca(double complex *a,int a_b,int b_b,double complex *c,int c_count);
-    void analytic(double*,int,int,int,double*,double complex*);
-    void tweak1(double complex *,int,double,double complex *);
+    mshv_complex dot_product_dca_sum_dca_dca(mshv_complex *a,int a_b,int b_b,mshv_complex *c,int c_count);
+    void analytic(double*,int,int,int,double*,mshv_complex*);
+    void tweak1(mshv_complex *,int,double,mshv_complex *);
     void indexx(int,double*,int*);
     void ssort(double*,double*,int,int);
     void zero_int_beg_end(int*,int,int);
@@ -128,7 +115,7 @@ private:
     char s_msk144_2s8[8] = {0};
     double pp_msk144[12] = {0};
     double rcw_msk144[12] = {0};
-    double complex cb_msk144[42] = {0};
+    mshv_complex cb_msk144[42] = {0};
     bool f_first_msk144 = true;
     double dt_msk144 = 0.0;
     double fs_msk144 = 12000.0;
@@ -145,7 +132,7 @@ private:
     int s_nsnrlastswl = -999;
     QString s_msglastswl;
     int navg_sq = 0;
-    double complex cross_avg_sq[864] = {0};
+    mshv_complex cross_avg_sq[864] = {0};
     double wt_avg_sq = 0.0;
     double tlast_sq = 0.0;
     QString trained_dxcall_sq;
@@ -164,9 +151,9 @@ private:
     bool ss_msk144ms = false;
     bool s_msk144rxequal_s = true;
     bool s_msk144rxequal_d = true;
-    double complex h_msk144_2[524500] = {0};
-    double complex s_corrs[524500] = {0};
-    double complex s_corrd[524500] = {0};
+    mshv_complex h_msk144_2[524500] = {0};
+    mshv_complex s_corrs[524500] = {0};
+    mshv_complex s_corrd[524500] = {0};
     int nfft0_msk144_2 = 0;
     double dpclast_msk144_2[3] = {0};
     int rtd_dupe_cou = 0;
@@ -179,7 +166,7 @@ private:
     char s_msk40_2s8r[8] = {0};
     double pp_msk40[12] = {0};
     double rcw_msk40[12] = {0};
-    double complex cbr_msk40[42] = {0};
+    mshv_complex cbr_msk40[42] = {0};
     bool f_first_msk40 = true;
     double dt_msk40 = 0.0;
     double fs_msk40 = 12000.0;
@@ -191,38 +178,38 @@ private:
     void first_msk40();
     void dftool_msk144(int ntol, double nrxfreq,double fd);
     void dftool_msk40(int ntol, double nrxfreq,double df);
-    void cshift2(double complex *a,double complex *b,int cou,int ish);
-    void mplay_dca_dca_dca(double complex *a,int a_beg,int a_end,double complex *b,int b_beg,double complex *mp,int mp_b,int ord);
-    void mplay_dca_dca_da(double complex *a,int a_beg,int a_end,double complex *b,int b_beg,double *mp,int mp_b,int ord);
+    void cshift2(mshv_complex *a,mshv_complex *b,int cou,int ish);
+    void mplay_dca_dca_dca(mshv_complex *a,int a_beg,int a_end,mshv_complex *b,int b_beg,mshv_complex *mp,int mp_b,int ord);
+    void mplay_dca_dca_da(mshv_complex *a,int a_beg,int a_end,mshv_complex *b,int b_beg,double *mp,int mp_b,int ord);
     void mplay_da_da_i(double *a,int b_a,int e_a,double *b,int b_b,int mp);
-    void mplay_da_absdca_absdca(double *a,int a_c,double complex *b,double complex *mp);
-    void sum_dca_dca_dca(double complex *a,int a_cou,double complex *b,double complex *c);
+    void mplay_da_absdca_absdca(double *a,int a_c,mshv_complex *b,mshv_complex *mp);
+    void sum_dca_dca_dca(mshv_complex *a,int a_cou,mshv_complex *b,mshv_complex *c);
     void copy_double_ar_ainc(double*a,int a_beg,int a_inc,double*b,int b_beg,int b_end);
-    void copy_dca_or_sum_max3dca(double complex *a,int a_cou, double complex *b, int b_beg, double complex *c=0, int c_beg=-1, double complex *d=0, int d_beg=-1);
+    void copy_dca_or_sum_max3dca(mshv_complex *a,int a_cou, mshv_complex *b, int b_beg, mshv_complex *c=0, int c_beg=-1, mshv_complex *d=0, int d_beg=-1);
     double sum_da(double*a,int a_beg,int a_end);
     int sum_ia(int*a,int a_beg,int a_end);
-    int maxloc_absdca_beg_to_end(double complex*a,int a_beg,int a_end);
+    int maxloc_absdca_beg_to_end(mshv_complex*a,int a_beg,int a_end);
     double maxval_da_beg_to_end(double*a,int a_beg,int a_end);
     int maxloc_da_end_to_beg(double*a,int a_beg,int a_end);
     double minval_da_beg_to_end(double*a,int a_beg,int a_end);
     int minloc_da_beg_to_end(double*a,int a_beg,int a_end);
     QString extractmessage144(char *decoded,int &nhashflag,char &ident);
-    void msk144decodeframe_p(double complex *c,double *softbits,QString &msgreceived,int &nsuccess,char &ident,double phase0);
-    void msk144decodeframe(double complex *c,double *softbits,QString &msg, int &nsuccess,char &ident,bool f_phase);
-    void msk144sync(double complex *cdat,int nframes,int ntol,double delf,int *navmask,int npeaks,double fc,double &fest,int *npklocs,int &nsuccess,double complex *c);
-    void msk144spd(double complex *cdat,int np,int &nsuccess,QString &msgreceived,double fc,double &fest,double &tdec,char &ident,int &navg,double complex *ct,double *softbits);
-    void msk144signalquality(double complex *cframe,double snr,double freq,double t0,double *softbits,QString msg,QString dxcall,int &nbiterrors,double &eyeopening,bool &trained,double *pcoeffs,bool f_calc_pcoeffs);
+    void msk144decodeframe_p(mshv_complex *c,double *softbits,QString &msgreceived,int &nsuccess,char &ident,double phase0);
+    void msk144decodeframe(mshv_complex *c,double *softbits,QString &msg, int &nsuccess,char &ident,bool f_phase);
+    void msk144sync(mshv_complex *cdat,int nframes,int ntol,double delf,int *navmask,int npeaks,double fc,double &fest,int *npklocs,int &nsuccess,mshv_complex *c);
+    void msk144spd(mshv_complex *cdat,int np,int &nsuccess,QString &msgreceived,double fc,double &fest,double &tdec,char &ident,int &navg,mshv_complex *ct,double *softbits);
+    void msk144signalquality(mshv_complex *cframe,double snr,double freq,double t0,double *softbits,QString msg,QString dxcall,int &nbiterrors,double &eyeopening,bool &trained,double *pcoeffs,bool f_calc_pcoeffs);
     QString GetStandardRPT(double width, double peak);
     QString str_round_20ms(double v);
     double MskPingDuration(double *detmet_dur,int istp_real,int il,double level,int nstepsize,int nspm,double dt);
     void SetDecodetTextMsk2DL(QStringList);
-    void detectmsk144(double complex *cdat,int npts,double s_istart,int &nmessages);
-    void opdetmsk144(double complex *cdat,int npts,double s_istart,int &nmessages);
-    void msk144_freq_search(double complex *cdat,double fc,int if1,int if2,double delf,int nframes,int *navmask,double &xmax,double &bestf,double complex *cs,double *xccs);
+    void detectmsk144(mshv_complex *cdat,int npts,double s_istart,int &nmessages);
+    void opdetmsk144(mshv_complex *cdat,int npts,double s_istart,int &nmessages);
+    void msk144_freq_search(mshv_complex *cdat,double fc,int if1,int if2,double delf,int nframes,int *navmask,double &xmax,double &bestf,mshv_complex *cs,double *xccs);
     bool any_not_and_save_in_a(double *a,double *b,int c);
-    void analytic_msk144(double *d,int d_count_begin,int npts,int nfft,double complex *c);
+    void analytic_msk144(double *d,int d_count_begin,int npts,int nfft,mshv_complex *c);
     void analytic_msk144_2_init_s_corrs_full();
-    void analytic_msk144_2(double *d,int d_count_begin,int npts,int nfft,double complex *c,double *dpc,bool bseq,bool bdeq);
+    void analytic_msk144_2(double *d,int d_count_begin,int npts,int nfft,mshv_complex *c,double *dpc,bool bseq,bool bdeq);
     void msk_144_40_decode(double *dat,int npts_in,double s_istart,bool);
     void msk_144_40_rtd(double *d2,int n,double s_istart,bool);
     void print_rtd_decode_text(QString msg,QString &smsg,int in_snr,int &s_snr,double ts,double fest,double t0,int navg,int ncorrected,double eyeopening,char ident);
@@ -236,12 +223,12 @@ private:
     void update_recent_calls(QString call);
     bool update_recent_shmsgs(QString message);
     QString FindBaseFullCallRemAllSlash(QString str);
-    void detectmsk40(double complex *cdat,int npts,double s_istart);
-    void msk40decodeframe_p(double complex *c,double *softbits,double xsnr,QString &msgreceived,int &nsuccess,char &ident,double phase0);
-    void msk40decodeframe(double complex *ct,double *softbits,double xsnr,QString &msg, int &nsuccess,char &ident,bool f_phase);
-    void msk40sync(double complex *cdat,int nframes,int ntol,double delf,int *navmask,int npeaks,double fc,double &fest,int *npklocs,int &nsuccess,double complex *c);
-    void msk40spd(double complex *cdat,int np,int &nsuccess,QString &msgreceived,double fc,double &fest,double &tdec,char &ident,int &navg,double complex *ct,double *softbits);
-    void msk40_freq_search(double complex *cdat,double fc,int if1,int if2,double delf,int nframes,int *navmask,double &xmax,double &bestf,double complex *cs,double *xccs);
+    void detectmsk40(mshv_complex *cdat,int npts,double s_istart);
+    void msk40decodeframe_p(mshv_complex *c,double *softbits,double xsnr,QString &msgreceived,int &nsuccess,char &ident,double phase0);
+    void msk40decodeframe(mshv_complex *ct,double *softbits,double xsnr,QString &msg, int &nsuccess,char &ident,bool f_phase);
+    void msk40sync(mshv_complex *cdat,int nframes,int ntol,double delf,int *navmask,int npeaks,double fc,double &fest,int *npklocs,int &nsuccess,mshv_complex *c);
+    void msk40spd(mshv_complex *cdat,int np,int &nsuccess,QString &msgreceived,double fc,double &fest,double &tdec,char &ident,int &navg,mshv_complex *ct,double *softbits);
+    void msk40_freq_search(mshv_complex *cdat,double fc,int if1,int if2,double delf,int nframes,int *navmask,double &xmax,double &bestf,mshv_complex *cs,double *xccs);
 };
 
 #endif

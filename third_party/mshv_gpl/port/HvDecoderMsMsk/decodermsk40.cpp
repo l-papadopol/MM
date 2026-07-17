@@ -60,7 +60,7 @@ void DecoderMs::first_msk40()
     mplay_da_da_i(cbi,36,42,pp_msk40,0,s_msk40_2s8r[7]);
 
     for (int i = 0; i<42; i++)
-        cbr_msk40[i]=cbi[i] + cbq[i]*I;   //cb=cmplx(cbi,cbq)
+        cbr_msk40[i]=cbi[i] + cbq[i]*mshv_i();   //cb=cmplx(cbi,cbq)
 
     f_first_msk40=true;
 }
@@ -119,7 +119,7 @@ void DecoderMs::SetSwlOpt(bool f)
     }
     return min;
 }*/
-void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
+void DecoderMs::detectmsk40(mshv_complex *cbig,int n,double s_istart)
 {
     //parameter (NSPM=240, NPTS=3*NSPM, MAXSTEPS=7500, NFFT=3*NSPM, MAXCAND=15)
     char ident = '#';////text->'$' codet->'*' short_rpt->'#';
@@ -134,12 +134,12 @@ void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
     const int NFFT=720;    //3*NSPM;//NFFT=3*NSPM=720 //da e 4islo 1.46
 
     //double cbi[42],cbq[42];
-    double complex cdat[NPTS];                    //!Analytic signal
-    double complex cdat2[NPTS];
-    double complex c[NSPM+10];
+    mshv_complex cdat[NPTS];                    //!Analytic signal
+    mshv_complex cdat2[NPTS];
+    mshv_complex c[NSPM+10];
 
     //int nfft_144 = 6000;
-    double complex ctmp[NFFT+10];
+    mshv_complex ctmp[NFFT+10];
 
     const int MAXSTEPS=7500;    //MAXSTEPS=7500
     double detmet_plus[MAXSTEPS+20];
@@ -162,13 +162,13 @@ void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
     double times[MAXCAND];
     double ferrs[MAXCAND];
     double snrs[MAXCAND];
-    //double complex ccr[NPTS];
-    double complex ccr1[NPTS];
-    double complex ccr2[NPTS];
+    //mshv_complex ccr[NPTS];
+    mshv_complex ccr1[NPTS];
+    mshv_complex ccr2[NPTS];
     double ddr[NPTS];
     int ipeaks[10];
-    double complex bb[6];
-    double complex cfac,cca,ccb;
+    mshv_complex bb[6];
+    mshv_complex cfac,cca,ccb;
     //double phase0;
     double softbits[40];
     //int hardbits[40];
@@ -220,7 +220,7 @@ void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
         mplay_da_absdca_absdca(tonespec,NFFT,ctmp,ctmp);//tonespec=abs(ctmp)**2
 
         int ihpk = pomAll.maxloc_da_beg_to_end(tonespec,ihlo_msk40,ihhi_msk40);//! high tone search window
-        double deltah=-creal( (ctmp[ihpk-1]-ctmp[ihpk+1]) / (2*ctmp[ihpk]-ctmp[ihpk-1]-ctmp[ihpk+1]) );//deltah=-real( (ctmp(ihpk-1)-ctmp(ihpk+1)) / (2*ctmp(ihpk)-ctmp(ihpk-1)-ctmp(ihpk+1)) )
+        double deltah=-mshv_creal( (ctmp[ihpk-1]-ctmp[ihpk+1]) / (2*ctmp[ihpk]-ctmp[ihpk-1]-ctmp[ihpk+1]) );//deltah=-real( (ctmp(ihpk-1)-ctmp(ihpk+1)) / (2*ctmp(ihpk)-ctmp(ihpk-1)-ctmp(ihpk+1)) )
         double ah=tonespec[ihpk]; //ah=tonespec(ihpk)
 
         double ahavp = 0.0;//ahavp=(sum(tonespec,ismask)-ah)/count(ismask)
@@ -231,7 +231,7 @@ void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
 
 
         int ilpk = pomAll.maxloc_da_end_to_beg(tonespec,illo_msk40,ilhi_msk40);//! window for low tone
-        double deltal=-creal( (ctmp[ilpk-1]-ctmp[ilpk+1]) / (2*ctmp[ilpk]-ctmp[ilpk-1]-ctmp[ilpk+1]) );//deltal=-real( (ctmp(ilpk-1)-ctmp(ilpk+1)) / (2*ctmp(ilpk)-ctmp(ilpk-1)-ctmp(ilpk+1)) )
+        double deltal=-mshv_creal( (ctmp[ilpk-1]-ctmp[ilpk+1]) / (2*ctmp[ilpk]-ctmp[ilpk-1]-ctmp[ilpk+1]) );//deltal=-real( (ctmp(ilpk-1)-ctmp(ilpk+1)) / (2*ctmp(ilpk)-ctmp(ilpk-1)-ctmp(ilpk+1)) )
         double al=tonespec[ilpk];
 
         double alavp = 0.0;//alavp=(sum(tonespec,ismask)-al)/count(ismask)
@@ -434,11 +434,11 @@ void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
                 if ( ic0+(11+0)+NSPM < NPTS )    //if( ic0+11+NSPM .le. npts ) then
                 {
                     //bb(i) = sum( ( cdat(ic0+i-1+6:ic0+i-1+6+NSPM:6) * conjg( cdat(ic0+i-1:ic0+i-1+NSPM:6) ) )**2 )
-                    double complex sum_1 = 0.0+0.0*I;
+                    mshv_complex sum_1 = 0.0+0.0*mshv_i();
                     int b_c = cd_b;
                     for (int x = cd_b+6; x < cd_b+6+NSPM; x+=6)
                     {
-                        double complex ss = (cdat[x]*conj(cdat[b_c]));
+                        mshv_complex ss = (cdat[x]*mshv_conj(cdat[b_c]));
                         sum_1+=ss*ss;
                         b_c+=6;
                     }
@@ -447,11 +447,11 @@ void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
                 else
                 {
                     //bb(i) = sum( ( cdat(ic0+i-1+6:NPTS:6) * conjg( cdat(ic0+i-1:NPTS-6:6) ) )**2 )
-                    double complex sum_1 = 0.0+0.0*I;
+                    mshv_complex sum_1 = 0.0+0.0*mshv_i();
                     int b_c = cd_b;
                     for (int x = cd_b+6; x < NPTS; x+=6)
                     {
-                        double complex ss = (cdat[x]*conj(cdat[b_c]));
+                        mshv_complex ss = (cdat[x]*mshv_conj(cdat[b_c]));
                         sum_1+=ss*ss;
                         b_c+=6;
                     }
@@ -499,15 +499,15 @@ void DecoderMs::detectmsk40(double complex *cbig,int n,double s_istart)
                 if ( ic+40*6+42 < NPTS ) //if( ic+40*6+41 .le. NPTS ) then
                 {
                     ccb=pomAll.sum_dca_mplay_conj_dca(cdat,ic+40*6,ic+40*6+42,cbr_msk40);//ccb=sum(cdat(ic+32*6:ic+32*6+41)*conjg(cb))
-                    cfac=ccb*conj(cca);//cfac=ccb*conjg(cca)
-                    ferr2=atan2(cimag(cfac),creal(cfac))/(twopi*40*6*dt_msk40);//ferr2=atan2(imag(cfac),real(cfac))/(twopi*32*6*dt)
+                    cfac=ccb*mshv_conj(cca);//cfac=ccb*conjg(cca)
+                    ferr2=atan2(mshv_cimag(cfac),mshv_creal(cfac))/(twopi*40*6*dt_msk40);//ferr2=atan2(imag(cfac),real(cfac))/(twopi*32*6*dt)
                     //qDebug()<<"V1=";
                 }
                 else
                 {
                     ccb=pomAll.sum_dca_mplay_conj_dca(cdat,ic-40*6,ic-40*6+42,cbr_msk40);//ccb=sum(cdat(ic-32*6:ic-32*6+41)*conjg(cb))
-                    cfac=ccb*conj(cca);//cfac=cca*conjg(ccb)
-                    ferr2=atan2(cimag(cfac),creal(cfac))/(twopi*40*6*dt_msk40);//ferr2=atan2(imag(cfac),real(cfac))/(twopi*32*6*dt)
+                    cfac=ccb*mshv_conj(cca);//cfac=cca*conjg(ccb)
+                    ferr2=atan2(mshv_cimag(cfac),mshv_creal(cfac))/(twopi*40*6*dt_msk40);//ferr2=atan2(imag(cfac),real(cfac))/(twopi*32*6*dt)
                     //qDebug()<<"V2=";
                 }
 
@@ -894,10 +894,10 @@ void DecoderMs::SetCalsHash(QStringList l)
         TGenMsk->save_hash_call_my_his_r1_r2(s_R2HisCall,3);
     }
 }
-void DecoderMs::msk40decodeframe_p(double complex *c,double *softbits,double xsnr, QString &msgreceived, int &nsuccess,char &ident,double phase0)//hv
+void DecoderMs::msk40decodeframe_p(mshv_complex *c,double *softbits,double xsnr, QString &msgreceived, int &nsuccess,char &ident,double phase0)//hv
 {
     int NSPM = 240;
-    double complex cfac;
+    mshv_complex cfac;
     //double softbits[40];
     int hardbits[40];
     double llr[32];
@@ -906,9 +906,9 @@ void DecoderMs::msk40decodeframe_p(double complex *c,double *softbits,double xsn
     ident = '#';
 
     //! Remove phase error - want constellation such that sample points lie on re,im axes
-    cfac=(cos(phase0)+sin(phase0)*I);//cfac=cmplx(cos(phase0),sin(phase0))
+    cfac=(cos(phase0)+sin(phase0)*mshv_i());//cfac=cmplx(cos(phase0),sin(phase0))
     for (int i = 0; i<NSPM; i++)
-        c[i]=c[i]*conj(cfac);//c=c*conjg(cfac)
+        c[i]=c[i]*mshv_conj(cfac);//c=c*conjg(cfac)
 
     //if( nmatchedfilter .eq. 0 ) then
     //! sample to get softsamples
@@ -926,12 +926,12 @@ void DecoderMs::msk40decodeframe_p(double complex *c,double *softbits,double xsn
     //softbits(1)=sum(imag(c(1:6))*pp(7:12))+sum(imag(c(NSPM-5:NSPM))*pp(1:6))
     for (int i = 0; i<6; i++)
     {
-        softbits[0] += cimag(c[i])*pp_msk40[i+6];
-        softbits[0] += cimag(c[i+(NSPM-5-1)])*pp_msk40[i];
+        softbits[0] += mshv_cimag(c[i])*pp_msk40[i+6];
+        softbits[0] += mshv_cimag(c[i+(NSPM-5-1)])*pp_msk40[i];
     }
     //softbits(2)=sum(real(c(1:12))*pp)
     for (int i = 0; i<12; i++)
-        softbits[1] += creal(c[i])*pp_msk40[i];
+        softbits[1] += mshv_creal(c[i])*pp_msk40[i];
 
     zero_int_beg_end(hardbits,0,40);//v1.33 0 here important hardbits=0
 
@@ -940,13 +940,13 @@ void DecoderMs::msk40decodeframe_p(double complex *c,double *softbits,double xsn
         //softbits(2*i-1)=sum(imag(c(1+(i-1)*12-6:1+(i-1)*12+5))*pp)
         double sum01 = 0.0;
         for (int j = 0; j<12; j++)
-            sum01 += cimag(c[((i)*12-6)+j])*pp_msk40[j];
+            sum01 += mshv_cimag(c[((i)*12-6)+j])*pp_msk40[j];
         softbits[2*i-0]=sum01;
 
         //softbits(2*i)=sum(real(c(7+(i-1)*12-6:7+(i-1)*12+5))*pp)
         sum01 = 0.0;
         for (int j = 0; j<12; j++)
-            sum01 += creal(c[(6+(i)*12-6)+j])*pp_msk40[j];
+            sum01 += mshv_creal(c[(6+(i)*12-6)+j])*pp_msk40[j];
         softbits[2*i+1]=sum01;
 
         if ( softbits[2*i] >= 0.0 )//v1.33 if( softbits(i) .ge. 0.0 ) then
@@ -1092,15 +1092,15 @@ void DecoderMs::msk40decodeframe_p(double complex *c,double *softbits,double xsn
         }
     }
 }
-void DecoderMs::msk40decodeframe(double complex *c,double *softbits,double xsnr,QString &msgreceived,int &nsuccess,char &ident,bool f_phase)
+void DecoderMs::msk40decodeframe(mshv_complex *c,double *softbits,double xsnr,QString &msgreceived,int &nsuccess,char &ident,bool f_phase)
 {
-    double complex cca;
+    mshv_complex cca;
     double phase0;
     nsuccess=0;
 
     //! Estimate final frequency error and carrier phase.
     cca=pomAll.sum_dca_mplay_conj_dca(c,0,42,cbr_msk40);//cca=sum(c(1:1+41)*conjg(cbr))
-    phase0=atan2(cimag(cca),creal(cca));//phase0=atan2(imag(cca),real(cca)) phase0=atan2(imag(cca+ccb),real(cca+ccb))
+    phase0=atan2(mshv_cimag(cca),mshv_creal(cca));//phase0=atan2(imag(cca),real(cca)) phase0=atan2(imag(cca+ccb),real(cca+ccb))
 
     if (f_phase)
     {
@@ -1118,18 +1118,18 @@ void DecoderMs::msk40decodeframe(double complex *c,double *softbits,double xsnr,
     else
         msk40decodeframe_p(c,softbits,xsnr,msgreceived,nsuccess,ident,phase0);
 }
-void DecoderMs::msk40_freq_search(double complex *cdat,double fc,int if1,int if2,double delf,int nframes,
-                                  int *navmask,double &xmax,double &bestf,double complex *cs,double *xccs)//double complex *cdat2,
+void DecoderMs::msk40_freq_search(mshv_complex *cdat,double fc,int if1,int if2,double delf,int nframes,
+                                  int *navmask,double &xmax,double &bestf,mshv_complex *cs,double *xccs)//mshv_complex *cdat2,
 {
     const int NSPM=240;
     const int c_cdat2 = NSPM*8;//NSPM*nframes nframes=max=8
     int navg;
-    double complex c[NSPM];
-    double complex ct2[2*NSPM];
-    double complex cc[NSPM];
+    mshv_complex c[NSPM];
+    mshv_complex ct2[2*NSPM];
+    mshv_complex cc[NSPM];
     double xcc[NSPM];
 
-    double complex cdat2[c_cdat2];
+    mshv_complex cdat2[c_cdat2];
     //zero_double_comp_beg_end(cdat2,0,c_cdat2);
 
     navg = sum_ia(navmask,0,3);//navg=sum(navmask)
@@ -1159,7 +1159,7 @@ void DecoderMs::msk40_freq_search(double complex *cdat,double fc,int if1,int if2
         {
             ct2[i]=c[i];          //ct2(1:NSPM)=c
             ct2[i+NSPM]=c[i];     //ct2(NSPM+1:2*NSPM)=c
-            cc[i]=0.0+0.0*I;
+            cc[i]=0.0+0.0*mshv_i();
         }
         double xb = 0.0;
         //#pragma omp parallel for
@@ -1169,14 +1169,14 @@ void DecoderMs::msk40_freq_search(double complex *cdat,double fc,int if1,int if2
             //cc[ish]=dot_product_dca_sum_dca_dca(ct2,ish,ct2,336-1+ish,cb_msk144,42);
             //cc(ish)=dot_product(ct2(1+ish:42+ish),cb(1:42))
             cc[ish]=dot_product_dca_dca(ct2,ish,cbr_msk40,0,42);
-            xcc[ish]=cabs(cc[ish]);         //xcc=abs(cc)
+            xcc[ish]=mshv_cabs(cc[ish]);         //xcc=abs(cc)
 
             double xb1 = xcc[ish]*fac;//2.28
             if (xb1>xb) xb=xb1;
         }
 
         //for (int i = 0; i < NSPM; i++)
-        //    xcc[i]=cabs(cc[i]);         //xcc=abs(cc)
+        //    xcc[i]=mshv_cabs(cc[i]);         //xcc=abs(cc)
 
         //double xb=maxval_da_beg_to_end(xcc,0,NSPM)*fac;   //xb=maxval(xcc)*fac
         if (xb>xmax) //then//c++   ==.EQ. !=.NE. >.GT. <.LT. >=.GE. <=.LE.
@@ -1191,18 +1191,18 @@ void DecoderMs::msk40_freq_search(double complex *cdat,double fc,int if1,int if2
         }
     }
 }
-void DecoderMs::msk40sync(double complex *cdat,int nframes,int ntol,double delf,int *navmask,int npeaks,double fc,double &fest,int *npklocs,int &nsuccess,double complex *c)
+void DecoderMs::msk40sync(mshv_complex *cdat,int nframes,int ntol,double delf,int *navmask,int npeaks,double fc,double &fest,int *npklocs,int &nsuccess,mshv_complex *c)
 {
     const int NSPM=240;
     //double xcc[NSPM];                //real xcc(0:NSPM-1)
 
-    /*double complex cs_[8][NSPM];       //complex cs(NSPM,8) //complex cs(NSPM)
+    /*mshv_complex cs_[8][NSPM];       //complex cs(NSPM,8) //complex cs(NSPM)
     const int c_cdat2_ = NSPM*3;//NSPM*nframes nframes=max=3
-    double complex cdat2_[8][c_cdat2_]; // complex cdat2(NSPM*nframes,8)
+    mshv_complex cdat2_[8][c_cdat2_]; // complex cdat2(NSPM*nframes,8)
     double xccs_[8][NSPM];           //real xccs(0:NSPM-1,8)
     double xm[8];
     double bf[8];*/
-    //double complex cs_[NSPM];
+    //mshv_complex cs_[NSPM];
     double xccs_[NSPM];
     double xm = 0.0;
     double bf = 0.0;
@@ -1280,8 +1280,8 @@ void DecoderMs::msk40sync(double complex *cdat,int nframes,int ntol,double delf,
     if ( xm >= 1.3 ) nsuccess=1;
 
 }
-void DecoderMs::msk40spd(double complex *cbig,int n,int &nsuccess,QString &msgreceived,double fc,double &fret,
-                         double &tret,char &ident,int &navg,double complex *ct,double *softbits)
+void DecoderMs::msk40spd(mshv_complex *cbig,int n,int &nsuccess,QString &msgreceived,double fc,double &fret,
+                         double &tret,char &ident,int &navg,mshv_complex *ct,double *softbits)
 {
     const int NSPM=240;
     const int MAXSTEPS=150;
@@ -1290,8 +1290,8 @@ void DecoderMs::msk40spd(double complex *cbig,int n,int &nsuccess,QString &msgre
     int NPATTERNS=6;
     double ferr = 0.0;
     double tonespec[NFFT];
-    double complex ctmp[NFFT+10];
-    double complex cdat[3*NSPM];                    //!Analytic signal
+    mshv_complex ctmp[NFFT+10];
+    mshv_complex cdat[3*NSPM];                    //!Analytic signal
     int navmask[3];
 
     //NPATTERNS=6; zaradi dwoen array na staro gcc
@@ -1305,8 +1305,8 @@ void DecoderMs::msk40spd(double complex *cbig,int n,int &nsuccess,QString &msgre
             {1,1,1}
         };
 
-    double complex c[NSPM];
-    //double complex ct[NSPM];
+    mshv_complex c[NSPM];
+    //mshv_complex ct[NSPM];
     int npkloc[10];
 
     double detmet_plus[MAXSTEPS+12];
@@ -1361,7 +1361,7 @@ void DecoderMs::msk40spd(double complex *cbig,int n,int &nsuccess,QString &msgre
         mplay_da_absdca_absdca(tonespec,NFFT,ctmp,ctmp);//tonespec=abs(ctmp)**2
 
         int ihpk = pomAll.maxloc_da_beg_to_end(tonespec,ihlo_msk40,ihhi_msk40);//! high tone search window
-        double deltah=-creal( (ctmp[ihpk-1]-ctmp[ihpk+1]) / (2*ctmp[ihpk]-ctmp[ihpk-1]-ctmp[ihpk+1]) );//deltah=-real( (ctmp(ihpk-1)-ctmp(ihpk+1)) / (2*ctmp(ihpk)-ctmp(ihpk-1)-ctmp(ihpk+1)) )
+        double deltah=-mshv_creal( (ctmp[ihpk-1]-ctmp[ihpk+1]) / (2*ctmp[ihpk]-ctmp[ihpk-1]-ctmp[ihpk+1]) );//deltah=-real( (ctmp(ihpk-1)-ctmp(ihpk+1)) / (2*ctmp(ihpk)-ctmp(ihpk-1)-ctmp(ihpk+1)) )
         double ah=tonespec[ihpk]; //ah=tonespec(ihpk)
 
         double ahavp = 0.0;//ahavp=(sum(tonespec,ismask)-ah)/count(ismask)
@@ -1371,7 +1371,7 @@ void DecoderMs::msk40spd(double complex *cbig,int n,int &nsuccess,QString &msgre
         double trath=ah/(ahavp+0.01);//trath=ah/(ahavp+0.01)
 
         int ilpk = pomAll.maxloc_da_end_to_beg(tonespec,illo_msk40,ilhi_msk40);//! window for low tone
-        double deltal=-creal( (ctmp[ilpk-1]-ctmp[ilpk+1]) / (2*ctmp[ilpk]-ctmp[ilpk-1]-ctmp[ilpk+1]) );//deltal=-real( (ctmp(ilpk-1)-ctmp(ilpk+1)) / (2*ctmp(ilpk)-ctmp(ilpk-1)-ctmp(ilpk+1)) )
+        double deltal=-mshv_creal( (ctmp[ilpk-1]-ctmp[ilpk+1]) / (2*ctmp[ilpk]-ctmp[ilpk-1]-ctmp[ilpk+1]) );//deltal=-real( (ctmp(ilpk-1)-ctmp(ilpk+1)) / (2*ctmp(ilpk)-ctmp(ilpk-1)-ctmp(ilpk+1)) )
         double al=tonespec[ilpk];
 
         double alavp = 0.0;//alavp=(sum(tonespec,ismask)-al)/count(ismask)
@@ -1523,7 +1523,7 @@ void DecoderMs::msk40spd(double complex *cbig,int n,int &nsuccess,QString &msgre
         }
     }       //! candidate loop
 }
-void DecoderMs::msk144signalquality(double complex *cframe,double snr,double freq,double t0,
+void DecoderMs::msk144signalquality(mshv_complex *cframe,double snr,double freq,double t0,
                                     double *softbits,QString msg,QString dxcall,int &nbiterrors,
                                     double &eyeopening,bool &trained,double *pcoeffs,bool f_calc_pcoeffs)
 {
@@ -1531,7 +1531,7 @@ void DecoderMs::msk144signalquality(double complex *cframe,double snr,double fre
     int hardbits[144];//144
     int i4tone[234];// 144 vazno -> 234
     int msgbits[144];
-    double complex cross[864];
+    mshv_complex cross[864];
 
     bool is_training_frame = false;
     //double dphi0;
@@ -1541,8 +1541,8 @@ void DecoderMs::msk144signalquality(double complex *cframe,double snr,double fre
     double waveform[864];//waveform(0:863)
     //double d[1024];    //real d(1024)
     double a[5];
-    //double complex canalytic[1024+10];
-    double complex cmodel[1024+10];
+    //mshv_complex canalytic[1024+10];
+    mshv_complex cmodel[1024+10];
     double phase[864];
     //double x[145];
     //double y[145];
@@ -1759,7 +1759,7 @@ void DecoderMs::msk144signalquality(double complex *cframe,double snr,double fre
         //cframe[x]=cframe[x]/10.0;
 
         //analytic_msk144_2(d,0,npts,nfft,canalytic,a,false,false); //! don't equalize the model
-        double complex canalytic[1024+10];
+        mshv_complex canalytic[1024+10];
         analytic_msk144_2(d,0,npts,nfft,canalytic,pcoeffs,false,false);
         tweak1(canalytic,nfft,-freq,cmodel);//call tweak1(canalytic,nfft,-freq,cmodel)
         f2a.four2a_c2c(cframe,NSPM,-1,1);//call four2a(cframe(1:864),864,1,-1,1)
@@ -1769,7 +1769,7 @@ void DecoderMs::msk144signalquality(double complex *cframe,double snr,double fre
         //! Cross spectra from different messages can be averaged
         //! as long as all messages originate from dxcall.
         for (int i = 0; i < NSPM; i++)
-            cross[i]=cmodel[i]*conj(cframe[i])/1000.0;//cross_sq=cmodel(1:864)*conjg(cframe)/1000.0
+            cross[i]=cmodel[i]*mshv_conj(cframe[i])/1000.0;//cross_sq=cmodel(1:864)*conjg(cframe)/1000.0
 
         pomAll.cshift1(cross,NSPM,NSPM/2);//cross=cshift(cross,864/2)
 
@@ -1781,7 +1781,7 @@ void DecoderMs::msk144signalquality(double complex *cframe,double snr,double fre
         navg_sq++;//navg_sq=navg_sq+1
         tlast_sq=t0;
         for (int i = 0; i < NSPM; i++)
-            phase[i]=atan2(cimag(cross_avg_sq[i]),creal(cross_avg_sq[i]));//phase=atan2(imag(cross_avg),real(cross_avg))
+            phase[i]=atan2(mshv_cimag(cross_avg_sq[i]),mshv_creal(cross_avg_sq[i]));//phase=atan2(imag(cross_avg),real(cross_avg))
 
         double df=DEC_SAMPLE_RATE/(double)NSPM;
         double nm=145;
@@ -1797,11 +1797,11 @@ void DecoderMs::msk144signalquality(double complex *cframe,double snr,double fre
         for (int i = 0; i < 145; i++)
         {
             y[i]=phase[i+offset];//y=phase((864/2-nm/2):(864/2+nm/2))  //phase[864];
-            sigmay[i]=wt_avg_sq/cabs(cross_avg_sq[i+offset]);//sigmay=wt_avg/abs(cross_avg((864/2-nm/2):(864/2+nm/2)))
+            sigmay[i]=wt_avg_sq/mshv_cabs(cross_avg_sq[i+offset]);//sigmay=wt_avg/abs(cross_avg((864/2-nm/2):(864/2+nm/2)))
 
             //if(sigmay[i]>0.1)
             //sigmay[i] = 3.9;
-            //qDebug()<<"sigmay[i]"<<sigmay[i]<<wt_avg_sq<<cabs(cross_avg_sq[i+offset])<<i;
+            //qDebug()<<"sigmay[i]"<<sigmay[i]<<wt_avg_sq<<mshv_cabs(cross_avg_sq[i+offset])<<i;
         }
         int mode=1;
         npts=145;

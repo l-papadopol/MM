@@ -12,8 +12,8 @@
 class HvThr
 {
 public:
-    void four2a_c2c(double complex *a,double complex *a1,fftw_plan *pc,int &cpc,int nfft,int isign,int iform);
-    void four2a_d2c(double complex *a,double complex *a1,double *d,double *d1,fftw_plan *pd,int &cpd,
+    void four2a_c2c(mshv_complex *a,mshv_complex *a1,fftw_plan *pc,int &cpc,int nfft,int isign,int iform);
+    void four2a_d2c(mshv_complex *a,mshv_complex *a1,double *d,double *d1,fftw_plan *pd,int &cpd,
                     int nfft,int isign,int iform);
     void DestroyPlans(fftw_plan *pc,int &cpc,fftw_plan *pd,int &cpd,bool imid);
 private:
@@ -27,8 +27,8 @@ private:
 class F2a
 {
 public:
-    void four2a_c2c(double complex *a,int nfft,int isign,int iform,int thr = 0);
-    void four2a_d2c(double complex *a,double *d,int nfft,int isign,int iform,int thr = 0);
+    void four2a_c2c(mshv_complex *a,int nfft,int isign,int iform,int thr = 0);
+    void four2a_d2c(mshv_complex *a,double *d,int nfft,int isign,int iform,int thr = 0);
     void DestroyPlansAll(bool imid);
     //void InitPlansAllStatic();//2.76.2
 private:
@@ -58,12 +58,12 @@ public:
     void polyfit(double*x,double*y,double*sigmay,int npts,int nterms,int mode,double*a,double &chisqr);
     void zero_double_beg_end(double*,int begin,int end);
     double pctile_shell(double *yellow,int nblks,int npct);    
-    void zero_double_comp_beg_end(double complex*,int begin,int end);
-    double ps_hv(double complex z);
-    //double ps_hv001(double complex z);
-    void cshift1(double complex *a,int cou_a,int ish);
+    void zero_double_comp_beg_end(mshv_complex*,int begin,int end);
+    double ps_hv(mshv_complex z);
+    //double ps_hv001(mshv_complex z);
+    void cshift1(mshv_complex *a,int cou_a,int ish);
     void dshift1(double *a,int cou_a,int ish);
-    double complex sum_dca_mplay_conj_dca(double complex *a,int a_beg,int a_end,double complex *b);
+    mshv_complex sum_dca_mplay_conj_dca(mshv_complex *a,int a_beg,int a_end,mshv_complex *b);
     void indexx_msk(double *arr,int n,int *indx);
     bool isStandardCall(QString);//2.61  same as  MultiAnswerModW
     void smo121(double *x,int beg,int nz);
@@ -84,7 +84,7 @@ public:
     void nuttal_window(double *win,int n);
     void normalizebmet(double *bmet,int n);
     void normalizebmetvar(double *bmet,int n); 
-    void twkfreq1(double complex *ca,int npts,double fsample,double *a,double complex *cb);
+    void twkfreq1(mshv_complex *ca,int npts,double fsample,double *a,mshv_complex *cb);
     //int count_eq_bits(bool *a,int b_a,const bool *b,int c);
     void SetLlrFt2_4(double *,double *,double *,double *,double *,double bitmetrics_[5][220],uint8_t to);
     int SyncQualFt2_4(double *bitmetrics);

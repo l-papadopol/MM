@@ -32,6 +32,19 @@ if grep -R --include='*.cpp' --include='*.h' -n '\bQStringRef\b' third_party/msh
 fi
 rm -f /tmp/madmodem_qstringref_hits.$$ 2>/dev/null || true
 
+# Generic C99/GNU complex compatibility macros are unsafe in Qt unity/MOC
+# translation units.  In particular, `#define I ...` rewrites Qt template
+# parameter names such as QSize's tuple index and causes opaque AppleClang
+# errors inside Qt headers.
+if grep -R --include='*.cpp' --include='*.h' -nE \
+      '^[[:space:]]*#[[:space:]]*define[[:space:]]+(I|complex|creal|cimag|conj|cabs)([^A-Za-z0-9_]|$)' \
+      third_party/mshv_gpl/port/HvDecoderMs third_party/mshv_gpl/port/HvDecoderMsMsk \
+      >/tmp/madmodem_complex_macro_hits.$$ 2>/dev/null; then
+  cat /tmp/madmodem_complex_macro_hits.$$ >&2
+  say_fail "active MSHV port exposes generic complex macros; use mshv_complex and mshv_* helpers"
+fi
+rm -f /tmp/madmodem_complex_macro_hits.$$ 2>/dev/null || true
+
 if [[ ! -f third_party/mshv_gpl/port/boost/config/compiler/clang.hpp ]]; then
   say_fail "vendored MSHV Boost subset lacks boost/config/compiler/clang.hpp for AppleClang"
 fi

@@ -152,11 +152,11 @@ private:
     void q65_ap(int nQSOprogress,int ipass,int,int,bool lapcqonly,int &iaptype,int *,bool *,bool *);
     void q65_dec_q012(float *s3_1fa,double &snr2,int *dat4,int &idec,int,int,int);
         
-    void ana64(double *iwave,int,double complex *c0);
+    void ana64(double *iwave,int,mshv_complex *c0);
     void q65apset(QString mycall12,QString hiscall12,int *apsym2);
-    void twkfreq(double complex *c3,double complex *c4,int npts,double fsample,double *a);
-    void spec64(double complex *c0,int nsps,int jpk,float *s3,int LL,int NN);
-    void q65_loops(double complex *c00,int npts2,int nsps2,int nsubmode,int ndepth,int jpk0,
+    void twkfreq(mshv_complex *c3,mshv_complex *c4,int npts,double fsample,double *a);
+    void spec64(mshv_complex *c0,int nsps,int jpk,float *s3,int LL,int NN);
+    void q65_loops(mshv_complex *c00,int npts2,int nsps2,int nsubmode,int ndepth,int jpk0,
 		double xdt0,double f0,int iaptype,double &xdt1,double &f1,double &snr2,int *dat4,int &idec,bool);
     
     bool lnewdat; 

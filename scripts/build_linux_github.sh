@@ -9,6 +9,7 @@ BUILD_DIR="${MADMODEM_LINUX_BUILD_DIR:-$ROOT_DIR/build-linux-github}"
 INSTALL_DIR="${MADMODEM_LINUX_INSTALL_DIR:-$ROOT_DIR/dist/linux}"
 HAMLIB_PREFIX="${HAMLIB_LINUX_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-linux-x86_64}"
 Q65_FULL="${MADMODEM_Q65_FULL:-OFF}"
+FFTW_ROOT="${MADMODEM_FFTW3_ROOT:-}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
     echo "ERROR: Linux build script must run on Linux, for example GitHub Actions ubuntu-24.04." >&2
@@ -25,6 +26,10 @@ if [[ ! -d "$ROOT_DIR/third_party/hamlib_lgpl/source" ]]; then
     echo "ERROR: bundled Hamlib source not found: third_party/hamlib_lgpl/source" >&2
     exit 1
 fi
+if ! pkg-config --exists fftw3 2>/dev/null; then
+    echo "ERROR: FFTW3 development files not found. Install libfftw3-dev." >&2
+    exit 1
+fi
 
 printf '==> Building bundled Hamlib for Linux\n'
 HAMLIB_PREFIX="$HAMLIB_PREFIX" \
@@ -33,12 +38,17 @@ HAMLIB_STATIC=on HAMLIB_SHARED=off JOBS="$JOBS" \
 
 printf '\n==> Configuring %s for Linux GitHub package\n' "$APP_NAME"
 rm -rf "$INSTALL_DIR"
+FFTW_CMAKE_ARGS=()
+if [[ -n "$FFTW_ROOT" ]]; then
+    FFTW_CMAKE_ARGS+=("-DMADMODEM_FFTW3_ROOT=$FFTW_ROOT")
+fi
 cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
     -DMADMODEM_REQUIRE_HAMLIB=ON \
     -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
     -DMADMODEM_ENABLE_Q65_FULL_MSHV_DECODER="$Q65_FULL" \
+    "${FFTW_CMAKE_ARGS[@]}" \
     "$@"
 
 cmake --build "$BUILD_DIR" --config "$BUILD_TYPE" --parallel "$JOBS"

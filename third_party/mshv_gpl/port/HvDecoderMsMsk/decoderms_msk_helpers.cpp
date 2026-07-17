@@ -138,7 +138,7 @@ double DecoderMs::dot_product_da_da(double *a, double *b, int size, int offset_b
     return sum;
 }
 
-void DecoderMs::analytic(double *d,int d_count_begin,int npts,int nfft,double *s,double complex *c)
+void DecoderMs::analytic(double *d,int d_count_begin,int npts,int nfft,double *s,mshv_complex *c)
 {
     const int nh = nfft / 2;
     const double fac = 2.0 / static_cast<double>(nfft);
@@ -147,15 +147,15 @@ void DecoderMs::analytic(double *d,int d_count_begin,int npts,int nfft,double *s
     f2a.four2a_c2c(c, nfft, -1, 1);
     for (int x = 0; x < nh; ++x) s[x] = pomAll.ps_hv(c[x]);
     c[0] = 0.5 * c[0];
-    for (int y = nh + 1; y < nfft; ++y) c[y] = 0.0 + 0.0 * I;
+    for (int y = nh + 1; y < nfft; ++y) c[y] = 0.0 + 0.0 * mshv_i();
     f2a.four2a_c2c(c, nfft, 1, 1);
 }
 
-void DecoderMs::tweak1(double complex *ca,int jz,double f0,double complex *cb)
+void DecoderMs::tweak1(mshv_complex *ca,int jz,double f0,mshv_complex *cb)
 {
-    double complex w = 1.0 + 1.0 * I;
+    mshv_complex w = 1.0 + 1.0 * mshv_i();
     const double dphi = twopi * f0 / DEC_SAMPLE_RATE;
-    const double complex wstep = std::cos(dphi) + std::sin(dphi) * I;
+    const mshv_complex wstep = std::cos(dphi) + std::sin(dphi) * mshv_i();
     for (int i = 0; i < jz; ++i) {
         w = w * wstep;
         cb[i] = w * ca[i];

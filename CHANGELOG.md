@@ -1,4 +1,11 @@
+## 0.5.78 — FFTW link dependency correction
+
+- Declared FFTW3 as a mandatory dependency of the active MSK144/MSK40 target instead of tying it only to the optional Q65 bridge.
+- Propagated the FFTW3 link library through `madmodem_msk144`, fixing unresolved `fftw_*` symbols on Linux and Windows.
+- Added `libfftw3-dev`/Homebrew `fftw` to the GitHub build jobs and passed the Homebrew prefix explicitly on macOS.
+
 # MadModem changelog
+- Fixed the macOS/Qt 6 MSHV build by replacing leaking GNU/C99 complex macros (`I`, `complex`, `creal`, `cimag`, `conj`, `cabs`) with prefixed `mshv_complex` helpers; this prevents macro substitution inside Qt headers during MOC/unity compilation.
 
 ## 0.5.78 — 2026-07-16
 

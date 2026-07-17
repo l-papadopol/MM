@@ -1,4 +1,9 @@
+## 0.5.78 build correction: FFTW3 linkage
+
+The MSHV-derived MSK144/MSK40 decoder compiles `decoderpom.cpp`, which calls FFTW3 regardless of whether the optional full Q65 bridge is enabled. The build now links FFTW3 directly through the MSK144 target on Linux, Windows and macOS, and CI installs the corresponding development package.
+
 # MadModem 0.5.78 release notes
+- macOS arm64 / Qt 6: removed global MSHV complex-number compatibility macros that could corrupt Qt headers in generated MOC translation units.
 
 MadModem 0.5.78 is a consolidation release focused on source hygiene, cross-platform UI consistency, multilingual coverage and current documentation.
 
