@@ -39,7 +39,6 @@ jobs:
       - name: Build MadModem.app
         env:
           MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
-          MADMODEM_MIND_OPENMP: OFF
           MADMODEM_Q65_FULL: OFF
           MACOSX_DEPLOYMENT_TARGET: "13.0"
         run: |

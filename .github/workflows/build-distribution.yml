@@ -36,7 +36,6 @@ jobs:
 
       - name: Build Linux package tree
         env:
-          MADMODEM_MIND_OPENMP: ON
           MADMODEM_Q65_FULL: OFF
         run: |
           bash scripts/build_linux_github.sh
@@ -117,7 +116,6 @@ jobs:
 
       - name: Build Windows standalone variants
         env:
-          MADMODEM_MIND_OPENMP: ON
           MADMODEM_Q65_FULL: OFF
           MADMODEM_WINDOWS_BUILD_LEGACY: on
           MADMODEM_WINDOWS_BUILD_AVX2: on
@@ -176,7 +174,6 @@ jobs:
       - name: Build MadModem.app
         env:
           MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
-          MADMODEM_MIND_OPENMP: OFF
           MADMODEM_Q65_FULL: OFF
           MACOSX_DEPLOYMENT_TARGET: "13.0"
         run: |
