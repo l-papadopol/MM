@@ -1,0 +1,134 @@
+MadModem 0.5.78 — FT8 efficient live gate + atomic sequencer
+Validation date: 2026-07-31
+
+BASELINE
+========
+MadModem_0_5_78_CW_REALTIME_STABLE_WATERFALL_GITHUB_WORKFLOWS_RESTORED_FULL_SOURCE
+Baseline SHA-256:
+  1b7b227fd05c3624846a2428f31934472f77e2a43a84572400e7ddfc94414a41
+
+FIELD LOG THAT MOTIVATED THE CHANGE
+===================================
+The supplied FT8 field log showed:
+- 90% gate jobs around 441-571 ms;
+- complete-boundary jobs around 583-1133 ms;
+- 645-998 cumulative candidates per job;
+- GF(2) OSD bursts up to about 219 ms, including many zero-recovery jobs;
+- a 420 ms Auto-QSO CQ ranking delay close to the UTC boundary;
+- one FT8 frame started late with 153 ms removed from the waveform;
+- decodeReady rows reached MainWindow sequentially, so the sequencer could arm
+  on one row before all rows from the same completed decoder job were evaluated.
+
+REFERENCE WORK CONSULTED
+========================
+1. MadModem checkpoint 2026-07-21:
+   - identified the 90% gate as a 0.41-0.54 s / 700-1000 candidate hotspot;
+   - recommended a light gate, complete-frame checks, boundary reuse and the
+     four-WAV sensitivity benchmark.
+2. Bundled MSHV upstream decoderft8.cpp:
+   - hard Costas sync bail-out before LDPC;
+   - subsequent subtraction/rescan passes are skipped when no decode exists.
+3. Bundled WSJT/Decodium reference:
+   - decode-driven exit when a pass produces no decodes.
+No MSHV/WSJT source was copied into the MadModem implementation by this patch.
+
+IMPLEMENTED RUNTIME CHANGES
+===========================
+A. Stop decoding padding / incomplete live slots
+- The early gate now requires enough genuinely captured audio, excluding UTC
+  pre-padding, to contain at least one complete protocol frame.
+- This suppresses the 95-97% zero-candidate gate jobs observed immediately after
+  RX restarts near the end of a period.
+
+B. One bounded 90% gate pass
+- The gate runs one pass only.
+- GF(2) OSD is disabled at the gate.
+- Heavy multi-metric recovery is disabled at the gate.
+- Boundary/offline decoding retains the complete recovery path.
+- Gate candidate cap is reduced without changing its first-pass sync threshold.
+
+C. Do not run later passes on nothing
+- If no CRC-valid decode exists, later subtraction/rescan passes stop
+  immediately. Candidate pressure alone can no longer trigger pass 2/3 on an
+  unchanged noise residual.
+
+D. Candidate-cloud suppression before LDPC
+- DT/DF non-maximum suppression is widened from <4 Hz / <80 ms to <=6.5 Hz /
+  <=120 ms.
+- The strongest local Costas maximum is kept. The frequency radius remains far
+  below one FT8 tone spacing, so distinct FT8 signals are not intentionally
+  merged.
+
+E. Atomic sequencer batch
+- Ft8RxDecoder emits decodeBatchStarted/decodeBatchFinished around each complete
+  job result.
+- Decode rows remain visible immediately.
+- MainWindow queues sequencer-relevant rows and evaluates one best transition
+  against one immutable QSO context at batch end.
+- Duplicate copies of the same message/frequency are coalesced before the
+  sequencer decision.
+- Auto-QSO CQ ranking is flushed at batch completion instead of waiting an
+  additional 420 ms timer.
+
+F. Never transmit a truncated FT waveform
+- skipInitialMilliseconds() is no longer called from MainWindow for FT4/FT8.
+- If the audio deadline is already missed, PTT is released, RX remains/returns
+  active, and the unchanged message is scheduled for the next selected slot.
+- A second hard guard catches deadline loss while the audio backend is opening.
+
+UNCHANGED AREAS
+===============
+- CW source and runtime path.
+- Shared AudioEngine capture/conversion.
+- Waterfall implementation.
+- FT8 protocol symbols, CRC, unpacking and first-pass LDPC thresholds.
+- FT4/FT8 offline reference-analysis policy, except shared local NMS.
+- MSK144, Q65, CAT, rotator, logbook and other modem paths.
+- GitHub distribution and macOS workflows remain present.
+
+STATIC / SOURCE VALIDATION
+==========================
+- FT8 source audit: 26/26 PASS.
+- Documentation audit: PASS (version 0.5.78, 72 localized HTML pages, six help projects).
+- Translation audit: PASS, 1732 canonical keys in EN/IT/FR/DE/NO/CS.
+- Shell syntax audit: PASS for build_all.sh and all .sh files.
+- GitHub workflows present: build-distribution.yml, build-macos.yml.
+- Executable permission set for 26 shell scripts preserved.
+- Four standard benchmark WAV files were located externally and their hashes
+  match tests/ft8/validated_baseline.tsv:
+    websdr_test6.wav  0bae0c9f...  expected 26
+    test_21.wav       3185aa62...  expected 25
+    test_18.wav       f7490294...  expected 16
+    test_05.wav       8fbc4e70...  expected 21
+  The WAV files are not bundled in this source package.
+
+BUILD / BENCHMARK LIMITATION
+============================
+CMake configuration reached the project but could not continue because the
+preparation container does not contain Qt5Config.cmake / Qt development files.
+Therefore this report does NOT claim:
+- a successful full Qt link;
+- a measured live speed-up;
+- preservation of the historical 88 decodes on the four standard WAVs;
+- Windows legacy timing validation.
+
+REQUIRED ACCEPTANCE TESTS ON TARGET MACHINE
+===========================================
+1. Clean Linux build, then GitHub Windows legacy and macOS workflows.
+2. Run the four-WAV FT8 benchmark. Acceptance floor: 88 total, split 26/25/16/21.
+3. Compare live profiler with the supplied log:
+   - gate passCount should be 1;
+   - gate OSD GF2 tried should be 0;
+   - post-TX 95-97% padding-only gates should disappear;
+   - gate candidate/LDPC counts and total time should fall materially.
+4. Verify that all rows of one batch are displayed but the sequencer arms only
+   one response.
+5. Force a late Auto-QSO decision: MadModem must defer the message and must never
+   log a positive "skipped=" waveform value or transmit a truncated frame.
+6. Repeat on Windows legacy and report gate/boundary/search/LDPC timings.
+
+FUTURE OPTIMIZATION NOT CLAIMED HERE
+====================================
+The patch does not yet implement a full gate-to-boundary FFT/candidate/LLR cache.
+That remains the next optimization only after the four-WAV benchmark proves that
+this safer first-stage pruning preserved sensitivity.
