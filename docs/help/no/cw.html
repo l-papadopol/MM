@@ -1,0 +1,15 @@
+<!DOCTYPE html><html lang='no'><head><meta charset='utf-8'><title>CW / Morse</title><link rel='stylesheet' href='../style.css'></head><body>
+<h1>CW / Morse</h1>
+<div class='nav'><strong>Innhold:</strong> <a href='index.html'>MM-hjelp</a> <a href='quickstart.html'>Hurtigstart</a> <a href='audio_cat_ptt.html'>Lyd, CAT og PTT</a> <a href='waterfall.html'>Waterfall og markører</a> <a href='text_modes.html'>Tekstmoduser</a> <a href='cw.html'>CW / Morse</a> <a href='ft8_ft4.html'>FT4 / FT8</a> <a href='rotator.html'>Rotor</a> <a href='radio_telescope.html'>Radioteleskop</a> <a href='scheduler.html'>Planlegger</a> <a href='logbook_map.html'>Loggbok og kart</a> <a href='troubleshooting.html'>Feilsøking</a></div>
+<h2>CW / Morse</h2>
+<p>CW bruker to uavhengige mottakere som er nøyaktig innstilt på vannfallsmarkørene. Venstreklikk velger RX A; høyreklikk aktiverer eller stiller RX B. Hver mottaker har egen terminal, sletting, Auto/manuell WPM, AFC, filter og tidsmodell.</p>
+<p><strong>Innebygd dekoder:</strong> Den valgte bærebølgen flyttes til kompleks basisbånd og blir til myk MARK-evidens hvert millisekund. Et bayesiansk søk vurderer prikker, streker og element-, tegn- og ordmellomrom samlet. Målte varigheter endres eller slås aldri sammen; SNR påvirker bare tillit; WPM er et svakt hint og en avledet visningsverdi.</p>
+<p><strong>QSB:</strong> Et usikkert amplitudefall beholdes som usikkerhet og blir ikke straks et sikkert Morse-mellomrom. Informasjon som er helt borte i dyp fading kan ikke garanteres rekonstruert.</p>
+<p><strong>Bærebølgespor:</strong> Fullbåndsskanneren viser vedvarende bærebølger på vannfallet, men skriver ikke dekodede bokstaver der. Bekreftet tekst går kontinuerlig i RX A/RX B.</p>
+<p><strong>Vannfall:</strong> Nivåreferansen bruker det faktisk opptatte lydbåndet. Delvis bånd eller én sterk smal bærebølge gjør ikke hele visningen oransje. Zoom/pan ligger under frekvensetikettene.</p>
+<h2>Diagnostikk og opptak</h2>
+<p>Diagnostikken er passiv og viser målte konvolutter, terskler, MARK-sannsynlighet, QSB-usikkerhet, bærebølgeprominens, koherens og faktisk filterutgang. GUI-en styrer ikke dekoderen.</p>
+<p>Bruk <b>Fil → Start RX-lydopptak…</b> (<code>Ctrl+Shift+R</code>) for å lagre den samme normaliserte mono-WAV-strømmen som vannfall og dekodere bruker.</p>
+<p>Den innebygde regresjonen tester 20/30 WPM, feil WPM-hint, korte QSB-fall, bare støy og to bærebølger 25 Hz fra hverandre. Reelle radiosignaler er avgjørende.</p>
+<div class='footer'>MadModem 0.5.78 — Qt Help — Norsk</div>
+</body></html>

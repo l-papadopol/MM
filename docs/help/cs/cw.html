@@ -1,0 +1,15 @@
+<!DOCTYPE html><html lang='cs'><head><meta charset='utf-8'><title>CW / Morse</title><link rel='stylesheet' href='../style.css'></head><body>
+<h1>CW / Morse</h1>
+<div class='nav'><strong>Obsah:</strong> <a href='index.html'>Nápověda MM</a> <a href='quickstart.html'>Rychlý start</a> <a href='audio_cat_ptt.html'>Audio, CAT a PTT</a> <a href='waterfall.html'>Waterfall a markery</a> <a href='text_modes.html'>Textové režimy</a> <a href='cw.html'>CW / Morse</a> <a href='ft8_ft4.html'>FT4 / FT8</a> <a href='rotator.html'>Rotátor</a> <a href='radio_telescope.html'>Radioteleskop</a> <a href='scheduler.html'>Plánovač</a> <a href='logbook_map.html'>Deník a mapa</a> <a href='troubleshooting.html'>Řešení potíží</a></div>
+<h2>CW / Morse</h2>
+<p>CW používá dva nezávislé přijímače přesně naladěné na značky vodopádu. Levé kliknutí volí RX A; pravé kliknutí aktivuje nebo ladí RX B. Každý přijímač má vlastní terminál, mazání, Auto/ruční WPM, AFC, filtr a časový model.</p>
+<p><strong>Nativní dekodér:</strong> Vybraná nosná se převede do komplexního základního pásma a každou milisekundu vzniká měkká evidence MARK. Bayesovský svazek společně hodnotí tečky, čárky a mezery mezi prvky, znaky a slovy. Naměřené délky se nikdy nemění ani neslučují; SNR ovlivňuje pouze důvěru; WPM je slabá nápověda a odvozená zobrazovaná hodnota.</p>
+<p><strong>QSB:</strong> Nejistý pokles amplitudy zůstává nejistotou a nestane se okamžitě jistou Morseovou mezerou. Informaci zcela pohřbenou hlubokým únikem nelze zaručeně obnovit.</p>
+<p><strong>Stopy nosných:</strong> Celopásmový skener zobrazuje trvalé nosné na vodopádu, ale netiskne tam dekódovaná písmena. Potvrzený text běží souvisle v RX A/RX B.</p>
+<p><strong>Vodopád:</strong> Referenční úroveň používá skutečně obsazené audio pásmo. Částečné pásmo ani jedna silná úzká nosná nezbarví celý displej oranžově. Lišta zoom/pan je pod popisy frekvence.</p>
+<h2>Diagnostika a záznam</h2>
+<p>Diagnostika je pasivní a ukazuje měřené obálky, prahy, pravděpodobnost MARK, nejistotu QSB, prominenci nosné, koherenci a skutečný výstup filtru. GUI dekodér neřídí.</p>
+<p>Pomocí <b>Soubor → Spustit záznam RX audia…</b> (<code>Ctrl+Shift+R</code>) uložíte stejný normalizovaný mono WAV proud, který používá vodopád a dekodéry.</p>
+<p>Nativní regrese testuje 20/30 WPM, chybnou počáteční nápovědu WPM, krátké propady QSB, samotný šum a dvě nosné vzdálené 25 Hz. Rozhodují skutečné signály.</p>
+<div class='footer'>MadModem 0.5.78 — Qt Help — Čeština</div>
+</body></html>
