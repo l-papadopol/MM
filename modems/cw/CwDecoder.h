@@ -43,6 +43,13 @@ struct CwDiagnosticPoint
     float carrierProminenceDb = -99.0f;
     float coherentSnrDb = -99.0f;
     float coherence = 0.0f;
+    float ditMs = 0.0f;
+    float dahMs = 0.0f;
+    float markThresholdMs = 0.0f;
+    float characterSpaceMs = 0.0f;
+    float wordSpaceMs = 0.0f;
+    QString timingState;
+    QString currentPattern;
 };
 Q_DECLARE_METATYPE(CwDiagnosticPoint)
 
@@ -51,7 +58,7 @@ Q_DECLARE_METATYPE(CwDiagnosticPoint)
  *
  * A full-passband FFT scanner discovers persistent carrier lanes. RX A and RX B
  * are two independent exact-tone receivers using the same clean-room native
- * soft-decision Bayesian timing decoder. The waterfall shows carrier lanes and
+ * dedicated carrier discriminator and relative timing decoder. The waterfall shows carrier lanes and
  * A/B markers only; decoded text is emitted continuously to the RX panes.
  *
  * WPM is an acquisition hint and a derived display value, never a rigid clock.
@@ -123,9 +130,11 @@ signals:
                                  float carrierPeakWidthHz,
                                  float carrierToSecondDb);
     void diagnosticResetRequested(int rank);
+    void liveLogLine(int rank, const QString &line);
 
 private:
     void resetSkimmer();
+    void updateTrackerInterferers();
     void emitSkimmerStatus(bool force = false);
     void refreshPriorityAndOverlays();
     QString sanitizeSkimmerText(const std::string &text) const;

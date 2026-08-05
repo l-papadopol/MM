@@ -1,96 +1,174 @@
-# MadModem 0.5.78 release notes
+# MadModem 0.5.78 — current source checkpoint
 
-## FT8 live efficiency and sequencer integrity
+## CW live Bayesian posterior beam comparison branch
 
-The 90% FT8 gate is now strictly a low-latency pass. It performs one candidate
-pass with the normal sync/LDPC path, but leaves GF(2) OSD, heavy metric retries
-and subtraction-driven deep passes to the complete boundary snapshot. A late RX
-restart no longer launches a decode over a slot made mostly of UTC padding.
-Candidate DT/DF clouds receive stronger local non-maximum suppression, reducing
-duplicate LDPC attempts without merging genuinely separate FT8 signals.
+This package is a separate live-RX alternative to `CW_ADAPTIVE_BEAM`. It keeps
+both user receivers RX A/RX B and the same exact-tone DSP, AFC, carrier gate and
+robust global timing prior. The Morse beam now assigns every hypothesis its own
+Normal-Inverse-Gamma posteriors for dit, dah and element/character/word gaps.
+Predictive Student-t likelihoods are updated with fractional RF evidence derived
+from mean MARK probability, QSB probability, estimated noise probability, SNR,
+coherence and carrier centering.
 
-Decoded rows are still displayed as soon as they are delivered, but the
-sequencer consumes them atomically at the end of each decoder job. It evaluates
-the full batch against one immutable QSO context and commits only the best state
-transition. Auto-QSO CQ ranking is completed at the same point instead of adding
-a 420 ms selection delay.
+Commit decisions use normalized posterior mass: shared prefixes across the
+98.5% credible set are published, while a single path may commit only above a
+99.2% posterior and sufficient absolute evidence. Runtime Log lines use
+`bayes=`, `post=` and `odds=` fields so this branch can be distinguished during
+on-air A/B testing. The implementation remains in the production RX live path;
+there are still only two CW receivers and no additional decoder threads.
 
-FT transmit timing now has a hard safety invariant: MadModem never removes the
-start of an FT4/FT8 waveform to catch a missed slot. A late frame is cancelled,
-PTT is released, RX is restored and the unchanged message is scheduled for the
-next selected period.
+The complete native RF/timing regression suite passes, including the exact
+30.5 WPM `CQ CQ OG50YL...` case, wrong WPM hints in both directions, Farnsworth,
+human timing, AWGN, QSB, adjacent carrier, noise tail, micro-run storm and
+noise-only cases. AudioEngine, waterfall, CW TX, FT8/FT4 and all other modes are
+unchanged.
 
-This candidate requires the normal four-WAV benchmark and live Linux/Windows
-legacy testing. The source-preparation environment did not contain Qt development
-packages, so no claim of measured speed-up or unchanged 88-decode sensitivity is
-made until those tests are run on the target build.
+## Previous CW live adaptive beam decoder
 
-## Clean native CW receive
+The CW RX production path now separates carrier discrimination, robust timing
+family estimation and Morse sequence decisions. `CwMorseBeamDecoder` keeps a
+bounded replay window of still-uncommitted MARK/SPACE observations, re-scores
+them whenever dit/dah or spacing centres change, and delays publication until
+near-best paths share a stable token prefix or one path is decisive. A wrong WPM
+hint can therefore no longer irreversibly classify the first dash before the
+first trustworthy short/long pair is available.
 
-MadModem now contains exactly one CW receive implementation. It was written
-natively in C++ for MadModem and replaces the former experimental CW source
-chain completely. There is no legacy decoder, hidden fallback, external CW
-adapter or inactive CW branch in the build.
+SPACE-family learning now uses relative likelihood instead of one hard boundary.
+Measured and canonical 1/3/7-unit spacing models are evaluated together with
+soft semi-Markov duration constraints, allowing both 38 WPM/18 WPM-hint and
+12 WPM/28 WPM-hint cases to decode without separate thresholds. The acquisition
+replay also preserves the completed SPACE that triggers lock, preventing the
+recovered first character from being fused with the following character.
 
-RX A and RX B each own an independent exact-tone receiver. The DSP mixes the
-selected carrier to complex baseband, applies explicit-Hz selectivity and
-bounded AFC, estimates MARK and noise levels separately and emits soft
-one-millisecond observations. A bounded Bayesian timing beam is the only layer
-that assigns dot, dash and gap meanings.
+The previous 12-dit carrier-session hold has also been replaced by a session
+probability whose decay follows the learned word-space duration and prior lane
+stability. The 30.5 WPM `CQ CQ OG50YL...` regression with 8.8-dit word gaps still
+passes, together with 38 WPM/11-dit Farnsworth and 12 WPM/opposite-hint
+regressions, clean, AWGN, QSB, human-timing, adjacent-lane, noise-tail,
+micro-run and noise-only cases. Runtime commits report the exact
+Morse pattern plus beam hypothesis count/confidence.
 
-The decoder follows these rules:
+The implementation is live in RX A/RX B; it is not an offline-only decoder.
+AudioEngine, waterfall, AFC, CW TX, FT8/FT4 and all other modes remain unchanged.
 
-- measured MARK/SPACE durations are never rewritten or fused;
-- SNR affects confidence, not duration or symbolic meaning;
-- WPM is a weak acquisition hint and a derived 5–50 WPM display value;
-- low-confidence QSB is retained as uncertainty instead of immediately becoming
-  a certain Morse space;
-- text is committed as soon as the posterior mass agrees on each completed
-  character, without waiting for the end of a phrase;
-- one stable public timing clock is maintained per lane and Auto-WPM movement is
-  bounded between committed characters;
-- noise-only input cannot train the speed model or publish text.
+## Previous interim CW 30 WPM word-boundary follow-up (superseded)
 
-## Carrier discovery and operator display
+The first live test of the gate-integrity build showed a clean, strong 1548 Hz
+carrier (about 40 dB prominence, 5.9 Hz width and 91% coherence) but intermittent
+losses and insertions while receiving the repeated text `CQ CQ OG50YL OG50YL`.
+The virtual paper showed correct 39/125 ms elements, so the failure was not the
+filter or dit/dah classifier: the carrier-session hold was only 8.5 dits, while
+the measured inter-word gap reached about 8.8 dits. The timing feed could
+therefore freeze immediately before the first element of the next word and
+reacquire from noisy pre-roll.
 
-The full-passband scanner discovers persistent carrier lanes with FFT sub-bin
-interpolation and can keep two carriers 25 Hz apart as separate lanes in the
-standalone regression. RX A/RX B remain the decoding receivers in this release.
-The waterfall displays carrier labels and markers only; decoded characters are
-shown continuously in the RX panes.
+An interim build raised the hold from 8.5 to 12 dits and added a bounded
+first-element rescue, proving that the gate boundary caused the missing leading
+elements. The current adaptive-beam checkpoint supersedes that fixed hold with
+the carrier-session probability described above while retaining the exact
+30.5 WPM/8.8-dit OG50YL regression.
 
-## RX WAV recorder
+## CW live gate and timing-integrity follow-up
 
-**File → Start RX audio recording…** (`Ctrl+Shift+R`) records the exact normalized
-mono stream consumed by the waterfall and decoders. Files are mono 16-bit PCM
-WAV at the active sample rate and are finalized safely on RX stop, error,
-sample-rate change or shutdown.
+The first on-air test of the silence-freeze decoder exposed a timestamp-zero
+run after mid-stream carrier reset, duplicate RX B restarts, pre-lock micro-run
+log storms and commit/pattern diagnostic mismatches. Runs now have an explicit
+active lifetime anchored to the current stream timestamp. First sample-rate
+initialization no longer performs another reset, RX B is reset when disabled
+rather than again when enabled, and frozen noise runs are filtered before the
+temporal worker and Runtime Log. Each committed character now carries its exact
+Morse pattern through the asynchronous worker. Established clock adaptation
+also requires short and long pair members to indicate the same relative speed
+change.
 
-## Waterfall and diagnostics
+New native regressions cover all four defects. The complete pre-existing CW
+regression suite remains passing.
 
-The passband-aware leveler keeps a persistent mask of the real audio passband,
-rejects digitally silent regions and derives its floor from a slow low-quantile
-history. Partial-band input, broad keyed energy and one strong carrier therefore
-cannot pump the display orange. The zoom/pan bar is below the frequency labels.
-CW diagnostics remain passive and do not feed GUI state back into the decoder.
+## CW long-silence timing freeze
 
-## Validation
+The second radio test exposed a remaining boundary error: after a valid station
+stopped for a long pause, stale carrier evidence could keep the temporal task
+alive, let background noise create short MARK pairs and drive Auto-WPM toward
+50. Carrier qualification is now split into maintenance and strict timing gates.
+Hold/loss timing follows the measured dit, carrier evidence releases rapidly,
+and dit/dah adaptation occurs only from trusted short/long pairs. Long silence
+therefore freezes the previous WPM instead of learning the noise floor.
 
-The pure-C++ native CW regression passes with GCC and Clang and checks:
+The production regression now requires exact text, carrier-gate closure and a
+final WPM between 16 and 25 after a valid 20 WPM message followed by six seconds
+of beating narrow-band noise.
 
-- `CQ CQ DE IZ6NNH 599` at 20 WPM;
-- the same message at 30 WPM with an intentionally wrong 18 WPM hint;
-- short deep QSB notches plus noise;
-- noise-only input with no published text;
-- two discovered carrier lanes separated by 25 Hz;
-- first completed character visible within one second of its on-air completion;
-- bounded Auto-WPM steps while acquiring 27 WPM from a 20 WPM hint;
-- correct decoding with deliberate phase discontinuities that drive instantaneous
-  coherence close to zero, confirming coherence is a soft weight rather than a
-  hard receive gate.
+## Previous CW live-log correction: carrier-gated relative timing
 
-The waterfall-level regression passes five checks, including persistent-passband
-behaviour under broad keyed energy. Full Qt linking and live-device tests must be
-completed on a machine with Qt development packages. On-air recordings remain
-the decisive CW acceptance test; no claim of perfect deep-QSB reconstruction is
-made.
+The first radio test of the clean-restart CW receiver exposed a real failure not
+covered by the original synthetic suite: after a correct 19-22 WPM lock, noise
+fragments could keep the temporal task active, collapse the clock to 70 WPM and
+publish pages of E/T-heavy garbage. The receiver now distinguishes current PSD
+carrier evidence from the normal word-gap hold, closes temporal feeding after
+carrier loss, protects an established clock from micro-run pairs and requires
+carrier-backed evidence before publishing a character. Auto-WPM is again
+limited to 5-50 WPM. Duplicate marker notifications no longer reset an active
+receiver.
+
+New regressions reproduce the observed 7-50 ms run storm and a valid message
+followed by beating narrow-band noise. Both complete without tail text or clock
+collapse.
+
+## CW clean restart: carrier discriminator + relative timing task
+
+The CW RX path has been rebuilt around one source-visible architecture. Old
+Bayesian, geometric-rescue and causal semi-Markov decoder sources, experiments
+and audit scripts have been removed.
+
+Each RX A/RX B receiver now uses:
+
+- exact-tone complex baseband and bounded neighbouring-lane separation;
+- a dedicated `CwCarrierDiscriminator` that emits timestamped MARK/SPACE runs;
+- a real parallel `CwRelativeTimingTask` worker;
+- a relative temporal decoder that acquires short/long MARK pairs continuously;
+- a geometric-mean dit/dah threshold;
+- separate element, character and word SPACE families;
+- immediate character publication at the character gap;
+- bounded repair of short QSB notches that split one dash;
+- no dictionary, language model or offline-only decoder.
+
+The existing Runtime Log button is visible in CW mode. It buffers up to 5000
+lines and shows discriminator runs, carrier lock, timing state, dit/dah centres,
+geometric threshold, WPM and commits for both receivers.
+
+The relative-pair/geometric-mean idea is an independent implementation inspired
+by the public K4ICY CW Decoder description and sketch. No K4ICY source code is
+included.
+
+## CW validation
+
+The pure-C++ regression compiles the production pipeline and checks:
+
+- non-ideal human dash ratio;
+- clean 20 WPM;
+- 35 WPM with an 18 WPM initial hint;
+- additive noise;
+- deep QSB notches;
+- human MARK/SPACE jitter;
+- a stronger known carrier at +70 Hz;
+- noise-only suppression.
+
+The suite passes with GCC, Clang, AddressSanitizer, UndefinedBehaviorSanitizer
+and ThreadSanitizer. Qt application compilation was not performed in the
+preparation container because Qt development packages are absent.
+
+## FT8 / FT4
+
+The current live FT8/FT4 adaptive runtime, efficient gate/boundary worker
+budgets, atomic sequencing, corrected FT4 SIC and sensitivity-regression
+rollback remain unchanged by this CW rebuild.
+
+## Waterfall
+
+The circular OpenGL waterfall, HiDPI viewport/overlay correction, smooth
+one-row presentation and WSJT-X-style per-row flattening remain unchanged.
+
+## Other subsystems
+
+Audio capture, CW TX, CAT/PTT, rotator, logbook, maps, multilingual UI and all
+other modem paths are unchanged.

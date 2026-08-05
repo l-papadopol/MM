@@ -2,19 +2,18 @@
 
 ## CW
 
-MadModem builds one native CW receiver only:
+MadModem builds one native CW receiver architecture only:
 
 - `CwSkimmerEngine` discovers persistent carriers over the audio passband;
 - RX A and RX B each use an independent `SelectedToneCwTracker`;
-- `CwBayesianDecoder` is the only component that assigns Morse timing meanings.
+- `CwCarrierDiscriminator` produces timestamped MARK/SPACE runs;
+- `CwRelativeTimingTask` runs the temporal model on a dedicated worker thread;
+- `CwRelativeTimingDecoder` learns relative MARK and SPACE families and emits
+  characters.
 
-The front end emits soft MARK evidence. Raw measured intervals are never
-resized or merged. SNR changes confidence only. WPM is a weak prior and a
-derived UI result. Low-confidence QSB remains uncertain until the timing beam
-can resolve it. The waterfall receives carrier labels, not decoded glyphs.
-
-No other CW decoder, compatibility fallback or external CW core is present in
-the source tree or CMake graph.
+The temporal stage receives no audio and cannot alter measured run timestamps.
+No Bayesian, geometric-rescue, semi-Markov fallback or external CW core is
+present in the source tree or CMake graph.
 
 ## FT8/FT4
 

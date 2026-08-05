@@ -457,15 +457,17 @@ private:
         painter.setPen(QColor(188, 194, 196));
         painter.drawText(rect.adjusted(7, 3, -7, -3),
                          Qt::AlignRight | Qt::AlignTop,
-                         QStringLiteral("%1 WPM · ENV %2 dB · C %3 dB · COH %4 dB/%5% · BW %6 · %7")
+                         QStringLiteral("%1 · %2 WPM · dit/dah %3/%4 ms · tg %5 ms · %6 · ENV %7 dB · COH %8%")
+                             .arg(latest.timingState.isEmpty() ? QStringLiteral("SEARCH")
+                                                               : latest.timingState)
                              .arg(latest.wpm, 0, 'f', 1)
+                             .arg(latest.ditMs, 0, 'f', 0)
+                             .arg(latest.dahMs, 0, 'f', 0)
+                             .arg(latest.markThresholdMs, 0, 'f', 0)
+                             .arg(latest.currentPattern.isEmpty() ? QStringLiteral("-")
+                                                                  : latest.currentPattern)
                              .arg(latest.snrDb, 0, 'f', 1)
-                             .arg(latest.carrierProminenceDb, 0, 'f', 1)
-                             .arg(latest.coherentSnrDb, 0, 'f', 1)
-                             .arg(latest.coherence * 100.0f, 0, 'f', 0)
-                             .arg(latest.effectiveBandwidthHz, 0, 'f', 0)
-                             .arg(latest.trackingConfirmed
-                                  ? QString::fromUtf8("✓") : QString::fromUtf8("…")));
+                             .arg(latest.coherence * 100.0f, 0, 'f', 0));
 
         const auto xForTime = [&](double timestamp) {
             return graph.left() + graph.width() *
@@ -607,8 +609,10 @@ private:
             }
             const double durationMs = 1000.0 *
                 std::max(0.0, segmentEnd - segmentStart);
-            const double dotMs = 1200.0 / std::max(5.0f, segmentWpm);
-            const QString symbol = durationMs < 1.9 * dotMs
+            const double thresholdMs = latest.markThresholdMs > 1.0f
+                ? latest.markThresholdMs
+                : 1.9 * (1200.0 / std::max(5.0f, segmentWpm));
+            const QString symbol = durationMs <= thresholdMs
                 ? QString::fromUtf8("·") : QString::fromUtf8("—");
             painter.setPen(channelColor());
             painter.drawText(QRectF(x1 - 3.0, squareBottom + 3.0,

@@ -154,6 +154,7 @@ private:
     qint64 m_streamFirstMonotonicNs = 0;
     bool m_streamTimestampValid = false;
     quint64 m_captureSequence = 0;
+    quint64 m_captureGeneration = 0;
 
     // Diagnostic-only counters.  These never select, mix, attenuate or reorder
     // channels; the production PCM conversion remains unchanged.

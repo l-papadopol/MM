@@ -1511,6 +1511,7 @@ private:
     QTimer m_qsoUtcTimer;
     bool m_shutdownInProgress = false;
     bool m_runtimeShutdownComplete = false;
+    bool m_appSettingsDialogActive = false;
     QString m_uiLanguageCode = QStringLiteral("en");
     QHash<QString, QString> m_uiTranslations;
     QActionGroup *m_languageActionGroup = nullptr;
@@ -1559,6 +1560,7 @@ private:
     QDialog *m_runtimeLogDialog = nullptr;
     QPlainTextEdit *m_runtimeLogText = nullptr;
     QPushButton *m_btnShowRuntimeLog = nullptr;
+    QStringList m_runtimeLogBuffer;
     DspConditioner m_decoderConditioner;
     DspConditioner m_waterfallConditioner;
     int m_wavWaterfallDecimationCounter = 0;
@@ -1867,6 +1869,10 @@ private:
     qint64 m_ft8DecodeBatchSlotStartUtcMs = 0;
     QString m_ft8DecodeBatchPhase;
     QVector<Ft8RxDecoder::Decode> m_ft8PendingSequencerBatch;
+    QVector<Ft8RxDecoder::Decode> m_ft8PendingDisplayBatch;
+    QStringList m_ft8DeferredDecodeLogs;
+    bool m_ft8UiBatchApplying = false;
+    QString m_lastFtResourceAdjustment;
     QHash<QString, QDateTime> m_ft8AutoNoResponseCooldown;
     struct Ft8ParkedLateReply
     {
@@ -1924,6 +1930,7 @@ private:
     QVector<double> m_ft8RecentLiveDecodeMs;
     QVector<QString> m_ft8RecentLiveDecodeSlots;
     QString m_ft8RecentLiveDecodeModeName;
+    qint64 m_lastFtAudioSuppressedDiagnosticMs = 0;
 
     // 0.5.78: FT display-path diagnostics.  These counters are
     // deliberately UI-only; they do not affect decoder, LDPC, CRC,

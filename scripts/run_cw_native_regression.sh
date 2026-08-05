@@ -7,7 +7,10 @@ compiler="${CXX:-g++}"
 "$compiler" -std=c++17 -O2 -Wall -Wextra -Werror -I"$root" \
   "$root/tests/CwNativeRegression.cpp" \
   "$root/modems/cw/skimmer/CwSkimmerEngine.cpp" \
+  "$root/modems/cw/skimmer/CwCarrierDiscriminator.cpp" \
+  "$root/modems/cw/skimmer/CwMorseBeamDecoder.cpp" \
+  "$root/modems/cw/skimmer/CwRelativeTimingDecoder.cpp" \
+  "$root/modems/cw/skimmer/CwRelativeTimingTask.cpp" \
   "$root/modems/cw/skimmer/SelectedToneCwTracker.cpp" \
-  "$root/modems/cw/skimmer/CwBayesianDecoder.cpp" \
-  -o "$build_dir/MadModemCwNativeRegression"
+  -pthread -o "$build_dir/MadModemCwNativeRegression"
 "$build_dir/MadModemCwNativeRegression"

@@ -3,10 +3,18 @@
 
 #include "../dsp/FrequencyMarker.h"
 
+#include <QByteArray>
 #include <QColor>
 #include <QHash>
 #include <QImage>
 #include <QOpenGLWidget>
+#include <QOpenGLFunctions>
+#include <QOpenGLBuffer>
+#include <QOpenGLShaderProgram>
+#include <QOpenGLVertexArrayObject>
+#include <QElapsedTimer>
+#include <QQueue>
+#include <memory>
 #include <QPoint>
 #include <QScrollBar>
 #include <QMouseEvent>
@@ -55,13 +63,12 @@ struct WaterfallTextOverlay
  * - Display mode-provided frequency markers.
  *
  * Performance note:
- * - The widget stores waterfall pixels in a CPU-side image, but presents it
- *   through QOpenGLWidget so final compositing/scaling is GPU-backed where
- *   the platform supports OpenGL.
- * - The DSP engine now limits the diagnostic spectrum to 3 kHz so this view
- *   stays responsive during fast WAV analysis.
+ * - Downward scrolling uses a persistent circular OpenGL texture and uploads
+ *   only the newest FFT row. A QImage path remains for compatibility fallback
+ *   and rightward scrolling.
+ * - The DSP engine limits the diagnostic spectrum to 3 kHz.
  */
-class WaterfallWidget : public QOpenGLWidget
+class WaterfallWidget : public QOpenGLWidget, protected QOpenGLFunctions
 {
     Q_OBJECT
 
@@ -77,12 +84,14 @@ public:
      * @brief Creates the waterfall widget.
      */
     explicit WaterfallWidget(QWidget *parent = nullptr);
+    ~WaterfallWidget() override;
 
 signals:
     /**
      * @brief Emits the audio frequency selected by clicking the waterfall.
      */
     void frequencyClicked(double frequencyHz, Qt::MouseButton button);
+    void runtimeDiagnostic(const QString &message);
 
 public slots:
     /**
@@ -110,8 +119,9 @@ public slots:
     /**
      * @brief Sets the display gain for waterfall intensity-to-color mapping.
      *
-     * Values below 100 make a hot/yellow noise floor become green/blue.
-     * The DSP data are unchanged.
+     * The saved default (80%) is unity gain.  The control follows the
+     * exponential WSJT-X Wide Graph gain law; the DSP/decoder data are
+     * unchanged.
      */
     void setColorScalePercent(int percent);
 
@@ -178,6 +188,13 @@ private:
     int bottomScaleBandHeight() const;
     int rightScaleBandWidth() const;
     void requestRepaint();
+    void initializeGpuRenderer();
+    void destroyGpuRenderer();
+    void ensureGpuTexture();
+    void clearGpuTexture();
+    void uploadPendingGpuRows();
+    QByteArray rgbaRowForLine(const QVector<quint8> &line) const;
+    void drawGpuWaterfall();
 
 private:
     QImage m_image;
@@ -216,6 +233,26 @@ private:
     QHash<QString, QString> m_verticalTrailLastLabelByStream;
     QTimer m_repaintTimer;
     bool m_repaintQueued = false;
+
+    // Downward waterfalls use a persistent OpenGL circular texture. Only one
+    // newly computed FFT row is uploaded; a shader applies the ring offset and
+    // frequency zoom. The QImage path remains solely as a compatibility
+    // fallback and for rightward scrolling.
+    std::unique_ptr<QOpenGLShaderProgram> m_gpuProgram;
+    QOpenGLBuffer m_gpuVertexBuffer {QOpenGLBuffer::VertexBuffer};
+    QOpenGLVertexArrayObject m_gpuVertexArray;
+    GLuint m_gpuTexture = 0;
+    bool m_gpuReady = false;
+    bool m_gpuFailed = false;
+    bool m_gpuTextureNeedsRecreate = true;
+    bool m_gpuClearPending = true;
+    int m_gpuTextureWidth = 0;
+    int m_gpuTextureHeight = 0;
+    int m_gpuWriteRow = 0;
+    QQueue<QByteArray> m_pendingGpuRows;
+    int m_droppedGpuRows = 0;
+    QElapsedTimer m_gpuDiagnosticClock;
+    QElapsedTimer m_repaintLatencyClock;
 };
 
 #endif // WATERFALLWIDGET_H

@@ -138,6 +138,13 @@ void CwDecoder::resetSkimmer()
             point.carrierProminenceDb = static_cast<float>(sample.carrierProminenceDb);
             point.coherentSnrDb = static_cast<float>(sample.coherentSnrDb);
             point.coherence = static_cast<float>(sample.coherence);
+            point.ditMs = static_cast<float>(sample.ditMs);
+            point.dahMs = static_cast<float>(sample.dahMs);
+            point.markThresholdMs = static_cast<float>(sample.markThresholdMs);
+            point.characterSpaceMs = static_cast<float>(sample.characterSpaceMs);
+            point.wordSpaceMs = static_cast<float>(sample.wordSpaceMs);
+            point.timingState = QString::fromStdString(sample.timingState);
+            point.currentPattern = QString::fromStdString(sample.currentPattern);
             if (rank == 0) {
                 m_lastDiagnosticA = point;
                 m_haveDiagnosticA = true;
@@ -152,6 +159,9 @@ void CwDecoder::resetSkimmer()
                 emit diagnosticSamplesReady(rank, pending);
                 pending.clear();
             }
+        });
+        tracker->setLogCallback([this, rank](const std::string &line) {
+            emit liveLogLine(rank, QString::fromStdString(line));
         });
         tracker->setSpectrumCallback([this, rank](
             const madmodem::cwskimmer::SelectedToneCwSpectrumFrame &frame) {
@@ -246,6 +256,64 @@ void CwDecoder::clearReceiver(int rank)
     emitSkimmerStatus(true);
 }
 
+
+void CwDecoder::updateTrackerInterferers()
+{
+    if (!m_skimmer) return;
+    const auto lanes = m_skimmer->channelStates();
+
+    auto buildList = [&](double targetHz, double otherMarkerHz,
+                         bool includeOtherMarker) {
+        std::vector<madmodem::cwskimmer::SelectedToneCwInterferer> result;
+        result.reserve(5U);
+
+        auto addOrMerge = [&](double toneHz, double confidence) {
+            if (!std::isfinite(toneHz) || !std::isfinite(confidence)) return;
+            const double separation = std::abs(toneHz - targetHz);
+            if (separation < 14.0 || separation > 260.0) return;
+            for (auto &existing : result) {
+                if (std::abs(existing.toneHz - toneHz) <= 5.0) {
+                    if (confidence > existing.confidence) {
+                        existing.toneHz = toneHz;
+                        existing.confidence = confidence;
+                    }
+                    return;
+                }
+            }
+            madmodem::cwskimmer::SelectedToneCwInterferer item;
+            item.toneHz = toneHz;
+            item.confidence = qBound(0.0, confidence, 1.0);
+            result.push_back(item);
+        };
+
+        // The second operator-selected receiver is the highest-confidence known
+        // adjacent lane.  A silent marker is harmless because the projection
+        // only subtracts a measured coherent component at that frequency.
+        if (includeOtherMarker) addOrMerge(otherMarkerHz, 1.0);
+
+        for (const auto &lane : lanes) {
+            if (lane.ageFrames < 3U || lane.confidence < 0.42f || lane.snrDb < 7.0f)
+                continue;
+            const double snrWeight = qBound(0.0,
+                (static_cast<double>(lane.snrDb) - 7.0) / 15.0, 1.0);
+            const double confidence = qBound(0.0,
+                0.70 * static_cast<double>(lane.confidence) + 0.30 * snrWeight,
+                1.0);
+            addOrMerge(lane.audioFrequencyHz, confidence);
+        }
+        return result;
+    };
+
+    if (m_toneTrackerA) {
+        m_toneTrackerA->setInterferers(
+            buildList(m_toneHz, m_secondaryToneHz, m_secondaryEnabled));
+    }
+    if (m_toneTrackerB) {
+        m_toneTrackerB->setInterferers(
+            buildList(m_secondaryToneHz, m_toneHz, m_secondaryEnabled));
+    }
+}
+
 void CwDecoder::processAudioBlock(const AudioBlock &block)
 {
     if (block.samples.isEmpty() || block.sampleRate <= 0 || !m_skimmer) {
@@ -261,6 +329,7 @@ void CwDecoder::processAudioBlock(const AudioBlock &block)
     m_skimmer->processFloatMono(block.samples.constData(),
                                 static_cast<std::size_t>(block.samples.size()),
                                 static_cast<double>(block.sampleRate));
+    updateTrackerInterferers();
     if (m_toneTrackerA) {
         m_toneTrackerA->processFloatMono(block.samples.constData(),
                                          static_cast<std::size_t>(block.samples.size()),
@@ -283,10 +352,15 @@ void CwDecoder::processAudioBlock(const AudioBlock &block)
 
 void CwDecoder::setToneHz(double toneHz)
 {
-    m_toneHz = qBound(kMinUiToneHz, toneHz, kMaxUiToneHz);
+    const double bounded = qBound(kMinUiToneHz, toneHz, kMaxUiToneHz);
+    if (std::abs(bounded - m_toneHz) < 0.5) {
+        return;
+    }
+    m_toneHz = bounded;
     if (m_toneTrackerA) {
         m_toneTrackerA->setToneHz(m_toneHz);
     }
+    updateTrackerInterferers();
     m_selectedCommittedA.clear();
     m_haveDiagnosticA = false;
     m_pendingDiagnosticsA.clear();
@@ -298,10 +372,15 @@ void CwDecoder::setToneHz(double toneHz)
 
 void CwDecoder::setSecondaryToneHz(double toneHz)
 {
-    m_secondaryToneHz = qBound(kMinUiToneHz, toneHz, kMaxUiToneHz);
+    const double bounded = qBound(kMinUiToneHz, toneHz, kMaxUiToneHz);
+    if (std::abs(bounded - m_secondaryToneHz) < 0.5) {
+        return;
+    }
+    m_secondaryToneHz = bounded;
     if (m_toneTrackerB) {
         m_toneTrackerB->setToneHz(m_secondaryToneHz);
     }
+    updateTrackerInterferers();
     m_selectedCommittedB.clear();
     m_haveDiagnosticB = false;
     m_pendingDiagnosticsB.clear();
@@ -316,9 +395,14 @@ void CwDecoder::setSecondaryEnabled(bool enabled)
         return;
     }
     m_secondaryEnabled = enabled;
-    if (m_toneTrackerB) {
+    // Disabling freezes a clean receiver for the next activation.  Enabling
+    // must not reset it again: a preceding tone selection has already done so,
+    // and a receiver disabled without a tone change was cleaned here when it
+    // was switched off.
+    if (!enabled && m_toneTrackerB) {
         m_toneTrackerB->reset();
     }
+    updateTrackerInterferers();
     m_selectedCommittedB.clear();
     m_haveDiagnosticB = false;
     m_pendingDiagnosticsB.clear();

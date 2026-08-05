@@ -12,9 +12,11 @@
 
 #include <array>
 #include <atomic>
-#include <future>
+#include <memory>
 #include <mutex>
 #include <vector>
+
+class FtDecodeCoordinator;
 
 /**
  * @brief First MSHV-derived FT8 RX core for MadModem.
@@ -114,6 +116,12 @@ public:
         int residualDecodes = 0;
         int osdAttempts = 0;
         int osdDecodes = 0;
+        int sumProductAttempts = 0;
+        int sumProductDecodes = 0;
+        int bucketRescueCandidates = 0;
+        int bucketRescueDecodes = 0;
+        int coherentMetricAttempts = 0;
+        int coherentMetricDecodes = 0;
 
         // 0.5.1: GF(2) OSD fallback lab.  These are
         // diagnostic counters only; they do not drive candidate ranking or
@@ -128,7 +136,6 @@ public:
         int osdGf2PostCrcRejects = 0;
         int osdGf2BudgetSkips = 0;
         double osdGf2TotalMs = 0.0;
-
         int apHypotheses = 0;
         int apDecodes = 0;
 
@@ -139,12 +146,40 @@ public:
         quint64 audioSequenceGaps = 0;
         qint64 audioGapSamples = 0;
         qint64 audioOverlapSamples = 0;
+        double currentCaptureQueueLatencyMs = 0.0;
         double maxCaptureQueueLatencyMs = 0.0;
         int initialUtcPadSamples = 0;
+        quint64 captureGeneration = 0;
+        quint64 staleCaptureBlocks = 0;
+        quint64 timestampJumps = 0;
+        quint64 invalidSlotsSkipped = 0;
+
+        // Adaptive runtime/topology telemetry. These values describe the
+        // resources selected for this job and never alter protocol decisions.
+        int physicalCores = 1;
+        int logicalProcessors = 1;
+        int poolCapacity = 1;
+        int liveWorkerTarget = 1;
+        int gateWorkerTarget = 1;
+        int boundaryWorkerTarget = 1;
+        int osdWorkerTarget = 1;
+        double guiFrameMs = 0.0;
+        double waterfallFrameMs = 0.0;
+        double waterfallQueueRows = 0.0;
+        bool waterfallGpuBacked = false;
+        double systemCpuLoadPercent = -1.0;
+        QString simdBackend;
+        QString resourceAdjustment;
     };
 
     explicit Ft8RxDecoder(QObject *parent = nullptr);
     ~Ft8RxDecoder() override;
+
+    // Thread-safe, non-blocking shutdown latch.  MainWindow calls this before
+    // asking the QObject/QThread event loop to stop so in-flight candidate and
+    // OSD loops abandon work promptly instead of making application shutdown
+    // wait for a complete deep-decode job.
+    void requestShutdown() noexcept;
 
 public slots:
     void reset();
@@ -185,6 +220,9 @@ signals:
     void decodeBatchFinished(qint64 slotStartUtcMs, const QString &phase);
     void statusChanged(const QString &status);
     void performanceUpdated(const Ft8RxDecoder::PerfStats &stats);
+    // Exceptional scheduler/worker events that must be visible in the log,
+    // not only in the small decoder-state label.
+    void runtimeDiagnostic(const QString &message);
     void offlineAnalysisFinished(const QString &filePath, bool ok, int decodeCount, const QString &message);
 
 private:
@@ -196,6 +234,8 @@ private:
         double rankScore = 0.0;
         double syncRatio = 0.0;
         double syncNoisePower = 0.0;
+        double spectralScore = 0.0;
+        bool bucketRescue = false;
         bool refined = false;
     };
 
@@ -210,8 +250,14 @@ private:
     void maybeStartStreamingDecodeSlot();
     bool markDecodeEmitted(const Decode &decode, const QDateTime &slotStartUtc);
     void startAsyncDecodeSlot(const QVector<double> &samples, const QDateTime &slotStartUtc, const QString &phaseLabel = QString());
-    void reapFinishedDecodeTasks();
     void maybeLaunchPendingFinalDecode();
+    void deferFinalDecode(const QVector<double> &samples,
+                          const QDateTime &slotStartUtc,
+                          const QString &reason);
+    void resetCaptureTimeline(quint64 generation, const QString &reason);
+    void markCurrentSlotInvalid(const QString &reason);
+    void emitTimelineDiagnosticThrottled(const QString &message);
+    bool decodeCancellationRequested() const noexcept;
     QVector<Decode> decodeSlot(const QVector<double> &samples,
                                const QDateTime &slotStartUtc,
                                int *candidateCount = nullptr,
@@ -248,6 +294,10 @@ private:
         int osdGf2PostCrcRejects = 0;
         int osdGf2BudgetSkips = 0;
         double osdGf2TotalMs = 0.0;
+        int sumProductAttempts = 0;
+        int sumProductRecovered = 0;
+        int coherentMetricAttempts = 0;
+        int coherentMetricRecovered = 0;
     };
 
     bool decodeCandidate(const QVector<double> &samples,
@@ -270,8 +320,11 @@ private:
                             const Candidate &candidate,
                             Decode &decodeOut,
                             CandidateAttemptQuality *qualityOut = nullptr,
-                            DecodeRejectReason *rejectReasonOut = nullptr);
-    void subtractFt4DecodedSignal(QVector<double> &samples, const Candidate &candidate) const;
+                            DecodeRejectReason *rejectReasonOut = nullptr,
+                            std::array<int, 103> *decodedTonesOut = nullptr);
+    void subtractFt4DecodedSignal(QVector<double> &samples,
+                                  const Candidate &candidate,
+                                  const std::array<int, 103> &decodedTones) const;
     double ft4SymbolToneEnergy(const QVector<double> &samples,
                                int startSample,
                                double frequencyHz,
@@ -301,6 +354,10 @@ private:
                           std::array<int, 174> &hardBits,
                           int &iterationsUsed,
                           std::array<double, 174> *posteriorOut = nullptr) const;
+    bool ldpcDecode174_91SumProduct(const std::array<double, 174> &llr,
+                                    std::array<int, 174> &hardBits,
+                                    int &iterationsUsed,
+                                    std::array<double, 174> *posteriorOut = nullptr) const;
     bool osdLiteRepair174_91(const std::array<double, 174> &posterior,
                              std::array<int, 174> &bits) const;
     bool osdGf2Repair174_91(const std::array<double, 174> &posterior,
@@ -355,6 +412,9 @@ private:
     bool m_finalDecodeLaunchedForSlot = false;
     qint64 m_postTxIgnoreSlotId = -1;
     int m_initialUtcPadSamples = 0;
+    bool m_skipCurrentSlotDecode = false;
+    bool m_firstSlotInCapture = true;
+    QString m_skipCurrentSlotReason;
 
     // Capture-timeline telemetry. These counters are reset with the decoder and
     // expose whether queued audio ever crossed a UTC boundary late, contained a
@@ -366,6 +426,14 @@ private:
     qint64 m_audioGapSamples = 0;
     qint64 m_audioOverlapSamples = 0;
     double m_maxCaptureQueueLatencyMs = 0.0;
+    double m_latestCaptureQueueLatencyMs = 0.0;
+    quint64 m_activeCaptureGeneration = 0;
+    quint64 m_staleCaptureBlocks = 0;
+    quint64 m_timestampJumps = 0;
+    quint64 m_invalidSlotsSkipped = 0;
+    qint64 m_lastAcceptedEndSampleUtcNs = 0;
+    qint64 m_lastTimelineDiagnosticUtcMs = 0;
+    bool m_resourceSummaryEmitted = false;
 
     // WSJT-X-style decode launch gate.  WSJT-X does not continuously launch
     // arbitrary decode jobs during the whole RX period; it starts decoding at
@@ -380,13 +448,21 @@ private:
     QDateTime m_pendingFinalSlotStartUtc;
     bool m_pendingFinalDecode = false;
 
+    // Explicit state for the single persistent decode coordinator.
+    // The worker owns and clears the latch, then posts completion housekeeping
+    // back to the decoder thread so a deferred boundary cannot be lost.
+    std::atomic<bool> m_decodeJobActive {false};
+    std::atomic<int> m_runningDecodeGeneration {0};
+    std::atomic<qint64> m_decodeJobStartedUtcMs {0};
+    std::atomic<qint64> m_decodeJobSlotUtcMs {0};
+
     std::atomic<int> m_lastCandidateCount {0};
     std::atomic<int> m_decodeGeneration {0};
     std::atomic<bool> m_shutdown {false};
     mutable std::mutex m_unpackMutex;
     mutable std::mutex m_emittedDecodeMutex;
     QSet<QString> m_emittedDecodeKeys;
-    std::vector<std::future<void>> m_decodeTasks;
+    std::unique_ptr<FtDecodeCoordinator> m_decodeCoordinator;
     GenFt8 m_unpacker;
 };
 

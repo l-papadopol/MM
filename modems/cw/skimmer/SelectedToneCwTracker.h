@@ -21,6 +21,12 @@ struct SelectedToneCwConfig {
   int decoderChannelNumber = 0;
 };
 
+
+struct SelectedToneCwInterferer {
+  double toneHz = 0.0;
+  double confidence = 0.0;
+};
+
 struct SelectedToneCwEvent {
   double timestampSec = 0.0;
   double toneHz = 0.0;
@@ -64,6 +70,13 @@ struct SelectedToneCwDiagnosticSample {
   double carrierProminenceDb = -99.0;
   double coherentSnrDb = -99.0;
   double coherence = 0.0;
+  double ditMs = 0.0;
+  double dahMs = 0.0;
+  double markThresholdMs = 0.0;
+  double characterSpaceMs = 0.0;
+  double wordSpaceMs = 0.0;
+  std::string timingState;
+  std::string currentPattern;
 };
 
 struct SelectedToneCwSpectrumFrame {
@@ -86,11 +99,13 @@ using SelectedToneCwDiagnosticCallback =
     std::function<void(const SelectedToneCwDiagnosticSample&)>;
 using SelectedToneCwSpectrumCallback =
     std::function<void(const SelectedToneCwSpectrumFrame&)>;
+using SelectedToneCwLogCallback = std::function<void(const std::string&)>;
 
 /**
  * Native exact-tone CW receiver. RX A and RX B instantiate this class
- * independently. The receiver produces one-millisecond soft MARK evidence;
- * only CwBayesianDecoder decides dots, dashes and separators.
+ * independently. The DSP path discriminates the selected carrier and emits
+ * timestamped MARK/SPACE runs. A dedicated temporal task then learns relative
+ * dit/dah and spacing families and commits Morse characters continuously.
  */
 class SelectedToneCwTracker {
 public:
@@ -105,6 +120,7 @@ public:
   void setCallback(SelectedToneCwCallback callback);
   void setDiagnosticCallback(SelectedToneCwDiagnosticCallback callback);
   void setSpectrumCallback(SelectedToneCwSpectrumCallback callback);
+  void setLogCallback(SelectedToneCwLogCallback callback);
   void setToneHz(double toneHz);
   void setBandwidthHz(double bandwidthHz);
   void setMinSnrDb(double minSnrDb);
@@ -113,6 +129,7 @@ public:
   void setAfcEnabled(bool enabled);
   void setAutoBandwidth(bool enabled);
   void setAfcRangeHz(double rangeHz);
+  void setInterferers(const std::vector<SelectedToneCwInterferer>& interferers);
   const SelectedToneCwConfig& config() const;
 
   void reset();

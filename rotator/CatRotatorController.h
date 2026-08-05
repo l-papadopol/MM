@@ -136,6 +136,12 @@ public:
     int estimatePointingTimeMs(double targetAzimuthDeg, double targetElevationDeg = 0.0) const;
     bool isReadyForTarget(double targetAzimuthDeg, double targetElevationDeg = 0.0) const;
 
+    // Application-exit-only fast path.  It stops all local timers and detaches
+    // the Hamlib handle without performing potentially blocking backend I/O.
+    // The process is terminating immediately afterwards, so the OS reclaims
+    // the underlying descriptor.  Normal Disconnect still closes cleanly.
+    void prepareForApplicationShutdown() noexcept;
+
 public slots:
     void configure(const Config &config);
     void connectRotator();
@@ -193,6 +199,7 @@ private:
     QTimer m_calibrationTimer;
     QTimer m_moonTimer;
     bool m_connected = false;
+    bool m_fastApplicationShutdown = false;
     bool m_trackingQsoTarget = false;
     TrackingMode m_trackingMode = TrackingMode::Qso;
     bool m_motionActive = false;

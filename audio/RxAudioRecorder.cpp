@@ -34,8 +34,14 @@ bool RxAudioRecorder::isRecording() const
     return m_recording;
 }
 
+void RxAudioRecorder::requestShutdown() noexcept
+{
+    m_shutdownRequested.store(true, std::memory_order_release);
+}
+
 void RxAudioRecorder::startRecording(const QString &fileName, int expectedSampleRate)
 {
+    m_shutdownRequested.store(false, std::memory_order_release);
     closeFile(false);
 
     if (fileName.trimmed().isEmpty()) {
@@ -77,7 +83,8 @@ void RxAudioRecorder::stopRecording()
 
 void RxAudioRecorder::writeAudioBlock(const AudioBlock &block)
 {
-    if (!m_recording || !m_file.isOpen() || block.samples.isEmpty()) {
+    if (m_shutdownRequested.load(std::memory_order_acquire) ||
+        !m_recording || !m_file.isOpen() || block.samples.isEmpty()) {
         return;
     }
 

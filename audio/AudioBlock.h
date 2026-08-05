@@ -27,6 +27,12 @@ struct AudioBlock
     qint64 firstSampleUtcNs = 0;
     qint64 firstSampleMonotonicNs = 0;
     quint64 captureSequence = 0;
+
+    // Identifies one continuous AudioEngine start/stop capture session. Blocks
+    // queued by an earlier RX session can therefore be rejected after a rapid
+    // stop/start or mode transition instead of corrupting the current UTC slot.
+    // Zero keeps compatibility with offline/test producers.
+    quint64 captureGeneration = 0;
 };
 
 Q_DECLARE_METATYPE(AudioBlock)

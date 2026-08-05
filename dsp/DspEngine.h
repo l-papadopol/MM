@@ -80,8 +80,6 @@ private:
     double m_minHz = 100.0;
     double m_maxHz = 3000.0;
 
-    QVector<double> m_smoothedWaterfall;
-
     WaterfallLeveler m_waterfallLeveler;
 };
 

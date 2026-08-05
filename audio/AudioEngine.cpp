@@ -142,6 +142,10 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
     m_streamFirstMonotonicNs = 0;
     m_streamTimestampValid = false;
     m_captureSequence = 0;
+    ++m_captureGeneration;
+    if (m_captureGeneration == 0) {
+        ++m_captureGeneration;
+    }
     m_captureClock.start();
     resetDiagnosticCounters();
 
@@ -457,6 +461,7 @@ void AudioEngine::processPendingBytes()
         block.firstSampleUtcNs = m_streamTimestampValid ? m_streamFirstUtcNs + streamOffsetNs : 0;
         block.firstSampleMonotonicNs = m_streamTimestampValid ? m_streamFirstMonotonicNs + streamOffsetNs : 0;
         block.captureSequence = ++m_captureSequence;
+        block.captureGeneration = m_captureGeneration;
         block.samples.resize(m_blockSamples);
 
         const char *raw = m_pendingBytes.constData();

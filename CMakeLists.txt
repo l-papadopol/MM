@@ -209,14 +209,23 @@ endif()
 # -------------------------------------------------------------------------
 # Native MadModem CW receiver and carrier scanner
 # -------------------------------------------------------------------------
-# One clean implementation is built: full-band carrier discovery plus two
-# independent exact-tone soft-decision Bayesian receivers for RX A/RX B.
+find_package(Threads REQUIRED)
+
+# Live CW architecture: exact-tone carrier discrimination, robust timing-family
+# estimation and bounded probabilistic Morse sequence decoding are independent
+# components. No legacy Bayesian/geometric-rescue implementation is linked.
 add_library(madmodem_cwskimmer STATIC
     modems/cw/skimmer/CwSkimmerTypes.h
     modems/cw/skimmer/CwSkimmerEngine.h
     modems/cw/skimmer/CwSkimmerEngine.cpp
-    modems/cw/skimmer/CwBayesianDecoder.h
-    modems/cw/skimmer/CwBayesianDecoder.cpp
+    modems/cw/skimmer/CwCarrierDiscriminator.h
+    modems/cw/skimmer/CwCarrierDiscriminator.cpp
+    modems/cw/skimmer/CwMorseBeamDecoder.h
+    modems/cw/skimmer/CwMorseBeamDecoder.cpp
+    modems/cw/skimmer/CwRelativeTimingDecoder.h
+    modems/cw/skimmer/CwRelativeTimingDecoder.cpp
+    modems/cw/skimmer/CwRelativeTimingTask.h
+    modems/cw/skimmer/CwRelativeTimingTask.cpp
     modems/cw/skimmer/SelectedToneCwTracker.h
     modems/cw/skimmer/SelectedToneCwTracker.cpp
 )
@@ -224,6 +233,7 @@ target_include_directories(madmodem_cwskimmer PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/modems/cw"
     "${CMAKE_CURRENT_SOURCE_DIR}/modems/cw/skimmer"
 )
+target_link_libraries(madmodem_cwskimmer PUBLIC Threads::Threads)
 # This target is pure C++ and has no Q_OBJECT classes. Disable Qt autogen on
 # AppleClang/Qt6 as an extra isolation layer: otherwise global AUTOMOC creates
 # an unnecessary autogen TU and noisy Qt diagnostics can obscure real errors.
@@ -368,6 +378,8 @@ add_executable(MadModem
     utils/RuntimeI18n.cpp
     utils/CockpitTheme.h
     utils/CockpitTheme.cpp
+    utils/SystemResourceManager.h
+    utils/SystemResourceManager.cpp
     dsp/DspEngine.h
     dsp/DspEngine.cpp
     dsp/WaterfallLeveler.cpp

@@ -198,7 +198,24 @@ CatRotatorController::CatRotatorController(QObject *parent)
 
 CatRotatorController::~CatRotatorController()
 {
-    closeBackend();
+    if (!m_fastApplicationShutdown) {
+        closeBackend();
+    }
+}
+
+void CatRotatorController::prepareForApplicationShutdown() noexcept
+{
+    m_fastApplicationShutdown = true;
+    m_pollTimer.stop();
+    m_calibrationTimer.stop();
+    m_moonTimer.stop();
+    m_calibrationState = CalibrationState::Idle;
+    m_motionActive = false;
+    m_connected = false;
+    // rot_close()/rot_stop() may wait for a dead serial/TCP backend.  At the
+    // final process shutdown boundary, relinquish the opaque handle instead of
+    // blocking the UI for the backend timeout.
+    m_rot = nullptr;
 }
 
 void CatRotatorController::configure(const Config &config)

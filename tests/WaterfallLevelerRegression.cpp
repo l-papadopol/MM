@@ -13,12 +13,27 @@ namespace {
 std::vector<double> noiseLine(std::size_t count, double floorDb)
 {
     std::vector<double> line(count, floorDb);
-    // Deterministic low-amplitude ripple avoids testing a perfectly flat and
-    // unrealistic FFT while keeping the expected percentile reproducible.
     for (std::size_t i = 0; i < line.size(); ++i)
         line[i] += 1.35 * std::sin(0.173 * static_cast<double>(i)) +
                    0.45 * std::cos(0.071 * static_cast<double>(i));
     return line;
+}
+
+double median(std::vector<double> values)
+{
+    if (values.empty()) return 0.0;
+    const std::size_t middle = values.size() / 2U;
+    std::nth_element(values.begin(),
+                     values.begin() + static_cast<std::ptrdiff_t>(middle),
+                     values.end());
+    return values[middle];
+}
+
+double flattenedAt(const WaterfallLevelResult &result,
+                   const std::vector<double> &line,
+                   std::size_t index)
+{
+    return line[index] - result.baselineDb[index];
 }
 
 void printResult(const std::string &name, bool ok, double valueA,
@@ -36,84 +51,152 @@ int main()
     constexpr std::size_t kBins = 768U;
     bool allOk = true;
 
-    WaterfallLeveler fullLeveler;
-    const auto full = noiseLine(kBins, -82.0);
-    const WaterfallLevelResult fullResult = fullLeveler.update(full, 0.050);
-
     WaterfallLeveler partialLeveler;
     std::vector<double> partial(kBins, -126.0);
     const auto active = noiseLine(344U, -82.0);
     std::copy(active.begin(), active.end(), partial.begin() + 202);
     const WaterfallLevelResult partialResult = partialLeveler.update(partial, 0.050);
-
-    const double occupancyDelta = std::abs(fullResult.floorDb -
-                                           partialResult.floorDb);
     const bool occupancyOk = partialResult.partialBand &&
                              partialResult.validBegin < 220U &&
                              partialResult.validEnd > 525U &&
-                             occupancyDelta < 1.5;
-    printResult("partial-band-does-not-pump", occupancyOk,
-                fullResult.floorDb, partialResult.floorDb);
+                             std::abs(flattenedAt(partialResult, partial, 50U)) < 1.0e-9;
+    printResult("partial-band-isolated-from-fit", occupancyOk,
+                static_cast<double>(partialResult.validBegin),
+                static_cast<double>(partialResult.validEnd));
     allOk = occupancyOk && allOk;
 
-    WaterfallLeveler carrierLeveler;
-    const WaterfallLevelResult carrierBase = carrierLeveler.update(full, 0.050);
-    std::vector<double> withCarrier = full;
-    for (std::size_t i = 379U; i <= 385U; ++i)
-        withCarrier[i] = -31.0 + 0.2 * static_cast<double>(i - 379U);
-    WaterfallLevelResult carrierResult = carrierBase;
-    for (int i = 0; i < 20; ++i)
-        carrierResult = carrierLeveler.update(withCarrier, 0.050);
-    const double carrierDelta = std::abs(carrierResult.floorDb -
-                                         carrierBase.floorDb);
-    const bool carrierOk = carrierDelta < 0.8 &&
-                           std::abs((carrierResult.ceilingDb -
-                                     carrierResult.floorDb) - 48.0) < 1.0e-9;
-    printResult("strong-carrier-does-not-pump", carrierOk,
-                carrierBase.floorDb, carrierResult.floorDb);
-    allOk = carrierOk && allOk;
+    // A whole-receiver AGC step must disappear in the very next row.  This is
+    // the key behaviour inherited from WSJT-X flat4 and intentionally replaces
+    // MadModem's former slow temporal floor slew.
+    WaterfallLeveler stepLeveler;
+    std::vector<double> before = noiseLine(kBins, -89.0);
+    for (std::size_t i = 0; i < before.size(); ++i)
+        before[i] += 8.0 * static_cast<double>(i) /
+                     static_cast<double>(before.size() - 1U);
+    before[318U] += 24.0;
+    before[319U] += 31.0;
+    const WaterfallLevelResult beforeResult = stepLeveler.update(before, 0.050);
+    std::vector<double> after = before;
+    for (double &value : after) value += 17.0;
+    const WaterfallLevelResult afterResult = stepLeveler.update(after, 0.050);
+    double maximumFlattenedDelta = 0.0;
+    for (std::size_t i = 0; i < kBins; ++i) {
+        maximumFlattenedDelta = std::max(maximumFlattenedDelta,
+            std::abs(flattenedAt(beforeResult, before, i) -
+                     flattenedAt(afterResult, after, i)));
+    }
+    const double baselineStep = afterResult.floorDb - beforeResult.floorDb;
+    const bool stepOk = std::abs(baselineStep - 17.0) < 0.15 &&
+                        maximumFlattenedDelta < 0.15;
+    printResult("receiver-agc-step-cancelled-next-row", stepOk,
+                baselineStep, maximumFlattenedDelta);
+    allOk = stepOk && allOk;
 
-    WaterfallLeveler slewLeveler;
-    const WaterfallLevelResult beforeSlew =
-        slewLeveler.update(noiseLine(kBins, -92.0), 0.050);
-    const WaterfallLevelResult afterSlew =
-        slewLeveler.update(noiseLine(kBins, -57.0), 0.100);
-    const double slewStep = afterSlew.floorDb - beforeSlew.floorDb;
-    const bool slewOk = slewStep >= -1.0e-9 && slewStep <= 0.161;
-    printResult("floor-slew-bounded", slewOk, beforeSlew.floorDb,
-                afterSlew.floorDb);
-    allOk = slewOk && allOk;
-
-    WaterfallLeveler silentEdgeLeveler;
-    std::vector<double> sloped = noiseLine(kBins, -83.0);
-    for (std::size_t i = 0; i < sloped.size(); ++i)
-        sloped[i] += 7.0 * static_cast<double>(i) /
-                     static_cast<double>(sloped.size() - 1U);
-    const WaterfallLevelResult slopedResult =
-        silentEdgeLeveler.update(sloped, 0.050);
-    const bool slopeOk = !slopedResult.partialBand;
-    printResult("broad-slope-is-not-passband-edge", slopeOk,
-                static_cast<double>(slopedResult.validBegin),
-                static_cast<double>(slopedResult.validEnd));
+    WaterfallLeveler slopeLeveler;
+    std::vector<double> sloped = noiseLine(kBins, -91.0);
+    for (std::size_t i = 0; i < sloped.size(); ++i) {
+        const double x = static_cast<double>(i) /
+                         static_cast<double>(sloped.size() - 1U);
+        sloped[i] += 16.0 * x - 4.0 * x * x;
+    }
+    const WaterfallLevelResult slopeResult = slopeLeveler.update(sloped, 0.050);
+    std::vector<double> segmentMedians;
+    for (std::size_t segment = 0; segment < 10U; ++segment) {
+        const std::size_t begin = (segment * kBins) / 10U;
+        const std::size_t end = ((segment + 1U) * kBins) / 10U;
+        std::vector<double> flattened;
+        for (std::size_t i = begin; i < end; ++i)
+            flattened.push_back(flattenedAt(slopeResult, sloped, i));
+        segmentMedians.push_back(median(flattened));
+    }
+    const auto minmax = std::minmax_element(segmentMedians.begin(), segmentMedians.end());
+    const double residualSlope = *minmax.second - *minmax.first;
+    const bool slopeOk = !slopeResult.partialBand && residualSlope < 1.25;
+    printResult("broad-receiver-slope-flattened", slopeOk,
+                residualSlope, slopeResult.floorDb);
     allOk = slopeOk && allOk;
 
-    WaterfallLeveler persistentLeveler;
-    WaterfallLevelResult persistentResult;
-    for (int i = 0; i < 8; ++i)
-        persistentResult = persistentLeveler.update(partial, 0.050);
-    const double persistentBase = persistentResult.floorDb;
-    std::vector<double> ambiguous = partial;
-    // A broad keyed/QRM region temporarily obscures the passband profile.  It
-    // must not clear the persistent mask or pull the floor into the signal.
-    for (std::size_t i = 250U; i < 500U; ++i)
-        ambiguous[i] = -39.0 + 0.6 * std::sin(0.11 * static_cast<double>(i));
-    for (int i = 0; i < 80; ++i)
-        persistentResult = persistentLeveler.update(ambiguous, 0.050);
-    const bool persistenceOk = persistentResult.partialBand &&
-                               std::abs(persistentResult.floorDb - persistentBase) < 0.35;
-    printResult("persistent-passband-resists-broad-signal", persistenceOk,
-                persistentBase, persistentResult.floorDb);
-    allOk = persistenceOk && allOk;
+    WaterfallLeveler carrierLeveler;
+    std::vector<double> withCarrier = noiseLine(kBins, -84.0);
+    for (std::size_t i = 379U; i <= 385U; ++i)
+        withCarrier[i] += 42.0 - 2.0 * std::abs(static_cast<double>(i) - 382.0);
+    const WaterfallLevelResult carrierResult = carrierLeveler.update(withCarrier, 0.050);
+    const double carrierProminence = flattenedAt(carrierResult, withCarrier, 382U);
+    std::vector<double> nearbyNoise;
+    for (std::size_t i = 340U; i < 370U; ++i)
+        nearbyNoise.push_back(flattenedAt(carrierResult, withCarrier, i));
+    const double nearbyMedian = median(nearbyNoise);
+    const bool carrierOk = carrierProminence > 35.0 && nearbyMedian < 4.0;
+    printResult("narrow-carrier-does-not-lift-baseline", carrierOk,
+                carrierProminence, nearbyMedian);
+    allOk = carrierOk && allOk;
+
+    // A steep sound-card/receiver response at the outer audio frequencies can
+    // make the fourth-order global fit undershoot locally.  The display then
+    // paints both edges brighter than the centre even though the noise is only
+    // shaped, not stronger.  The local lower-residual stabilization must remove
+    // that false edge emphasis without touching narrow signals.
+    WaterfallLeveler edgeLeveler;
+    std::vector<double> edgeShaped = noiseLine(kBins, -84.0);
+    for (std::size_t i = 0; i < edgeShaped.size(); ++i) {
+        const double x = 2.0 * static_cast<double>(i) /
+                         static_cast<double>(edgeShaped.size() - 1U) - 1.0;
+        edgeShaped[i] += 18.0 * std::pow(std::abs(x), 12.0);
+    }
+    const WaterfallLevelResult edgeResult = edgeLeveler.update(edgeShaped, 0.050);
+    std::vector<double> leftEdge;
+    std::vector<double> centre;
+    std::vector<double> rightEdge;
+    for (std::size_t i = 0; i < 70U; ++i)
+        leftEdge.push_back(flattenedAt(edgeResult, edgeShaped, i));
+    for (std::size_t i = 330U; i < 438U; ++i)
+        centre.push_back(flattenedAt(edgeResult, edgeShaped, i));
+    for (std::size_t i = kBins - 70U; i < kBins; ++i)
+        rightEdge.push_back(flattenedAt(edgeResult, edgeShaped, i));
+    const double leftMedian = median(leftEdge);
+    const double centreMedian = median(centre);
+    const double rightMedian = median(rightEdge);
+    const double edgeSpread = std::max({leftMedian, centreMedian, rightMedian}) -
+                              std::min({leftMedian, centreMedian, rightMedian});
+    const bool edgeOk = edgeSpread < 0.90;
+    printResult("steep-passband-edges-not-artificially-hot", edgeOk,
+                edgeSpread, std::max(leftMedian, rightMedian) - centreMedian);
+    allOk = edgeOk && allOk;
+
+    WaterfallLeveler asymmetricEdgeLeveler;
+    std::vector<double> asymmetric = noiseLine(kBins, -86.0);
+    for (std::size_t i = 0; i < asymmetric.size(); ++i) {
+        const double leftDistance = static_cast<double>(i);
+        const double rightDistance = static_cast<double>(asymmetric.size() - 1U - i);
+        asymmetric[i] += 22.0 * std::exp(-leftDistance / 18.0) +
+                         15.0 * std::exp(-rightDistance / 10.0);
+    }
+    asymmetric[18U] += 38.0;
+    const WaterfallLevelResult asymmetricResult =
+        asymmetricEdgeLeveler.update(asymmetric, 0.050);
+    std::vector<double> leftOuter;
+    std::vector<double> middle;
+    std::vector<double> rightOuter;
+    for (std::size_t i = 0; i < 32U; ++i)
+        leftOuter.push_back(flattenedAt(asymmetricResult, asymmetric, i));
+    for (std::size_t i = 340U; i < 428U; ++i)
+        middle.push_back(flattenedAt(asymmetricResult, asymmetric, i));
+    for (std::size_t i = kBins - 32U; i < kBins; ++i)
+        rightOuter.push_back(flattenedAt(asymmetricResult, asymmetric, i));
+    const double leftOuterMedian = median(leftOuter);
+    const double middleMedian = median(middle);
+    const double rightOuterMedian = median(rightOuter);
+    const double asymmetricSpread = std::max({leftOuterMedian, middleMedian,
+                                               rightOuterMedian}) -
+                                    std::min({leftOuterMedian, middleMedian,
+                                               rightOuterMedian});
+    const double edgeCarrierProminence =
+        flattenedAt(asymmetricResult, asymmetric, 18U) - leftOuterMedian;
+    const bool asymmetricOk = asymmetricSpread < 1.10 &&
+                              edgeCarrierProminence > 30.0;
+    printResult("asymmetric-one-sided-edges-anchored", asymmetricOk,
+                asymmetricSpread, edgeCarrierProminence);
+    allOk = asymmetricOk && allOk;
 
     return allOk ? 0 : 1;
 }

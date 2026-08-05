@@ -47,7 +47,6 @@ void DspEngine::processAudioBlock(const AudioBlock &block)
 void DspEngine::reset()
 {
     m_fifo.clear();
-    m_smoothedWaterfall.clear();
     m_waterfallLeveler.reset();
 }
 
@@ -83,10 +82,6 @@ void DspEngine::analyzeWindow(const QVector<float> &window, int sampleRate)
     QVector<quint8> waterfallLine;
     waterfallLine.resize(m_columns);
 
-    if (m_smoothedWaterfall.size() != m_columns) {
-        m_smoothedWaterfall.fill(0.0, m_columns);
-    }
-
     double bestDb = -200.0;
     double bestFrequency = 0.0;
 
@@ -112,13 +107,17 @@ void DspEngine::analyzeWindow(const QVector<float> &window, int sampleRate)
     }
 
     /*
-     * Display-only levelling.  Do not use every FFT bin to estimate the
-     * noise floor: sound cards and receiver filters often populate only a
-     * portion of the nominal 100-3000 Hz waterfall.  Digitally silent bins
-     * used to drag the percentile down and pump the occupied region orange.
-     * WaterfallLeveler identifies the contiguous noise-bearing passband,
-     * rejects narrow carriers from the floor estimate, fixes the dynamic
-     * range at 48 dB, and slews the reference at a bounded dB/second rate.
+     * Display-only WSJT-X-style flattening.
+     *
+     * WSJT-X Wide Graph does not let a slow temporal AGC chase the absolute
+     * receiver level.  Its default Flatten path converts each row to dB,
+     * estimates a lower-envelope polynomial from the lowest 10% of each of
+     * ten frequency segments, then subtracts that baseline before applying a
+     * fixed gain/zero colour mapping.  This reacts immediately to receiver
+     * AGC steps without leaving the whole passband orange for many seconds.
+     *
+     * MadModem keeps its persistent passband detector only to exclude truly
+     * silent monitor-device bins from the fit.  Decoder audio is untouched.
      */
     std::vector<double> levelInput;
     levelInput.reserve(static_cast<std::size_t>(dbLine.size()));
@@ -127,30 +126,21 @@ void DspEngine::analyzeWindow(const QVector<float> &window, int sampleRate)
                                static_cast<double>(sampleRate);
     const WaterfallLevelResult levels =
         m_waterfallLeveler.update(levelInput, lineSeconds);
-    const double displayFloorDb = levels.floorDb;
-    const double displayCeilingDb = levels.ceilingDb;
+    const bool haveBaseline = levels.baselineDb.size() ==
+                              static_cast<std::size_t>(dbLine.size());
 
     for (int x = 0; x < m_columns; ++x) {
-        const double normalized = (dbLine[x] - displayFloorDb) /
-                                  (displayCeilingDb - displayFloorDb);
-        const double clamped = qBound(0.0, normalized, 1.0);
+        const double baselineDb = haveBaseline
+            ? levels.baselineDb[static_cast<std::size_t>(x)]
+            : levels.floorDb;
+        const double flattenedDb = dbLine[x] - baselineDb;
 
-        /*
-         * v1.59: make the visual transfer curve more radio-waterfall-like and
-         * less linear.  Keep a small black point so receiver noise stays dark,
-         * then use a logarithmic expansion so weak/medium traces jump out
-         * before the palette reaches the hot colours.
-         */
-        const double blackPoint = 0.035;
-        const double lifted = qBound(0.0, (clamped - blackPoint) / (1.0 - blackPoint), 1.0);
-        const double shaped = qLn(1.0 + lifted * 18.0) / qLn(19.0);
-        const double rawValue = qBound(0.0, shaped * 255.0, 255.0);
-
-        const double previous = m_smoothedWaterfall[x];
-        const double alpha = (rawValue > previous) ? 0.82 : 0.48;
-        const double smoothedValue = (alpha * rawValue) + ((1.0 - alpha) * previous);
-        m_smoothedWaterfall[x] = smoothedValue;
-        const int value = qBound(0, static_cast<int>(qRound(smoothedValue)), 255);
+        // Equivalent to the WSJT-X Wide Graph default transfer:
+        //     y1 = 10 * gain * flattened_dB + zero
+        // The user colour-scale control supplies the gain in WaterfallWidget;
+        // zero remains 0 so the lower envelope maps to black/dark blue.
+        const double rawValue = 10.0 * flattenedDb;
+        const int value = qBound(0, static_cast<int>(qRound(rawValue)), 254);
 
         waterfallLine[x] = static_cast<quint8>(value);
     }

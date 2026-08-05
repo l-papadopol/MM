@@ -1,13 +1,17 @@
 #include "WaterfallWidget.h"
+#include "../utils/SystemResourceManager.h"
 
 #include <QFontMetrics>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QOpenGLContext>
+#include <QSurfaceFormat>
 #include <QtGlobal>
 #include <QtMath>
 
 #include <cmath>
 #include <cstring>
+#include <cstddef>
 
 // -----------------------------------------------------------------------------
 // Construction
@@ -18,7 +22,11 @@ WaterfallWidget::WaterfallWidget(QWidget *parent)
 {
     setMinimumHeight(160);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    setUpdateBehavior(QOpenGLWidget::PartialUpdate);
+    // The circular texture and all overlays reconstruct the complete frame.
+    // Do not preserve the previous QOpenGLWidget framebuffer: with partial
+    // updates, stale QPainter glyphs can survive outside a wrongly clipped GL
+    // viewport and appear as fuzzy/ghosted labels on HiDPI displays.
+    setUpdateBehavior(QOpenGLWidget::NoPartialUpdate);
     setAttribute(Qt::WA_OpaquePaintEvent, true);
     setAttribute(Qt::WA_NoSystemBackground, true);
     setMouseTracking(true);
@@ -59,6 +67,15 @@ WaterfallWidget::WaterfallWidget(QWidget *parent)
     clear();
 }
 
+WaterfallWidget::~WaterfallWidget()
+{
+    if (context() != nullptr && context()->isValid()) {
+        makeCurrent();
+        destroyGpuRenderer();
+        doneCurrent();
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Public slots
 // -----------------------------------------------------------------------------
@@ -75,6 +92,28 @@ void WaterfallWidget::addLine(const QVector<quint8> &line, double minHz, double 
     m_maxHz = maxHz;
     if (!m_viewInitialized || rangeChanged) {
         resetFrequencyZoom();
+    }
+
+    if (m_scrollDirection == ScrollDirection::Down && !m_gpuFailed) {
+        const int newWidth = qBound(2, line.size(), 16384);
+        if (m_frequencyBins != newWidth) {
+            m_frequencyBins = newWidth;
+            m_gpuTextureNeedsRecreate = true;
+            m_gpuClearPending = true;
+            m_pendingGpuRows.clear();
+        }
+        QByteArray row = rgbaRowForLine(line);
+        if (!row.isEmpty()) {
+            const int queueLimit = qBound(32, qMax(1, height() / 2), 128);
+            while (m_pendingGpuRows.size() >= queueLimit) {
+                m_pendingGpuRows.dequeue();
+                ++m_droppedGpuRows;
+            }
+            m_pendingGpuRows.enqueue(std::move(row));
+        }
+        ageVerticalTextTrails();
+        requestRepaint();
+        return;
     }
 
     ensureImage(m_scrollDirection == ScrollDirection::Down ? line.size() : -1);
@@ -151,6 +190,10 @@ void WaterfallWidget::addLine(const QVector<quint8> &line, double minHz, double 
 
 void WaterfallWidget::clear()
 {
+    m_pendingGpuRows.clear();
+    m_droppedGpuRows = 0;
+    m_gpuWriteRow = 0;
+    m_gpuClearPending = true;
     ensureImage();
 
     if (!m_image.isNull()) {
@@ -281,34 +324,116 @@ void WaterfallWidget::setScrollDirection(ScrollDirection direction)
 
 void WaterfallWidget::initializeGL()
 {
-    // QPainter clears the GL-backed surface in paintGL().
+    initializeOpenGLFunctions();
+    initializeGpuRenderer();
 }
 
 void WaterfallWidget::paintGL()
 {
-    ensureImage();
+    const double presentationLatencyMs = m_repaintLatencyClock.isValid()
+        ? static_cast<double>(m_repaintLatencyClock.nsecsElapsed()) / 1000000.0
+        : 0.0;
+    m_repaintLatencyClock.invalidate();
+    const int queuedRowsBeforeUpload = m_pendingGpuRows.size();
 
+    QElapsedTimer frameTimer;
+    frameTimer.start();
+
+    // QPainter and raw OpenGL must be mixed through beginNativePainting() /
+    // endNativePainting().  Starting QPainter only after custom GL commands
+    // leaves parts of the texture/sampler state visible to Qt's glyph cache on
+    // some drivers.  The result is exactly the striped/repeated glyphs seen in
+    // FT callouts, while simpler labels may still look normal.
     QPainter painter(this);
-    painter.fillRect(rect(), QColor(4, 6, 8));
+    painter.beginNativePainting();
 
-    if (!m_image.isNull()) {
-        painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
-        if (m_scrollDirection == ScrollDirection::Down) {
-            painter.drawImage(QRectF(rect()), m_image, waterfallSourceRect());
-        } else {
-            painter.drawImage(rect(), m_image);
+    bool gpuDrawn = false;
+    if (m_scrollDirection == ScrollDirection::Down && m_gpuReady && !m_gpuFailed) {
+        ensureGpuTexture();
+        if (m_gpuReady && m_gpuTexture != 0) {
+            if (m_gpuClearPending) {
+                clearGpuTexture();
+            }
+            uploadPendingGpuRows();
+            drawGpuWaterfall();
+            gpuDrawn = true;
+        }
+    }
+
+    if (!gpuDrawn) {
+        ensureImage();
+        // QOpenGLWidget renders into a device-pixel framebuffer.  width()/height()
+        // are logical pixels, so using them directly clips the GL layer on
+        // HiDPI displays.
+        const qreal dpr = devicePixelRatioF();
+        glViewport(0, 0,
+                   qMax(1, qRound(static_cast<qreal>(width()) * dpr)),
+                   qMax(1, qRound(static_cast<qreal>(height()) * dpr)));
+        glDisable(GL_SCISSOR_TEST);
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glClearColor(4.0f / 255.0f, 6.0f / 255.0f, 8.0f / 255.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+
+    // Restore a neutral texture/pixel-store state before Qt resumes its own GL
+    // paint engine.  endNativePainting() performs the full Qt-side reset.
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    painter.endNativePainting();
+
+    // Geometry remains pixel-aligned; text is rasterized for the active DPR.
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
+    if (!gpuDrawn) {
+        painter.fillRect(rect(), QColor(4, 6, 8));
+        if (!m_image.isNull()) {
+            painter.setRenderHint(QPainter::SmoothPixmapTransform, false);
+            if (m_scrollDirection == ScrollDirection::Down) {
+                painter.drawImage(QRectF(rect()), m_image, waterfallSourceRect());
+            } else {
+                painter.drawImage(rect(), m_image);
+            }
         }
     }
 
     painter.setRenderHint(QPainter::Antialiasing, false);
-
     drawFrequencyScale(painter);
     drawMarkers(painter);
     drawTextOverlays(painter);
     drawVerticalTextTrails(painter);
-
     painter.setPen(QColor(130, 150, 160));
     painter.drawRect(rect().adjusted(0, 0, -1, -1));
+    painter.end();
+
+    // Normal audio callbacks can deliver two adjacent FFT rows together.  The
+    // ring renderer intentionally presents one row per frame at low queue depth,
+    // so request the next frame instead of jumping two rows at once.
+    if (!m_pendingGpuRows.isEmpty()) {
+        requestRepaint();
+    }
+
+    const double frameMs = static_cast<double>(frameTimer.nsecsElapsed()) / 1000000.0;
+    auto &resources = MadModemRuntime::SystemResourceManager::instance();
+    resources.observeGuiFrame(presentationLatencyMs > 0.0 ? presentationLatencyMs : frameMs);
+    resources.observeWaterfallFrame(frameMs, queuedRowsBeforeUpload, gpuDrawn);
+
+    if (!m_gpuDiagnosticClock.isValid()) {
+        m_gpuDiagnosticClock.start();
+    }
+    if (m_gpuDiagnosticClock.elapsed() >= 10000) {
+        m_gpuDiagnosticClock.restart();
+        const QString backend = gpuDrawn
+            ? QStringLiteral("OpenGL circular texture")
+            : QStringLiteral("CPU QImage fallback");
+        emit runtimeDiagnostic(QStringLiteral("Waterfall runtime: %1, render %2 ms, presentation latency %3 ms, queued rows %4, dropped rows %5, texture %6x%7")
+                                   .arg(backend)
+                                   .arg(frameMs, 0, 'f', 2)
+                                   .arg(presentationLatencyMs, 0, 'f', 2)
+                                   .arg(queuedRowsBeforeUpload)
+                                   .arg(m_droppedGpuRows)
+                                   .arg(m_gpuTextureWidth)
+                                   .arg(m_gpuTextureHeight));
+    }
 }
 
 
@@ -432,30 +557,31 @@ void WaterfallWidget::resizeGL(int width, int height)
 {
     if (width <= 0 || height <= 0) {
         m_image = QImage();
+        m_gpuTextureNeedsRecreate = true;
         return;
     }
 
-    const int targetWidth = m_scrollDirection == ScrollDirection::Down &&
-                            m_frequencyBins > 0
-        ? m_frequencyBins : width;
-    if (m_image.isNull()) {
-        m_image = QImage(targetWidth, height, QImage::Format_RGB32);
-        m_image.fill(QColor(4, 6, 8));
-    } else if (m_image.width() != targetWidth || m_image.height() != height) {
-        m_image = m_image.scaled(targetWidth, height,
-                                 Qt::IgnoreAspectRatio, Qt::FastTransformation);
+    if (m_scrollDirection == ScrollDirection::Down && !m_gpuFailed) {
+        m_gpuTextureNeedsRecreate = true;
+        m_gpuClearPending = true;
+    } else {
+        const int targetWidth = m_scrollDirection == ScrollDirection::Down && m_frequencyBins > 0
+            ? m_frequencyBins : width;
+        if (m_image.isNull()) {
+            m_image = QImage(targetWidth, height, QImage::Format_RGB32);
+            m_image.fill(QColor(4, 6, 8));
+        } else if (m_image.width() != targetWidth || m_image.height() != height) {
+            m_image = m_image.scaled(targetWidth, height,
+                                     Qt::IgnoreAspectRatio, Qt::FastTransformation);
+        }
     }
     if (m_frequencyScrollBar != nullptr) {
-        // Keep the pan/zoom bar in the reserved scale band, below the Hz
-        // labels.  The previous geometry placed it above bandTop and covered
-        // the waterfall/labels when zoomed.
-        m_frequencyScrollBar->setGeometry(5,
-            qMax(0, height - 17),
-            qMax(20, width - 10), 12);
+        m_frequencyScrollBar->setGeometry(5, qMax(0, height - 17), qMax(20, width - 10), 12);
         m_frequencyScrollBar->raise();
     }
     updateFrequencyScrollBar();
 }
+
 
 // -----------------------------------------------------------------------------
 // Drawing helpers
@@ -1150,14 +1276,325 @@ double WaterfallWidget::xToFrequency(int x) const
     return minHz + (ratio * (maxHz - minHz));
 }
 
+void WaterfallWidget::initializeGpuRenderer()
+{
+    m_gpuReady = false;
+    m_gpuFailed = false;
+
+    const bool openGles = context() != nullptr && context()->isOpenGLES();
+    const QSurfaceFormat format = context() != nullptr ? context()->format() : QSurfaceFormat();
+    const bool desktopCore = !openGles && format.profile() == QSurfaceFormat::CoreProfile;
+
+    QByteArray vertexShader;
+    QByteArray fragmentShader;
+    if (openGles) {
+        vertexShader = QByteArrayLiteral(
+            "#version 100\n"
+            "attribute highp vec2 a_position;\n"
+            "attribute highp vec2 a_texCoord;\n"
+            "varying highp vec2 v_texCoord;\n"
+            "void main() {\n"
+            "  v_texCoord = a_texCoord;\n"
+            "  gl_Position = vec4(a_position, 0.0, 1.0);\n"
+            "}\n");
+        fragmentShader = QByteArrayLiteral(
+            "#version 100\n"
+            "precision highp float;\n"
+            "uniform sampler2D u_texture;\n"
+            "uniform highp float u_x0;\n"
+            "uniform highp float u_x1;\n"
+            "uniform highp float u_ringOffset;\n"
+            "uniform highp float u_invHeight;\n"
+            "varying highp vec2 v_texCoord;\n"
+            "void main() {\n"
+            "  highp float tx = mix(u_x0, u_x1, v_texCoord.x);\n"
+            "  highp float ty = fract(u_ringOffset + v_texCoord.y * (1.0 - u_invHeight));\n"
+            "  ty = fract(ty + 0.5 * u_invHeight);\n"
+            "  gl_FragColor = texture2D(u_texture, vec2(tx, ty));\n"
+            "}\n");
+    } else if (desktopCore) {
+        vertexShader = QByteArrayLiteral(
+            "#version 150\n"
+            "in vec2 a_position;\n"
+            "in vec2 a_texCoord;\n"
+            "out vec2 v_texCoord;\n"
+            "void main() {\n"
+            "  v_texCoord = a_texCoord;\n"
+            "  gl_Position = vec4(a_position, 0.0, 1.0);\n"
+            "}\n");
+        fragmentShader = QByteArrayLiteral(
+            "#version 150\n"
+            "uniform sampler2D u_texture;\n"
+            "uniform float u_x0;\n"
+            "uniform float u_x1;\n"
+            "uniform float u_ringOffset;\n"
+            "uniform float u_invHeight;\n"
+            "in vec2 v_texCoord;\n"
+            "out vec4 fragColor;\n"
+            "void main() {\n"
+            "  float tx = mix(u_x0, u_x1, v_texCoord.x);\n"
+            "  float ty = fract(u_ringOffset + v_texCoord.y * (1.0 - u_invHeight));\n"
+            "  ty = fract(ty + 0.5 * u_invHeight);\n"
+            "  fragColor = texture(u_texture, vec2(tx, ty));\n"
+            "}\n");
+    } else {
+        vertexShader = QByteArrayLiteral(
+            "attribute vec2 a_position;\n"
+            "attribute vec2 a_texCoord;\n"
+            "varying vec2 v_texCoord;\n"
+            "void main() {\n"
+            "  v_texCoord = a_texCoord;\n"
+            "  gl_Position = vec4(a_position, 0.0, 1.0);\n"
+            "}\n");
+        fragmentShader = QByteArrayLiteral(
+            "uniform sampler2D u_texture;\n"
+            "uniform float u_x0;\n"
+            "uniform float u_x1;\n"
+            "uniform float u_ringOffset;\n"
+            "uniform float u_invHeight;\n"
+            "varying vec2 v_texCoord;\n"
+            "void main() {\n"
+            "  float tx = mix(u_x0, u_x1, v_texCoord.x);\n"
+            "  float ty = fract(u_ringOffset + v_texCoord.y * (1.0 - u_invHeight));\n"
+            "  ty = fract(ty + 0.5 * u_invHeight);\n"
+            "  gl_FragColor = texture2D(u_texture, vec2(tx, ty));\n"
+            "}\n");
+    }
+
+    m_gpuProgram = std::make_unique<QOpenGLShaderProgram>();
+    if (!m_gpuProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShader) ||
+        !m_gpuProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShader) ||
+        !m_gpuProgram->link()) {
+        m_gpuFailed = true;
+        const QString error = m_gpuProgram->log();
+        m_gpuProgram.reset();
+        emit runtimeDiagnostic(QStringLiteral("Waterfall backend: OpenGL circular renderer unavailable (%1); using CPU fallback")
+                                   .arg(error));
+        return;
+    }
+
+    const float vertices[] = {
+        -1.0f,  1.0f, 0.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f, 1.0f,
+         1.0f,  1.0f, 1.0f, 0.0f,
+         1.0f, -1.0f, 1.0f, 1.0f
+    };
+    if (!m_gpuVertexArray.create()) {
+        m_gpuFailed = true;
+        m_gpuProgram.reset();
+        emit runtimeDiagnostic(QStringLiteral("Waterfall backend: OpenGL vertex array creation failed; using CPU fallback"));
+        return;
+    }
+    m_gpuVertexArray.bind();
+    if (!m_gpuVertexBuffer.create() || !m_gpuVertexBuffer.bind()) {
+        m_gpuVertexArray.release();
+        m_gpuFailed = true;
+        m_gpuProgram.reset();
+        emit runtimeDiagnostic(QStringLiteral("Waterfall backend: OpenGL vertex buffer creation failed; using CPU fallback"));
+        return;
+    }
+    m_gpuVertexBuffer.allocate(vertices, static_cast<int>(sizeof(vertices)));
+    m_gpuVertexBuffer.release();
+    m_gpuVertexArray.release();
+
+    m_gpuReady = true;
+    m_gpuTextureNeedsRecreate = true;
+    m_gpuClearPending = true;
+    emit runtimeDiagnostic(QStringLiteral("Waterfall backend: OpenGL circular texture enabled (%1.%2, %3)")
+                               .arg(format.majorVersion())
+                               .arg(format.minorVersion())
+                               .arg(openGles ? QStringLiteral("OpenGL ES")
+                                             : (desktopCore ? QStringLiteral("desktop core")
+                                                            : QStringLiteral("desktop compatibility"))));
+}
+
+void WaterfallWidget::destroyGpuRenderer()
+{
+    if (m_gpuTexture != 0) {
+        glDeleteTextures(1, &m_gpuTexture);
+        m_gpuTexture = 0;
+    }
+    if (m_gpuVertexBuffer.isCreated()) {
+        m_gpuVertexBuffer.destroy();
+    }
+    if (m_gpuVertexArray.isCreated()) {
+        m_gpuVertexArray.destroy();
+    }
+    m_gpuProgram.reset();
+    m_gpuReady = false;
+    m_gpuTextureWidth = 0;
+    m_gpuTextureHeight = 0;
+}
+
+void WaterfallWidget::ensureGpuTexture()
+{
+    if (!m_gpuReady || m_gpuFailed || width() <= 0 || height() <= 0 || m_frequencyBins <= 1) {
+        return;
+    }
+    const int targetWidth = qBound(2, m_frequencyBins, 16384);
+    const int targetHeight = qMax(1, height());
+    if (!m_gpuTextureNeedsRecreate && m_gpuTexture != 0 &&
+        m_gpuTextureWidth == targetWidth && m_gpuTextureHeight == targetHeight) {
+        return;
+    }
+
+    if (m_gpuTexture != 0) {
+        glDeleteTextures(1, &m_gpuTexture);
+        m_gpuTexture = 0;
+    }
+    glGenTextures(1, &m_gpuTexture);
+    if (m_gpuTexture == 0) {
+        m_gpuFailed = true;
+        emit runtimeDiagnostic(QStringLiteral("Waterfall backend: OpenGL texture allocation failed; using CPU fallback"));
+        return;
+    }
+    glBindTexture(GL_TEXTURE_2D, m_gpuTexture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    m_gpuTextureWidth = targetWidth;
+    m_gpuTextureHeight = targetHeight;
+    m_gpuWriteRow = 0;
+    m_gpuTextureNeedsRecreate = false;
+    m_gpuClearPending = true;
+    clearGpuTexture();
+}
+
+void WaterfallWidget::clearGpuTexture()
+{
+    if (m_gpuTexture == 0 || m_gpuTextureWidth <= 0 || m_gpuTextureHeight <= 0) {
+        return;
+    }
+    QByteArray pixels(m_gpuTextureWidth * m_gpuTextureHeight * 4, char(0));
+    for (int i = 0; i < m_gpuTextureWidth * m_gpuTextureHeight; ++i) {
+        pixels[i * 4 + 0] = char(4);
+        pixels[i * 4 + 1] = char(6);
+        pixels[i * 4 + 2] = char(8);
+        pixels[i * 4 + 3] = char(255);
+    }
+    glBindTexture(GL_TEXTURE_2D, m_gpuTexture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                 m_gpuTextureWidth, m_gpuTextureHeight, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, pixels.constData());
+    m_gpuWriteRow = 0;
+    m_gpuClearPending = false;
+}
+
+void WaterfallWidget::uploadPendingGpuRows()
+{
+    if (m_gpuTexture == 0 || m_gpuTextureWidth <= 0 || m_gpuTextureHeight <= 0) {
+        return;
+    }
+    glBindTexture(GL_TEXTURE_2D, m_gpuTexture);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    // Audio/FFT delivery is bursty: commonly two rows arrive in the same audio
+    // callback.  Uploading the complete burst in one paint makes the history
+    // jump by two pixels and looks granular even though no rows are dropped.
+    // Present one row per frame while the queue is shallow; only catch up in
+    // larger batches if genuine pressure develops.
+    const int queued = m_pendingGpuRows.size();
+    const int uploadBudget = queued > 8 ? 4 : (queued > 3 ? 2 : 1);
+    int uploaded = 0;
+    while (!m_pendingGpuRows.isEmpty() && uploaded < uploadBudget) {
+        const QByteArray row = m_pendingGpuRows.dequeue();
+        if (row.size() != m_gpuTextureWidth * 4) {
+            ++m_droppedGpuRows;
+            continue;
+        }
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, m_gpuWriteRow,
+                        m_gpuTextureWidth, 1,
+                        GL_RGBA, GL_UNSIGNED_BYTE, row.constData());
+        m_gpuWriteRow = (m_gpuWriteRow + 1) % m_gpuTextureHeight;
+        ++uploaded;
+    }
+}
+
+QByteArray WaterfallWidget::rgbaRowForLine(const QVector<quint8> &line) const
+{
+    if (line.isEmpty()) {
+        return {};
+    }
+    QByteArray row(line.size() * 4, char(0));
+    for (int x = 0; x < line.size(); ++x) {
+        const QRgb color = colorForIntensity(line.at(x));
+        row[x * 4 + 0] = static_cast<char>(qRed(color));
+        row[x * 4 + 1] = static_cast<char>(qGreen(color));
+        row[x * 4 + 2] = static_cast<char>(qBlue(color));
+        row[x * 4 + 3] = static_cast<char>(255);
+    }
+    return row;
+}
+
+void WaterfallWidget::drawGpuWaterfall()
+{
+    if (!m_gpuReady || m_gpuTexture == 0 || !m_gpuProgram || !m_gpuVertexBuffer.isCreated()) {
+        return;
+    }
+    // The backing framebuffer is expressed in physical pixels, unlike the
+    // QWidget geometry.  Scale the viewport by DPR or the circular texture is
+    // rendered only into the lower-left part of the waterfall on HiDPI screens.
+    const qreal dpr = devicePixelRatioF();
+    glViewport(0, 0,
+               qMax(1, qRound(static_cast<qreal>(width()) * dpr)),
+               qMax(1, qRound(static_cast<qreal>(height()) * dpr)));
+    // A QPainter pass follows every GL pass.  Reset the state that its OpenGL
+    // paint engine can preserve between PartialUpdate-style frames; otherwise
+    // old label pixels may remain and accumulate as fuzzy text.
+    glDisable(GL_SCISSOR_TEST);
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND);
+    glClearColor(4.0f / 255.0f, 6.0f / 255.0f, 8.0f / 255.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    const double fullSpan = qMax(1.0e-9, m_maxHz - m_minHz);
+    const float x0 = static_cast<float>(qBound(0.0, (visibleMinHz() - m_minHz) / fullSpan, 1.0));
+    const float x1 = static_cast<float>(qBound(0.0, (visibleMaxHz() - m_minHz) / fullSpan, 1.0));
+    const float invHeight = 1.0f / static_cast<float>(qMax(1, m_gpuTextureHeight));
+    const float ringOffset = static_cast<float>(m_gpuWriteRow) * invHeight;
+
+    m_gpuProgram->bind();
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_gpuTexture);
+    m_gpuProgram->setUniformValue("u_texture", 0);
+    m_gpuProgram->setUniformValue("u_x0", x0);
+    m_gpuProgram->setUniformValue("u_x1", x1);
+    m_gpuProgram->setUniformValue("u_ringOffset", ringOffset);
+    m_gpuProgram->setUniformValue("u_invHeight", invHeight);
+
+    m_gpuVertexArray.bind();
+    m_gpuVertexBuffer.bind();
+    const int positionLocation = m_gpuProgram->attributeLocation("a_position");
+    const int texCoordLocation = m_gpuProgram->attributeLocation("a_texCoord");
+    m_gpuProgram->enableAttributeArray(positionLocation);
+    m_gpuProgram->enableAttributeArray(texCoordLocation);
+    m_gpuProgram->setAttributeBuffer(positionLocation, GL_FLOAT, 0, 2, 4 * static_cast<int>(sizeof(float)));
+    m_gpuProgram->setAttributeBuffer(texCoordLocation, GL_FLOAT, 2 * static_cast<int>(sizeof(float)), 2, 4 * static_cast<int>(sizeof(float)));
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    m_gpuProgram->disableAttributeArray(positionLocation);
+    m_gpuProgram->disableAttributeArray(texCoordLocation);
+    m_gpuVertexBuffer.release();
+    m_gpuVertexArray.release();
+    m_gpuProgram->release();
+}
+
 void WaterfallWidget::requestRepaint()
 {
     if (m_repaintQueued) {
         return;
     }
 
+    m_repaintLatencyClock.restart();
     m_repaintQueued = true;
-    m_repaintTimer.start(16); // about 60 Hz max, GPU-composited by QOpenGLWidget
+    // 8 ms lets a two-row audio burst be presented over two display frames on
+    // high-refresh systems.  QOpenGLWidget/Qt still coalesces updates to the
+    // actual compositor refresh rate, so this does not force busy-loop painting.
+    m_repaintTimer.start(8);
 }
 
 // -----------------------------------------------------------------------------
@@ -1234,21 +1671,20 @@ void WaterfallWidget::buildColorTable()
 
 QRgb WaterfallWidget::colorForIntensity(quint8 value) const
 {
-    const double input = static_cast<double>(value) / 255.0;
     const double percent = static_cast<double>(qBound(5, m_colorScalePercent, 100));
 
     /*
-     * Older builds simply multiplied intensity by the colour-scale slider.
-     * At 60-70% that capped strong traces below the hot palette colours, so
-     * FT8 lines stopped popping out.  Treat the slider as contrast/gamma
-     * instead: reducing it pushes the noise floor down while full-strength
-     * signals can still reach yellow/orange/white.
+     * Follow the WSJT-X Wide Graph gain law rather than applying a gamma curve
+     * to an already levelled image.  DspEngine now supplies the same kind of
+     * lower-envelope-subtracted dB value used by WSJT-X Flatten.  The saved
+     * MadModem default of 80% is the unity-gain position; moving the control
+     * changes gain exponentially, matching 10^(0.015 * PlotGain).
      */
-    // Slider is now a contrast curve around the already logarithmic DSP
-    // intensity.  Around 80% gives the practical weak-signal pop requested by
-    // testing; lower values darken the floor more aggressively.
-    const double gamma = 1.0 + ((100.0 - percent) / 115.0);
-    const int scaled = qBound(0, static_cast<int>(qRound(255.0 * qPow(input, gamma))), 255);
+    const double plotGain = percent - 80.0;
+    const double gain = qPow(10.0, 0.015 * plotGain);
+    const int scaled = qBound(0,
+                              static_cast<int>(qRound(static_cast<double>(value) * gain)),
+                              255);
 
     if (m_colorTable.size() == 256) {
         return m_colorTable[scaled];

@@ -1,23 +1,32 @@
 #pragma once
 
 #include <cstddef>
-#include <deque>
 #include <vector>
 
 /**
- * Stable display-only waterfall levelling.
+ * Display-only waterfall normalization modelled on the WSJT-X Wide Graph
+ * "Flatten" path.
  *
- * The leveler keeps a persistent estimate of the actually populated audio
- * passband and a slow history of its low noise quantile.  Silent FFT regions,
- * a strong carrier, or one ambiguous row cannot move the colour reference.
+ * WSJT-X does not run a slow full-band AGC over successive waterfall rows.
+ * Each row is converted to dB, a lower-envelope polynomial is estimated from
+ * ten frequency segments, and that baseline is subtracted before fixed
+ * gain/zero colour mapping.  Consequently a receiver AGC step changes the
+ * absolute input level without making the whole waterfall stay hot for many
+ * seconds.
  */
 struct WaterfallLevelResult
 {
+    // Representative baseline values retained for diagnostics and tests.
     double floorDb = -110.0;
-    double ceilingDb = -62.0;
+    double ceilingDb = -86.0;
+
     std::size_t validBegin = 0;
     std::size_t validEnd = 0; // inclusive
     bool partialBand = false;
+
+    // Per-bin lower-envelope fit in dB.  DspEngine subtracts this from the
+    // current dB spectrum before applying the fixed WSJT-X-like colour gain.
+    std::vector<double> baselineDb;
 };
 
 class WaterfallLeveler
@@ -28,10 +37,6 @@ public:
                                 double elapsedSeconds);
 
 private:
-    double m_floorDb = -110.0;
-    bool m_initialized = false;
-
-    std::deque<double> m_floorCandidates;
     std::size_t m_validBegin = 0;
     std::size_t m_validEnd = 0;
     std::size_t m_candidateBegin = 0;

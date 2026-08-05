@@ -8,6 +8,8 @@
 #include <QString>
 #include <QtGlobal>
 
+#include <atomic>
+
 /**
  * @brief Writes the normalized live RX stream to a mono 16-bit PCM WAV file.
  *
@@ -25,6 +27,11 @@ public:
     ~RxAudioRecorder() override;
 
     bool isRecording() const;
+
+    // Thread-safe latch used before the recorder thread is asked to quit.
+    // Already queued AudioBlock deliveries become no-ops immediately, so a
+    // large WAV backlog cannot hold application shutdown for many seconds.
+    void requestShutdown() noexcept;
 
 public slots:
     void startRecording(const QString &fileName, int expectedSampleRate);
@@ -53,6 +60,7 @@ private:
     quint64 m_lastCaptureSequence = 0;
     bool m_haveCaptureSequence = false;
     bool m_recording = false;
+    std::atomic<bool> m_shutdownRequested {false};
 };
 
 #endif // RXAUDIORECORDER_H

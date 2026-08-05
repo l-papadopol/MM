@@ -26,6 +26,7 @@
 #include "utils/UiScale.h"
 #include "utils/RuntimeI18n.h"
 #include "utils/CockpitTheme.h"
+#include "utils/SystemResourceManager.h"
 #include "modems/weatherfax/tx/WeatherFaxTransmitter.h"
 #include "widgets/RttyScopeWidget.h"
 #include "dxcc/CtyCountryFile.h"
@@ -1915,10 +1916,15 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    shutdownRuntime("closeEvent");
     if (event != nullptr) {
         event->accept();
     }
+    // Remove the cockpit from the desktop before waiting for worker teardown.
+    // Even when a backend needs the bounded emergency path, Close must feel
+    // immediate instead of leaving a frozen window visible.
+    setEnabled(false);
+    hide();
+    shutdownRuntime("closeEvent");
     // Some cockpit popup/dialog windows can keep Qt's last-window accounting
     // alive after the main window has accepted Close.  Once the runtime has
     // been stopped explicitly, quit the event loop deterministically instead
@@ -1947,29 +1953,18 @@ void MainWindow::shutdownRuntime(const char *reason)
     }
     m_shutdownInProgress = true;
 
+    QElapsedTimer shutdownTimer;
+    shutdownTimer.start();
     shutdownLog(QStringLiteral("begin (%1)").arg(QString::fromLatin1(reason != nullptr ? reason : "unknown")));
 
-    auto invokeStop = [](QObject *object, const char *method, Qt::ConnectionType queuedType = Qt::BlockingQueuedConnection) {
+    auto invokeStopQueued = [](QObject *object, const char *method) {
         if (object == nullptr || method == nullptr) {
             return;
         }
         const Qt::ConnectionType type = (object->thread() == QThread::currentThread())
             ? Qt::DirectConnection
-            : queuedType;
+            : Qt::QueuedConnection;
         QMetaObject::invokeMethod(object, method, type);
-    };
-    auto stopThread = [this](QThread *thread, const QString &name) {
-        if (thread == nullptr) {
-            return;
-        }
-        shutdownLog(QStringLiteral("stopping thread: %1").arg(name));
-        thread->requestInterruption();
-        thread->quit();
-        if (!thread->wait(3000)) {
-            shutdownLog(QStringLiteral("thread did not stop within 3000 ms: %1; forcing terminate").arg(name));
-            thread->terminate();
-            thread->wait(1000);
-        }
     };
 
     m_pttTestTimer.stop();
@@ -1979,18 +1974,31 @@ void MainWindow::shutdownRuntime(const char *reason)
 
     shutdownLog(QStringLiteral("disconnecting queued UI callbacks"));
 
+    if (m_ft8RxDecoder != nullptr) {
+        // This call only flips atomics and is intentionally safe from the GUI
+        // thread. It makes in-flight candidate/OSD loops abandon promptly.
+        m_ft8RxDecoder->requestShutdown();
+        disconnect(m_ft8RxDecoder, nullptr, this, nullptr);
+    }
+
+    if (m_rxAudioRecorder != nullptr) {
+        // Prevent a queue of already-delivered AudioBlocks from being written
+        // during shutdown. The recorder destructor still finalizes the WAV.
+        m_rxAudioRecorder->requestShutdown();
+        disconnect(m_rxAudioRecorder, nullptr, this, nullptr);
+        invokeStopQueued(m_rxAudioRecorder, "stopRecording");
+    }
+
     if (m_ftSlotScheduler != nullptr) {
-        shutdownLog(QStringLiteral("stopping FT slot scheduler"));
-        invokeStop(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
-        invokeStop(m_ftSlotScheduler, "stopClock");
+        invokeStopQueued(m_ftSlotScheduler, "cancelTransmission");
+        invokeStopQueued(m_ftSlotScheduler, "stopClock");
         disconnect(m_ftSlotScheduler, nullptr, nullptr, nullptr);
     }
 
     if (m_catRotatorController != nullptr) {
-        shutdownLog(QStringLiteral("stopping CatRotator"));
+        shutdownLog(QStringLiteral("detaching CatRotator backend for process exit"));
         m_catRotatorController->disconnect(this);
-        QMetaObject::invokeMethod(m_catRotatorController, "stop", Qt::DirectConnection);
-        QMetaObject::invokeMethod(m_catRotatorController, "disconnectRotator", Qt::DirectConnection);
+        m_catRotatorController->prepareForApplicationShutdown();
     }
 
     if (m_hellDecoder != nullptr) disconnect(m_hellDecoder, nullptr, this, nullptr);
@@ -2002,92 +2010,150 @@ void MainWindow::shutdownRuntime(const char *reason)
     if (m_cwSecondaryDecoder != nullptr) disconnect(m_cwSecondaryDecoder, nullptr, this, nullptr);
     if (m_msk144Decoder != nullptr) disconnect(m_msk144Decoder, nullptr, this, nullptr);
     if (m_q65Decoder != nullptr) disconnect(m_q65Decoder, nullptr, this, nullptr);
-    if (m_ft8RxDecoder != nullptr) {
-        disconnect(m_ft8RxDecoder, nullptr, this, nullptr);
-        invokeStop(m_ft8RxDecoder, "reset", Qt::QueuedConnection);
-    }
 
     endTextTxHighlight();
-
-    if (m_rxAudioRecorder != nullptr) {
-        shutdownLog(QStringLiteral("finalizing RX audio recorder"));
-        invokeStop(m_rxAudioRecorder, "stopRecording");
-        disconnect(m_rxAudioRecorder, nullptr, this, nullptr);
-    }
 
     if (m_audioEngine != nullptr) {
         shutdownLog(QStringLiteral("stopping RX audio"));
         disconnect(m_audioEngine, nullptr, this, nullptr);
         m_audioEngine->stopInput();
     }
-
-    stopThread(m_rxAudioRecorderThread, QStringLiteral("RX audio recorder"));
-    m_rxAudioRecorderThread = nullptr;
-    m_rxAudioRecorder = nullptr;
-
     if (m_txAudioEngine != nullptr) {
         shutdownLog(QStringLiteral("stopping TX audio"));
         disconnect(m_txAudioEngine, nullptr, this, nullptr);
         m_txAudioEngine->stopOutput();
     }
-
     if (m_ftTxWorker != nullptr) {
-        shutdownLog(QStringLiteral("stopping FT TX worker"));
         disconnect(m_ftTxWorker, nullptr, this, nullptr);
-        invokeStop(m_ftTxWorker, "stopOutput");
+        invokeStopQueued(m_ftTxWorker, "stopOutput");
     }
-    stopThread(m_ftTxThread, QStringLiteral("FT TX"));
-    m_ftTxThread = nullptr;
-    m_ftTxWorker = nullptr;
-
-    if (m_ftSlotScheduler != nullptr) {
-        disconnect(m_ftSlotScheduler, nullptr, this, nullptr);
-    }
-    stopThread(m_ftSlotThread, QStringLiteral("FT slot scheduler"));
-    m_ftSlotThread = nullptr;
-    m_ftSlotScheduler = nullptr;
-
-    stopThread(m_ft8RxThread, QStringLiteral("FT RX decoder"));
-    m_ft8RxThread = nullptr;
-    m_ft8RxDecoder = nullptr;
 
     if (m_pttSerial.isOpen()) {
-        shutdownLog(QStringLiteral("closing serial PTT"));
         m_pttSerial.setRequestToSend(false);
         m_pttSerial.setDataTerminalReady(false);
         m_pttSerial.close();
     }
 
     if (m_ntpClient != nullptr) {
-        shutdownLog(QStringLiteral("stopping NTP client"));
         m_ntpClient->setEnabled(false);
         disconnect(m_ntpClient, nullptr, this, nullptr);
     }
 
     if (m_rigController != nullptr) {
-        shutdownLog(QStringLiteral("disconnecting CAT/Hamlib"));
-        invokeRigPttBlocking(false);
-        invokeStop(m_rigController, "disconnectRig");
+        shutdownLog(QStringLiteral("queueing CAT PTT-OFF/disconnect"));
         disconnect(m_rigController, nullptr, this, nullptr);
+        QMetaObject::invokeMethod(m_rigController, [controller = m_rigController]() {
+            controller->setPtt(false);
+            controller->disconnectRig();
+        }, Qt::QueuedConnection);
     }
-    stopThread(m_rigThread, QStringLiteral("CAT/Hamlib"));
-    m_rigThread = nullptr;
-    m_rigController = nullptr;
 
     savePersistentSettings();
-    // Do not rewrite the ADIF logbook on shutdown.  A user may point MM to a
-    // large external ADIF file; rewriting it just because the app closes can
-    // destroy unsupported fields or shrink the file if the parser has a bug.
-    // Append/delete/import operations save explicitly when they actually modify
-    // the logbook.
 
-    stopThread(m_dspThread, QStringLiteral("DSP"));
+    struct RuntimeThreadStop
+    {
+        QThread *thread = nullptr;
+        QString name;
+    };
+    const QVector<RuntimeThreadStop> workers = {
+        {m_rxAudioRecorderThread, QStringLiteral("RX audio recorder")},
+        {m_ftTxThread, QStringLiteral("FT TX")},
+        {m_ftSlotThread, QStringLiteral("FT slot scheduler")},
+        {m_ft8RxThread, QStringLiteral("FT RX decoder")},
+        {m_rigThread, QStringLiteral("CAT/Hamlib")},
+        {m_dspThread, QStringLiteral("DSP")}
+    };
+
+    // Request every thread first, then wait against one shared deadline. The
+    // old code spent 3+1 seconds per thread sequentially, so six blocked
+    // workers could make Close take roughly a minute.
+    for (const RuntimeThreadStop &worker : workers) {
+        if (worker.thread == nullptr || !worker.thread->isRunning()) {
+            continue;
+        }
+        shutdownLog(QStringLiteral("requesting thread stop: %1").arg(worker.name));
+        worker.thread->requestInterruption();
+        worker.thread->quit();
+    }
+
+    constexpr qint64 kGracefulShutdownBudgetMs = 2200;
+    QElapsedTimer gracefulTimer;
+    gracefulTimer.start();
+    for (;;) {
+        bool anyRunning = false;
+        for (const RuntimeThreadStop &worker : workers) {
+            if (worker.thread != nullptr && worker.thread->isRunning()) {
+                anyRunning = true;
+                break;
+            }
+        }
+        if (!anyRunning || gracefulTimer.elapsed() >= kGracefulShutdownBudgetMs) {
+            break;
+        }
+        QThread::msleep(10);
+    }
+
+    QVector<RuntimeThreadStop> forced;
+    for (const RuntimeThreadStop &worker : workers) {
+        if (worker.thread != nullptr && worker.thread->isRunning()) {
+            forced.append(worker);
+            shutdownLog(QStringLiteral("thread exceeded shared %1 ms shutdown budget: %2; forcing terminate")
+                            .arg(kGracefulShutdownBudgetMs)
+                            .arg(worker.name));
+            worker.thread->terminate();
+        }
+    }
+
+    if (!forced.isEmpty()) {
+        QElapsedTimer forcedTimer;
+        forcedTimer.start();
+        while (forcedTimer.elapsed() < 500) {
+            bool anyRunning = false;
+            for (const RuntimeThreadStop &worker : forced) {
+                if (worker.thread != nullptr && worker.thread->isRunning()) {
+                    anyRunning = true;
+                    break;
+                }
+            }
+            if (!anyRunning) break;
+            QThread::msleep(10);
+        }
+    }
+
+    // Join already-stopped QThreads without creating a new per-thread timeout.
+    // A thread that remains inside an uninterruptible third-party/system call
+    // after terminate() is detached from MainWindow's QObject tree.  This is
+    // process-exit-only: it prevents QThread's destructor from blocking or
+    // aborting while the OS is about to reclaim the process.
+    for (const RuntimeThreadStop &worker : workers) {
+        if (worker.thread == nullptr) {
+            continue;
+        }
+        if (!worker.thread->isRunning()) {
+            worker.thread->wait(0);
+        } else {
+            shutdownLog(QStringLiteral("thread still blocked after forced shutdown; detaching for process exit: %1")
+                            .arg(worker.name));
+            worker.thread->setParent(nullptr);
+        }
+    }
+
+    m_rxAudioRecorderThread = nullptr;
+    m_rxAudioRecorder = nullptr;
+    m_ftTxThread = nullptr;
+    m_ftTxWorker = nullptr;
+    m_ftSlotThread = nullptr;
+    m_ftSlotScheduler = nullptr;
+    m_ft8RxThread = nullptr;
+    m_ft8RxDecoder = nullptr;
+    m_rigThread = nullptr;
+    m_rigController = nullptr;
     m_dspThread = nullptr;
     m_dspEngine = nullptr;
 
     m_runtimeShutdownComplete = true;
     m_shutdownInProgress = false;
-    shutdownLog(QStringLiteral("done"));
+    shutdownLog(QStringLiteral("done in %1 ms").arg(shutdownTimer.elapsed()));
 }
 
 // -----------------------------------------------------------------------------
@@ -2226,6 +2292,7 @@ void MainWindow::setupUiState()
 
     setReceiverRunning(false);
     appendLog(QStringLiteral("CPU acceleration: %1").arg(MadModemCpu::summary()));
+    appendLog(MadModemRuntime::SystemResourceManager::instance().startupSummary());
 }
 
 void MainWindow::setupCustomWidgets()
@@ -2506,7 +2573,8 @@ void MainWindow::setupCustomWidgets()
         connect(m_btnShowRuntimeLog, &QPushButton::clicked, this, &MainWindow::showRuntimeLogDialog);
         ui->modeTabLayout->addWidget(m_btnShowRuntimeLog, 0);
         const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QString();
-        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName) || Msk144Mode::isMode(modeName) || Q65Mode::isFamilyMode(modeName));
+        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName) || Msk144Mode::isMode(modeName) ||
+                                         Q65Mode::isFamilyMode(modeName) || modeName == CwDecoder::modeName());
     }
 
     m_settings.waterfallColorScalePercent = 80;
@@ -7340,6 +7408,9 @@ void MainWindow::setupProcessingConnections()
 
     connect(m_waterfallWidget, &WaterfallWidget::frequencyClicked,
             this, &MainWindow::handleWaterfallFrequencyClicked);
+    connect(m_waterfallWidget, &WaterfallWidget::runtimeDiagnostic,
+            this, [this](const QString &message) { appendLog(message); },
+            Qt::QueuedConnection);
 
     if (m_ntpClient != nullptr) {
         m_ntpClient->setEnabled(false);
@@ -7578,6 +7649,15 @@ void MainWindow::setupProcessingConnections()
                     m_cwDiagnosticWidget->clearChannel(rank);
             }, Qt::QueuedConnection);
 
+    connect(m_cwDecoder, &CwDecoder::liveLogLine,
+            this, [this](int rank, const QString &message) {
+                const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("HH:mm:ss.zzz"));
+                appendRuntimeLogLine(QStringLiteral("[%1] CW RX %2: %3")
+                                     .arg(timestamp)
+                                     .arg(rank <= 0 ? QStringLiteral("A") : QStringLiteral("B"))
+                                     .arg(message));
+            }, Qt::QueuedConnection);
+
     connect(m_cwDecoder, &CwDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
     connect(m_cwDecoder, &CwDecoder::statusChanged,
@@ -7659,6 +7739,11 @@ void MainWindow::setupProcessingConnections()
             Qt::QueuedConnection);
     connect(m_ft8RxDecoder, &Ft8RxDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus,
+            Qt::QueuedConnection);
+    connect(m_ft8RxDecoder, &Ft8RxDecoder::runtimeDiagnostic,
+            this, [this](const QString &message) {
+                appendLog(QStringLiteral("FT scheduler: ") + message);
+            },
             Qt::QueuedConnection);
 
     connect(m_ft8RxDecoder, &Ft8RxDecoder::performanceUpdated,
@@ -10857,7 +10942,8 @@ void MainWindow::handleModeChanged(const QString &modeName)
     }
 
     if (m_btnShowRuntimeLog != nullptr) {
-        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName) || Msk144Mode::isMode(modeName) || Q65Mode::isFamilyMode(modeName));
+        m_btnShowRuntimeLog->setVisible(Ft8Mode::isFamilyMode(modeName) || Msk144Mode::isMode(modeName) ||
+                                         Q65Mode::isFamilyMode(modeName) || modeName == CwDecoder::modeName());
     }
 
     updateWaterfallMarkers();
@@ -11465,11 +11551,30 @@ void MainWindow::updateTextModeAfc(const AudioBlock &block)
 
 void MainWindow::handleRxAudioBlock(const AudioBlock &block)
 {
+    const QString modeName = (ui != nullptr && ui->cmbMode != nullptr)
+        ? ui->cmbMode->currentText()
+        : QString();
+
     if (!m_rxRunning || m_txRunning || m_offlineAnalysisActive) {
+        // AudioEngine diagnostics prove only that the sound-card callback is
+        // alive.  They do not prove that MainWindow is forwarding blocks to
+        // the FT decoder.  Log a throttled state snapshot whenever live FT
+        // input is being discarded here, so a stale RX/TX flag can no longer
+        // masquerade as a decoder that simply stopped trying.
+        if (Ft8Mode::isFamilyMode(modeName) &&
+            m_audioEngine != nullptr && m_audioEngine->isRunning()) {
+            const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+            if (nowMs - m_lastFtAudioSuppressedDiagnosticMs >= 2000) {
+                m_lastFtAudioSuppressedDiagnosticMs = nowMs;
+                appendLog(QStringLiteral("FT RX audio not forwarded: rxRunning=%1, txRunning=%2, ftTxWorkerRunning=%3, offlineAnalysis=%4")
+                              .arg(m_rxRunning ? 1 : 0)
+                              .arg(m_txRunning ? 1 : 0)
+                              .arg(m_ftTxWorkerRunning ? 1 : 0)
+                              .arg(m_offlineAnalysisActive ? 1 : 0));
+            }
+        }
         return;
     }
-
-    const QString modeName = ui->cmbMode->currentText();
 
     if (Ft8Mode::isFamilyMode(modeName)) {
             if (Ft8Mode::profileForMode(modeName).interoperableCoreAvailable && m_ft8RxDecoder != nullptr) {
@@ -13907,7 +14012,7 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
     // Keep the decode stopwatch in the runtime log and in the dedicated
     // FT decode tab.  The field log must always show per-slot latency because
     // multi-second FT8 decodes are a real QSO-timing regression.
-    appendLog(QStringLiteral("%1 decode profiler: %2, slot %3, %4 pass(es), %5 candidate(s), %6 decode(s), total %7 ms [search %8 ms, LDPC %9 ms, subtract %10 ms, sync-gate %11, LDPC tried %12, workers %13]")
+    appendLog(QStringLiteral("%1 decode profiler: %2, slot %3, %4 pass(es), %5 candidate(s), %6 decode(s), total %7 ms [search %8 ms, LDPC %9 ms, subtract %10 ms, sync-gate %11, LDPC tried %12, workers %13/%14, SIMD %15]")
                   .arg(statsModeLabel)
                   .arg(phase)
                   .arg(stats.slotUtc.trimmed().isEmpty() ? QStringLiteral("--") : stats.slotUtc)
@@ -13920,7 +14025,9 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                   .arg(stats.subtractionMs, 0, 'f', 0)
                   .arg(stats.syncGateRejects)
                   .arg(stats.ldpcTried)
-                  .arg(stats.workerCount));
+                  .arg(stats.workerCount)
+                  .arg(stats.liveWorkerTarget)
+                  .arg(stats.simdBackend.trimmed().isEmpty() ? QStringLiteral("portable") : stats.simdBackend));
 
     if (!stats.offline) {
         appendLog(uiText("ft_audio_timeline_log", "%1 audio timeline: blocks %2, boundary splits %3, sequence gaps %4, UTC pre-pad %5, gap %6 samples, overlap %7 samples, max queue latency %8 ms")
@@ -13931,10 +14038,38 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                       .arg(stats.initialUtcPadSamples)
                       .arg(stats.audioGapSamples)
                       .arg(stats.audioOverlapSamples)
-                      .arg(stats.maxCaptureQueueLatencyMs, 0, 'f', 1));
+                      .arg(stats.maxCaptureQueueLatencyMs, 0, 'f', 1) +
+                  QStringLiteral("; generation %1, stale blocks %2, timestamp jumps %3, invalid slots %4")
+                      .arg(stats.captureGeneration)
+                      .arg(stats.staleCaptureBlocks)
+                      .arg(stats.timestampJumps)
+                      .arg(stats.invalidSlotsSkipped));
+        appendLog(QStringLiteral("FT resources: CPU %1C/%2T, pool %3, targets gate/boundary/OSD %4/%5/%6, GUI latency %7 ms, waterfall %8 ms/q%9 (%10), system CPU %11%")
+                      .arg(stats.physicalCores)
+                      .arg(stats.logicalProcessors)
+                      .arg(stats.poolCapacity)
+                      .arg(stats.gateWorkerTarget)
+                      .arg(stats.boundaryWorkerTarget)
+                      .arg(stats.osdWorkerTarget)
+                      .arg(stats.guiFrameMs, 0, 'f', 1)
+                      .arg(stats.waterfallFrameMs, 0, 'f', 1)
+                      .arg(stats.waterfallQueueRows, 0, 'f', 1)
+                      .arg(stats.waterfallGpuBacked ? QStringLiteral("GPU") : QStringLiteral("CPU"))
+                      .arg(stats.systemCpuLoadPercent, 0, 'f', 1));
+        if (!stats.resourceAdjustment.trimmed().isEmpty() &&
+            stats.resourceAdjustment != m_lastFtResourceAdjustment) {
+            m_lastFtResourceAdjustment = stats.resourceAdjustment;
+            appendLog(QStringLiteral("FT resource controller: ") + stats.resourceAdjustment);
+        }
     }
 
-    const QString displayDiagSlotKey = statsModeName + QLatin1Char('|') + stats.slotUtc.trimmed();
+    QString displayDiagUtc = stats.slotUtc.trimmed();
+    const int fractionalPos = displayDiagUtc.indexOf(QLatin1Char('.'));
+    if (fractionalPos >= 0) {
+        displayDiagUtc.truncate(fractionalPos);
+    }
+    displayDiagUtc.remove(QLatin1Char(':'));
+    const QString displayDiagSlotKey = statsModeName + QLatin1Char('|') + displayDiagUtc;
     if (m_ftDisplayDiagSlotKey == displayDiagSlotKey) {
         appendLog(QStringLiteral("%1 display diagnostic: slot %2, decoder decodes %3, decodeReady signals %4, rows inserted %5, duplicate/update %6, blacklisted %7, table rows %8→%9")
                       .arg(statsModeLabel)
@@ -13952,10 +14087,6 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
             appendLog(QStringLiteral("WARNING: %1 decoder produced valid messages but no visible decode table row/action was registered for this slot; check UI filters, table rendering and row-height/font settings.")
                           .arg(statsModeLabel));
         }
-    } else if (!stats.offline && statsModeLabel == QStringLiteral("FT4") && stats.decodeCount > 0) {
-        appendLog(QStringLiteral("FT4 display diagnostic: waiting for decode table slot %1; current UI slot is %2")
-                      .arg(displayDiagSlotKey)
-                      .arg(m_ftDisplayDiagSlotKey.isEmpty() ? QStringLiteral("--") : m_ftDisplayDiagSlotKey));
     }
 
     if (statsModeLabel == QStringLiteral("FT4") && !stats.offline && stats.totalMs > 800.0) {
@@ -13977,6 +14108,18 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                       .arg(stats.osdGf2TotalMs, 0, 'f', 1));
     }
 
+    if (stats.sumProductAttempts > 0 || stats.coherentMetricAttempts > 0 ||
+        stats.bucketRescueCandidates > 0) {
+        appendLog(uiText("ft_wideband_recovery",
+                         "FT wideband recovery: SPA recovered/attempted %1/%2, coherent recovered/attempted %3/%4, bucket rescue decoded/candidates %5/%6")
+                      .arg(stats.sumProductDecodes)
+                      .arg(stats.sumProductAttempts)
+                      .arg(stats.coherentMetricDecodes)
+                      .arg(stats.coherentMetricAttempts)
+                      .arg(stats.bucketRescueDecodes)
+                      .arg(stats.bucketRescueCandidates));
+    }
+
     if (!stats.offline && !m_ft8RecentLiveDecodeMs.isEmpty()) {
         appendLog(QStringLiteral("%1 live decode rolling: last %2 slot(s), avg %3 ms, max %4 ms")
                       .arg(statsModeLabel)
@@ -13987,7 +14130,7 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
 
     if (!stats.offline && stats.passCount > 1 && stats.totalMs > 1000.0) {
         appendLog(uiText("ft_decode_warning_adaptive_slow",
-                         "WARNING: FT unified live decode exceeded 1 second; reduce FT workload or check CPU load if the PC starts missing slots."));
+                         "WARNING: FT unified live decode exceeded 1 second; this is diagnostic only and does not disable later slots. Reduce FT workload or check CPU load if the PC starts missing slots."));
     }
 
     if (stats.timeBudgetHit && !stats.earlyStopReason.trimmed().isEmpty()) {
@@ -16232,6 +16375,8 @@ void MainWindow::handleFt8DecodeBatchStarted(qint64 slotStartUtcMs, const QStrin
     m_ft8DecodeBatchSlotStartUtcMs = slotStartUtcMs;
     m_ft8DecodeBatchPhase = phase;
     m_ft8PendingSequencerBatch.clear();
+    m_ft8PendingDisplayBatch.clear();
+    m_ft8DeferredDecodeLogs.clear();
 }
 
 int MainWindow::selectBestFt8SequencerDecode(const QVector<Ft8RxDecoder::Decode> &decodes) const
@@ -16323,19 +16468,58 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
     Q_UNUSED(slotStartUtcMs)
     Q_UNUSED(phase)
 
-    const QVector<Ft8RxDecoder::Decode> batch = m_ft8PendingSequencerBatch;
+    // Apply all visual rows in one GUI transaction. Decoder rows were queued
+    // while the batch was active, so the table, log, overlays and scroll bar do
+    // not repaint 20-30 times at the end of a busy FT slot.
+    QElapsedTimer uiBatchTimer;
+    uiBatchTimer.start();
+    const QVector<Ft8RxDecoder::Decode> displayBatch = m_ft8PendingDisplayBatch;
+    m_ft8PendingDisplayBatch.clear();
+    m_ft8UiBatchApplying = true;
+    const bool sortingEnabled = m_tableFt8Rx != nullptr && m_tableFt8Rx->isSortingEnabled();
+    if (m_tableFt8Rx != nullptr) {
+        m_tableFt8Rx->setUpdatesEnabled(false);
+        m_tableFt8Rx->setSortingEnabled(false);
+    }
+    for (const Ft8RxDecoder::Decode &decode : displayBatch) {
+        handleFt8DecodeReady(decode);
+    }
+    if (m_tableFt8Rx != nullptr) {
+        m_tableFt8Rx->setSortingEnabled(sortingEnabled);
+        m_tableFt8Rx->setUpdatesEnabled(true);
+        m_tableFt8Rx->viewport()->update();
+        if (m_chkFt8AutoScroll == nullptr || m_chkFt8AutoScroll->isChecked()) {
+            m_tableFt8Rx->scrollToBottom();
+        }
+    }
+    m_ft8UiBatchApplying = false;
+
+    updateFt8WaterfallOverlays();
+    updateFt8SignalReportUi();
+    updateFt8DecodePerformanceUi();
+    if (!m_ft8DeferredDecodeLogs.isEmpty()) {
+        appendLog(m_ft8DeferredDecodeLogs.join(QLatin1Char('\n')));
+        m_ft8DeferredDecodeLogs.clear();
+    }
+    const double uiBatchMs = static_cast<double>(uiBatchTimer.nsecsElapsed()) / 1000000.0;
+    MadModemRuntime::SystemResourceManager::instance().observeGuiFrame(uiBatchMs);
+    if (uiBatchMs > 25.0) {
+        appendLog(QStringLiteral("FT UI batch: %1 row(s) presented in %2 ms")
+                      .arg(displayBatch.size())
+                      .arg(uiBatchMs, 0, 'f', 1));
+    }
+
+    const QVector<Ft8RxDecoder::Decode> sequencerBatch = m_ft8PendingSequencerBatch;
     m_ft8PendingSequencerBatch.clear();
     m_ft8DecodeBatchActive = false;
     m_ft8DecodeBatchSlotStartUtcMs = 0;
     m_ft8DecodeBatchPhase.clear();
 
-    const int bestIndex = selectBestFt8SequencerDecode(batch);
+    const int bestIndex = selectBestFt8SequencerDecode(sequencerBatch);
     if (bestIndex >= 0) {
-        processFt8SequencerDecode(batch.at(bestIndex));
+        processFt8SequencerDecode(sequencerBatch.at(bestIndex));
     }
 
-    // Auto-QSO CQ ranking uses the same completed batch.  Do not wait another
-    // 420 ms near the UTC boundary after all rows are already available.
     if (!m_ft8FullAutoCqCandidates.isEmpty()) {
         m_ft8FullAutoCqSelectionTimer.stop();
         processFt8FullAutoCqCandidates();
@@ -16344,6 +16528,10 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
 
 void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 {
+    if (m_ft8DecodeBatchActive && !m_ft8UiBatchApplying) {
+        m_ft8PendingDisplayBatch.append(decode);
+        return;
+    }
     if (m_tableFt8Rx == nullptr) {
         return;
     }
@@ -16536,12 +16724,6 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             }
             ++m_ftDisplayDiagRowsUpdated;
             m_ftDisplayDiagRowsAfter = m_tableFt8Rx->rowCount();
-            if (ftDisplayMode == QStringLiteral("FT4")) {
-                appendLog(QStringLiteral("FT4 display path: duplicate/update row %1, table rows %2, message '%3'")
-                              .arg(row)
-                              .arg(m_ftDisplayDiagRowsAfter)
-                              .arg(decode.message.trimmed()));
-            }
             return;
         }
     }
@@ -16662,12 +16844,6 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     }
     ++m_ftDisplayDiagRowsInserted;
     m_ftDisplayDiagRowsAfter = m_tableFt8Rx->rowCount();
-    if (ftDisplayMode == QStringLiteral("FT4")) {
-        appendLog(QStringLiteral("FT4 display path: inserted row %1, table rows %2, message '%3'")
-                      .arg(row)
-                      .arg(m_ftDisplayDiagRowsAfter)
-                      .arg(decode.message.trimmed()));
-    }
     if (directReplyToMe) {
         appendFt8QsoHistoryRow(decode.utc,
                                QStringLiteral("RX"),
@@ -16682,7 +16858,8 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         m_tableFt8Rx->removeRow(0);
     }
     m_ftDisplayDiagRowsAfter = m_tableFt8Rx->rowCount();
-    if (m_chkFt8AutoScroll == nullptr || m_chkFt8AutoScroll->isChecked()) {
+    if (!m_ft8UiBatchApplying &&
+        (m_chkFt8AutoScroll == nullptr || m_chkFt8AutoScroll->isChecked())) {
         m_tableFt8Rx->scrollToBottom();
     }
 
@@ -16695,14 +16872,21 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     while (m_ft8RecentDtSeconds.size() > 12) {
         m_ft8RecentDtSeconds.remove(0);
     }
-    updateFt8SignalReportUi();
-    updateFt8DecodePerformanceUi();
+    if (!m_ft8UiBatchApplying) {
+        updateFt8SignalReportUi();
+        updateFt8DecodePerformanceUi();
+    }
 
-    appendLog(QString("%1 decode: %2 dB DT %3 Freq %4 Hz: %5").arg(Ft8Mode::profileForMode(ui->cmbMode->currentText()).shortLabel)
+    const QString decodeLog = QString("%1 decode: %2 dB DT %3 Freq %4 Hz: %5").arg(Ft8Mode::profileForMode(ui->cmbMode->currentText()).shortLabel)
                   .arg(decode.snrDb)
                   .arg(decode.dt, 0, 'f', 1)
                   .arg(decode.frequencyHz)
-                  .arg(decode.message));
+                  .arg(decode.message);
+    if (m_ft8UiBatchApplying) {
+        m_ft8DeferredDecodeLogs.append(decodeLog);
+    } else {
+        appendLog(decodeLog);
+    }
 
     if (!blacklistedDecode) {
         queueFt8SequencerDecode(decode);
@@ -16763,13 +16947,17 @@ void MainWindow::addFt8WaterfallOverlayForDecode(const Ft8RxDecoder::Decode &dec
     for (Ft8WaterfallCallout &existing : m_ft8WaterfallCallouts) {
         if (existing.label == callout.label && (existing.frequencyHz / 10) == bucket) {
             existing = callout;
-            updateFt8WaterfallOverlays();
+            if (!m_ft8UiBatchApplying) {
+                updateFt8WaterfallOverlays();
+            }
             return;
         }
     }
 
     m_ft8WaterfallCallouts.append(callout);
-    updateFt8WaterfallOverlays();
+    if (!m_ft8UiBatchApplying) {
+        updateFt8WaterfallOverlays();
+    }
 }
 
 void MainWindow::updateFt8WaterfallOverlays()
@@ -18713,6 +18901,13 @@ void MainWindow::setupCatRotatorModule()
         });
         connect(m_catRotatorController, &mm::CatRotatorController::calibrationFinished,
                 this, [this](const mm::CatRotatorController::Config &cfg, const QString &message) {
+            if (m_appSettingsDialogActive) {
+                // The dialog-specific connection stages the calibration values
+                // inside AppSettingsDialog. Persist them only if the user later
+                // presses OK; Cancel must discard them.
+                appendLog(QStringLiteral("CatRotator calibration result staged in Settings; waiting for OK before saving."));
+                return;
+            }
             const int profile = qBound(0, cfg.profileIndex, 2);
             AppSettings::RotatorProfileSettings &rp = m_settings.rotatorProfiles[profile];
             rp.azimuthMsPerDeg = cfg.azimuthMsPerDeg;
@@ -19038,7 +19233,10 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
     applyUiLanguageToObjectTree(&dialog);
 
     QPointer<AppSettingsDialog> dialogPtr(&dialog);
-    connect(&dialog, &AppSettingsDialog::catTestRequested, this, [this, dialogPtr](const HamlibController::Config &cfg) {
+    bool settingsCatRuntimeTouched = false;
+    bool settingsRotatorRuntimeTouched = false;
+    connect(&dialog, &AppSettingsDialog::catTestRequested, this, [this, dialogPtr, &settingsCatRuntimeTouched](const HamlibController::Config &cfg) {
+        settingsCatRuntimeTouched = true;
         appendLog(QStringLiteral("CAT TEST: queued on isolated worker."));
         if (m_rigController == nullptr) {
             if (dialogPtr) dialogPtr->setExternalCatTestStatus(QStringLiteral("TEST FAILED — no CAT controller"), false);
@@ -19059,7 +19257,8 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
             }, Qt::QueuedConnection);
         }, Qt::QueuedConnection);
     });
-    connect(&dialog, &AppSettingsDialog::pttTestRequested, this, [this, dialogPtr](const HamlibController::Config &cfg, bool enabled) {
+    connect(&dialog, &AppSettingsDialog::pttTestRequested, this, [this, dialogPtr, &settingsCatRuntimeTouched](const HamlibController::Config &cfg, bool enabled) {
+        settingsCatRuntimeTouched = true;
         appendLog(enabled ? QStringLiteral("PTT TEST: ON queued on isolated worker.")
                           : QStringLiteral("PTT TEST: OFF queued on isolated worker."));
         if (enabled && !ensureStationIdentityForTx(QStringLiteral("PTT TEST"))) {
@@ -19123,7 +19322,8 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
     }
 
     connect(&dialog, &AppSettingsDialog::rotatorConnectionRequested,
-            this, [this, dialogPtr](int profileIndex, bool connectRequested) {
+            this, [this, dialogPtr, &settingsRotatorRuntimeTouched](int profileIndex, bool connectRequested) {
+        settingsRotatorRuntimeTouched = true;
         if (!dialogPtr) return;
         if (m_catRotatorController == nullptr) {
             setupCatRotatorModule();
@@ -19210,7 +19410,8 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
     });
 
     connect(&dialog, &AppSettingsDialog::rotatorCalibrationRequested,
-            this, [this, dialogPtr](int profileIndex, bool elevationAxis) {
+            this, [this, dialogPtr, &settingsRotatorRuntimeTouched](int profileIndex, bool elevationAxis) {
+        settingsRotatorRuntimeTouched = true;
         if (!dialogPtr) return;
         if (m_txRunning) {
             QMessageBox::warning(this,
@@ -19218,11 +19419,24 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
                                  uiText("rotator_calibration_stop_tx", "Stop TX before starting rotator calibration."));
             return;
         }
-        m_settings = dialogPtr->settings();
-        m_settings.rotatorActiveProfile = qBound(0, profileIndex, 2);
-        savePersistentSettings();
-        applyCatRotatorSettings();
+        if (m_catRotatorController == nullptr) {
+            setupCatRotatorModule();
+        }
         if (m_catRotatorController == nullptr) return;
+
+        // Configure the temporary calibration profile directly from the dialog.
+        // Do not overwrite or save MainWindow::m_settings before OK: Cancel must
+        // remain a true rollback and must not trigger a full runtime rebuild.
+        AppSettings requested = dialogPtr->settings();
+        const int idx = qBound(0, profileIndex, 2);
+        requested.rotatorEnabled = true;
+        requested.rotatorActiveProfile = idx;
+        const AppSettings savedSettings = m_settings;
+        m_settings = requested;
+        const mm::CatRotatorController::Config cfg = catRotatorConfigFromSettings();
+        m_settings = savedSettings;
+        m_catRotatorController->configure(cfg);
+        m_catRotatorController->setTrackingQsoTarget(cfg.trackSelectedQso);
         if (!m_catRotatorController->isConnected()) {
             appendLog(uiText("rotator_calibration_connect_first", "CatRotator calibration requested; connect the selected rotator first."));
         }
@@ -19249,10 +19463,27 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
                   .arg(settingsOpenTimer.elapsed())
                   .arg(settingsConstructMs));
 
+    m_appSettingsDialogActive = true;
     const int settingsResult = dialog.exec();
+    m_appSettingsDialogActive = false;
     if (settingsResult != QDialog::Accepted) {
-        appendLog("Settings cancelled; restoring runtime configuration.");
-        applyPersistentSettingsToRuntime();
+        appendLog(QStringLiteral("Settings cancelled; no saved application setting was changed."));
+
+        // Editing controls is side-effect free.  Restore only subsystems that
+        // were explicitly exercised by Test/Connect buttons, and never run the
+        // old fullApply path (which could reopen CAT/rotator backends and block
+        // the Settings close for their 3-15 second I/O timeout).
+        if (settingsCatRuntimeTouched && m_rigController != nullptr) {
+            const AppSettings savedSettings = m_settings;
+            QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, savedSettings]() {
+                controller->setPtt(false);
+                controller->configureFromSettings(savedSettings);
+            }, Qt::QueuedConnection);
+            appendLog(QStringLiteral("Settings cancel: CAT/PTT test state restore queued."));
+        }
+        if (settingsRotatorRuntimeTouched) {
+            appendLog(QStringLiteral("Settings cancel: temporary rotator test state retained until the next explicit Apply/Connect; saved configuration was not modified."));
+        }
         return;
     }
 
@@ -19596,12 +19827,17 @@ void MainWindow::showRuntimeLogDialog()
         buttons->addStretch(1);
         buttons->addWidget(close);
         layout->addLayout(buttons);
-        connect(clear, &QPushButton::clicked, m_runtimeLogText, &QPlainTextEdit::clear);
+        connect(clear, &QPushButton::clicked, this, [this]() {
+            m_runtimeLogBuffer.clear();
+            if (m_runtimeLogText != nullptr) m_runtimeLogText->clear();
+        });
         connect(close, &QPushButton::clicked, this, [this]() {
             if (m_runtimeLogDialog != nullptr) m_runtimeLogDialog->hide();
         });
         connect(m_runtimeLogDialog, &QDialog::finished, this, [this](int) {
         });
+        if (!m_runtimeLogBuffer.isEmpty())
+            m_runtimeLogText->setPlainText(m_runtimeLogBuffer.join(QLatin1Char('\n')));
     }
     m_runtimeLogDialog->show();
     m_runtimeLogDialog->raise();
@@ -19610,10 +19846,12 @@ void MainWindow::showRuntimeLogDialog()
 
 void MainWindow::appendRuntimeLogLine(const QString &line)
 {
-    if (m_runtimeLogText == nullptr) {
-        return;
-    }
-    m_runtimeLogText->appendPlainText(line);
+    m_runtimeLogBuffer.append(line);
+    constexpr int kMaximumRuntimeLogLines = 5000;
+    if (m_runtimeLogBuffer.size() > kMaximumRuntimeLogLines)
+        m_runtimeLogBuffer.removeFirst();
+    if (m_runtimeLogText != nullptr)
+        m_runtimeLogText->appendPlainText(line);
 }
 
 
@@ -20831,7 +21069,10 @@ void MainWindow::updateTxControlState()
         m_grpTxImage->setVisible(!textMode && !rxOnlyTextMode);
     }
     if (m_btnShowRuntimeLog != nullptr) {
-        m_btnShowRuntimeLog->setVisible(ft8Mode || msk144Mode || q65Mode);
+        m_btnShowRuntimeLog->setVisible(ft8Mode || msk144Mode || q65Mode || cwMode);
+        m_btnShowRuntimeLog->setToolTip(cwMode
+            ? uiText("runtime_log_cw_tooltip", "Open the live CW discriminator/timing log.")
+            : uiText("runtime_log_ft_tooltip", "Open the FT timing/CAT/PTT diagnostic log."));
     }
 
     m_btnLoadTxImage->setVisible(!textMode && !rxOnlyTextMode);

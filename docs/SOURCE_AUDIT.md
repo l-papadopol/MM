@@ -11,8 +11,9 @@ Audit basis:
 
 The active CW receive code under `modems/cw/skimmer/` is a single native
 clean-room implementation. It does not compile, copy or adapt an external CW
-decoder. The CMake target contains only `CwSkimmerEngine`,
-`SelectedToneCwTracker` and `CwBayesianDecoder` plus their headers.
+decoder. The CMake target contains `CwSkimmerEngine`,
+`SelectedToneCwTracker`, `CwCarrierDiscriminator`, `CwRelativeTimingTask` and
+`CwRelativeTimingDecoder` plus their headers.
 
 ## Compiled or linked third-party material
 
@@ -41,3 +42,11 @@ required for attribution or protocol/source traceability.
 - `modems/cw/CwDecoder.cpp` includes only MadModem-native CW headers.
 
 Test media and MM Flow Studio are not included in the production source package.
+
+## Native runtime/resource additions
+
+`utils/SystemResourceManager.*`, the persistent FT coordinator and the circular
+OpenGL waterfall renderer are native MadModem C++ code. They introduce no new
+third-party runtime library. The FT8 FFT backend remains the existing in-tree
+radix-2 implementation; bundled FFTW headers remain part of MSHV/Q65 reference
+or optional support and are not newly linked into FT8.
