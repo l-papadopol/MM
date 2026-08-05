@@ -1,0 +1,57 @@
+name: Build macOS unsigned
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-macos:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64 unsigned
+            runner: macos-15
+            arch: arm64
+          - name: macOS Intel unsigned
+            runner: macos-15-intel
+            arch: x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake ninja qt qtlocation hamlib pkgconf rsync dylibbundler
+
+      - name: Build MadModem.app
+        env:
+          MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
+          MADMODEM_MIND_OPENMP: OFF
+          MADMODEM_Q65_FULL: OFF
+          MACOSX_DEPLOYMENT_TARGET: "13.0"
+        run: |
+          bash scripts/build_macos.sh
+
+      - name: Package unsigned app
+        env:
+          MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
+          MADMODEM_ADHOC_SIGN: on
+        run: |
+          bash scripts/package_macos.sh
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: MadModem-macOS-${{ matrix.arch }}-unsigned
+          path: |
+            dist/macos/*.zip
+            dist/macos/*.dmg
+          if-no-files-found: error
+          retention-days: 14

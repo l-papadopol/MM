@@ -1,0 +1,84 @@
+SUPERSEDED FOR LIVE RX
+See docs/FT8_FT4_SENSITIVITY_REGRESSION_FIX_0_5_78.md. The first live test disproved the sensitivity assumption; the static checks below did not establish real-air decode performance.
+
+MadModem 0.5.78 — FT8/FT4 Wideband Sensitivity validation
+Date: 2026-08-03
+
+Scope
+- FT4 robust candidate finder, coherent complex metrics, exact decoded-waveform SIC.
+- FT8 robust Costas baseline, bounded bucket-rescue shadow path, complex 200 Hz boundary metrics, SPA fallback, refined post-decode SIC timing.
+- FT8 Gate "ghost candidate" logic intentionally unchanged.
+
+Invariant
+- SHA-256 of the exact 21-line ldpcGhostCandidate source block:
+  6e7b4f9c15b21a01f3351442c08c916a7f57f49686a98dfc7acb2296adee1e36
+- The block is byte-identical to the previous adaptive-runtime checkpoint.
+
+Automated results
+===== scripts/run_waterfall_leveler_regression.sh =====
+WFREG	partial-band-does-not-pump	OK	A=-81.57	B=-81.72
+WFREG	strong-carrier-does-not-pump	OK	A=-81.57	B=-81.57
+WFREG	floor-slew-bounded	OK	A=-91.57	B=-91.57
+WFREG	broad-slope-is-not-passband-edge	OK	A=0.00	B=767.00
+WFREG	persistent-passband-resists-broad-signal	OK	A=-81.72	B=-81.61
+RESULT: PASS
+
+===== scripts/run_cw_native_regression.sh =====
+PASS message-20: CQ CQ DE IZ6NNH 599
+PASS message-30: CQ CQ DE IZ6NNH 599
+PASS message-22-qsb: CQ CQ DE IZ6NNH 599
+PASS realtime-text: CQ CQ DE IZ6NNH
+PASS realtime-first-commit: 1.639 s, final 27.1813 WPM
+PASS phase-jittered-carrier: CQ CQ DE IZ6NNH
+PASS noise-only: 
+PASS carrier-separation-25Hz
+CW native regression: all checks passed
+RESULT: PASS
+
+===== scripts/check_waterfall_hidpi_viewport.sh =====
+Waterfall HiDPI viewport source audit passed: 2/2 paths use device-pixel dimensions.
+RESULT: PASS
+
+===== scripts/check_waterfall_hidpi_labels.sh =====
+Waterfall HiDPI/label source audit: PASS
+RESULT: PASS
+
+===== scripts/check_ft4_adaptive_runtime.sh =====
+FT4 adaptive runtime source audit: PASS
+RESULT: PASS
+
+===== scripts/check_ft_wideband_sensitivity.sh =====
+FT8/FT4 wideband algorithm audit: PASS
+FT wideband sensitivity source audit: PASS
+RESULT: PASS
+
+===== python3 tools/audit_localization.py =====
+Canonical keys: 1736
+en: 1736 keys; canonical source dictionary
+it: 1736 keys; 1438 values differ from English; 298 intentionally/shared-or-pending English values
+fr: 1736 keys; 1427 values differ from English; 309 intentionally/shared-or-pending English values
+de: 1736 keys; 1422 values differ from English; 314 intentionally/shared-or-pending English values
+no: 1736 keys; 1425 values differ from English; 311 intentionally/shared-or-pending English values
+cs: 1736 keys; 1423 values differ from English; 313 intentionally/shared-or-pending English values
+Translation audit PASSED: parity, order, non-empty values, placeholders and retired-key checks are clean.
+RESULT: PASS
+
+===== python3 tools/audit_documentation.py =====
+Documentation audit PASSED: version 0.5.78, 72 localized HTML pages and six Qt Help projects are consistent.
+RESULT: PASS
+
+===== scripts/check_macos_portability.sh =====
+macOS portability preflight OK
+RESULT: PASS
+
+===== python3 -m py_compile tests/ft8/check_wideband_algorithms.py tools/update_ui_translations.py =====
+RESULT: PASS
+
+===== scripts/check_ft8_validated_baseline.sh =====
+RESULT: SKIPPED — requires a compiled MadModem executable and the reference WAV directory; neither is present in this container.
+
+===== CMake configure =====
+RESULT: BLOCKED — Qt5 development package/configuration is unavailable in this container. See wideband_cmake_configure.log.
+
+===== Same-WAV sensitivity benchmark =====
+RESULT: SKIPPED — no FT8/FT4 reference WAV files are present in the active runtime.

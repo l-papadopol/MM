@@ -1,0 +1,29 @@
+/* Custom CSS for Hamlib used by the Doxygen generated HTML pages. */
+
+/* Add padding around the Hamlib logo in the page header. */
+
+#projectlogo
+{
+    padding-right: 0.85em;
+    padding-left: 0.8em;
+    padding-top: 0.5em;
+    padding-bottom: 0.5em;
+
+}
+
+
+/* Align the Hamlib footer elements to the left and right and pad
+ * from the screen edge to align with other page padding. */
+
+.footer p.alignleft
+{
+    float: left;
+    font-size: 75%;
+    padding-left: 1.5em;
+}
+
+.footer p.alignright
+{
+    float: right;
+    padding-right: 0.85em;
+}
