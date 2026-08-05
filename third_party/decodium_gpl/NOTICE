@@ -1,0 +1,28 @@
+Decodium/Raptor reference material
+=================================
+
+MadModem v1.10 includes selected reference material and small C++/Qt ports
+inspired by the Decodium 3.0 "Shannon" source package supplied by the user.
+The relevant Decodium components are:
+
+- Network/NtpClient.cpp and Network/NtpClient.hpp: asynchronous UDP NTP client
+  with multiple servers, RTT filtering, median/IQR offset selection and HTTP
+  Date fallback.
+- Palettes/Raptor.pal and qmlitems/WaterfallItem.cpp: Raptor-style waterfall
+  colour mapping.
+
+Decodium is GPL-licensed; COPYING is included in this directory. MadModem is
+already distributed as a GPLv3 combined package because of the MSHV-derived FT8
+code. The files under port/ are adapted for MadModem's Qt Widgets application;
+the unmodified originals used as reference are kept under reference/.
+
+v1.12 additions
+---------------
+For the focused FT4/FT8 work, selected Decodium 3.0 Shannon FT4 reference
+source files are retained under:
+
+  third_party/decodium_gpl/reference/lib/ft4/
+  third_party/decodium_gpl/reference/lib/ft4_decode.f90
+
+FT2 reference material from the previous experimental timing-shell step is not
+part of the active v1.12 package.  MadModem v1.12 focuses on FT4 and FT8.
