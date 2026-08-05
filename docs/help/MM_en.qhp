@@ -1,0 +1,75 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<QtHelpProject version="1.0">
+    <namespace>org.madmodem.mm.0578.en</namespace>
+    <virtualFolder>doc</virtualFolder>
+    <filterSection>
+        <filterAttribute>MM</filterAttribute>
+        <filterAttribute>0.5.78</filterAttribute>
+        <filterAttribute>en</filterAttribute>
+        <toc>
+            <section title="MM Help" ref="en/index.html">
+                <section title="Quick start" ref="en/quickstart.html" />
+                <section title="Audio, CAT and PTT" ref="en/audio_cat_ptt.html" />
+                <section title="Waterfall and markers" ref="en/waterfall.html" />
+                <section title="Text modes" ref="en/text_modes.html" />
+                <section title="CW / Morse" ref="en/cw.html" />
+                <section title="FT4 / FT8" ref="en/ft8_ft4.html" />
+                <section title="Rotator" ref="en/rotator.html" />
+                <section title="Radio Telescope" ref="en/radio_telescope.html" />
+                <section title="Scheduler" ref="en/scheduler.html" />
+                <section title="Logbook and map" ref="en/logbook_map.html" />
+                <section title="Troubleshooting" ref="en/troubleshooting.html" />
+            </section>
+        </toc>
+        <keywords>
+            <keyword name="MM" ref="en/index.html" />
+            <keyword name="help" ref="en/index.html" />
+            <keyword name="manual" ref="en/index.html" />
+            <keyword name="quick start" ref="en/quickstart.html" />
+            <keyword name="setup" ref="en/quickstart.html" />
+            <keyword name="audio" ref="en/audio_cat_ptt.html" />
+            <keyword name="CAT" ref="en/audio_cat_ptt.html" />
+            <keyword name="PTT" ref="en/audio_cat_ptt.html" />
+            <keyword name="rig" ref="en/audio_cat_ptt.html" />
+            <keyword name="waterfall" ref="en/waterfall.html" />
+            <keyword name="marker" ref="en/waterfall.html" />
+            <keyword name="RTTY" ref="en/text_modes.html" />
+            <keyword name="PSK" ref="en/text_modes.html" />
+            <keyword name="CW" ref="en/cw.html" />
+            <keyword name="FT8" ref="en/ft8_ft4.html" />
+            <keyword name="FT4" ref="en/ft8_ft4.html" />
+            <keyword name="bearing" ref="en/ft8_ft4.html" />
+            <keyword name="sequencer" ref="en/ft8_ft4.html" />
+            <keyword name="TX guard" ref="en/ft8_ft4.html" />
+            <keyword name="rotator" ref="en/rotator.html" />
+            <keyword name="CatRotator" ref="en/rotator.html" />
+            <keyword name="Hamlib rotator" ref="en/rotator.html" />
+            <keyword name="azimuth" ref="en/rotator.html" />
+            <keyword name="elevation" ref="en/rotator.html" />
+            <keyword name="auto calibration" ref="en/rotator.html" />
+            <keyword name="peak search" ref="en/rotator.html" />
+            <keyword name="SPSA" ref="en/rotator.html" />
+            <keyword name="Nelder-Mead" ref="en/rotator.html" />
+            <keyword name="golden section" ref="en/rotator.html" />
+            <keyword name="inertia" ref="en/rotator.html" />
+            <keyword name="scheduler" ref="en/scheduler.html" />
+            <keyword name="rotator scheduler" ref="en/scheduler.html" />
+            <keyword name="logbook" ref="en/logbook_map.html" />
+            <keyword name="ADIF" ref="en/logbook_map.html" />
+            <keyword name="map" ref="en/logbook_map.html" />
+            <keyword name="Layers" ref="en/logbook_map.html" />
+            <keyword name="Maidenhead" ref="en/logbook_map.html" />
+            <keyword name="DXCC" ref="en/logbook_map.html" />
+            <keyword name="troubleshooting" ref="en/troubleshooting.html" />
+            <keyword name="Radio Telescope" ref="en/radio_telescope.html" />
+            <keyword name="radio telescope" ref="en/radio_telescope.html" />
+            <keyword name="sky scan" ref="en/radio_telescope.html" />
+            <keyword name="Alt-Az" ref="en/radio_telescope.html" />
+            <keyword name="CSV" ref="en/radio_telescope.html" />
+        </keywords>
+        <files>
+            <file>en/*.html</file>
+            <file>style.css</file>
+        </files>
+    </filterSection>
+</QtHelpProject>
