@@ -13633,21 +13633,14 @@ void MainWindow::handleFtScheduledTxDue(const QString &token,
     Q_UNUSED(nowUtcMs);
 
     const bool havePendingMessage = !m_pendingFt8TxMessage.trimmed().isEmpty();
-    const bool exactTokenMatch = (token == m_ft8PendingTxToken);
-    const bool boundaryMatch = (slotBoundaryUtcMs > 0 &&
-                                m_pendingFt8SlotBoundaryUtcMs > 0 &&
-                                qAbs(slotBoundaryUtcMs - m_pendingFt8SlotBoundaryUtcMs) <= 50);
+    const bool exactTokenMatch = (!m_ft8PendingTxToken.isEmpty() &&
+                                  token == m_ft8PendingTxToken);
 
-    if (!havePendingMessage || (!exactTokenMatch && !boundaryMatch)) {
-        appendLog(QString("FT timing: stale scheduler audio-start event ignored; token match=%1 boundary match=%2 pending message=%3.")
+    if (!havePendingMessage || !exactTokenMatch) {
+        appendLog(QString("FT timing: stale scheduler audio-start event ignored; exact token match=%1 pending message=%2.")
                       .arg(exactTokenMatch ? QStringLiteral("yes") : QStringLiteral("no"),
-                           boundaryMatch ? QStringLiteral("yes") : QStringLiteral("no"),
                            havePendingMessage ? QStringLiteral("yes") : QStringLiteral("no")));
         return;
-    }
-
-    if (!exactTokenMatch && boundaryMatch) {
-        appendLog("FT timing: audio-start token was already cleared, but slot boundary still matches; starting pending FT TX as recovery.");
     }
 
     QString rotatorWaitReason;
@@ -14406,16 +14399,21 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message, const QStri
         m_ftSession.retryRemaining = qBound(1, m_settings.ft8NoResponseRetryCount, 12);
     }
 
-    const int delayMs = millisecondsToNextFt8TxPeriod();
     const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
     const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
 
+    // Select the boundary once and derive every timer from that immutable arm
+    // target. Calling the selector twice near the safe-window threshold could
+    // otherwise produce a delay for one slot and a token for the next one.
     m_pendingFt8SlotBoundaryUtcMs = selectedFt8TxSlotBoundaryUtcMs();
+    const qint64 armNowUtcMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+    const int delayMs = static_cast<int>(qBound<qint64>(
+        0, m_pendingFt8SlotBoundaryUtcMs - armNowUtcMs, 60000));
     m_pendingFt8TxPlan.slotBoundaryUtcMs = m_pendingFt8SlotBoundaryUtcMs;
-    // Keep PTT/audio backend armed before the selected UTC slot, then prepend
-    // or skip samples so useful FT tones are anchored to the protocol start
-    // offset.  This gives the decoder/sequencer the short WSJT-X-style post-RX
-    // window while avoiding the old UI-timer/startImageTx delay.
+    // Keep PTT/audio backend armed for the selected UTC slot. If the request
+    // arrives during the still-silent protocol lead-in, prepend only the
+    // remaining silence. Once useful tones would already have begun, select a
+    // future slot; no FT protocol sample is skipped.
     const bool ft4Timing = (profile.shortLabel.compare(QStringLiteral("FT4"), Qt::CaseInsensitive) == 0);
     m_pendingFt8AudioTargetDelayMs = ft4Timing ? 300 : 500;
     // Do not key PTT before the RX slot has fully closed.  The FT waveform
@@ -14446,7 +14444,9 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message, const QStri
         }
     }
 
-    m_ft8PendingTxToken = QStringLiteral("%1:%2:%3")
+    const quint64 armGeneration = ++m_ft8TxArmGeneration;
+    m_ft8PendingTxToken = QStringLiteral("%1:%2:%3:%4")
+        .arg(armGeneration)
         .arg(m_pendingFt8SlotBoundaryUtcMs)
         .arg(m_pendingFt8TxTag)
         .arg(QString::number(qHash(m_pendingFt8TxMessage)));
@@ -16048,35 +16048,9 @@ QString MainWindow::selectedFt8TxMessage() const
 
 int MainWindow::millisecondsToNextFt8TxPeriod() const
 {
-    const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
-    const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
-    const int slotMs = qMax(1000, profile.slotMs);
-    const int cycleMs = qMax(slotMs * 2, profile.cycleMs);
-    const bool txFirst = (m_radioFt8TxFirst != nullptr) ? m_radioFt8TxFirst->isChecked() : true;
-    const QDateTime now = QDateTime::currentDateTimeUtc();
-    const QTime t = now.time();
-    const int msOfDay = (((t.hour() * 60 + t.minute()) * 60) + t.second()) * 1000 + t.msec();
-    const int cyclePosMs = msOfDay % cycleMs;
-    const int selectedStartMs = txFirst ? 0 : slotMs;
-    const int selectedEndMs = selectedStartMs + slotMs;
-    const bool insideSelectedWindow = (cyclePosMs >= selectedStartMs && cyclePosMs < selectedEndMs);
-
-    if (insideSelectedWindow) {
-        const int elapsedInSelectedMs = cyclePosMs - selectedStartMs;
-        const int lateStartCutoffMs = qMax(1, (slotMs * 3) / 4);
-        if (elapsedInSelectedMs < lateStartCutoffMs) {
-            // WSJT-X guiUpdate() allows late starts while fTR < 0.75.
-            // Start immediately and let the FT modulator skip the elapsed
-            // samples so the symbols remain UTC-slot aligned.
-            return 0;
-        }
-        return qMax(0, cycleMs - cyclePosMs + selectedStartMs);
-    }
-
-    if (cyclePosMs < selectedStartMs) {
-        return qMax(0, selectedStartMs - cyclePosMs);
-    }
-    return qMax(0, cycleMs - cyclePosMs + selectedStartMs);
+    const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+    const qint64 boundaryMs = selectedFt8TxSlotBoundaryUtcMs();
+    return static_cast<int>(qBound<qint64>(0, boundaryMs - nowMs, 60000));
 }
 
 qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs() const
@@ -16098,13 +16072,22 @@ qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs() const
     int deltaToBoundaryMs = 0;
     if (insideSelectedWindow) {
         const int elapsedInSelectedMs = cyclePosMs - selectedStartMs;
-        const int lateStartCutoffMs = qMax(1, (slotMs * 3) / 4);
-        if (elapsedInSelectedMs < lateStartCutoffMs) {
-            // Boundary is in the past for a WSJT-X-style late start.
-            // buildCurrentTxModulator() skips elapsed samples instead of
-            // delaying the whole FT frame by another period.
+        const bool ft4Timing = (profile.shortLabel.compare(QStringLiteral("FT4"), Qt::CaseInsensitive) == 0);
+        const int usefulToneDelayMs = ft4Timing ? 300 : 500;
+        constexpr int kBackendStartMarginMs = 120;
+        const int latestSafeImmediateArmMs = qMax(0, usefulToneDelayMs - kBackendStartMarginMs);
+
+        if (elapsedInSelectedMs <= latestSafeImmediateArmMs) {
+            // A complete frame can still start because the useful FT tones have
+            // not begun yet. The modulator inserts only the remaining leading
+            // silence; no protocol symbol is skipped.
             deltaToBoundaryMs = -elapsedInSelectedMs;
         } else {
+            // The old 0.5.78 code kept returning the already-expired boundary
+            // for 75% of the slot, even after waveform truncation had been
+            // forbidden. A missed-deadline retry therefore re-armed the same
+            // dead slot indefinitely. Once the safe pre-tone window is gone,
+            // select the next future TX period.
             deltaToBoundaryMs = cycleMs - cyclePosMs + selectedStartMs;
         }
     } else if (cyclePosMs < selectedStartMs) {
@@ -17113,6 +17096,39 @@ void MainWindow::beginScheduledFt8Transmit()
     if (!ftRotatorReadyForPendingTx(&rotatorWaitReason, &rotatorEtaMs)) {
         deferPendingFtTxForRotator(rotatorEtaMs, rotatorWaitReason);
         return;
+    }
+
+    // Validate the complete-frame deadline before appending a local TX row or
+    // keying PTT.  The audio-start path retains the same check as a second hard
+    // guard for backend-opening latency.
+    if (!m_pendingFt8Tune && m_pendingFt8SlotBoundaryUtcMs > 0) {
+        const qint64 targetMs = m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs;
+        const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+        const qint64 lateMs = nowMs - targetMs;
+        constexpr qint64 kFtStartDeadlineToleranceMs = 20;
+        if (lateMs > kFtStartDeadlineToleranceMs) {
+            const QString deferredMessage = m_pendingFt8TxMessage;
+            const QString deferredTag = m_pendingFt8TxTag;
+            appendLog(QString("FT timing: slot expired by %1 ms before PTT; deferring complete %2 frame '%3' to the next selected slot.")
+                          .arg(lateMs)
+                          .arg(activeFtProfile.shortLabel, deferredMessage));
+            if (m_ftSlotScheduler != nullptr) {
+                QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
+            }
+            m_ft8PendingTxArmed = false;
+            m_ft8PendingTxToken.clear();
+            m_pendingFt8PttPrearmed = false;
+            m_pendingFt8PttKeyed = false;
+            m_pendingFt8SlotBoundaryUtcMs = 0;
+            m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+            m_pendingFt8PreparedModulator.reset();
+            updateFt8TxBannerUi();
+            updateTxControlState();
+            QTimer::singleShot(0, this, [this, deferredMessage, deferredTag]() {
+                scheduleFt8SequencerMessage(deferredMessage, deferredTag);
+            });
+            return;
+        }
     }
 
     m_ftSession.lastTxWasTune = m_pendingFt8Tune;
@@ -21747,6 +21763,9 @@ void MainWindow::startFtPreparedSlotTransmit()
             m_ft8PendingTxToken.clear();
             m_pendingFt8PttPrearmed = false;
             m_pendingFt8PttKeyed = false;
+            m_pendingFt8SlotBoundaryUtcMs = 0;
+            m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+            m_pendingFt8PreparedModulator.reset();
             QTimer::singleShot(0, this, [this, deferredMessage, deferredTag]() {
                 scheduleFt8SequencerMessage(deferredMessage, deferredTag);
             });

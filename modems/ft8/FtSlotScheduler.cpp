@@ -139,9 +139,9 @@ void FtSlotScheduler::tick()
     const qint64 pttDueMs = boundary - static_cast<qint64>(pttLead);
     // WSJT-X Modulator::start() opens the audio stream at the TX slot and
     // emits pre-start silence until the protocol useful-tone delay (FT8 500 ms,
-    // FT4 300 ms).  Do the same here: the scheduler wakes the audio path at
-    // the UTC boundary; Ft8Transmitter then inserts silence or skips samples
-    // according to the exact current time.
+    // FT4 300 ms). Do the same here: the scheduler wakes the audio path at the
+    // selected boundary and Ft8Transmitter inserts only the remaining silence.
+    // An expired boundary is never repaired by skipping protocol samples.
     const qint64 audioDueMs = boundary;
 
     if (!m_prearmEmitted && nowMs >= pttDueMs) {

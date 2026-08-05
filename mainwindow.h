@@ -1967,6 +1967,7 @@ private:
     QThread *m_ftSlotThread = nullptr;
     bool m_ft8PendingTxArmed = false;
     QString m_ft8PendingTxToken;
+    quint64 m_ft8TxArmGeneration = 0;
     QString m_pendingFt8TxMessage;
     QString m_pendingFt8TxTag;
     bool m_pendingFt8Tune = false;
