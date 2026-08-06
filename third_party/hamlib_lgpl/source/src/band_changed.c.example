@@ -1,0 +1,55 @@
+// This is an example of what can be included in rig.c
+// Can customize during build
+// This will turn on the tuner for 160,80,60,17,2 and turn it off for all other bands
+// Eventually should improved this for external actions when
+// rigctld gets integrated as a service within Hamlib
+int rig_band_changed(RIG *rig, hamlib_bandselect_t band)
+{
+    // See band_changed.c
+    // Examples:
+    // rig_set_func(rig, RIG_VFO_CURR, RIG_FUNC_TUNER, 1);
+    // rig_set_func(rig, RIG_VFO_CURR, RIG_FUNC_TUNER, 0);
+    // value_t v;
+    // rig_set_ant(rig, RIG_VFO_CURR, 1, v);
+    switch (band)
+    {
+
+    case RIG_BANDSELECT_160M:
+    case RIG_BANDSELECT_80M:
+    case RIG_BANDSELECT_60M:
+    case RIG_BANDSELECT_17M:
+    case RIG_BANDSELECT_12M:
+        rig_set_func(rig, RIG_VFO_CURR, RIG_FUNC_TUNER, 1);
+        break;
+
+    case RIG_BANDSELECT_2200M:
+    case RIG_BANDSELECT_600M:
+    case RIG_BANDSELECT_40M:
+    case RIG_BANDSELECT_30M:
+    case RIG_BANDSELECT_20M:
+    case RIG_BANDSELECT_15M:
+    case RIG_BANDSELECT_10M:
+    case RIG_BANDSELECT_6M:
+        rig_set_func(rig, RIG_VFO_CURR, RIG_FUNC_TUNER, 0);
+	break;
+    // do nothing on the higher bands as the tuner is automatically turned off anyways
+    case RIG_BANDSELECT_WFM:
+    case RIG_BANDSELECT_MW:
+    case RIG_BANDSELECT_AIR:
+    case RIG_BANDSELECT_2M:
+    case RIG_BANDSELECT_1_25M:
+    case RIG_BANDSELECT_70CM:
+    case RIG_BANDSELECT_33CM:
+    case RIG_BANDSELECT_23CM:
+    case RIG_BANDSELECT_13CM:
+    case RIG_BANDSELECT_9CM:
+    case RIG_BANDSELECT_5CM:
+    case RIG_BANDSELECT_3CM:
+    case RIG_BANDSELECT_GEN:
+        break;
+    default:
+        rig_debug(RIG_DEBUG_ERR, "%s: Unknown band=%d\n", __func__, band);
+    }
+
+    return RIG_OK;
+}
