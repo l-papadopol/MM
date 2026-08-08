@@ -26,8 +26,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
         run: |
-          brew update
           brew install cmake ninja qt qtlocation hamlib pkgconf rsync dylibbundler
 
       - name: Build MadModem.app
