@@ -1,0 +1,138 @@
+MadModem 0.5.78 — FT decode deadline / period UI fix
+=====================================================
+
+Baseline
+--------
+MadModem_0_5_78_FT_LINEAR_SEQUENCER_FIX_FULL_SOURCE
+
+Evidence analysed
+-----------------
+1. Pasted text(20260806-145520).txt — FT8 live log.
+2. Pasted text (2).txt — FT4 live log.
+
+Confirmed observations from the supplied logs
+----------------------------------------------
+FT8
+- First live batch: decoder work 325 ms, but the first UI batch reported
+  950.6 ms. Subsequent UI batches were much shorter. The first lazy load of
+  the DXCC/prefix database was therefore occurring inside the first timed
+  display path.
+- Manual selections at 16:49:33.455 and 16:51:33.521 selected a station heard
+  in the second/odd period, therefore TX had to use the first/even period.
+  At the moment of the double click, the immediately valid first/even period
+  had already started by about 3.5 s. A complete FT8 frame could not be sent,
+  so the scheduler correctly chose the following first/even period and logged
+  waits of 26.544 s and 26.478 s.
+- FT8 gate jobs in the log: median 362 ms, maximum 407 ms.
+- FT8 boundary jobs in the log: median 1093.5 ms, maximum 1243 ms.
+- The old fixed topology used gate/boundary 4/10 workers on a 12-logical-CPU
+  machine.
+
+FT4
+- FT4 gate jobs: median 131 ms, maximum 134 ms.
+- FT4 boundary jobs: median 246.5 ms, maximum 269 ms.
+- Directed QSO messages were sometimes found only by the boundary pass after
+  TX had already started:
+    16:58:52.512 TX started; 16:58:53.109 IZ6NNH EA6BH +13 decoded.
+    16:59:07.512 TX started; 16:59:08.101 IZ6NNH EA6BH +09 decoded.
+    16:59:22.512 TX started; 16:59:23.085 IZ6NNH EA6BH RR73 decoded.
+- These were boundary-pass results. Merely adding CPU to that boundary pass
+  cannot make it precede the boundary at which it is launched.
+
+Changes
+-------
+1. FT period widget
+   - Removed the redundant label "I: ... II: ...".
+   - Removed the separate "UTC" caption.
+   - Kept the analogue period clock, digital clock and dynamic RX/TX/countdown
+     information.
+   - Renamed the group fallback from "UTC / FT periods" to "FT periods".
+
+2. Manual-period explanation
+   - The scheduler parity and full-frame rule are unchanged.
+   - When the operator double-clicks after the safe beginning of the selected
+     TX period, the armed banner explicitly says that the immediate TX period
+     has already started and shows the wait to the next valid period.
+   - The condition is calculated from the same FT8/FT4 cycle parity and safe
+     pre-tone window used by the scheduler; it is not inferred from a generic
+     long-wait threshold.
+
+3. First FT8 batch latency
+   - CtyCountryFile is preloaded before timed FT capture starts, so its first
+     construction no longer blocks the first decode-table presentation and
+     consumes the short manual-selection interval.
+
+4. Localisation
+   - Replaced the mixed Italian label "TX on correspondent frequenza" with
+     "TX sulla frequenza del corrispondente".
+   - Rewrote the related tooltip natively in IT/EN/FR/DE/NO/CZ.
+   - Added native text for the missed-current-period banner in all six UI
+     languages.
+   - Translation key parity: 1732 keys in each of six languages, no duplicates.
+
+5. Full CPU deadline budget
+   - Live FT gate and boundary jobs now use the whole logical CPU pool visible
+     to the process.
+   - On the logged machine the expected startup topology becomes FT pool=12,
+     reserved=0, gate/boundary=12/12. OSD remains independently bounded.
+   - Runtime resource observations remain telemetry only and cannot reduce the
+     live worker budget.
+
+6. FT4 QSO deadline pass
+   - The validated whole-passband FT4 candidate finder is unchanged; its source
+     invariant/hash still passes.
+   - During an active FT4 QSO only, if the normal early gate does not decode the
+     selected correspondent, one explicit second gate pass runs before the TX
+     boundary.
+   - This lane searches only around the selected RX/QSO frequency (±180 Hz), is
+     capped at 220 candidates, does not repeat candidates already attempted by
+     the wideband gate, starts only if the first gate used at most 260 ms, and
+     has a 520 ms total deadline budget.
+   - It is disabled immediately when the QSO completes, is stopped, is
+     abandoned, or CQ is selected.
+   - The full boundary pass remains available for extra weak wideband rows, but
+     the sequencer no longer has to rely on it for the current correspondent.
+
+7. FT4 log correction
+   - Retry log messages now use the active mode label (FT4/FT8) instead of the
+     hard-coded "FT8 retry armed" text.
+
+CPU and GPU scope
+-----------------
+- CPU: implemented full logical-CPU use for deadline-bound gate and boundary
+  decode work.
+- SIMD: the existing runtime backend remains unchanged. The supplied machine
+  reported SSE2, no AVX2/FMA.
+- GPU: no CUDA/OpenCL/Vulkan compute decoder exists in this source. OpenGL is
+  used for waterfall presentation only. No false claim of GPU decoding is made.
+  Adding a GPU backend would be a separate decoder project, not a scheduler
+  setting.
+
+Source audits executed
+----------------------
+PASS scripts/check_ft_linear_sequencer.py
+PASS scripts/check_ft4_adaptive_runtime.sh
+PASS scripts/check_macos_portability.sh
+PASS scripts/check_ft_atomic_tx_lifecycle.py
+PASS scripts/check_ft_wideband_sensitivity.sh
+PASS scripts/check_cw_temporal_epoch.sh
+PASS scripts/ci_release_version_guard.sh
+PASS translation key parity (1732 keys x 6 languages)
+
+Build limitation
+----------------
+A full Qt GUI compile/link was not executed in this container because Qt5/Qt6
+headers and development CMake packages are not installed. The package has not
+been claimed as radio-live validated. The source audits above validate the
+bounded changes and retained source invariants.
+
+Expected live diagnostics
+-------------------------
+- Startup on the logged PC:
+    FT pool=12, reserved=0, live gate/boundary/OSD=12/12/4
+- During an active FT4 QSO, when the first gate misses the target:
+    profiler pass count may become 2 and the early-stop reason records
+    "FT4 QSO deadline pass around <Hz> for <CALL>".
+- The targeted reply should normally reach the sequencer before the next TX
+  boundary. The later boundary pass may still add unrelated weak rows after
+  the boundary, but it is no longer the primary current-QSO decision path.

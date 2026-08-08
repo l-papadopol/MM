@@ -1,0 +1,86 @@
+MadModem 0.5.78 — FT caller queue + waterfall minimize/restore fix
+=================================================================
+
+BASE
+----
+MadModem_0_5_78_FT_DECODE_DEADLINE_FIX_FULL_SOURCE
+
+SCOPE
+-----
+1. Adds a session QSO counter to the FT UI.
+2. Adds an optional passive FIFO caller queue for direct calls to the local station.
+3. Keeps exactly one active FT QSO and exactly one sequencer/TX owner; no QSO interleaving and no multi-carrier TX were introduced.
+4. Removes the older parked-late-reply fallback so there is only one waiting-caller mechanism.
+5. Fixes the waterfall corruption seen after minimizing/restoring the application by discarding display-only FFT rows while presentation is suspended and resetting the OpenGL waterfall history on restore.
+
+CALLER QUEUE BEHAVIOUR
+----------------------
+- UI option: "Manage queued callers" / "Gestisci chiamanti in coda".
+- UI status: current-session completed QSO count and number of queued callers.
+- The option is explicit and persistent (FT8/queueCallers), default OFF.
+- Only messages directly addressed to the local callsign are considered.
+- The active correspondent is never duplicated in the queue.
+- Repeated decodes from a queued callsign update its latest decode/SNR/frequency without changing FIFO position.
+- Terminal RRR/RR73/73/contest acknowledgements remove a queued entry and cannot resurrect a completed QSO.
+- Calls recently completed within 120 seconds are not queued again.
+- Queue capacity: 12 callers.
+- Entries expire after five minutes without a fresh direct call.
+- Activation is FIFO and feeds the existing processFt8SequencerDecode() path; there is no second QSO state machine.
+- The same selectFt8OppositePeriodFromDecode() helper used by the normal sequencer selects the TX period.
+- While direct callers are queued, generic Evil/Auto-QSO CQ selection is held back so direct callers have priority.
+- Disabling the option clears the waiting queue.
+- Changing between FT8/FT4 or leaving the FT family clears the queue to prevent stale cross-mode callers.
+- STOP remains authoritative: the queue does not auto-start while the operator stop latch is active.
+- The session QSO counter increments only when completeFt8Qso() closes an active QSO; it resets with the application session, not on an FT8/FT4 mode change.
+
+ARCHITECTURAL CLEANUP
+---------------------
+The previous parked-late-reply mechanism was removed from the active source:
+- Ft8ParkedLateReply
+- shouldParkFt8LateReply()
+- parkFt8LateReply()
+- processParkedFt8LateReplies()
+- m_ft8ParkedLateReplies
+
+This avoids parallel fallback/recovery mechanisms. The caller queue is passive storage; the existing linear FT sequencer remains the only component that can own and advance a QSO.
+
+WATERFALL MINIMIZE/RESTORE DIAGNOSIS AND FIX
+--------------------------------------------
+The downward waterfall uses a persistent OpenGL circular texture and a queue of prepared FFT display rows. QOpenGLWidget presentation stops while the top-level window is minimized, but FFT rows could continue to be queued. On restore, the renderer drained multiple old rows per video frame, visually compressing seconds of FT activity into a short interval and producing the broad comb/squiggle artefact reported by the user.
+
+The fix is confined to WaterfallWidget::addLine():
+- if the widget is hidden or its top-level window is minimized, presentation-only rows are discarded;
+- pending GPU rows are cleared and the repaint timer is stopped;
+- GPU waterfall history is marked for clear/reset;
+- on the first visible row after restore, stale queued rows are discarded again and the circular texture starts from a clean history.
+
+No decoder audio, FT slot audio, CAT, sequencer, DSP candidate search or TX audio path is changed by this waterfall fix.
+
+STATIC SOURCE VALIDATION
+------------------------
+PASS: scripts/check_ft_caller_queue_waterfall_restore.py
+PASS: scripts/check_ft_linear_sequencer.py
+PASS: scripts/check_ft_atomic_tx_lifecycle.py
+PASS: scripts/check_macos_portability.sh
+PASS: scripts/check_ft4_adaptive_runtime.sh
+PASS: scripts/check_ft_wideband_sensitivity.sh
+PASS: scripts/check_waterfall_hidpi_viewport.sh
+PASS: scripts/check_waterfall_hidpi_labels.sh
+PASS: scripts/check_waterfall_wsjtx_flattening.sh
+PASS: scripts/ci_release_version_guard.sh
+
+Translation files IT/EN/FR/DE/NO/CZ have exact key parity and no duplicate queue/session keys.
+
+BUILD LIMITATION
+----------------
+A complete Qt GUI build/link was not performed in this container because the Qt development package/configuration (Qt5Config.cmake / qt5-config.cmake) is not installed. The statements above are source-level/static audits, not a claim of a complete GUI or radio live test.
+
+LIVE ACCEPTANCE TEST
+--------------------
+1. Enable "Gestisci chiamanti in coda".
+2. Complete one normal FT8 QSO and verify the session counter increments once.
+3. During an active QSO, receive direct calls from at least two other stations; verify both are retained once in FIFO order.
+4. Complete the active QSO; verify only the first queued caller becomes the single active QSO, then the next caller after completion.
+5. Verify Evil/Auto-QSO does not answer a generic CQ while a direct caller is queued.
+6. Press STOP with callers queued; verify no queued QSO starts until the operator explicitly resumes operation.
+7. During live FT reception, minimize MadModem for at least 20–30 seconds, then restore it. The waterfall should restart cleanly instead of rapidly replaying/compressing the minimized history. FT decoding should continue independently.

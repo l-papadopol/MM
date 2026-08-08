@@ -1,0 +1,204 @@
+/*! \mainpage Hamlib API Reference
+
+\section s1 Preface
+
+This document describes the Hamlib library Application Programming Interface
+(API) for this distribution.
+
+We attempt to document the complete API of the core modules of Hamlib, i.e.
+the API seen by end-user application developers.  You may navigate the
+documentation through the tabs at the top of this page.
+
+\note This documentation is a work in progress.
+
+Please report any problems to hamlib-developer@lists.sourceforge.net.
+
+\section s2 Typographic conventions
+
+While Doxygen applies its own typographic conventions to the document based on
+its own stylesheets, this section details Hamlib specific conventions.
+
+\subsection sub1 Key words
+
+Key words used in program source such as `TRUE` or `FALSE` are shown in a
+constant width font.
+
+\subsection sub2 Manual pages
+
+References to Unix style manual pages are shown as `man`(1).  The manual page
+entry is in a constant width font immediately followed by parentheses
+containing a numeral denoting the section of the manual the key word can be
+found.  For example, to view `printf`(3) use:
+
+   ```
+   man 3 printf
+   ```
+
+at a terminal prompt and the `man`(1) program will display the C library
+manual page for the `printf()` function.  On most Unix type systems there are
+two `printf` manual pages, one in section 1 (user commands) and the other in
+section 3 (library calls).
+
+To learn more about manual pages:
+
+   ```
+   man man-pages
+   ```
+
+is a good starting point.
+
+If you are using a system that does not have manual pages, many HTML formatted
+pages are available on the World Wide Web.
+[The Linux man-pages project](https://www.kernel.org/doc/man-pages/)
+has many manual pages online and is the source for most system and library call
+documentation found in every Linux distribution.  The
+[Debian project also hosts a large collection of manual pages](https://manpages.debian.org/)
+drawn from the packages in its distributions.
+
+\subsection sub3 Program names and options
+
+Program names and options to programs such as the Hamlib utilities are shown
+in a constant width font, e.g. `rigctl -v` the *verbose* option to the `rigctl`(1)
+Hamlib utility.
+
+\section txtfil Distributed information files
+
+These text files are distributed with the Hamlib package.
+
+\li Readme files: \subpage Rdme "General";
+\subpage Rdmebeta "Beta Tester";
+\subpage Rdmedevel "Developer";
+\subpage Rdmewin "MS Windows";
+\subpage Rdmeosx "Mac OS X";
+\subpage Rdmefrq "Frequency range changes";
+\subpage Rdmemulti "Multicast support";
+
+\li Other files: \subpage INSTALL;
+\subpage AUTHORS;
+\subpage COPYING;
+\subpage COPYING.LIB;
+\subpage LICENSE;
+\subpage NEWS;
+\subpage PLAN;
+\subpage THANKS;
+
+\section lnks Internet links
+
+\li http://hamlib.org &mdash; Main project with links to releases, Wiki, and documentation including list of supported equipment.
+\li https://github.com/Hamlib/Hamlib &mdash; GitHub repository via Web interface.
+\li https://sourceforge.net/projects/hamlib/ &mdash; SourceForge.net project page.
+\li https://sourceforge.net/p/hamlib/code/ &mdash; SourceForge Git repository via Web interface.
+
+\section slic Documentation License
+
+\li \subpage doclicense
+
+\section auth Authors
+
+\li St&eacute;phane Fillod, F8CFE, and Frank Singleton, VK3FCS and the Hamlib Group
+\li Documentation revisions by Martin Ewing, AA6E, Nate Bargmann, N0NB,
+Michael Black, W9MDB and many others.
+*/
+
+
+/* Subpage definitions follow. */
+
+/*! \page doclicense License for Documentation
+This documentation is free; you can redistribute it without
+any restrictions.  The modification or derived work must retain
+copyright and list all authors.
+
+This documentation is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+*/
+
+/*! \page Rdme  README (general)
+\verbinclude README.md
+*/
+
+/*! \page Rdmebeta README.betatester
+\verbinclude README.betatester
+*/
+
+/*! \page Rdmedevel README.developer
+\verbinclude README.developer
+*/
+
+/*! \page Rdmewin Cross-compiling Hamlib on Linux for MS Windows
+This page contains the `scripts/README.build-Windows` instructions and the
+`scripts/build-w32.sh` and `scripts/build-w64.h` files that describe
+cross-compiling Hamlib for MS Windows 32 and 64 bit versions on Debian
+GNU/Linux.
+\tableofcontents
+\section Build README.build-Windows
+\verbinclude README.build-Windows
+\subsection W32 The build-w32.sh script
+\htmlinclude build-w32.sh.html
+\latexinclude build-w32.sh.tex
+\subsection W64 The build-w64.sh script
+\htmlinclude build-w64.sh.html
+\latexinclude build-w64.sh.tex
+*/
+
+/*! \page Rdmeosx README.macos
+\verbinclude README.macos
+*/
+
+/*! \page Rdmefrq README.freqranges
+\verbinclude README.freqranges
+*/
+
+/*! \page Rdmemulti README.multicast
+\verbinclude README.multicast
+*/
+
+/*! \page INSTALL INSTALL
+\verbinclude INSTALL
+*/
+
+/*! \page AUTHORS AUTHORS
+\verbinclude AUTHORS
+*/
+
+/*! \page COPYING COPYING
+\verbinclude COPYING
+*/
+
+/*! \page COPYING.LIB COPYING.LIB
+\verbinclude COPYING.LIB
+*/
+
+/*! \page LICENSE LICENSE
+\verbinclude LICENSE
+*/
+
+/*! \page NEWS NEWS
+\verbinclude NEWS
+*/
+
+/*! \page PLAN PLAN
+\verbinclude PLAN
+*/
+
+/*! \page THANKS THANKS
+\verbinclude THANKS
+*/
+
+
+/* Defined API groups--sections included with addtogroup in sources. */
+
+/*! Define groups for Doxygen
+ * \defgroup rig Rig (transceiver) API
+ * \defgroup riglist Rig (radio) Model List
+ * \defgroup rig_internal Rig (transceiver) Internal API
+ * \defgroup rotator Rotator API
+ * \defgroup rotlist Rotator Model List
+ * \defgroup rot_internal Rotator Internal API
+ * \defgroup amplifier Amplifier API
+ * \defgroup amplist Amplifier Model list
+ * \defgroup amp_internal Amplifier Internal API
+ * \defgroup port Port data structure for accessing devices
+ * \defgroup utilities Utility Routines API
+ * \defgroup lib_internal Hamlib internals
+ */
