@@ -31,6 +31,10 @@ require "result.baselineDb = lowerEnvelopePolynomial" "$LEVELER" "per-row baseli
 require "const double flattenedDb = dbLine[x] - baselineDb" "$DSP" "baseline subtraction missing"
 require "const double rawValue = 10.0 * flattenedDb" "$DSP" "fixed WSJT-X-style colour zero/gain input missing"
 require "qPow(10.0, 0.015 * plotGain)" "$WIDGET" "WSJT-X exponential waterfall gain law missing"
+require "const std::size_t validBegin = 0U" "$LEVELER" "full-band waterfall leveling invariant missing"
+require "result.partialBand = false" "$LEVELER" "signal-dependent partial-band masking still possible"
+reject "highReference" "$LEVELER" "relative passband detector still active"
+reject "baseline[i] = dbLine[i]" "$LEVELER" "hard black outside-passband mask still active"
 reject "m_floorCandidates" "$LEVELER" "legacy temporal floor history still active"
 reject "maximumStep" "$LEVELER" "legacy temporal floor slew still active"
 

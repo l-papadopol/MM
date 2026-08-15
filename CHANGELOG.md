@@ -1,5 +1,15 @@
 # MadModem changelog
 
+## 0.5.79 — RTTY contest engine and stable full-band waterfall — 2026-08-15
+
+- Added reloadable external `rtty_rules` contest profiles with dynamic exchange parsing, macro sets, serial policy, duplicate rules, multiplier/scoring policy and official-rule metadata.
+- Added RTTY contest session UI, click-to-fill structured RX fields, CAT-derived band selection and live QSO/multiplier/score counters.
+- Added the bundled `RTTY_RULES_CATALOG_2026.txt`.
+- Added MSK144 `F Tol` presets at 50/100/200/500 Hz.
+- Promoted the stabilized linear FT8/FT4 sequencer and caller queue into the release baseline.
+- Removed signal-dependent waterfall passband masking. Quiet but valid receiver-edge noise now participates in full-band lower-envelope leveling instead of being forced to exact black; strong carriers therefore cannot make the visible waterfall narrow/widen.
+- Kept one FFT history row per DSP row and preserved OpenGL ring history across transient presentation changes.
+
 ## 0.5.78 — CW Bayesian posterior beam — 2026-08-05
 
 - Created a separate live-RX comparison branch from `CW_ADAPTIVE_BEAM`.

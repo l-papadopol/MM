@@ -1,6 +1,6 @@
 # MadModem documentation
 
-Current release: **MadModem 0.5.78**.
+Current release: **MadModem 0.5.79**.
 
 ## Current documents
 

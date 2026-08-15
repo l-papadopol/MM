@@ -8,8 +8,9 @@
  * "Flatten" path.
  *
  * WSJT-X does not run a slow full-band AGC over successive waterfall rows.
- * Each row is converted to dB, a lower-envelope polynomial is estimated from
- * ten frequency segments, and that baseline is subtracted before fixed
+ * Each row is converted to dB, a lower-envelope polynomial is estimated over
+ * the complete selected spectrum from ten frequency segments, and that baseline
+ * is subtracted before fixed
  * gain/zero colour mapping.  Consequently a receiver AGC step changes the
  * absolute input level without making the whole waterfall stay hot for many
  * seconds.
@@ -20,6 +21,8 @@ struct WaterfallLevelResult
     double floorDb = -110.0;
     double ceilingDb = -86.0;
 
+    // Full selected spectrum in 0.5.79.  These fields remain in the result
+    // for diagnostics/API compatibility; partialBand is always false.
     std::size_t validBegin = 0;
     std::size_t validEnd = 0; // inclusive
     bool partialBand = false;
@@ -36,13 +39,4 @@ public:
     WaterfallLevelResult update(const std::vector<double> &dbLine,
                                 double elapsedSeconds);
 
-private:
-    std::size_t m_validBegin = 0;
-    std::size_t m_validEnd = 0;
-    std::size_t m_candidateBegin = 0;
-    std::size_t m_candidateEnd = 0;
-    std::size_t m_lastBinCount = 0;
-    int m_partialConfirm = 0;
-    int m_fullConfirm = 0;
-    bool m_haveValidBand = false;
 };

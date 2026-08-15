@@ -43,6 +43,7 @@ mkdir -p "$DIST_DIR" "$FW_DIR"
 # Keep data files in the location expected by the current runtime code.
 mkdir -p "$APP_PATH/Contents/MacOS"
 [[ -f "$ROOT_DIR/cty.csv" ]] && cp -f "$ROOT_DIR/cty.csv" "$APP_PATH/Contents/MacOS/cty.csv"
+[[ -f "$ROOT_DIR/rtty_rules" ]] && cp -f "$ROOT_DIR/rtty_rules" "$APP_PATH/Contents/MacOS/rtty_rules"
 
 # First let Qt's official deploy tool do its normal pass.  Do NOT pass
 # -qmldir here: on Homebrew Qt6 it scans too broadly and tries to deploy

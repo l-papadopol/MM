@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <QHelpCollectionProject version="1.0">
     <assistant>
-        <title>Aide MM - Français 0.5.78</title>
+        <title>Aide MM - Français 0.5.79</title>
         <startPage>qthelp://org.madmodem.mm.0578.fr/doc/fr/index.html</startPage>
         <applicationIcon>../../icons/madmodem_32.png</applicationIcon>
     </assistant>

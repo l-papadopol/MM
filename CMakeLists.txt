@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.5.78
+    VERSION 0.5.79
     LANGUAGES CXX
 )
 
@@ -302,7 +302,7 @@ endif()
 # FFTW remain green; when FFTW3 is found the bridge sources can be promoted
 # without touching MainWindow or the UI layer.
 option(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER
-    "Build the experimental full MSHV DecoderQ65 FFTW-backed RX bridge. Disabled by default in the 0.5.78 recovery line."
+    "Build the experimental full MSHV DecoderQ65 FFTW-backed RX bridge. Disabled by default in the 0.5.79 recovery line."
     OFF)
 if(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER)
     find_path(MADMODEM_FFTW3_INCLUDE_DIR fftw3.h)
@@ -436,6 +436,8 @@ add_executable(MadModem
     modems/rtty/RttyDecoder.cpp
     modems/rtty/RttyMultiDecoder.h
     modems/rtty/RttyMultiDecoder.cpp
+    modems/rtty/contest/RttyContestRules.h
+    modems/rtty/contest/RttyContestRules.cpp
     modems/bpsk31/Bpsk31Decoder.h
     modems/bpsk31/Bpsk31Decoder.cpp
     modems/mfsk/MfskDecoder.h
@@ -600,6 +602,19 @@ target_compile_definitions(MadModem PRIVATE MADMODEM_SOURCE_DIR="${CMAKE_CURRENT
 # Link libraries
 # -------------------------------------------------------------------------
 
+
+# Copy the external, data-driven RTTY contest rule database next to the executable.
+# Contest rules are intentionally not compiled into MadModem: replacing this file
+# updates exchanges/macros/scoring without rebuilding the application.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" "${CMAKE_CURRENT_BINARY_DIR}/rtty_rules" COPYONLY)
+    add_custom_command(TARGET MadModem POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules"
+            "$<TARGET_FILE_DIR:MadModem>/rtty_rules"
+        COMMENT "Copying external rtty_rules next to MadModem"
+        VERBATIM)
+endif()
 
 # Copy optional country-files.com cty.csv next to the build executable.
 # Users can replace this file with a fresh download without rebuilding.
@@ -923,6 +938,14 @@ install(TARGETS MadModem
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     BUNDLE DESTINATION .
 )
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules")
+    if(APPLE)
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" DESTINATION "MadModem.app/Contents/MacOS")
+    else()
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" DESTINATION ".")
+    endif()
+endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv")
     if(APPLE AND MADMODEM_MACOS_BUNDLE)

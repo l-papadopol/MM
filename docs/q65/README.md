@@ -1,4 +1,4 @@
-# Q65 in MadModem 0.5.78
+# Q65 in MadModem 0.5.79
 
 Q65 is a developing RX/TX mode with selectable submode, period and decode depth.
 The full receive bridge uses GPL-compatible MSHV-derived decoder components and

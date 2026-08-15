@@ -1,6 +1,6 @@
 > Current CW comparison checkpoint: live Bayesian posterior beam; see `docs/CW_BAYESIAN_BEAM_DECODER_0_5_78.md`.
 
-# MadModem 0.5.78
+# MadModem 0.5.79
 ## All-in-one digital modem and station hub for amateur radio
 
 MadModem is a Qt/C++ amateur-radio application for Linux, Windows and macOS.

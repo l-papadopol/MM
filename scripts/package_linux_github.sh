@@ -21,7 +21,7 @@ mkdir -p "$PACKAGE_DIR"
 cp -a "$INSTALL_DIR/." "$PACKAGE_DIR/"
 
 # User-facing documentation/legal files for the binary package.
-for f in README.md RELEASE_NOTES.md CHANGELOG.md LICENSE.md COPYING AUTHORS.md THIRD_PARTY_NOTICES.md TRANSLATION_AUDIT.md cty.csv; do
+for f in README.md RELEASE_NOTES.md CHANGELOG.md LICENSE.md COPYING AUTHORS.md THIRD_PARTY_NOTICES.md TRANSLATION_AUDIT.md cty.csv rtty_rules; do
     [[ -f "$ROOT_DIR/$f" ]] && cp -f "$ROOT_DIR/$f" "$PACKAGE_DIR/"
 done
 

@@ -51,19 +51,57 @@ int main()
     constexpr std::size_t kBins = 768U;
     bool allOk = true;
 
-    WaterfallLeveler partialLeveler;
-    std::vector<double> partial(kBins, -126.0);
-    const auto active = noiseLine(344U, -82.0);
-    std::copy(active.begin(), active.end(), partial.begin() + 202);
-    const WaterfallLevelResult partialResult = partialLeveler.update(partial, 0.050);
-    const bool occupancyOk = partialResult.partialBand &&
-                             partialResult.validBegin < 220U &&
-                             partialResult.validEnd > 525U &&
-                             std::abs(flattenedAt(partialResult, partial, 50U)) < 1.0e-9;
-    printResult("partial-band-isolated-from-fit", occupancyOk,
-                static_cast<double>(partialResult.validBegin),
-                static_cast<double>(partialResult.validEnd));
-    allOk = occupancyOk && allOk;
+    // TS-790-style V/U/SHF audio can have a much quieter noise floor at the
+    // selected spectrum edges than in the centre.  A strong signal must never
+    // change the *displayed width* by making a relative passband detector turn
+    // those quiet-but-real bins into an exact black mask.
+    WaterfallLeveler quietEdgeLeveler;
+    std::vector<double> quietEdges = noiseLine(kBins, -86.0);
+    for (std::size_t i = 0; i < quietEdges.size(); ++i) {
+        const double edgeDistance = static_cast<double>(
+            std::min(i, quietEdges.size() - 1U - i));
+        if (edgeDistance < 150.0)
+            quietEdges[i] -= 24.0 * (1.0 - edgeDistance / 150.0);
+    }
+    const WaterfallLevelResult quietBefore =
+        quietEdgeLeveler.update(quietEdges, 0.050);
+
+    std::vector<double> quietEdgesWithCarrier = quietEdges;
+    for (std::size_t i = 378U; i <= 386U; ++i)
+        quietEdgesWithCarrier[i] += 55.0 -
+            2.0 * std::abs(static_cast<double>(i) - 382.0);
+    const WaterfallLevelResult quietAfter =
+        quietEdgeLeveler.update(quietEdgesWithCarrier, 0.050);
+
+    std::vector<double> leftBefore;
+    std::vector<double> rightBefore;
+    std::vector<double> leftAfter;
+    std::vector<double> rightAfter;
+    for (std::size_t i = 0; i < 80U; ++i) {
+        leftBefore.push_back(flattenedAt(quietBefore, quietEdges, i));
+        leftAfter.push_back(flattenedAt(quietAfter, quietEdgesWithCarrier, i));
+    }
+    for (std::size_t i = kBins - 80U; i < kBins; ++i) {
+        rightBefore.push_back(flattenedAt(quietBefore, quietEdges, i));
+        rightAfter.push_back(flattenedAt(quietAfter, quietEdgesWithCarrier, i));
+    }
+    const double leftBeforeMedian = median(leftBefore);
+    const double rightBeforeMedian = median(rightBefore);
+    const double leftAfterMedian = median(leftAfter);
+    const double rightAfterMedian = median(rightAfter);
+    const double edgeChange = std::max(std::abs(leftAfterMedian - leftBeforeMedian),
+                                       std::abs(rightAfterMedian - rightBeforeMedian));
+    const bool fullWidthOk = !quietBefore.partialBand && !quietAfter.partialBand &&
+                             quietBefore.validBegin == 0U &&
+                             quietAfter.validBegin == 0U &&
+                             quietBefore.validEnd == kBins - 1U &&
+                             quietAfter.validEnd == kBins - 1U &&
+                             leftBeforeMedian > 0.30 && rightBeforeMedian > 0.30 &&
+                             leftAfterMedian > 0.30 && rightAfterMedian > 0.30 &&
+                             edgeChange < 0.50;
+    printResult("quiet-edges-strong-signal-keeps-full-width", fullWidthOk,
+                edgeChange, flattenedAt(quietAfter, quietEdgesWithCarrier, 382U));
+    allOk = fullWidthOk && allOk;
 
     // A whole-receiver AGC step must disappear in the very next row.  This is
     // the key behaviour inherited from WSJT-X flat4 and intentionally replaces

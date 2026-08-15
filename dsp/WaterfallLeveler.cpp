@@ -24,34 +24,6 @@ double quantile(std::vector<double> values, double q)
     return values[index];
 }
 
-std::vector<double> smoothProfile(const std::vector<double> &input)
-{
-    if (input.empty()) return {};
-    const std::size_t radius = std::max<std::size_t>(3U, input.size() / 128U);
-    std::vector<double> prefix(input.size() + 1U, 0.0);
-    for (std::size_t i = 0; i < input.size(); ++i)
-        prefix[i + 1U] = prefix[i] + input[i];
-
-    std::vector<double> output(input.size(), 0.0);
-    for (std::size_t i = 0; i < input.size(); ++i) {
-        const std::size_t begin = i > radius ? i - radius : 0U;
-        const std::size_t end = std::min(input.size(), i + radius + 1U);
-        output[i] = (prefix[end] - prefix[begin]) /
-                    static_cast<double>(end - begin);
-    }
-    return output;
-}
-
-bool similarBand(std::size_t a0, std::size_t a1,
-                 std::size_t b0, std::size_t b1,
-                 std::size_t count)
-{
-    if (count == 0U) return false;
-    const std::size_t tolerance = std::max<std::size_t>(6U, count / 40U);
-    return (a0 > b0 ? a0 - b0 : b0 - a0) <= tolerance &&
-           (a1 > b1 ? a1 - b1 : b1 - a1) <= tolerance;
-}
-
 bool solveFiveByFive(std::array<std::array<double, 6>, 5> matrix,
                      std::array<double, 5> &solution)
 {
@@ -337,11 +309,14 @@ std::vector<double> lowerEnvelopePolynomial(const std::vector<double> &dbLine,
     // become artificially hot when the receiver response bends sharply.
     stabilizeOneSidedEdgeAnchors(dbLine, begin, end, baseline);
 
-    // Bins outside a detected receiver passband are mapped to their own level,
-    // hence to black after subtraction.  This avoids silent digital bins
-    // influencing the fit while retaining the hard sound-card edge.
-    for (std::size_t i = 0; i < begin; ++i) baseline[i] = dbLine[i];
-    for (std::size_t i = end + 1U; i < dbLine.size(); ++i) baseline[i] = dbLine[i];
+    // MadModem 0.5.79 deliberately keeps the complete selected spectrum in
+    // the colour-mapped history.  Older builds dynamically classified quiet
+    // outer bins as an invalid passband and then forced those bins to exactly
+    // zero after flattening.  A strong carrier could move that relative
+    // threshold and make the visible waterfall appear to narrow/widen.
+    // Full-band lower-envelope fitting avoids that signal-dependent geometry;
+    // genuinely quiet receiver edges remain dark according to their local
+    // noise statistics rather than becoming a hard black mask.
     return baseline;
 }
 
@@ -349,158 +324,33 @@ std::vector<double> lowerEnvelopePolynomial(const std::vector<double> &dbLine,
 
 void WaterfallLeveler::reset()
 {
-    m_validBegin = m_validEnd = 0U;
-    m_candidateBegin = m_candidateEnd = 0U;
-    m_lastBinCount = 0U;
-    m_partialConfirm = 0;
-    m_fullConfirm = 0;
-    m_haveValidBand = false;
+    // Per-row full-band normalization has no temporal state.
 }
 
 WaterfallLevelResult WaterfallLeveler::update(
     const std::vector<double> &dbLine, double elapsedSeconds)
 {
-    (void)elapsedSeconds; // WSJT-X-like flattening is intentionally per-row.
+    (void)elapsedSeconds; // flattening is intentionally per-row.
     WaterfallLevelResult result;
     if (dbLine.empty()) return result;
 
-    if (m_lastBinCount != dbLine.size()) {
-        reset();
-        m_lastBinCount = dbLine.size();
-    }
-
-    // Preserve MadModem's proven sound-card/passband detector.  WSJT-X flat4
-    // assumes meaningful bins across its selected range; live monitor devices
-    // can instead expose digitally silent regions that must not enter the fit.
-    const std::vector<double> profile = smoothProfile(dbLine);
-    const double highReference = quantile(profile, 0.90);
-    const double threshold = highReference - 24.0;
-    const std::size_t bridgeLimit = std::max<std::size_t>(3U, dbLine.size() / 96U);
-
-    std::size_t bestBegin = 0U;
-    std::size_t bestEnd = dbLine.size() - 1U;
-    std::size_t bestWidth = 0U;
-    std::size_t runBegin = 0U;
-    std::size_t lastAbove = 0U;
-    bool inRun = false;
-
-    for (std::size_t i = 0; i < profile.size(); ++i) {
-        if (profile[i] >= threshold) {
-            if (!inRun) {
-                inRun = true;
-                runBegin = i;
-            }
-            lastAbove = i;
-        } else if (inRun && i - lastAbove > bridgeLimit) {
-            const std::size_t runWidth = lastAbove - runBegin + 1U;
-            if (runWidth > bestWidth) {
-                bestWidth = runWidth;
-                bestBegin = runBegin;
-                bestEnd = lastAbove;
-            }
-            inRun = false;
-        }
-    }
-    if (inRun) {
-        const std::size_t runWidth = lastAbove - runBegin + 1U;
-        if (runWidth > bestWidth) {
-            bestWidth = runWidth;
-            bestBegin = runBegin;
-            bestEnd = lastAbove;
-        }
-    }
-
-    const std::size_t minimumUsefulWidth = std::max<std::size_t>(24U,
-        dbLine.size() / 10U);
-    bool candidatePartial = bestWidth >= minimumUsefulWidth &&
-                            bestWidth < (9U * dbLine.size()) / 10U;
-    double candidateContrastDb = 0.0;
-
-    if (candidatePartial) {
-        const std::size_t padding = std::max<std::size_t>(4U, dbLine.size() / 128U);
-        bestBegin = bestBegin > padding ? bestBegin - padding : 0U;
-        bestEnd = std::min(dbLine.size() - 1U, bestEnd + padding);
-
-        std::vector<double> inside(dbLine.begin() + static_cast<std::ptrdiff_t>(bestBegin),
-                                   dbLine.begin() + static_cast<std::ptrdiff_t>(bestEnd + 1U));
-        std::vector<double> outside;
-        outside.reserve(dbLine.size() - inside.size());
-        outside.insert(outside.end(), dbLine.begin(),
-                       dbLine.begin() + static_cast<std::ptrdiff_t>(bestBegin));
-        outside.insert(outside.end(),
-                       dbLine.begin() + static_cast<std::ptrdiff_t>(bestEnd + 1U),
-                       dbLine.end());
-        const double insideFloor = quantile(inside, 0.20);
-        const double outsideMedian = outside.empty() ? insideFloor : quantile(outside, 0.50);
-        candidateContrastDb = insideFloor - outsideMedian;
-        if (candidateContrastDb < 9.0) candidatePartial = false;
-    }
-
-    if (candidatePartial) {
-        if (m_partialConfirm == 0 ||
-            !similarBand(bestBegin, bestEnd, m_candidateBegin, m_candidateEnd,
-                         dbLine.size())) {
-            m_candidateBegin = bestBegin;
-            m_candidateEnd = bestEnd;
-            m_partialConfirm = candidateContrastDb >= 15.0 ? 4 : 1;
-        } else {
-            ++m_partialConfirm;
-        }
-        m_fullConfirm = 0;
-
-        if (m_partialConfirm >= 4) {
-            if (!m_haveValidBand) {
-                m_validBegin = m_candidateBegin;
-                m_validEnd = m_candidateEnd;
-                m_haveValidBand = true;
-            } else if (similarBand(m_candidateBegin, m_candidateEnd,
-                                   m_validBegin, m_validEnd, dbLine.size())) {
-                m_validBegin = (7U * m_validBegin + m_candidateBegin) / 8U;
-                m_validEnd = (7U * m_validEnd + m_candidateEnd) / 8U;
-            }
-        }
-    } else {
-        m_partialConfirm = 0;
-        if (m_haveValidBand) {
-            const std::size_t begin = std::min(m_validBegin, dbLine.size() - 1U);
-            const std::size_t end = std::max(begin,
-                std::min(m_validEnd, dbLine.size() - 1U));
-            std::vector<double> inside(dbLine.begin() + static_cast<std::ptrdiff_t>(begin),
-                                       dbLine.begin() + static_cast<std::ptrdiff_t>(end + 1U));
-            std::vector<double> outside;
-            outside.insert(outside.end(), dbLine.begin(),
-                           dbLine.begin() + static_cast<std::ptrdiff_t>(begin));
-            outside.insert(outside.end(),
-                           dbLine.begin() + static_cast<std::ptrdiff_t>(end + 1U),
-                           dbLine.end());
-            const double insideFloor = quantile(inside, 0.20);
-            const double outsideMedian = outside.empty() ? insideFloor : quantile(outside, 0.50);
-            if (insideFloor - outsideMedian < 5.0) ++m_fullConfirm;
-            else m_fullConfirm = 0;
-            if (m_fullConfirm >= 200) {
-                m_haveValidBand = false;
-                m_fullConfirm = 0;
-            }
-        }
-    }
-
-    std::size_t validBegin = 0U;
-    std::size_t validEnd = dbLine.size() - 1U;
-    if (m_haveValidBand) {
-        validBegin = std::min(m_validBegin, dbLine.size() - 1U);
-        validEnd = std::max(validBegin,
-            std::min(m_validEnd, dbLine.size() - 1U));
-    }
+    // 0.5.79 invariant: display geometry never depends on instantaneous signal
+    // amplitude.  Always level the complete selected spectrum.  The former
+    // relative passband detector used the row's 90th percentile as a reference;
+    // on radios with a steep/quiet VHF-UHF audio edge (for example TS-790) a
+    // strong signal raised that reference enough to reclassify edge noise as
+    // "outside" the passband.  Those bins were then forced to flattened value
+    // zero, producing the apparent horizontal accordion/narrowing effect.
+    const std::size_t validBegin = 0U;
+    const std::size_t validEnd = dbLine.size() - 1U;
 
     result.baselineDb = lowerEnvelopePolynomial(dbLine, validBegin, validEnd);
-    std::vector<double> representative(result.baselineDb.begin() +
-                                           static_cast<std::ptrdiff_t>(validBegin),
-                                       result.baselineDb.begin() +
-                                           static_cast<std::ptrdiff_t>(validEnd + 1U));
+    std::vector<double> representative(result.baselineDb.begin(),
+                                       result.baselineDb.end());
     result.floorDb = quantile(representative, 0.50);
     result.ceilingDb = result.floorDb + 24.0;
     result.validBegin = validBegin;
     result.validEnd = validEnd;
-    result.partialBand = m_haveValidBand;
+    result.partialBand = false;
     return result;
 }

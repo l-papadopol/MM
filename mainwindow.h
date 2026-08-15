@@ -13,6 +13,7 @@
 #include "modems/sstv/SstvDecoder.h"
 #include "modems/rtty/RttyDecoder.h"
 #include "modems/rtty/RttyMultiDecoder.h"
+#include "modems/rtty/contest/RttyContestRules.h"
 #include "modems/bpsk31/Bpsk31Decoder.h"
 #include "modems/mfsk/MfskDecoder.h"
 #include "modems/cw/CwDecoder.h"
@@ -80,6 +81,7 @@ class QMenu;
 class RttyScopeWidget;
 class QTabWidget;
 class QVBoxLayout;
+class QGridLayout;
 class QCheckBox;
 class QCloseEvent;
 class LedVuMeterWidget;
@@ -1197,6 +1199,27 @@ private:
      * @brief Highlights callsigns in one RX terminal using logbook duplicate state.
      */
     void highlightCallsignsInTerminal(QPlainTextEdit *terminal);
+
+    // Data-driven RTTY contest mode.  Contest-specific exchange, macros and
+    // scoring rules are loaded from the external rtty_rules file; no contest
+    // identity is hard-coded into the runtime sequencer/UI path.
+    QString rttyContestRulesPath() const;
+    bool loadRttyContestRules(bool userRequested = false);
+    const RttyContestProfile *currentRttyContestProfile() const;
+    void refreshRttyContestUi();
+    void rebuildRttyContestFieldEditors();
+    void updateRttyContestBandFromCat();
+    void refreshRttyContestScore();
+    void ensureRttyContestSession(bool forceNew = false);
+    int nextRttyContestSerialFromLog(const RttyContestProfile &profile) const;
+    QString rttyContestFieldValue(const RttyContestFieldRule &field, bool sent) const;
+    QString rttyContestExchange(bool sent) const;
+    QString expandRttyContestTemplate(const QString &source) const;
+    void processRttyContestRxLine(const QString &line);
+    bool fillRttyContestFieldFromClick(QPlainTextEdit *terminal, int clickPos, const QString &text);
+    bool rttyContestConditionMatches(const QJsonObject &condition,
+                                     const LogbookEntry *entry = nullptr,
+                                     const QString &dxCall = QString()) const;
     void refreshFt8DecodeWorkedHighlights();
     bool isFtCallBlacklisted(const QString &call) const;
     bool isFtCallWatched(const QString &call) const;
@@ -1626,6 +1649,33 @@ private:
     QPushButton *m_btnRttySend = nullptr;
     QList<QPushButton *> m_rttyMacroButtons;
     QsoFormWidgets *m_rttyQsoForm = nullptr;
+
+    // RTTY Contest Engine UI/state.  The rules file is authoritative for the
+    // selected contest; these widgets only expose generic rule fields.
+    RttyContestRules m_rttyContestRules;
+    QCheckBox *m_chkRttyContestMode = nullptr;
+    QComboBox *m_cmbRttyContest = nullptr;
+    QPushButton *m_btnRttyContestReloadRules = nullptr;
+    QPushButton *m_btnRttyContestNewSession = nullptr;
+    QSpinBox *m_spinRttyContestSerial = nullptr;
+    QLabel *m_lblRttyContestSerial = nullptr;
+    QLabel *m_lblRttyContestRuleStatus = nullptr;
+    QLabel *m_lblRttyContestSessionStatus = nullptr;
+    QLabel *m_lblRttyContestExchange = nullptr;
+    QLabel *m_lblRttyContestBandSource = nullptr;
+    QLabel *m_lblRttyContestSessionQsoCount = nullptr;
+    QLabel *m_lblRttyContestQsoCount = nullptr;
+    QLabel *m_lblRttyContestMultiplierCount = nullptr;
+    QLabel *m_lblRttyContestPoints = nullptr;
+    QLabel *m_lblRttyContestTotal = nullptr;
+    QWidget *m_rttyContestFieldsHost = nullptr;
+    QGridLayout *m_rttyContestFieldsLayout = nullptr;
+    QHash<QString, QLineEdit *> m_rttyContestSentFieldEdits;
+    QHash<QString, QLineEdit *> m_rttyContestReceivedFieldEdits;
+    QString m_rttyContestLastRxLine;
+    QString m_rttyContestActiveSessionId;
+    QDateTime m_rttyContestActiveSessionStartedUtc;
+    int m_rttyContestSessionQsoCount = 0;
 
     QWidget *m_pageBpsk31Settings = nullptr;
     QComboBox *m_cmbBpsk31Variant = nullptr;

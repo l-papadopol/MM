@@ -1,4 +1,14 @@
-# MadModem 0.5.78 — current source checkpoint
+# MadModem 0.5.79 — current source checkpoint
+
+## 0.5.79 release focus
+
+- Added the external, reloadable `rtty_rules` contest engine and bundled 2026 RTTY contest catalog. Contest exchange fields, macros, serial policy, duplicate scope, multipliers and scoring are data-driven rather than hard-coded per contest.
+- Added RTTY contest click-to-fill fields, CAT-derived band handling, transactional serial numbering and live session/contest score display.
+- Added MSK144 `F Tol` presets (50/100/200/500 Hz).
+- Consolidated the linear FT8/FT4 sequencer, caller queue and fixed live decode resource budget from the late 0.5.78 stabilization work.
+- Fixed the waterfall "accordion" effect at quiet V/U/SHF receiver edges: display leveling now always uses the complete selected spectrum and never converts a signal-dependent partial-band estimate into a hard black mask.
+- Preserved the OpenGL stable-scroll/minimize handling: GUI presentation state cannot change waterfall time scale or reset decoder state.
+
 
 ## CW live Bayesian posterior beam comparison branch
 
