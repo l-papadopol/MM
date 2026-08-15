@@ -1,0 +1,15 @@
+<!DOCTYPE html><html lang='it'><head><meta charset='utf-8'><title>CW / Morse</title><link rel='stylesheet' href='../style.css'></head><body>
+<h1>CW / Morse</h1>
+<div class='nav'><strong>Contenuti:</strong> <a href='index.html'>Guida MM</a> <a href='quickstart.html'>Avvio rapido</a> <a href='audio_cat_ptt.html'>Audio, CAT e PTT</a> <a href='waterfall.html'>Waterfall e marker</a> <a href='text_modes.html'>Modi testuali</a> <a href='cw.html'>CW / Morse</a> <a href='ft8_ft4.html'>FT4 / FT8</a> <a href='rotator.html'>Rotore</a> <a href='radio_telescope.html'>Radio Telescope</a> <a href='scheduler.html'>Pianificatore</a> <a href='logbook_map.html'>Registro QSO e mappa</a> <a href='troubleshooting.html'>Risoluzione problemi</a></div>
+<h2>CW / Morse</h2>
+<p>Il CW usa due ricevitori indipendenti a tono esatto centrati sui marker del waterfall. Il clic sinistro seleziona RX A verde; il clic destro abilita o sintonizza RX B blu. Ogni ricevitore ha terminale, pulsante Clear, WPM Auto/manuale, AFC, filtro e modello temporale propri.</p>
+<p><strong>Decoder nativo Bayesiano:</strong> la portante selezionata viene portata in banda base complessa e trasformata in evidenza morbida MARK/SPACE ogni millisecondo. Ogni ipotesi mantiene posteriori temporali separati per punto, linea e pause fra elementi, caratteri e parole; SNR, coerenza, centratura, QSB e probabilità del discriminatore aggiornano il log-posterior. Un breve notch QSB può essere trattato come erasure e ricucito prima della decisione Morse; il WPM resta un debole riferimento e un valore derivato per la UI.</p>
+<p><strong>QSB:</strong> un crollo d'ampiezza poco affidabile viene trattato come incertezza, non come pausa certa immediata. Il decoder può ritardare la decisione, ma non può garantire la ricostruzione di informazione completamente sommersa da un fade profondo.</p>
+<p><strong>Lane delle portanti:</strong> lo scanner dell'intera banda mostra sul waterfall le portanti persistenti. Non stampa lettere decodificate. Il testo confermato scorre nei pannelli RX A/RX B.</p>
+<p><strong>Waterfall:</strong> il riferimento usa la banda audio realmente occupata; un ingresso parziale o una portante stretta forte non rende arancione tutto lo schermo. La barra zoom/pan è sotto le label di frequenza.</p>
+<h2>Diagnostica e registrazione</h2>
+<p>La vista Diagnostica è passiva e mostra inviluppi misurati, soglie, probabilità MARK, incertezza QSB, prominenza della portante, coerenza e uscita reale del filtro. La GUI non controlla il decoder.</p>
+<p>Usare <b>File → Avvia registrazione audio RX…</b> (<code>Ctrl+Shift+R</code>) per registrare lo stesso flusso WAV mono normalizzato usato da waterfall e decoder.</p>
+<p>La regressione nativa verifica messaggi puliti a 20/30 WPM, WPM iniziale errato, brevi notch QSB, soppressione del solo rumore e due lane distanti 25 Hz. I segnali reali in aria restano decisivi.</p>
+<div class='footer'>MadModem 0.5.79 — Qt Help — Italiano</div>
+</body></html>

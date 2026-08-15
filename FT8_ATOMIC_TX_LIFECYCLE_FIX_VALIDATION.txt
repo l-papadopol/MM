@@ -1,0 +1,144 @@
+MadModem 0.5.78 — FT8/FT4 atomic sequencer TX lifecycle fix
+Validation date: 2026-08-05
+
+BASELINE
+========
+MadModem_0_5_78_CW_TEMPORAL_EPOCH_FULL_SOURCE
+
+WHY THE ATOMIC SEQUENCER WAS INTRODUCED
+=======================================
+The atomic change was not originally intended to alter the FT protocol or create
+repeated TX attempts. It solved a real sequencing race at decoder batch end:
+
+- Ft8RxDecoder delivered decodeReady rows one at a time.
+- MainWindow could mutate the QSO state and arm a response after the first row,
+  before the remaining rows from the same decoder job were evaluated.
+- Gate/boundary or SIC output could contain duplicate representations of the
+  same message/frequency.
+- Auto-QSO CQ selection waited on a separate 420 ms timer, sometimes reaching
+  the selected UTC TX boundary late.
+
+The retained atomic design is therefore:
+
+- decodeBatchStarted/decodeBatchFinished bracket one decoder result;
+- rows are coalesced for sequencer purposes;
+- one best transition is evaluated against one immutable QSO context;
+- at most one sequencer decision is applied per completed batch.
+
+The batch logic is still present and is not removed by this correction.
+
+THE SEPARATE CHANGE THAT EXPOSED THE BUG
+=======================================
+The same checkpoint also added the independent safety rule "never transmit a
+truncated FT waveform": skipInitialMilliseconds() stopped being used for FT8/FT4.
+A late frame must be deferred intact to a later selected period.
+
+The scheduling helpers, however, still implemented the old truncation policy:
+inside the selected TX period they returned delay=0 and the already-past slot
+boundary until 75 percent of the period had elapsed. That was valid only while
+the modulator was allowed to skip the elapsed beginning of the waveform.
+
+ROOT CAUSE OF THE LIVE LOOP
+===========================
+The live log reproduced the complete loop with the rotator disconnected:
+
+1. TX was requested 1181 ms after the selected FT8 boundary.
+2. The old slot helper returned the same boundary in the past and delay=0.
+3. The complete-frame guard correctly rejected the late waveform.
+4. The retry called scheduleFt8SequencerMessage() again.
+5. The helper again selected the same dead boundary because the period was still
+   inside the historical 75-percent late-start window.
+6. The token was deterministic (boundary + tag + message hash), so every re-arm
+   of the same dead slot recreated the same token.
+7. Queued scheduler signals and multiple QTimer watchdogs therefore still looked
+   current and amplified the loop.
+8. handleFtScheduledTxDue() also accepted a cleared/mismatched token whenever the
+   boundary matched, explicitly resurrecting obsolete events.
+9. The deadline check happened after beginScheduledFt8Transmit() had appended a
+   local TX row and attempted PTT pre-arm, producing the visible message flood
+   and short PTT attempts.
+
+This is a lifecycle mismatch between the old late-start policy and the new
+no-truncation policy. It is not caused by the atomic decoder batch itself.
+
+CORRECTIONS
+===========
+1. Current-slot transmission is allowed only while the useful tones have not
+   begun and enough backend-start margin remains:
+   - FT8: current boundary allowed through 380 ms after boundary;
+   - FT4: current boundary allowed through 180 ms after boundary.
+   The remaining leading silence is prepended and no protocol sample is skipped.
+
+2. Once that safe pre-tone window has passed, the scheduler selects the next
+   strictly future selected TX period. A deadline retry cannot select the same
+   expired boundary again.
+
+3. The selected boundary is calculated once per arm; delay, token and watchdog
+   all refer to that immutable target. Crossing the safe-window threshold during
+   scheduling cannot mix the delay of one slot with the boundary of another.
+
+4. Every TX arm receives a monotonic generation number. The generation is part
+   of the token, so an old queued signal or watchdog cannot impersonate a later
+   arm with the same message, tag and boundary.
+
+5. txAudioStartDue now requires an exact non-empty token match. Boundary-only
+   recovery has been removed. pendingStateChanged(false) already preserves the
+   valid token until the queued audio-start event is processed, so the fallback
+   was both unnecessary and unsafe.
+
+6. The complete-frame deadline is checked before appendFt8LocalTxRow() and before
+   PTT pre-arm. An expired event therefore cannot create a fake TX row or key the
+   radio briefly.
+
+7. The existing audio-start deadline check remains as a second hard guard for
+   latency while opening the output backend.
+
+UNCHANGED
+=========
+- Atomic decoder batch start/finish signals.
+- One best sequencer transition per decoder batch.
+- Duplicate decode coalescing.
+- Auto-QSO batch-end CQ ranking.
+- FT8/FT4 encoding, symbols, frequencies and complete-frame policy.
+- RX decoder algorithms and sensitivity paths.
+- CW receive/transmit code.
+- AudioEngine, waterfall, CAT implementation and rotator guard.
+
+SOURCE VALIDATION
+=================
+Executed:
+  scripts/check_ft_atomic_tx_lifecycle.py
+
+PASS: atomic decode-batch decision retained
+PASS: old 1181 ms late request reproduces expired-boundary selection
+PASS: corrected scheduler selects the next future FT8 slot
+PASS: only the pre-tone safe window can use the current boundary
+PASS: one immutable boundary drives delay, token and watchdog
+PASS: TX arm token has a monotonic generation
+PASS: stale boundary-only recovery removed
+PASS: expired slot is rejected before local TX row and PTT
+
+The full Qt application was not linked in this container because Qt development
+packages are unavailable. This report therefore does not claim a successful
+Windows/Linux GUI runtime test.
+
+REQUIRED LIVE ACCEPTANCE
+========================
+First keep PTT disabled:
+
+1. Press TX/CQ 1-10 seconds inside the selected TX period.
+   Expected: exactly one arm for the next future selected period; no repeated
+   local TX rows, no watchdog storm and no audio-deadline loop.
+
+2. Press TX within approximately the first 200 ms after a selected boundary.
+   Expected: at most one current-slot start with remaining leading silence and
+   no skipped FT samples.
+
+3. Press STOP while armed.
+   Expected: old queued events log as stale and never restart TX.
+
+4. Repeat with PTT enabled only after tests 1-3 pass.
+   Expected: one PTT transition for one valid slot.
+
+5. On a busy RX slot, confirm multiple decode rows are displayed but the atomic
+   sequencer applies at most one QSO transition.
