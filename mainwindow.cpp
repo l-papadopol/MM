@@ -240,6 +240,12 @@ private:
 
 namespace {
 
+QString rttyContestAdifKey(const QString &direction, const QString &fieldId)
+{
+    return QStringLiteral("APP_MADMODEM_RTTY_%1_%2")
+        .arg(direction.trimmed().toUpper(), fieldId.trimmed().toUpper());
+}
+
 void hardenPopupMenuForFullscreen(QMenu *menu)
 {
     if (menu == nullptr) {
@@ -4304,12 +4310,6 @@ void MainWindow::setupModeMenu()
 }
 
 namespace {
-QString rttyContestAdifKey(const QString &direction, const QString &fieldId)
-{
-    return QStringLiteral("APP_MADMODEM_RTTY_%1_%2")
-        .arg(direction.trimmed().toUpper(), fieldId.trimmed().toUpper());
-}
-
 QString rttyContestCleanToken(QString token)
 {
     token = token.trimmed().toUpper();

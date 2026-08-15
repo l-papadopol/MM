@@ -182,3 +182,6 @@ one-row presentation and WSJT-X-style per-row flattening remain unchanged.
 
 Audio capture, CW TX, CAT/PTT, rotator, logbook, maps, multilingual UI and all
 other modem paths are unchanged.
+
+### 0.5.79 GitHub build fix
+- Fixed a C++ declaration-order regression in `mainwindow.cpp`: `rttyContestAdifKey()` is now defined before the RTTY contest log code that uses it. This restores compilation on both Qt5/GCC Linux and Qt6/AppleClang macOS ARM64 without changing runtime behavior.
