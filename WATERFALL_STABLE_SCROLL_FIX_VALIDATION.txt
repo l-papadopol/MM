@@ -1,0 +1,33 @@
+MadModem 0.5.78 — waterfall stable-scroll correction
+
+Observed symptom
+----------------
+The waterfall could empty/refill or visually stretch/compress ("accordion") even when the application had not been minimized.
+
+Root causes in WaterfallWidget
+------------------------------
+1. resizeGL() unconditionally marked the OpenGL circular texture for recreation and clearing. Qt layout changes can generate resizeGL() while the application remains fully visible, so a transient height change erased the waterfall history and the screen then refilled from an empty texture.
+2. uploadPendingGpuRows() used a queue-depth-dependent 1/2/4-row upload budget. The number of historical FFT rows advanced per paint frame therefore changed with ordinary GUI scheduling jitter, producing a variable visual time scale.
+3. The previous minimize/restore fix also reset m_gpuWriteRow and cleared the GL history on restore. That was unnecessarily destructive.
+
+Correction
+----------
+- Normal resizeGL() no longer recreates or clears the GPU circular history.
+- ensureGpuTexture() recreates the texture only on first allocation or a real FFT/frequency-bin width change; widget-height changes are presentation-only.
+- Hidden/minimized presentation rows are discarded, but the existing GL texture and m_gpuWriteRow are preserved.
+- On restore, live rows continue from the existing ring position.
+- Every paint drains all currently queued FFT rows in FIFO order. One DSP FFT row therefore always advances the history by exactly one row; GUI queue depth no longer changes the waterfall time scale.
+- Decoder/audio paths are untouched.
+
+Expected live behavior
+----------------------
+- No spontaneous black/empty band followed by refilling when the window layout changes.
+- No alternating compression/expansion of the waterfall during normal reception.
+- Minimizing the application freezes display history; restoring continues from that history without replaying a backlog and without clearing it.
+- Changing FFT width/frequency-bin count or an explicit waterfall clear may still intentionally recreate/clear the texture.
+
+Validation performed in this environment
+----------------------------------------
+- Source audit script updated and executed successfully.
+- Existing macOS portability preflight executed successfully.
+- No full Qt GUI build was performed in this Linux container because the required Qt development package/configuration is unavailable here.

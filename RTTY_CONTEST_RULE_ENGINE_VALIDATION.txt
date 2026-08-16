@@ -1,0 +1,113 @@
+MadModem 0.5.79 — RTTY Contest Rule Engine
+Validation report — 2026-08-15
+
+SCOPE
+-----
+Implemented an RTTY Contest Engine whose contest-specific behaviour is loaded from the external file named exactly "rtty_rules" placed next to the MadModem executable. Contest names, exchanges, macros, serial policy, conditional fields, dupe scope, contest periods, QSO-point rules, multiplier definitions and score formula are data-driven. No contest-name branch was added to the runtime C++ path.
+
+ARCHITECTURE
+------------
+Normal RTTY remains the default. Contest Mode is explicitly enabled by the operator.
+
+Runtime path:
+  RTTY decoder -> semantic RX parser -> one Contest Session -> macro/exchange formatter -> normal RTTY TX
+
+The rule engine does not own a second TX sequencer and does not create autonomous QSOs.
+
+rtty_rules handling:
+- schema version: 1
+- application-directory file only; there is no embedded rules fallback
+- missing/invalid rules disable Contest Mode while normal RTTY remains usable
+- Reload rules button reloads the external file without rebuilding MadModem
+- CMake/install/package scripts copy rtty_rules beside the executable on Linux/Windows and inside MadModem.app/Contents/MacOS on macOS
+
+CONTEST UI / QSO STATE
+----------------------
+Implemented:
+- Contest Mode checkbox
+- contest profile selector
+- Reload rules
+- explicit New Contest Session control
+- next TX serial control
+- session/QSO status
+- dynamic exchange fields
+- CAT/manual band-source indication
+- live scoring: session QSOs, valid QSOs, multipliers, QSO points, total score
+- profile-driven macro buttons
+
+Serial transaction rules:
+- the serial is frozen for the current QSO
+- retries/repeats reuse the same serial
+- serial increments only after the QSO is successfully appended to the log
+- a conditional SERIAL field only consumes a serial when that field is active for that QSO
+- a new serial sequence is started only by an explicit New Contest Session action
+
+RX PARSING / CLICK-TO-FILL
+--------------------------
+Contest profiles declare the fields expected in RX and TX exchanges. During Contest Mode, received callsigns retain the existing highlighting, Maidenhead locators are highlighted/clickable, and profile-specific received values such as SERIAL / zone / province / year / area are highlighted and can fill the corresponding structured QSO field. Conservative auto-fill is used only when the interpretation is unambiguous.
+
+CAT BAND
+--------
+When CAT is connected and a valid rig frequency is available, the contest band is derived from CAT and is authoritative/read-only in the Contest UI. Without CAT, the band remains manually selectable. No hidden fallback chain exists.
+
+LOG / SESSION / SCORE
+---------------------
+The log stores contest profile ID, rules/session identity, sent and received exchanges, STX/SRX and structured contest fields. Score is rebuilt from the current contest session in the log rather than living only in volatile RAM.
+
+Generic score engine supports:
+- dupe scopes: overall, band, period, band_period
+- QSO points: first matching conditional rule; distance_km method where explicitly requested
+- multiplier sources: dxcc, continent, cq_zone, call, call_area, wpx_prefix, regex-captured callsign component, profile field, and legacy generic dxcc_or_call_area
+- multiplier scopes: overall, band, period, band_period
+- score variables: QSO, POINTS, MULTS, CONTINENTS
+- generic boolean/profile conditions; unknown condition keys fail safe
+
+RULE COVERAGE
+-------------
+rtty_rules contains 30 profiles: 29 active profiles plus Open Ukraine RTTY marked cancelled for 2026. The profile set was built by cross-checking a broad RTTY contest catalog/calendar and organizer/current rule pages. It is intentionally an external data set so rule corrections can be shipped by replacing rtty_rules rather than rebuilding the application.
+
+Live scoring is intentionally marked unsupported rather than approximated for:
+- Alessandro Volta RTTY DX: exchange-point table is too contest-specific for the current generic score primitives
+- WAEDC RTTY: QTC accounting is not represented yet
+- ARRL Rookie Roundup RTTY: exact scoring depends on Rookie/non-Rookie status not currently represented as a structured station attribute
+- Open Ukraine RTTY: cancelled/inactive profile
+
+The rule catalog in RTTY_RULES_CATALOG_2026.txt records the source URL and notes for every profile.
+
+NOTABLE RULE SAFETY
+-------------------
+- IG-RY WW RTTY current rules prohibit autonomous/robot operation. MadModem Contest Mode remains operator-guided: it parses/fills exchanges and supplies macros but does not autonomously initiate QSOs or log contacts.
+- Cancelled profiles are not offered as active contests.
+- Unknown rule conditions do not broaden a rule; they fail safe.
+
+STATIC / SOURCE AUDITS
+----------------------
+PASS: tools/audit_rtty_rules.py
+  rtty_rules: 30 profiles, 29 active, schema=1, updated=2026-08-15
+  PASS: 0 errors, 0 warnings
+
+PASS: tools/audit_ui_translations.py
+  1779 canonical keys; en/it/fr/de/no/cs parity clean
+
+PASS: tools/audit_localization.py
+PASS: scripts/check_macos_portability.sh
+PASS: scripts/check_ft_linear_sequencer.py
+PASS: scripts/check_ft_caller_queue_waterfall_restore.py
+PASS: scripts/check_ft_atomic_tx_lifecycle.py
+PASS: scripts/check_ft4_adaptive_runtime.sh
+PASS: scripts/check_ft_wideband_sensitivity.sh
+
+CONTEST-SPECIFIC CODE AUDIT
+---------------------------
+A source grep found no SARTG/BARTG/CQ-WPX/etc. contest-name branches in the new Contest Engine runtime. The only CQ-WW strings found outside rtty_rules are pre-existing third-party MSHV FT decoder comments/tables and are unrelated to this RTTY engine. Generic WPX-prefix calculation is a scoring primitive, not a contest-specific branch.
+
+CMAKE / BUILD LIMITATION
+------------------------
+A fresh CMake configure was attempted with GCC 14.2.0 and reached MadModem version 0.5.79 configuration. It stopped at find_package(Qt5) because the container does not have the Qt5 development package / Qt5Config.cmake. Therefore this report does NOT claim a full Qt compile or link. The checks above are static/source audits.
+
+The exact CMake failure was:
+  Could not find Qt5Config.cmake or qt5-config.cmake.
+
+FINAL ARCHIVE VERIFICATION
+--------------------------
+Performed: the final ZIP was tested with unzip -t, extracted to a clean temporary directory, and the rules, translation, macOS portability, FT linear sequencer, caller-queue/waterfall, atomic TX lifecycle, FT4 runtime and FT wideband sensitivity audits were rerun from the extracted copy and passed.
