@@ -1,8 +1,0 @@
-PASS: atomic decode-batch decision retained
-PASS: old 1181 ms late request reproduces expired-boundary selection
-PASS: corrected scheduler selects the next future FT8 slot
-PASS: only the pre-tone safe window can use the current boundary
-PASS: one immutable boundary drives delay, token and watchdog
-PASS: TX arm token has a monotonic generation
-PASS: stale boundary-only recovery removed
-PASS: expired slot is rejected before local TX row and PTT
