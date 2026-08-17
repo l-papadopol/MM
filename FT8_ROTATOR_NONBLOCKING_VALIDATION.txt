@@ -1,0 +1,34 @@
+MadModem 0.5.78 — FT8/FT4 rotator non-blocking correction
+
+Problem
+-------
+The FT sequencer treated rotator pointing as a hard TX interlock. Small position
+oscillations, settling state, ETA changes, or the 0/360-degree boundary could
+therefore defer valid FT slots and repeatedly re-arm the same QSO message.
+
+Correction
+----------
+- Removed every FT4/FT8 rotator readiness check from scheduler arm, PTT pre-arm,
+  scheduler audio-start, watchdog, and final audio-start.
+- Removed the rotator defer/retry timer and its generation state.
+- Removed the "Block FT TX until rotator is pointed" setting and checkbox.
+- Rotator QSO tracking remains active and asynchronous; it can move and report
+  status, but it never owns or blocks the FT TX state machine.
+- Radio Telescope rotator readiness logic is unchanged.
+
+Linear runtime contract
+-----------------------
+QSO selection may request rotator pointing, then independently creates one FT TX
+plan. Only STOP, mode/identity validation, protocol deadline, CAT/PTT failure, or
+explicit TX cancellation can prevent that plan from transmitting.
+
+Static validation performed
+---------------------------
+- No references remain to ftRotatorReadyForPendingTx,
+  deferPendingFtTxForRotator, rotatorBlockFtTxUntilReady, or
+  m_ft8RotatorDeferGeneration.
+- No FT runtime log strings remain that say TX is blocked/inhibited by rotator.
+- macOS portability preflight executed when available.
+
+Full Qt application build was not performed in this container unless stated in
+external CI results.

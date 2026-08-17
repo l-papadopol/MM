@@ -1,0 +1,36 @@
+PASS relative-pair-human-ratio: CQ
+PASS relative-pair-lock
+PASS adaptive-beam-no-premature-first-mark: 
+PASS adaptive-beam-replay-first-dash: C
+PASS adaptive-beam-pattern-exact
+PASS bayesian-posterior-text: C
+PASS bayesian-posterior-range
+PASS bayesian-beam-bounded
+PASS micro-run-storm-bootstrap: CQ
+PASS micro-run-storm-track
+PASS micro-run-storm-no-text: 
+PASS micro-run-storm-clock-retained
+PASS auto-wpm-ceiling-50
+PASS duplicate-tone-no-reset
+PASS real-tone-change-one-reset
+PASS mid-stream-reset-produces-run
+PASS mid-stream-reset-live-start
+PASS discriminator-posterior-export
+PASS first-sample-rate-no-extra-restart
+PASS real-sample-rate-change-restarts
+PASS commit-pattern-character
+PASS commit-pattern-exact
+PASS clean-20: CQ CQ DE IZ6NNH 599
+PASS clean-35-wrong-hint: CQ CQ DE TEST
+PASS live-30-long-word-gap: CQ CQ OG50YL OG50YL CQ CQ OG50YL
+PASS fast-farnsworth-11-dit: CQ CQ DE TEST
+PASS clean-12-wrong-hint: CQ DE IZ6NNH
+PASS awgn: CQ CQ DE IZ6NNH
+PASS qsb: CQ CQ DE TEST
+PASS human-relative: CQ CQ DE IZ6NNH
+PASS adjacent-carrier-plus-70: CQ CQ DE IZ6NNH
+PASS message-then-broad-noise-tail: CQ CQ DE TEST
+PASS noise-tail-carrier-gate-closes
+PASS noise-tail-wpm-frozen
+PASS noise-only: 
+All carrier-gated relative-timing CW regressions passed.
