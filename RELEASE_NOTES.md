@@ -27,6 +27,11 @@
 - Qualified the shared WAV-reader calls explicitly and removed the duplicate
   local wrappers, fixing the GCC/MinGW argument-dependent lookup ambiguity
   found by the first GitHub 0.5.8 build.
+- Removed the final locale-dependent Python reads from CTest source guards, so
+  non-ASCII UTF-8 source is decoded correctly on MSYS2/Python 3.14.
+- Stabilized the synthetic human-timing CW corpus across libc++ and libstdc++;
+  macOS and Linux now exercise the same jitter/noise waveform while retaining
+  an exact `CQ CQ DE IZ6NNH` assertion.
 
 ## Retained 0.5.79 feature baseline
 

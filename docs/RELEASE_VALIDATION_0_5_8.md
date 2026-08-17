@@ -97,6 +97,16 @@ propagate conversion errors instead of silently skipping a malformed chunk.
 The Qt 5.14+ waterfall wheel path uses `QWheelEvent::position()`, removing the
 unrelated deprecation warning while retaining the older-Qt fallback.
 
+The next CI pass exposed two test-harness-only portability defects after the
+application itself had compiled. MSYS2/Python 3.14 selected CP1252 for an
+unqualified `Path.read_text()` and failed on valid UTF-8 source; all source
+guards now request UTF-8 explicitly. Apple libc++ also generated a different
+`std::normal_distribution` waveform than libstdc++ for the CW human-jitter
+case. That one corpus now uses a fixed portable generator and seed, keeps
+10% MARK jitter, 12% SPACE jitter, a 2.45 dash ratio and additive noise, and
+still requires the exact `CQ CQ DE IZ6NNH` result. No production CW, audio,
+waterfall or FT8/FT4 decoder code was changed for either correction.
+
 The native CW suite includes clean messages, wrong WPM hints, the repeated
 `CQ CQ OG50YL` live case, AWGN, QSB, adjacent carrier, noise tail and noise-only
 scenarios. The waterfall suite covers quiet edges, AGC steps, receiver slope,

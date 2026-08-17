@@ -3,12 +3,12 @@ from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[1]
-main = (root / 'mainwindow.cpp').read_text()
-hdr = (root / 'mainwindow.h').read_text()
-settings_h = (root / 'settings/AppSettings.h').read_text()
-settings_cpp = (root / 'settings/AppSettings.cpp').read_text()
-wf_cpp = (root / 'widgets/WaterfallWidget.cpp').read_text()
-wf_h = (root / 'widgets/WaterfallWidget.h').read_text()
+main = (root / 'mainwindow.cpp').read_text(encoding='utf-8')
+hdr = (root / 'mainwindow.h').read_text(encoding='utf-8')
+settings_h = (root / 'settings/AppSettings.h').read_text(encoding='utf-8')
+settings_cpp = (root / 'settings/AppSettings.cpp').read_text(encoding='utf-8')
+wf_cpp = (root / 'widgets/WaterfallWidget.cpp').read_text(encoding='utf-8')
+wf_h = (root / 'widgets/WaterfallWidget.h').read_text(encoding='utf-8')
 
 checks = [
     ('caller queue setting exists', 'bool ft8QueueCallers = false;' in settings_h),
@@ -40,7 +40,7 @@ required = {'ft8_queue_callers','ft8_queue_callers_tooltip','ft8_session_stats',
 keysets = {}
 for p in files:
     keys = []
-    for line in p.read_text().splitlines():
+    for line in p.read_text(encoding='utf-8').splitlines():
         if line and not line.startswith(('#',';','[')) and '=' in line:
             keys.append(line.split('=',1)[0])
     keysets[p.name] = set(keys)

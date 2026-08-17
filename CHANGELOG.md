@@ -19,6 +19,11 @@
 - Removed the last anonymous-namespace WAV wrapper pair: explicit
   `MadModemAudio` calls avoid C++ argument-dependent lookup ambiguity on GCC
   and MinGW, while conversion failures now abort WEFAX/SSTV import cleanly.
+- Made every Python source guard open project text explicitly as UTF-8, avoiding
+  the MSYS2/Python 3.14 fallback to the Windows CP1252 locale.
+- Made the jittered `human-relative` CW recording deterministic across libc++
+  and libstdc++; the regression still requires the exact decoded text and does
+  not alter the production CW or FT8/FT4 decoder paths.
 
 ## 0.5.79 — RTTY contest engine and stable full-band waterfall — 2026-08-15
 

@@ -4,7 +4,7 @@ import json, sys
 root=Path(__file__).resolve().parents[1]
 errors=[]
 def must(path, needles):
-    text=(root/path).read_text(errors='replace')
+    text=(root/path).read_text(encoding='utf-8', errors='replace')
     for n in needles:
         if n not in text:
             errors.append(f'{path}: missing {n!r}')
@@ -22,7 +22,7 @@ must(Path('scripts/package_windows_msys2.sh'), ['rtty_rules'])
 
 # Keep contest rules data-driven and structurally valid.
 try:
-    rules=json.loads((root/'rtty_rules').read_text())
+    rules=json.loads((root/'rtty_rules').read_text(encoding='utf-8'))
     profiles=rules.get('profiles', [])
     if not profiles:
         errors.append('rtty_rules: no profiles')
@@ -34,7 +34,7 @@ except Exception as e:
 # All UI dictionaries must contain the new contest tab fields.
 keys=['rtty_contest_qso','rtty_contest_macros','qso_callsign','qso_mode','qso_rst_sent','qso_rst_received','qso_grid','qso_utc','qso_add_to_log']
 for lang in ['en','it','fr','de','no','cs']:
-    text=(root/f'translations/ui_{lang}.ini').read_text(errors='replace')
+    text=(root/f'translations/ui_{lang}.ini').read_text(encoding='utf-8', errors='replace')
     for key in keys:
         if f'{key}=' not in text:
             errors.append(f'ui_{lang}.ini missing {key}')
