@@ -1080,17 +1080,6 @@ void promoteToolTipsToContextHelp(QWidget *root)
     }
 }
 
-bool parseWavHeader(QFile &file, WavStreamFormat &format, QString &errorMessage)
-{
-    return MadModemAudio::parseWavHeader(file, format, errorMessage);
-}
-
-QVector<float> convertWavBytesToMono(const QByteArray &bytes, const WavStreamFormat &format)
-{
-    return MadModemAudio::convertWavBytesToMono(bytes, format);
-}
-
-
 struct ParsedFt8Message
 {
     QString text;
@@ -19846,7 +19835,7 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
     WavStreamFormat wav;
     QString errorMessage;
 
-    if (!parseWavHeader(file, wav, errorMessage)) {
+    if (!MadModemAudio::parseWavHeader(file, wav, errorMessage)) {
         appendLog("WAV parse failed: " + errorMessage);
         m_offlineAnalysisActive = false;
         setReceiverRunning(false);
@@ -19937,7 +19926,17 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
             return false;
         }
 
-        const QVector<float> samples = convertWavBytesToMono(raw, wav);
+        errorMessage.clear();
+        const QVector<float> samples = MadModemAudio::convertWavBytesToMono(raw, wav, &errorMessage);
+
+        if (!errorMessage.isEmpty()) {
+            appendLog("WAV conversion failed: " + errorMessage);
+            m_weatherFaxDecoder->setAutoStartEnabled(restoreAutoStartAfterWav);
+            ui->lblAppStatus->setText("Ready");
+            m_offlineAnalysisActive = false;
+            setReceiverRunning(false);
+            return false;
+        }
 
         if (!samples.isEmpty()) {
             AudioBlock block;
@@ -20029,7 +20028,7 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
     WavStreamFormat wav;
     QString errorMessage;
 
-    if (!parseWavHeader(file, wav, errorMessage)) {
+    if (!MadModemAudio::parseWavHeader(file, wav, errorMessage)) {
         appendLog("SSTV WAV parse failed: " + errorMessage);
         m_offlineAnalysisActive = false;
         setReceiverRunning(false);
@@ -20106,7 +20105,16 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
             return false;
         }
 
-        const QVector<float> samples = convertWavBytesToMono(raw, wav);
+        errorMessage.clear();
+        const QVector<float> samples = MadModemAudio::convertWavBytesToMono(raw, wav, &errorMessage);
+
+        if (!errorMessage.isEmpty()) {
+            appendLog("SSTV WAV conversion failed: " + errorMessage);
+            ui->lblAppStatus->setText("Ready");
+            m_offlineAnalysisActive = false;
+            setReceiverRunning(false);
+            return false;
+        }
 
         if (!samples.isEmpty()) {
             AudioBlock block;

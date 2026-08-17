@@ -568,7 +568,7 @@ void WaterfallWidget::wheelEvent(QWheelEvent *event)
         const int wheel = delta.x() != 0 ? delta.x() : delta.y();
         panFrequency(-static_cast<double>(wheel) / 120.0 * 0.10 * span);
     } else if (delta.y() != 0) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
         const int x = qRound(event->position().x());
 #else
         const int x = event->pos().x();

@@ -24,6 +24,9 @@
 - Registered source guards and native regressions with CTest. Distribution
   packages are test-gated on Linux, Windows and macOS, while a portable Linux
   build plus the complete CTest suite runs on every push and pull request.
+- Qualified the shared WAV-reader calls explicitly and removed the duplicate
+  local wrappers, fixing the GCC/MinGW argument-dependent lookup ambiguity
+  found by the first GitHub 0.5.8 build.
 
 ## Retained 0.5.79 feature baseline
 

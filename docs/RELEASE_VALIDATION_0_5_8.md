@@ -77,7 +77,7 @@ to fix synchronization and streaming resampling. Its 0.5.8 source hash is
 | RTTY narrow contest layout and live/runtime rules | PASS |
 | FT atomic lifecycle, caller queue/waterfall restore and linear sequencer | PASS |
 | FT4 runtime topology and FT8/FT4 wideband/sensitivity invariants | PASS |
-| Localization: 1789 keys in each of six languages | PASS |
+| Localization: 1791 keys in each of six languages | PASS |
 | Documentation: version 0.5.8, 72 HTML pages, six Qt Help projects | PASS |
 | RTTY rules: 30 profiles, 29 active | PASS |
 | macOS portability and release-version guards | PASS |
@@ -85,6 +85,17 @@ to fix synchronization and streaming resampling. Its 0.5.8 source hash is
 | Native waterfall leveler regression | PASS |
 | Native CW and waterfall under ASan+UBSan | PASS |
 | Workflow YAML and shell syntax | PASS |
+
+### GitHub compile follow-up
+
+The first Linux/MinGW build exposed an argument-dependent lookup ambiguity:
+`WavStreamFormat` aliases `MadModemAudio::WavFileFormat`, so two anonymous-
+namespace forwarding wrappers and the real namespace functions were both
+viable candidates. 0.5.8 now calls the single shared reader with explicit
+`MadModemAudio::` qualification and has no forwarding wrapper. WEFAX/SSTV also
+propagate conversion errors instead of silently skipping a malformed chunk.
+The Qt 5.14+ waterfall wheel path uses `QWheelEvent::position()`, removing the
+unrelated deprecation warning while retaining the older-Qt fallback.
 
 The native CW suite includes clean messages, wrong WPM hints, the repeated
 `CQ CQ OG50YL` live case, AWGN, QSB, adjacent carrier, noise tail and noise-only

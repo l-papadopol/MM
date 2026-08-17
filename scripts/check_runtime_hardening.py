@@ -37,6 +37,8 @@ checks = {
         and "inconsistent WAV block alignment or byte rate" in wav_reader
         and "invalid or non-finite sample" in wav_reader
         and "tests/WavFileReaderTest.cpp" in cmake
+        and "bool parseWavHeader(QFile &file, WavStreamFormat" not in main
+        and main.count("MadModemAudio::parseWavHeader(file, wav, errorMessage)") == 2
     ),
     "bounded UI audio relay": (
         "BoundedAudioDispatcher" in main

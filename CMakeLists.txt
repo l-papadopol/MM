@@ -19,6 +19,16 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/MADMODEM_VERSION.txt")
 endif()
 message(STATUS "MadModem package/app version: ${MADMODEM_PACKAGE_VERSION}")
 
+set(MADMODEM_SOURCE_REVISION "unmarked")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/MADMODEM_SOURCE_REVISION.txt")
+    file(READ "${CMAKE_CURRENT_SOURCE_DIR}/MADMODEM_SOURCE_REVISION.txt" _madmodem_source_revision_txt)
+    string(STRIP "${_madmodem_source_revision_txt}" _madmodem_source_revision_txt)
+    if(NOT _madmodem_source_revision_txt STREQUAL "")
+        set(MADMODEM_SOURCE_REVISION "${_madmodem_source_revision_txt}")
+    endif()
+endif()
+message(STATUS "MadModem source revision: ${MADMODEM_SOURCE_REVISION}")
+
 # -------------------------------------------------------------------------
 # C++ standard
 # -------------------------------------------------------------------------

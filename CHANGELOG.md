@@ -16,6 +16,9 @@
 - Added runtime-hardening, CAT/FT synchronization and layout regression guards.
 - Registered the guards and native regressions with CTest, made every package
   build test-gated and added a Linux build/CTest workflow for every push and PR.
+- Removed the last anonymous-namespace WAV wrapper pair: explicit
+  `MadModemAudio` calls avoid C++ argument-dependent lookup ambiguity on GCC
+  and MinGW, while conversion failures now abort WEFAX/SSTV import cleanly.
 
 ## 0.5.79 — RTTY contest engine and stable full-band waterfall — 2026-08-15
 
