@@ -94,7 +94,6 @@ private:
     QLabel *m_lblTestStatus = nullptr;
     QCheckBox *m_chkCatEnabled = nullptr;
     QCheckBox *m_chkPttEnabled = nullptr;
-    QCheckBox *m_chkUpdateFt8Band = nullptr;
     QComboBox *m_cmbManufacturer = nullptr;
     QComboBox *m_cmbRigModel = nullptr;
     QLineEdit *m_editModelFilter = nullptr;

@@ -1,0 +1,48 @@
+MadModem 0.5.79 - RTTY contest side-panel layout correction
+================================================================
+
+Observed defect
+---------------
+The dedicated RTTY contest page had a horizontal minimum size substantially
+larger than the 300-340 px side panel. Two layouts caused the overflow:
+
+- the contest header used label + editor + action button in three columns;
+- the QSO editor used two label/editor pairs in four columns.
+
+The QScrollArea therefore exposed a horizontal scrollbar. Depending on its
+position, either the left labels/group titles or the right editor/action column
+was clipped. Expanding buttons then filled the oversized content width and
+showed excessive empty space around their captions.
+
+Correction
+----------
+
+- The page width is owned by the scroll viewport; horizontal scrolling is off.
+- The contest header is a two-column label/editor form.
+- Reload and new-session actions are text-sized, right-aligned controls on
+  independent rows, so translations cannot recreate a wide third column.
+- The QSO editor is a vertical two-column label/editor form.
+- QSO fields may shrink horizontally while retaining the full side-panel width.
+- Add-QSO is text-sized and right aligned.
+- The six macro buttons use three compact columns and have no forced minimum
+  width, eliminating the large unused space around short captions.
+- Page/group/button padding is reduced locally, without changing the global
+  cockpit theme.
+- The outer tab caption is shortened to "Contest"; the internal group title
+  remains the localized "Contest mode" / "Modalita contest".
+- Only vertical scrolling remains when page height exceeds the window.
+
+Non-regression scope
+--------------------
+No RTTY decoder, CAT, contest rules, macros, scoring, QSO mirroring, logging,
+audio, waterfall, FT8/FT4, or sequencer behavior was changed.
+
+Automated audit
+---------------
+Run:
+
+    python3 scripts/check_rtty_contest_layout.py
+
+The existing RTTY runtime audit remains applicable:
+
+    python3 scripts/check_rtty_live_contest_runtime.py

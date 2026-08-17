@@ -2307,7 +2307,6 @@ void AppSettingsDialog::collectSettings()
         QMetaObject::invokeMethod(m_rigPage, "applyToSettings", Qt::DirectConnection);
         const AppSettings rig = m_rigPage->settings();
         merged.hamlibCatEnabled = rig.hamlibCatEnabled;
-        merged.hamlibUpdateFt8Band = rig.hamlibUpdateFt8Band;
         merged.hamlibRigModel = rig.hamlibRigModel;
         merged.hamlibRigPath = rig.hamlibRigPath;
         merged.hamlibSerialPath = rig.hamlibSerialPath;

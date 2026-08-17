@@ -77,6 +77,10 @@ void CwRelativeTimingDecoder::reset(bool keepTimingPrior) {
   m_bridgeRejectedMark = false;
   m_rejectedMarkBridgeMs = 0.0;
   m_pairEvidence = retainedPairEvidence;
+  m_provisionalRebaseEvidence = 0;
+  m_provisionalRebaseShortMs = 0.0;
+  m_provisionalRebaseLongMs = 0.0;
+  m_provisionalRebaseSpaceMs = 0.0;
   m_missEvidence = 0;
   m_epochReplayedCurrentRun = false;
   m_timingSpaceBetweenMarksMs = 0.0;
@@ -124,6 +128,10 @@ void CwRelativeTimingDecoder::installFreshEpoch(
   m_characterSpaceMs = 3.0 * shortMarkMs;
   m_wordSpaceMs = 7.0 * shortMarkMs;
   m_pairEvidence = 1;
+  m_provisionalRebaseEvidence = 0;
+  m_provisionalRebaseShortMs = 0.0;
+  m_provisionalRebaseLongMs = 0.0;
+  m_provisionalRebaseSpaceMs = 0.0;
   m_missEvidence = 0;
   m_state = CwRelativeTimingState::PairLock;
   m_confidence = clampd(0.38 + 0.44 * weight, 0.42, 0.86);
@@ -146,6 +154,12 @@ void CwRelativeTimingDecoder::rememberEpochProbe(
     const CwLogicRun& run, bool timingTrusted) {
   if (run.mark) {
     if (!timingTrusted) return;
+    // No supported decoder speed has a dit below 24 ms.  Sub-15 ms MARKs in
+    // the live capture were Schmitt/ringing holes inside otherwise normal
+    // gaps; retaining them in the reversible epoch probe manufactured dots at
+    // the front of the recovered C.  Real QSB splits are merged by the
+    // one-element look-ahead before reaching this function.
+    if (run.durationMs < 15.0) return;
     m_epochProbeRuns.push_back(run);
   } else {
     if (m_epochProbeRuns.empty()) return;
@@ -163,14 +177,56 @@ void CwRelativeTimingDecoder::rememberEpochProbe(
 
 void CwRelativeTimingDecoder::replayEpochProbe() {
   if (m_epochProbeRuns.empty()) return;
+  bool haveAcceptedMark = false;
+  std::optional<CwLogicRun> pendingSpace;
+  const auto flushPendingSpace = [&]() {
+    if (!haveAcceptedMark || !pendingSpace.has_value()) return;
+    m_beamDecoder.observeSpace(pendingSpace->durationMs, beamTiming(),
+                               beamQuality(*pendingSpace), false);
+    pendingSpace.reset();
+  };
   for (const CwLogicRun& probe : m_epochProbeRuns) {
-    if (probe.mark)
+    if (probe.mark) {
+      const bool fitsShort = probe.durationMs >= 0.52 * m_shortMeanMs &&
+                             probe.durationMs <= 1.68 * m_shortMeanMs;
+      const bool fitsLong = probe.durationMs >= 0.52 * m_longMeanMs &&
+                            probe.durationMs <= 1.68 * m_longMeanMs;
+      if (!fitsShort && !fitsLong) {
+        // A rejected MARK lies inside what is now known to be one OFF run.
+        // Bridge its duration into the surrounding SPACE instead of replaying
+        // it as an extra dot under the new clock.
+        if (haveAcceptedMark) {
+          if (!pendingSpace.has_value()) {
+            pendingSpace = probe;
+            pendingSpace->mark = false;
+            pendingSpace->meanMarkProbability =
+                1.0 - probe.meanMarkProbability;
+          }
+          else {
+            pendingSpace->endSec = probe.endSec;
+            pendingSpace->durationMs += probe.durationMs;
+            pendingSpace->mark = false;
+          }
+        }
+        continue;
+      }
+      flushPendingSpace();
       m_beamDecoder.observeMark(probe.durationMs, beamTiming(),
                                 beamQuality(probe));
-    else
-      m_beamDecoder.observeSpace(probe.durationMs, beamTiming(),
-                                 beamQuality(probe), false);
+      haveAcceptedMark = true;
+    } else if (haveAcceptedMark) {
+      if (!pendingSpace.has_value()) pendingSpace = probe;
+      else {
+        pendingSpace->endSec = probe.endSec;
+        pendingSpace->durationMs += probe.durationMs;
+        pendingSpace->confidence =
+            std::min(pendingSpace->confidence, probe.confidence);
+        pendingSpace->coherence =
+            std::min(pendingSpace->coherence, probe.coherence);
+      }
+    }
   }
+  flushPendingSpace();
 }
 
 const char* CwRelativeTimingDecoder::stateName(CwRelativeTimingState state) {
@@ -258,19 +314,96 @@ bool CwRelativeTimingDecoder::updatePair(
     double separatingSpaceMs, double weight) {
   const double shortMs = std::min(previousMarkMs, currentMarkMs);
   const double longMs = std::max(previousMarkMs, currentMarkMs);
-  if (shortMs < 8.0 || longMs > 1200.0) return false;
+  if (shortMs < 8.0 || longMs > 1200.0) {
+    m_provisionalRebaseEvidence = 0;
+    return false;
+  }
   const double ratio = longMs / shortMs;
-  if (ratio < m_config.pairRatio || ratio > 4.20) return false;
+  if (ratio < m_config.pairRatio || ratio > 4.20) {
+    // Rebase confirmation is deliberately consecutive.  A dash/dash pair or
+    // an extreme fragment between two superficially similar candidates proves
+    // they do not describe one coherent new station clock.
+    m_provisionalRebaseEvidence = 0;
+    return false;
+  }
   // A relative pair is informative only when the OFF interval is itself a
   // plausible intra-character gap. Tiny Schmitt holes inside a noisy carrier
   // must not be allowed to manufacture a new high-speed clock.
   if (separatingSpaceMs < 0.32 * shortMs ||
-      separatingSpaceMs > 2.10 * shortMs) return false;
+      separatingSpaceMs > 2.10 * shortMs) {
+    m_provisionalRebaseEvidence = 0;
+    return false;
+  }
 
   const double pairThreshold = std::sqrt(shortMs * longMs);
   const bool thresholdOutsidePair =
       m_markThresholdMs <= shortMs || m_markThresholdMs >= longMs;
   const bool established = m_pairEvidence >= 3;
+  const double shortScale = shortMs / std::max(1.0, m_shortMeanMs);
+  const double longScale = longMs / std::max(1.0, m_longMeanMs);
+  const double geometricScale = std::sqrt(shortScale * longScale);
+  const bool largeFamilyContradiction = thresholdOutsidePair ||
+      geometricScale <= 0.76 || geometricScale >= 1.30 ||
+      shortScale <= 0.62 || shortScale >= 1.48 ||
+      longScale <= 0.62 || longScale >= 1.48;
+
+  const auto clearRebaseCandidate = [&]() {
+    m_provisionalRebaseEvidence = 0;
+    m_provisionalRebaseShortMs = 0.0;
+    m_provisionalRebaseLongMs = 0.0;
+    m_provisionalRebaseSpaceMs = 0.0;
+  };
+  const auto confirmRebaseCandidate = [&](bool keepContinuityAlternative) {
+    if (weight < 0.68) return false;
+    const bool agreesWithCandidate = m_provisionalRebaseEvidence > 0 &&
+        shortMs >= 0.72 * m_provisionalRebaseShortMs &&
+        shortMs <= 1.38 * m_provisionalRebaseShortMs &&
+        longMs >= 0.72 * m_provisionalRebaseLongMs &&
+        longMs <= 1.38 * m_provisionalRebaseLongMs;
+    if (agreesWithCandidate) {
+      ++m_provisionalRebaseEvidence;
+      m_provisionalRebaseShortMs =
+          0.5 * (m_provisionalRebaseShortMs + shortMs);
+      m_provisionalRebaseLongMs =
+          0.5 * (m_provisionalRebaseLongMs + longMs);
+      m_provisionalRebaseSpaceMs =
+          0.5 * (m_provisionalRebaseSpaceMs + separatingSpaceMs);
+    } else {
+      m_provisionalRebaseEvidence = 1;
+      m_provisionalRebaseShortMs = shortMs;
+      m_provisionalRebaseLongMs = longMs;
+      m_provisionalRebaseSpaceMs = separatingSpaceMs;
+    }
+    if (m_provisionalRebaseEvidence < 2) return false;
+    installFreshEpoch(m_provisionalRebaseShortMs,
+                      m_provisionalRebaseLongMs,
+                      m_provisionalRebaseSpaceMs, weight,
+                      keepContinuityAlternative, true);
+    return true;
+  };
+
+  if (!established && m_pairEvidence > 0) {
+    // A provisional clock is deliberately easy to replace, but replacing only
+    // its numeric centres is not enough: the Bayesian beam would keep the
+    // uncommitted MARK/SPACE fragments collected under the discarded scale.
+    // The supplied live capture did exactly this, moving from a false 29/68 ms
+    // acquisition to the real 68/210 ms station while retaining a bogus Morse
+    // prefix, which was later published as _/R/E around a clean CQ.
+    //
+    // Treat a strong contradictory pair as an atomic epoch replacement.  The
+    // current contiguous probe (including the leading element) is replayed at
+    // the new scale; the untrusted provisional model is not kept as a
+    // continuity alternative.
+    if (largeFamilyContradiction) {
+      // A stale spectrum decision can label one ringing fragment as centred.
+      // Require the same contradictory geometry twice before replacing a
+      // provisional clock.  A real C or Q supplies this evidence within one
+      // character, so acquisition latency remains below the character gap.
+      if (confirmRebaseCandidate(false)) return true;
+      return false;
+    }
+    clearRebaseCandidate();
+  }
   if (established) {
     // The relative-pair bootstrap may relocate the threshold immediately only
     // before a trustworthy clock exists.  On RF audio, a single fragmented
@@ -286,15 +419,13 @@ bool CwRelativeTimingDecoder::updatePair(
     // or trailing edge instead shortens mainly the dit, which was slowly
     // dragging a stable 24 WPM clock toward 27 WPM in live reception.  Such a
     // pair remains usable for text classification but is not timing evidence.
-    const double shortScale = shortMs / std::max(1.0, m_shortMeanMs);
-    const double longScale = longMs / std::max(1.0, m_longMeanMs);
     const bool commonScale = std::abs(shortScale - longScale) <= 0.075;
 
-    // A new operator on the same RF lane is not gradual hand-key drift.  When
-    // a fully centred short/long pair scales both MARK families together by a
-    // large amount, start a new local temporal epoch immediately.  The old
-    // clock survives only as a weak alternative inside the Bayesian beam.
-    const double geometricScale = std::sqrt(shortScale * longScale);
+    // Preserve the fast path for an established, well-formed clock change:
+    // when dit and dah scale together, one centred pair is already two
+    // independent duration observations.  The two-pair candidate below is for
+    // malformed old clocks such as 24/40 ms, where the real 75/208 ms geometry
+    // necessarily scales the two families by different factors.
     const bool epochScaleAgreement =
         std::abs(std::log(std::max(0.05, shortScale) /
                           std::max(0.05, longScale))) <= std::log(1.20);
@@ -308,10 +439,18 @@ bool CwRelativeTimingDecoder::updatePair(
 
     if (thresholdOutsidePair || !consistentShort || !consistentLong ||
         !consistentThreshold || !commonScale) {
+      // An established but malformed fast clock (for example the 24/40 ms
+      // false lock in the supplied recording) does not scale dit and dah by
+      // the same factor when the real station arrives.  Two mutually
+      // consistent contradictory pairs are therefore stronger evidence than
+      // agreement with the old ratio.  Keep the old clock only as the weak
+      // Bayesian continuity alternative after the replacement.
+      if (largeFamilyContradiction && confirmRebaseCandidate(true)) return true;
       ++m_missEvidence;
       if (m_missEvidence >= 8) m_state = CwRelativeTimingState::Reacquire;
       return false;
     }
+    clearRebaseCandidate();
   }
 
   if ((!established && thresholdOutsidePair) || m_pairEvidence == 0) {
@@ -600,12 +739,42 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
     const bool timingTrusted = run.carrierCentered ||
                                run.carrierCenteredFraction >= 0.55;
 
+    // The fastest supported clock has a 24 ms dit.  A centred 5-14 ms pulse is
+    // therefore detector chatter, not a Morse element.  Do not let it replace
+    // the previous real MARK used by relative-pair acquisition; bridge it into
+    // the surrounding OFF time so the true dash/dit pair remains adjacent.
+    if (run.durationMs < 15.0) {
+      m_bridgeRejectedMark = true;
+      m_rejectedMarkBridgeMs += run.durationMs;
+      return result;
+    }
+
+    const bool preliminaryFitsShort =
+        run.durationMs >= 0.52 * m_shortMeanMs &&
+        run.durationMs <= 1.68 * m_shortMeanMs;
+    const bool preliminaryFitsLong =
+        run.durationMs >= 0.52 * m_longMeanMs &&
+        run.durationMs <= 1.68 * m_longMeanMs;
+    const bool marginalShortFragment = preliminaryFitsShort &&
+        run.durationMs < 0.62 * m_shortMeanMs && !preliminaryFitsLong;
+    const bool marginalFragmentSupported = !marginalShortFragment ||
+        (run.confidence >= 0.86 && run.coherence >= 0.50);
+    const bool preliminaryDurationPlausible =
+        (preliminaryFitsShort || preliminaryFitsLong) &&
+        marginalFragmentSupported;
+    const bool strongContradictoryMark = timingTrusted &&
+        !preliminaryDurationPlausible &&
+        run.confidence >= 0.86 && run.coherence >= 0.50 &&
+        run.meanSnrDb >= 8.0 && run.noiseProbability <= 0.30;
+    const bool pairEndpointTrusted = timingTrusted &&
+        (preliminaryDurationPlausible || strongContradictoryMark);
+
     m_epochReplayedCurrentRun = false;
     // The PSD lane can become centred one or two elements after a new station
     // starts.  Keep a very strong coherent leading MARK in the reversible probe
     // buffer even when it is not yet allowed to update timing.  It is replayed
     // only if a later fully-centred short/long pair proves a fresh epoch.
-    const bool epochProbeEligible = timingTrusted ||
+    const bool epochProbeEligible = pairEndpointTrusted ||
         (run.confidence >= 0.90 && run.coherence >= 0.60 &&
          run.meanSnrDb >= 8.0 && run.noiseProbability <= 0.30);
     rememberEpochProbe(run, epochProbeEligible);
@@ -641,7 +810,7 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
       m_recoverableRejectedMark.reset();
       m_recoverableRejectedSpace.reset();
     }
-    if (m_havePreviousMark && m_previousMarkTrusted && timingTrusted) {
+    if (m_havePreviousMark && m_previousMarkTrusted && pairEndpointTrusted) {
       updatePair(m_previousMarkMs, run.durationMs,
                  m_timingSpaceBetweenMarksMs, runWeight);
     }
@@ -654,16 +823,21 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
                            run.durationMs <= 1.68 * m_shortMeanMs;
     const bool fitsLong = run.durationMs >= 0.52 * m_longMeanMs &&
                           run.durationMs <= 1.68 * m_longMeanMs;
-    const bool durationPlausible = fitsShort || fitsLong;
+    const bool currentMarginalShortFragment = fitsShort &&
+        run.durationMs < 0.62 * m_shortMeanMs && !fitsLong;
+    const bool currentMarginalSupported = !currentMarginalShortFragment ||
+        (run.confidence >= 0.86 && run.coherence >= 0.50);
+    const bool durationPlausible =
+        (fitsShort || fitsLong) && currentMarginalSupported;
     const bool textTrusted = timingTrusted ||
         (established && run.carrierSessionQualified && durationPlausible &&
          run.confidence >= 0.76 && run.coherence >= 0.20);
 
-    if (timingTrusted) {
+    if (pairEndpointTrusted) {
       m_previousMarkMs = run.durationMs;
       m_previousMarkTrusted = true;
       m_havePreviousMark = true;
-    } else {
+    } else if (!timingTrusted) {
       m_previousMarkTrusted = false;
     }
 
@@ -676,8 +850,16 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
         m_recoverableRejectedMark = run;
         m_recoverableRejectedSpace.reset();
       }
-      m_bridgeRejectedMark = true;
-      m_rejectedMarkBridgeMs += run.durationMs;
+      // A fully centred, high-quality MARK that contradicts an established
+      // clock is a possible first element from a new operator.  Keep it out of
+      // the text beam until the new geometry is confirmed, but do not erase it
+      // into the surrounding SPACE: doing so made the following real dit/dah
+      // pair appear to have an impossibly long separating gap.  Unqualified
+      // carrier fragments are still bridged exactly as before.
+      if (!strongContradictoryMark) {
+        m_bridgeRejectedMark = true;
+        m_rejectedMarkBridgeMs += run.durationMs;
+      }
       return result;
     }
 
@@ -707,7 +889,6 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
     }
   } else {
     rememberEpochProbe(run, false);
-    m_timingSpaceBetweenMarksMs = run.durationMs;
     if (m_recoverableRejectedMark.has_value()) {
       const double maximumRecoverableGap =
           std::max(1.75 * m_elementSpaceMs, 1.35 * m_shortMeanMs);
@@ -724,7 +905,13 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
       m_bridgeRejectedMark = false;
       m_rejectedMarkBridgeMs = 0.0;
     }
+    m_timingSpaceBetweenMarksMs = effectiveSpaceMs;
     m_spaceBetweenMarksMs = effectiveSpaceMs;
+    if (m_provisionalRebaseEvidence > 0 &&
+        effectiveSpaceMs >= std::max(
+            90.0, 2.20 * m_provisionalRebaseShortMs)) {
+      m_provisionalRebaseEvidence = 0;
+    }
     // Long off-air pauses are useful for committing a word, but they are not
     // training samples. Learn SPACE families only near an actual trusted Morse
     // sequence and never from an arbitrarily long receiver-idle interval.
@@ -735,11 +922,29 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
       updateSpaceCluster(effectiveSpaceMs, runWeight);
     }
     if (!m_wordCommittedInOpenSpace) {
-      absorbBeam(result, m_beamDecoder.observeSpace(
-          effectiveSpaceMs, beamTiming(), beamQuality(run), false));
-      m_characterCommittedInOpenSpace =
-          effectiveSpaceMs >= m_characterThresholdMs;
-      m_wordCommittedInOpenSpace = effectiveSpaceMs >= m_wordThresholdMs;
+      // A completed OFF run carries the same information as the live open-gap
+      // timer.  Previously only advance() could force an unambiguous word
+      // boundary; if the worker received the completed SPACE first, this path
+      // merely marked the boundary as "already committed" even when the beam
+      // had selected a character gap.  The result was CQCQ for an exact
+      // 7-dit "CQ CQ" separation.
+      const double canonicalWordThresholdMs =
+          std::sqrt(21.0) * std::max(1.0, m_shortMeanMs);
+      const double adaptiveWordThresholdMs =
+          std::max(m_wordThresholdMs, canonicalWordThresholdMs);
+      const bool forceWordBoundary =
+          effectiveSpaceMs >= adaptiveWordThresholdMs;
+      const CwMorseBeamResult beamResult = m_beamDecoder.observeSpace(
+          effectiveSpaceMs, beamTiming(), beamQuality(run),
+          forceWordBoundary);
+      const bool committedWord =
+          beamResult.committedText.find(' ') != std::string::npos;
+      const bool committedCharacter = std::any_of(
+          beamResult.committedText.begin(), beamResult.committedText.end(),
+          [](char value) { return value != ' '; });
+      absorbBeam(result, beamResult);
+      m_characterCommittedInOpenSpace = committedCharacter || committedWord;
+      m_wordCommittedInOpenSpace = committedWord;
     }
   }
 

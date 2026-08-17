@@ -146,6 +146,10 @@ private:
   bool m_bridgeRejectedMark = false;
   double m_rejectedMarkBridgeMs = 0.0;
   int m_pairEvidence = 0;
+  int m_provisionalRebaseEvidence = 0;
+  double m_provisionalRebaseShortMs = 0.0;
+  double m_provisionalRebaseLongMs = 0.0;
+  double m_provisionalRebaseSpaceMs = 0.0;
   int m_missEvidence = 0;
   std::uint64_t m_temporalEpoch = 0U;
   bool m_epochReplayedCurrentRun = false;

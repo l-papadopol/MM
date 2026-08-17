@@ -271,6 +271,128 @@ void testSameLaneAbruptOperatorSpeedChange() {
               state.ditMs >= 75.0 && state.ditMs <= 105.0);
 }
 
+void testProvisionalEpochRebasesBeforePublishing() {
+  using namespace madmodem::cwskimmer;
+  CwRelativeTimingConfig cfg;
+  cfg.initialWpm = 25.0;
+  cfg.autoWpm = true;
+  CwRelativeTimingDecoder decoder(cfg);
+  double time = 0.0;
+  std::string output;
+
+  const auto feed = [&](bool mark, double durationMs) {
+    CwLogicRun run;
+    run.startSec = time;
+    time += durationMs / 1000.0;
+    run.endSec = time;
+    run.mark = mark;
+    run.durationMs = durationMs;
+    run.confidence = 0.96;
+    run.meanSnrDb = 32.0;
+    run.peakSnrDb = 40.0;
+    run.coherence = mark ? 0.90 : 0.58;
+    run.carrierCentered = mark;
+    run.carrierCenteredFraction = mark ? 1.0 : 0.0;
+    run.meanMarkProbability = mark ? 0.99 : 0.01;
+    run.qsbProbability = 0.01;
+    run.noiseProbability = 0.01;
+    output += decoder.processRun(run).committedText;
+  };
+
+  // Reproduce the supplied live log: a fragmented acquisition briefly seeds
+  // 29/68 ms (about 41 WPM), then the real selected station immediately shows
+  // a clean 70/210 ms C-Q sequence (about 17 WPM).  The provisional epoch must
+  // be replaced atomically; its uncommitted fragments must never be decoded as
+  // a prefix of the real call.
+  decoder.beginEpoch(29.0, 68.0, 38.0, false);
+  const std::string text = "CQ CQ CQ";
+  const double ditMs = 70.0;
+  bool injectedCentredMicroMark = false;
+  for (std::size_t ci = 0; ci < text.size(); ++ci) {
+    if (text[ci] == ' ') continue;
+    const std::string& pattern = kMorse.at(text[ci]);
+    for (std::size_t ei = 0; ei < pattern.size(); ++ei) {
+      feed(true, pattern[ei] == '.' ? ditMs : 3.0 * ditMs);
+      if (ei + 1U < pattern.size()) {
+        if (!injectedCentredMicroMark) {
+          // The real recording contains this exact kind of false transition
+          // inside the first dash/dit gap: 20 ms OFF, 14 ms false MARK, then
+          // the remainder of the same OFF interval.
+          feed(false, 20.0);
+          feed(true, 14.0);
+          feed(false, 36.0);
+          injectedCentredMicroMark = true;
+        } else {
+          feed(false, ditMs);
+        }
+      }
+    }
+    if (ci + 1U < text.size())
+      feed(false, text[ci + 1U] == ' ' ? 7.0 * ditMs : 3.0 * ditMs);
+  }
+  output += decoder.flush(time).committedText;
+
+  requireEqual("provisional-epoch-rebase", normalize(output), text);
+  const auto state = decoder.snapshot();
+  requireTrue("provisional-epoch-new-clock",
+              state.temporalEpoch >= 2U &&
+              state.ditMs >= 62.0 && state.ditMs <= 78.0 &&
+              state.dahMs >= 185.0 && state.dahMs <= 230.0);
+}
+
+void testMalformedEstablishedClockRebasesAcrossMicroMark() {
+  using namespace madmodem::cwskimmer;
+  CwRelativeTimingConfig cfg;
+  cfg.initialWpm = 50.0;
+  CwRelativeTimingDecoder decoder(cfg);
+  double time = 0.0;
+  std::string output;
+  const auto feed = [&](bool mark, double durationMs) {
+    CwLogicRun run;
+    run.startSec = time;
+    time += durationMs / 1000.0;
+    run.endSec = time;
+    run.mark = mark;
+    run.durationMs = durationMs;
+    run.confidence = 0.96;
+    run.meanSnrDb = 32.0;
+    run.peakSnrDb = 40.0;
+    run.coherence = mark ? 0.88 : 0.58;
+    run.carrierCentered = mark;
+    run.carrierCenteredFraction = mark ? 1.0 : 0.0;
+    run.meanMarkProbability = mark ? 0.99 : 0.01;
+    run.qsbProbability = 0.01;
+    run.noiseProbability = 0.01;
+    output += decoder.processRun(run).committedText;
+  };
+
+  // Establish the malformed 24/92 ms clock seen immediately before the real
+  // CQ in the recording, then clear only its text state.
+  decoder.beginEpoch(24.0, 92.0, 24.0, false);
+  feed(true, 24.0); feed(false, 24.0); feed(true, 92.0);
+  feed(false, 24.0); feed(true, 24.0); feed(false, 24.0); feed(true, 92.0);
+  (void)decoder.flush(time);
+  decoder.reset(true);
+  output.clear();
+  const std::uint64_t oldEpoch = decoder.snapshot().temporalEpoch;
+
+  // First C of the real 17 WPM station, with the 14 ms false MARK measured in
+  // the supplied log inside its first one-dit gap.
+  feed(true, 206.0);
+  feed(false, 20.0); feed(true, 14.0); feed(false, 28.0);
+  feed(true, 75.0); feed(false, 63.0);
+  feed(true, 208.0); feed(false, 69.0);
+  feed(true, 80.0); feed(false, 210.0);
+  output += decoder.flush(time).committedText;
+
+  requireEqual("malformed-established-clock-rebase", normalize(output), "C");
+  const auto state = decoder.snapshot();
+  requireTrue("malformed-established-new-epoch",
+              state.temporalEpoch > oldEpoch &&
+              state.ditMs >= 65.0 && state.ditMs <= 85.0 &&
+              state.dahMs >= 185.0 && state.dahMs <= 225.0);
+}
+
 void testAdaptiveBeamReplaysWrongInitialClock() {
   using namespace madmodem::cwskimmer;
   CwMorseBeamDecoder beam;
@@ -673,6 +795,8 @@ int main() {
   try {
     testRelativeTimingDirect();
     testSameLaneAbruptOperatorSpeedChange();
+    testProvisionalEpochRebasesBeforePublishing();
+    testMalformedEstablishedClockRebasesAcrossMicroMark();
     testAdaptiveBeamReplaysWrongInitialClock();
     testBayesianPosteriorMetadata();
     testTimingRejectsMicroRunStorm();

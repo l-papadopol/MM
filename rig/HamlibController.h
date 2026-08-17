@@ -27,7 +27,6 @@ public:
     {
         bool catEnabled = false;
         bool pttEnabled = false;
-        bool updateFt8BandFromCat = true;
         // True for safe read-only tests: open CAT and read frequency only,
         // with Hamlib PTT explicitly disabled even if the dialog PTT checkbox is enabled.
         bool readOnlyTest = false;

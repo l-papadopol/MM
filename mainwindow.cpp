@@ -274,7 +274,6 @@ QString catSettingsKey(const AppSettings &s)
     return QStringList{
         s.hamlibCatEnabled ? QStringLiteral("cat1") : QStringLiteral("cat0"),
         s.hamlibPttEnabled ? QStringLiteral("ptt1") : QStringLiteral("ptt0"),
-        s.hamlibUpdateFt8Band ? QStringLiteral("upd1") : QStringLiteral("upd0"),
         QString::number(s.hamlibRigModel), s.hamlibRigPath, s.hamlibSerialPath, s.hamlibTcpAddress,
         QString::number(s.hamlibBaudRate), QString::number(s.hamlibDataBits), QString::number(s.hamlibStopBits),
         s.hamlibHandshake, s.hamlibForceDtr, s.hamlibForceRts, QString::number(s.hamlibPollIntervalMs),
@@ -4745,6 +4744,10 @@ void MainWindow::rebuildRttyContestFieldEditors()
         auto *label = new QLabel(QStringLiteral("%1 %2").arg(sent ? QStringLiteral("TX") : QStringLiteral("RX"), field.label),
                                  m_rttyContestFieldsHost);
         auto *edit = new QLineEdit(m_rttyContestFieldsHost);
+        label->setMinimumWidth(0);
+        label->setWordWrap(true);
+        edit->setMinimumWidth(0);
+        edit->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         edit->setMaxLength(32);
         const QString settingPrefix = QStringLiteral("RTTYContest/station/%1/").arg(profile->id);
         if (sent && field.source.startsWith(QStringLiteral("station_setting:"), Qt::CaseInsensitive)) {
@@ -5541,16 +5544,29 @@ void MainWindow::setupRttyPage()
     QScrollArea *contestScroll = new QScrollArea(m_tabRttyContest);
     contestScroll->setWidgetResizable(true);
     contestScroll->setFrameShape(QFrame::NoFrame);
+    // The side panel is deliberately only 300-340 px wide. Horizontal
+    // scrolling made the contest page look about 40% wider than its tab and
+    // clipped group titles and the second half of the QSO form. The page is a
+    // vertical tool panel: width always follows the viewport, height scrolls.
+    contestScroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    contestScroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     QWidget *contestContent = new QWidget(contestScroll);
+    contestContent->setObjectName(QStringLiteral("rttyContestContent"));
+    contestContent->setProperty("cockpitCompactPanel", true);
+    contestContent->setMinimumWidth(0);
+    contestContent->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    contestContent->setStyleSheet(QStringLiteral(
+        "QWidget#rttyContestContent QPushButton { padding-left: 4px; padding-right: 4px; min-height: 22px; }"
+        "QWidget#rttyContestContent QGroupBox::title { padding-left: 4px; padding-right: 4px; }"));
     QVBoxLayout *contestPageLayout = new QVBoxLayout(contestContent);
-    contestPageLayout->setContentsMargins(6, 6, 6, 6);
-    contestPageLayout->setSpacing(7);
+    contestPageLayout->setContentsMargins(4, 4, 4, 4);
+    contestPageLayout->setSpacing(5);
 
     QGroupBox *contestGroup = new QGroupBox(uiText("rtty_contest_mode", "Contest mode"), contestContent);
     QGridLayout *contestLayout = new QGridLayout(contestGroup);
-    contestLayout->setContentsMargins(8, 8, 8, 8);
-    contestLayout->setHorizontalSpacing(6);
-    contestLayout->setVerticalSpacing(5);
+    contestLayout->setContentsMargins(6, 6, 6, 6);
+    contestLayout->setHorizontalSpacing(5);
+    contestLayout->setVerticalSpacing(4);
 
     m_chkRttyContestMode = new QCheckBox(uiText("rtty_contest_enable", "Enable contest mode"), contestGroup);
     m_cmbRttyContest = new QComboBox(contestGroup);
@@ -5566,17 +5582,33 @@ void MainWindow::setupRttyPage()
     m_lblRttyContestExchange = new QLabel(uiText("rtty_contest_exchange_empty", "Exchange: —"), contestGroup);
     m_lblRttyContestExchange->setWordWrap(true);
     m_lblRttyContestBandSource = new QLabel(uiText("rtty_band_source_manual", "Band: %1 · Manual").arg(QStringLiteral("—")), contestGroup);
+    m_lblRttyContestBandSource->setWordWrap(true);
 
-    contestLayout->addWidget(m_chkRttyContestMode, 0, 0, 1, 3);
+    // Long contest names must not dictate the minimum width of the whole page.
+    // The compact action buttons keep their text-sized width and sit on their
+    // own rows, so translated labels cannot create a third oversized column.
+    m_cmbRttyContest->setMinimumWidth(0);
+    m_cmbRttyContest->setMinimumContentsLength(8);
+    m_cmbRttyContest->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_cmbRttyContest->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    m_spinRttyContestSerial->setMinimumWidth(0);
+    m_spinRttyContestSerial->setMaximumWidth(100);
+    m_spinRttyContestSerial->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    for (QPushButton *button : {m_btnRttyContestReloadRules, m_btnRttyContestNewSession}) {
+        button->setMinimumWidth(0);
+        button->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+    }
+
+    contestLayout->addWidget(m_chkRttyContestMode, 0, 0, 1, 2);
     contestLayout->addWidget(new QLabel(uiText("rtty_contest", "Contest"), contestGroup), 1, 0);
     contestLayout->addWidget(m_cmbRttyContest, 1, 1);
-    contestLayout->addWidget(m_btnRttyContestReloadRules, 1, 2);
     contestLayout->addWidget(m_lblRttyContestSerial, 2, 0);
-    contestLayout->addWidget(m_spinRttyContestSerial, 2, 1);
-    contestLayout->addWidget(m_btnRttyContestNewSession, 2, 2);
-    contestLayout->addWidget(m_lblRttyContestSessionStatus, 3, 0, 1, 3);
-    contestLayout->addWidget(m_lblRttyContestExchange, 4, 0, 1, 3);
-    contestLayout->addWidget(m_lblRttyContestBandSource, 5, 0, 1, 3);
+    contestLayout->addWidget(m_spinRttyContestSerial, 2, 1, Qt::AlignLeft);
+    contestLayout->addWidget(m_btnRttyContestReloadRules, 3, 0, 1, 2, Qt::AlignRight);
+    contestLayout->addWidget(m_btnRttyContestNewSession, 4, 0, 1, 2, Qt::AlignRight);
+    contestLayout->addWidget(m_lblRttyContestSessionStatus, 5, 0, 1, 2);
+    contestLayout->addWidget(m_lblRttyContestExchange, 6, 0, 1, 2);
+    contestLayout->addWidget(m_lblRttyContestBandSource, 7, 0, 1, 2);
 
     m_rttyContestFieldsHost = new QWidget(contestGroup);
     m_rttyContestFieldsLayout = new QGridLayout(m_rttyContestFieldsHost);
@@ -5584,7 +5616,7 @@ void MainWindow::setupRttyPage()
     m_rttyContestFieldsLayout->setHorizontalSpacing(6);
     m_rttyContestFieldsLayout->setVerticalSpacing(4);
     m_rttyContestFieldsLayout->setColumnStretch(1, 1);
-    contestLayout->addWidget(m_rttyContestFieldsHost, 6, 0, 1, 3);
+    contestLayout->addWidget(m_rttyContestFieldsHost, 8, 0, 1, 2);
 
     QGroupBox *scoreBox = new QGroupBox(uiText("rtty_contest_score", "Contest score"), contestGroup);
     QGridLayout *scoreLayout = new QGridLayout(scoreBox);
@@ -5606,8 +5638,11 @@ void MainWindow::setupRttyPage()
     scoreLayout->addWidget(m_lblRttyContestPoints, 3, 1);
     scoreLayout->addWidget(new QLabel(uiText("rtty_score_total", "Total"), scoreBox), 4, 0);
     scoreLayout->addWidget(m_lblRttyContestTotal, 4, 1);
-    contestLayout->addWidget(scoreBox, 7, 0, 1, 3);
-    contestLayout->addWidget(m_lblRttyContestRuleStatus, 8, 0, 1, 3);
+    scoreLayout->setContentsMargins(6, 6, 6, 6);
+    scoreLayout->setHorizontalSpacing(5);
+    scoreLayout->setVerticalSpacing(3);
+    contestLayout->addWidget(scoreBox, 9, 0, 1, 2);
+    contestLayout->addWidget(m_lblRttyContestRuleStatus, 10, 0, 1, 2);
     contestLayout->setColumnStretch(1, 1);
     contestPageLayout->addWidget(contestGroup);
 
@@ -5616,8 +5651,8 @@ void MainWindow::setupRttyPage()
     // logs through m_rttyQsoForm, keeping serial/scoring transactions single-owner.
     QGroupBox *contestQsoBox = new QGroupBox(uiText("rtty_contest_qso", "Contest QSO"), contestContent);
     QGridLayout *contestQsoLayout = new QGridLayout(contestQsoBox);
-    contestQsoLayout->setContentsMargins(8, 8, 8, 8);
-    contestQsoLayout->setHorizontalSpacing(6);
+    contestQsoLayout->setContentsMargins(6, 6, 6, 6);
+    contestQsoLayout->setHorizontalSpacing(5);
     contestQsoLayout->setVerticalSpacing(4);
 
     m_editRttyContestQsoCall = new QLineEdit(contestQsoBox);
@@ -5630,23 +5665,35 @@ void MainWindow::setupRttyPage()
     m_editRttyContestQsoUtc->setReadOnly(true);
     m_btnRttyContestAddQso = new QPushButton(uiText("qso_add_to_log", "+ Add to log"), contestQsoBox);
 
+    for (QLineEdit *edit : {m_editRttyContestQsoCall,
+                            m_editRttyContestQsoBand,
+                            m_editRttyContestQsoRstSent,
+                            m_editRttyContestQsoRstReceived,
+                            m_editRttyContestQsoMode,
+                            m_editRttyContestQsoGrid,
+                            m_editRttyContestQsoUtc}) {
+        edit->setMinimumWidth(0);
+        edit->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    }
+    m_btnRttyContestAddQso->setMinimumWidth(0);
+    m_btnRttyContestAddQso->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+
     contestQsoLayout->addWidget(new QLabel(uiText("qso_callsign", "Callsign"), contestQsoBox), 0, 0);
-    contestQsoLayout->addWidget(m_editRttyContestQsoCall, 0, 1, 1, 3);
+    contestQsoLayout->addWidget(m_editRttyContestQsoCall, 0, 1);
     contestQsoLayout->addWidget(new QLabel(uiText("band", "Band"), contestQsoBox), 1, 0);
     contestQsoLayout->addWidget(m_editRttyContestQsoBand, 1, 1);
-    contestQsoLayout->addWidget(new QLabel(uiText("qso_mode", "Mode"), contestQsoBox), 1, 2);
-    contestQsoLayout->addWidget(m_editRttyContestQsoMode, 1, 3);
-    contestQsoLayout->addWidget(new QLabel(uiText("qso_rst_sent", "RST sent"), contestQsoBox), 2, 0);
-    contestQsoLayout->addWidget(m_editRttyContestQsoRstSent, 2, 1);
-    contestQsoLayout->addWidget(new QLabel(uiText("qso_rst_received", "RST received"), contestQsoBox), 2, 2);
-    contestQsoLayout->addWidget(m_editRttyContestQsoRstReceived, 2, 3);
-    contestQsoLayout->addWidget(new QLabel(uiText("qso_grid", "Grid"), contestQsoBox), 3, 0);
-    contestQsoLayout->addWidget(m_editRttyContestQsoGrid, 3, 1, 1, 3);
-    contestQsoLayout->addWidget(new QLabel(uiText("qso_utc", "UTC save time"), contestQsoBox), 4, 0);
-    contestQsoLayout->addWidget(m_editRttyContestQsoUtc, 4, 1, 1, 3);
-    contestQsoLayout->addWidget(m_btnRttyContestAddQso, 5, 0, 1, 4);
+    contestQsoLayout->addWidget(new QLabel(uiText("qso_mode", "Mode"), contestQsoBox), 2, 0);
+    contestQsoLayout->addWidget(m_editRttyContestQsoMode, 2, 1);
+    contestQsoLayout->addWidget(new QLabel(uiText("qso_rst_sent", "RST sent"), contestQsoBox), 3, 0);
+    contestQsoLayout->addWidget(m_editRttyContestQsoRstSent, 3, 1);
+    contestQsoLayout->addWidget(new QLabel(uiText("qso_rst_received", "RST received"), contestQsoBox), 4, 0);
+    contestQsoLayout->addWidget(m_editRttyContestQsoRstReceived, 4, 1);
+    contestQsoLayout->addWidget(new QLabel(uiText("qso_grid", "Grid"), contestQsoBox), 5, 0);
+    contestQsoLayout->addWidget(m_editRttyContestQsoGrid, 5, 1);
+    contestQsoLayout->addWidget(new QLabel(uiText("qso_utc", "UTC save time"), contestQsoBox), 6, 0);
+    contestQsoLayout->addWidget(m_editRttyContestQsoUtc, 6, 1);
+    contestQsoLayout->addWidget(m_btnRttyContestAddQso, 7, 0, 1, 2, Qt::AlignRight);
     contestQsoLayout->setColumnStretch(1, 1);
-    contestQsoLayout->setColumnStretch(3, 1);
     contestPageLayout->addWidget(contestQsoBox);
 
     auto bindContestQsoMirror = [this](QLineEdit *master, QLineEdit *mirror, bool mirrorWritable = true) {
@@ -5679,18 +5726,22 @@ void MainWindow::setupRttyPage()
 
     QGroupBox *contestMacroBox = new QGroupBox(uiText("rtty_contest_macros", "Contest macros"), contestContent);
     QGridLayout *contestMacroLayout = new QGridLayout(contestMacroBox);
-    contestMacroLayout->setContentsMargins(8, 8, 8, 8);
-    contestMacroLayout->setHorizontalSpacing(5);
-    contestMacroLayout->setVerticalSpacing(5);
+    contestMacroLayout->setContentsMargins(6, 6, 6, 6);
+    contestMacroLayout->setHorizontalSpacing(4);
+    contestMacroLayout->setVerticalSpacing(4);
     m_rttyContestMacroButtons.clear();
     const int contestMacroCount = qMax(6, m_rttyMacroButtons.size());
     for (int i = 0; i < contestMacroCount; ++i) {
         QPushButton *button = new QPushButton(QStringLiteral("Macro %1").arg(i + 1), contestMacroBox);
-        button->setMinimumHeight(27);
+        button->setMinimumWidth(0);
+        button->setMinimumHeight(24);
         button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
         m_rttyContestMacroButtons.append(button);
-        contestMacroLayout->addWidget(button, i / 2, i % 2);
+        contestMacroLayout->addWidget(button, i / 3, i % 3);
     }
+    contestMacroLayout->setColumnStretch(0, 1);
+    contestMacroLayout->setColumnStretch(1, 1);
+    contestMacroLayout->setColumnStretch(2, 1);
     contestPageLayout->addWidget(contestMacroBox);
     contestPageLayout->addStretch(1);
     contestScroll->setWidget(contestContent);
@@ -5699,7 +5750,7 @@ void MainWindow::setupRttyPage()
     if (ui->sideTabWidget != nullptr) {
         const int modeIndex = ui->tabModeSettings != nullptr ? ui->sideTabWidget->indexOf(ui->tabModeSettings) : -1;
         const int insertIndex = modeIndex >= 0 ? modeIndex + 1 : ui->sideTabWidget->count();
-        ui->sideTabWidget->insertTab(insertIndex, m_tabRttyContest, uiText("rtty_contest_mode", "Contest mode"));
+        ui->sideTabWidget->insertTab(insertIndex, m_tabRttyContest, uiText("rtty_contest", "Contest"));
     }
 
     connect(m_chkRttyContestMode, &QCheckBox::toggled, this, [this](bool enabled) {
@@ -9768,7 +9819,7 @@ void MainWindow::applyUiLanguage()
         }
         if (m_tabRttyContest != nullptr) {
             const int i = ui->sideTabWidget->indexOf(m_tabRttyContest);
-            if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("rtty_contest_mode", "Contest mode"));
+            if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("rtty_contest", "Contest"));
         }
         if (m_tabCatRotator != nullptr) {
             const int i = ui->sideTabWidget->indexOf(m_tabCatRotator);
@@ -10841,7 +10892,9 @@ void MainWindow::invokeRigConfigureFromSettings()
     QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, settingsCopy]() {
         controller->configureFromSettings(settingsCopy);
     }, Qt::QueuedConnection);
-    appendLog(QStringLiteral("CAT: configure request queued."));
+    appendLog(m_settings.hamlibCatEnabled
+                  ? QStringLiteral("CAT: saved configuration queued; auto-connect enabled.")
+                  : QStringLiteral("CAT: saved configuration queued; CAT disabled in settings."));
 }
 
 bool MainWindow::invokeRigPttBlocking(bool enabled)
@@ -11215,10 +11268,12 @@ void MainWindow::updateRigControlStatusUi()
 
 void MainWindow::handleRigFrequencyChanged(double frequencyHz)
 {
+    const double previousFrequencyHz = m_lastRigFrequencyHz;
     m_lastRigFrequencyHz = frequencyHz;
 
     const QString band = ftBandFromFrequencyHz(frequencyHz);
-    if (m_settings.hamlibUpdateFt8Band && !band.isEmpty()) {
+    bool ftBandChanged = false;
+    if (!band.isEmpty()) {
         if (m_cmbFt8Band != nullptr && m_cmbFt8Band->currentText() != band) {
             const int idx = m_cmbFt8Band->findText(band);
             if (idx >= 0) {
@@ -11226,8 +11281,22 @@ void MainWindow::handleRigFrequencyChanged(double frequencyHz)
                 m_cmbFt8Band->setCurrentIndex(idx);
                 m_settings.ft8Band = band;
                 refreshFt8StandardMessages();
+                ftBandChanged = true;
             }
         }
+    }
+
+    // Keep the runtime log useful without printing every 1 Hz tuning step:
+    // record the initial CAT read, substantial QSYs, and every band change.
+    if (previousFrequencyHz <= 0.0 || qAbs(frequencyHz - previousFrequencyHz) >= 1000.0 || ftBandChanged) {
+        QString message = QStringLiteral("CAT frequency readback: %1").arg(formatRigFrequency(frequencyHz));
+        if (!band.isEmpty()) {
+            message += QStringLiteral(" — band %1").arg(band);
+        }
+        if (ftBandChanged) {
+            message += QStringLiteral(" — FT band synchronized");
+        }
+        appendLog(message);
     }
 
     updateFtBandFrequencyUi();

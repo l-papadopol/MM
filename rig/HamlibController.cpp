@@ -273,7 +273,6 @@ void HamlibController::configureFromSettings(const AppSettings &settings)
                                 settingsPttPort.compare(settings.hamlibSerialPath.trimmed(), Qt::CaseInsensitive) == 0;
     cfg.pttEnabled = settings.hamlibPttEnabled ||
                      ((settingsPttMethod == QStringLiteral("serial_rts") || settingsPttMethod == QStringLiteral("serial_dtr")) && pttUsesCatPort);
-    cfg.updateFt8BandFromCat = settings.hamlibUpdateFt8Band;
     cfg.rigModel = settings.hamlibRigModel;
     cfg.rigPath = settings.hamlibRigPath;
     cfg.baudRate = settings.hamlibBaudRate;
@@ -570,10 +569,11 @@ bool HamlibController::setFrequencyHz(double frequencyHz)
             emitError(QStringLiteral("HRD set frequency failed: %1").arg(error));
             return false;
         }
-        m_lastFrequencyHz = frequencyHz;
-        emit frequencyChanged(frequencyHz);
-        setStatus(QStringLiteral("HRD CAT connected"));
-        return true;
+        // A successful write is not a frequency measurement.  Read the radio
+        // back immediately and publish that value, so the FT band selector is
+        // driven by the actual rig state rather than by the requested QSY.
+        m_lastFrequencyHz = 0.0;
+        return pollHrd();
     }
 
 #ifndef MADMODEM_WITH_HAMLIB
@@ -611,9 +611,15 @@ bool HamlibController::setFrequencyHz(double frequencyHz)
                       .arg(QString::fromLocal8Bit(rigerror(ret))));
         return false;
     }
-    m_lastFrequencyHz = frequencyHz;
-    emit frequencyChanged(frequencyHz);
-    setStatus(QStringLiteral("CAT connected"));
+    // A successful write is not a frequency measurement.  Force an immediate
+    // CAT readback; pollNow() emits frequencyChanged only with the value that
+    // the active VFO really reports.
+    m_lastFrequencyHz = 0.0;
+    pollNow();
+    if (m_lastFrequencyHz <= 0.0) {
+        emitError(QStringLiteral("Hamlib frequency set succeeded, but CAT readback failed."));
+        return false;
+    }
     return true;
 #endif
 }

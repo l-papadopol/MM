@@ -237,7 +237,6 @@ void AppSettings::load()
         pttMethod = "cat_hamlib";
     }
     hamlibPttEnabled = (pttMethod == "cat_hamlib");
-    hamlibUpdateFt8Band = settings.value("Hamlib/updateFt8Band", hamlibUpdateFt8Band).toBool();
     hamlibRigModel = settings.value("Hamlib/rigModel", hamlibRigModel).toInt();
     if (hamlibRigModel < 1) {
         hamlibRigModel = 1;
@@ -740,7 +739,6 @@ bool AppSettings::save() const
 
     settings.setValue("Hamlib/catEnabled", hamlibCatEnabled);
     settings.setValue("Hamlib/pttEnabled", hamlibPttEnabled);
-    settings.setValue("Hamlib/updateFt8Band", hamlibUpdateFt8Band);
     settings.setValue("Hamlib/rigModel", hamlibRigModel);
     const QString effectiveHamlibRigPath = hamlibTcpAddress.trimmed().isEmpty()
                                               ? hamlibSerialPath.trimmed()

@@ -428,7 +428,6 @@ void RigControlSettingsDialog::buildUi()
     m_chkCatEnabled = new QCheckBox(catGroup);
     m_chkPttEnabled = new QCheckBox(catGroup);
     m_chkPttEnabled->setVisible(false); // replaced by explicit WSJT-X-style PTT method combo
-    m_chkUpdateFt8Band = new QCheckBox(catGroup);
 
     m_lblManufacturer = new QLabel(catGroup);
     m_cmbManufacturer = new QComboBox(catGroup);
@@ -524,8 +523,7 @@ void RigControlSettingsDialog::buildUi()
     m_spinPollMs->setSuffix(QStringLiteral(" ms"));
 
     int row = 0;
-    grid->addWidget(m_chkCatEnabled, row, 0, 1, 2);
-    grid->addWidget(m_chkUpdateFt8Band, row++, 2, 1, 2);
+    grid->addWidget(m_chkCatEnabled, row++, 0, 1, 4);
 
     grid->addWidget(m_lblManufacturer, row, 0);
     grid->addWidget(m_cmbManufacturer, row, 1);
@@ -844,10 +842,6 @@ void RigControlSettingsDialog::loadFromSettings()
     if (m_chkPttEnabled != nullptr) {
         m_chkPttEnabled->setChecked(m_settings.hamlibPttEnabled);
     }
-    if (m_chkUpdateFt8Band != nullptr) {
-        m_chkUpdateFt8Band->setChecked(m_settings.hamlibUpdateFt8Band);
-    }
-
     m_loading = false;
     selectPresetForRigModel(qMax(1, m_settings.hamlibRigModel));
     m_loading = true;
@@ -933,9 +927,6 @@ void RigControlSettingsDialog::refreshLabels()
     }
     if (m_chkPttEnabled != nullptr) {
         m_chkPttEnabled->setText(L("Use CAT PTT for transmit"));
-    }
-    if (m_chkUpdateFt8Band != nullptr) {
-        m_chkUpdateFt8Band->setText(L("Update FT8 band field from CAT frequency"));
     }
     if (m_cmbManufacturer != nullptr) {
         const int customIndex = m_cmbManufacturer->findData(customManufacturerText());
@@ -1089,7 +1080,6 @@ void RigControlSettingsDialog::applyToSettings()
                                           : ((m_chkPttEnabled != nullptr && m_chkPttEnabled->isChecked()) ? QStringLiteral("cat_hamlib") : m_settings.pttMethod);
     m_settings.pttMethod = selectedPttMethod.isEmpty() ? QStringLiteral("none") : selectedPttMethod;
     m_settings.hamlibPttEnabled = (m_settings.pttMethod == QStringLiteral("cat_hamlib"));
-    m_settings.hamlibUpdateFt8Band = (m_chkUpdateFt8Band != nullptr) && m_chkUpdateFt8Band->isChecked();
     m_settings.hamlibRigModel = selectedRigModel();
     const QString tcpAddress = (m_editTcpAddress != nullptr) ? m_editTcpAddress->text().trimmed() : QString();
     const QString serialPath = selectedSerialPath().trimmed();
@@ -1165,7 +1155,6 @@ void RigControlSettingsDialog::refreshEnabledState()
     if (m_btnTestPttOn != nullptr) m_btnTestPttOn->setEnabled(enabled && pttViaHamlib);
     if (m_btnTestPttOff != nullptr) m_btnTestPttOff->setEnabled(enabled && pttViaHamlib);
     if (m_spinPollMs != nullptr) m_spinPollMs->setEnabled(cat);
-    if (m_chkUpdateFt8Band != nullptr) m_chkUpdateFt8Band->setEnabled(cat);
     if (m_lblSerialPort != nullptr) m_lblSerialPort->setEnabled(!hrd);
     if (m_lblBaud != nullptr) m_lblBaud->setEnabled(!hrd);
     if (m_lblDataBits != nullptr) m_lblDataBits->setEnabled(!hrd);
@@ -1316,7 +1305,6 @@ HamlibController::Config RigControlSettingsDialog::configFromCurrentUi(bool forc
     cfg.pttEnabled = readOnlyTest ? false : (forcePtt || cfg.pttMethod == QStringLiteral("cat_hamlib") ||
                                              cfg.pttMethod == QStringLiteral("serial_rts") ||
                                              cfg.pttMethod == QStringLiteral("serial_dtr"));
-    cfg.updateFt8BandFromCat = (m_chkUpdateFt8Band != nullptr) && m_chkUpdateFt8Band->isChecked();
     cfg.rigModel = selectedRigModel();
 
     const QString tcpAddress = (m_editTcpAddress != nullptr) ? m_editTcpAddress->text().trimmed() : QString();

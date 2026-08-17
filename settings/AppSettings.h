@@ -60,7 +60,6 @@ public:
 
     bool hamlibCatEnabled = false;
     bool hamlibPttEnabled = false;
-    bool hamlibUpdateFt8Band = true;
     int hamlibRigModel = 1;
     // Runtime rig path passed to Hamlib, rigctld/flrig, or HRD TCP. It is
     // derived from TCP address if set, otherwise from the serial path, but the
