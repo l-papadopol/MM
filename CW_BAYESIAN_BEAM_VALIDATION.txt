@@ -1,0 +1,91 @@
+MadModem 0.5.78 — CW BAYESIAN BEAM validation
+Date: 2026-08-05
+Base: MadModem_0_5_78_CW_ADAPTIVE_BEAM_FULL_SOURCE
+
+PURPOSE
+-------
+Separate on-air comparison branch. It keeps the same two user receivers RX A/RX B,
+exact-tone DSP, AFC, carrier-session probability, AudioEngine and waterfall.
+Only the interpretation of completed CW MARK/SPACE runs is changed.
+
+IMPLEMENTED
+-----------
+- Per-hypothesis Normal-Inverse-Gamma duration posteriors in log-duration space:
+  dit, dah, element SPACE, character SPACE and word SPACE.
+- Robust predictive Student-t log-likelihood kernel.
+- Fractional posterior updates driven by SNR, coherence, carrier centering,
+  mean discriminator MARK probability, QSB probability and estimated noise.
+- Broad outlier mixture and probability-controlled noisy-MARK skip path.
+- Posterior-mass commit: 98.5% credible-prefix consensus or 99.2% decisive path
+  with absolute RF-evidence guard.
+- Runtime diagnostics: bayes=<count>/<confidence>, post=<best posterior>,
+  odds=<best/second posterior dB>.
+- No dictionary, language model, neural model, additional RX lane or extra thread.
+
+SOURCE SCOPE
+------------
+Production changes are confined to:
+- modems/cw/skimmer/CwCarrierDiscriminator.{h,cpp}
+- modems/cw/skimmer/CwMorseBeamDecoder.{h,cpp}
+- modems/cw/skimmer/CwRelativeTimingDecoder.{h,cpp}
+- modems/cw/skimmer/SelectedToneCwTracker.cpp
+- CW tests, audit scripts and localized CW documentation.
+
+No AudioEngine, waterfall, FT8/FT4, CW TX, CAT/PTT or sequencer source was changed.
+
+NATIVE REGRESSION
+-----------------
+GCC 14.2.0, -std=c++17 -O2 -Wall -Wextra -Werror: PASS
+Clang 17.0.0, -std=c++17 -O2 -Wall -Wextra -Werror: PASS
+Bayesian live-path source audit: PASS
+AddressSanitizer + UndefinedBehaviorSanitizer: PASS
+
+Exact production-path cases include:
+- relative-pair human ratio;
+- wrong initial clock replay;
+- Bayesian posterior metadata bounds;
+- discriminator probability export;
+- micro-run storm suppression and clock retention;
+- reset timestamp and restart integrity;
+- exact commit/pattern association;
+- clean 20 WPM;
+- clean 35 WPM with wrong 18 WPM hint;
+- exact 30.5 WPM / 8.8-dit "CQ CQ OG50YL OG50YL CQ CQ OG50YL";
+- 38 WPM / 11-dit Farnsworth with wrong hint;
+- 12 WPM with wrong 28 WPM hint;
+- AWGN;
+- deep QSB;
+- human jitter and 2.45 dah/dit ratio;
+- stronger adjacent carrier at +70 Hz;
+- valid message followed by broad beating noise;
+- noise-only.
+
+OPTIMIZED EXECUTABLE-ONLY TIMING IN PREPARATION CONTAINER
+---------------------------------------------------------
+Bayesian branch (three runs): 1.22 s, 1.29 s, 1.25 s; peak RSS about 8 MB.
+Adaptive base   (three runs): 1.30 s, 1.33 s, 1.40 s; peak RSS about 8 MB.
+
+These figures are not a decoder-quality result and the suites are not perfectly
+identical because the Bayesian branch adds posterior-specific checks. They show
+no measurable live-path CPU or memory regression. Most elapsed time is the
+48 kHz synthesized RF pipeline, not the run-rate Bayesian beam.
+
+FULL QT BUILD
+-------------
+CMake reaches the project configuration and reports the portable CPU baseline,
+but the preparation container has no Qt5 development package / Qt5Config.cmake.
+The complete GUI executable therefore could not be linked here. The pure-C++
+regression compiles the same CW production classes used by the live application.
+
+ON-AIR A/B REQUIREMENT
+----------------------
+Compare this package against CW_ADAPTIVE_BEAM on the same receiver/audio setup.
+Record at least 20-30 seconds per signal and retain Runtime Log plus RX WAV.
+Compare:
+1. exact characters and word boundaries;
+2. isolated E/T/N/I insertions;
+3. first character after acquisition;
+4. recovery after QSB;
+5. WPM stability;
+6. latency from audible character end to text commit;
+7. bayes posterior/odds before every wrong commit.

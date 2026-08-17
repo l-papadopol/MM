@@ -1,0 +1,67 @@
+MadModem 0.5.79 - CAT / FT band synchronization validation
+================================================================
+
+Scope
+-----
+This source tree is based on the restored 0.5.79 FT live-topology source.
+The CAT change is deliberately isolated from audio capture, waterfall DSP,
+FT8/FT4 candidate search, LDPC, scheduler, and worker topology.
+
+Observed runtime baseline
+-------------------------
+The supplied runtime log proves that the restored decoder is working and that
+startup CAT configuration was already being applied:
+
+- CAT connected at 06:56:23 and reported USB mode.
+- FT8 band selection queued 20 m -> 14.074000 MHz at 06:56:26.
+- Restored topology: FT pool=12, reserved=2, live gate/boundary/OSD=4/10/3.
+- Healthy FT8 examples include 194 candidates / 10 decodes / 28 LDPC attempts,
+  190 candidates / 12 decodes / 40 LDPC attempts, and 203 candidates /
+  14 decodes / 38 LDPC attempts.
+
+Root cause of the CAT/UI mismatch
+---------------------------------
+The application had two separate decisions:
+
+1. CAT frequency polling enabled.
+2. "Update FT8 band field from CAT frequency" enabled.
+
+The second option could disable radio -> FT band synchronization even while
+CAT remained connected and polling.  That split ownership is now removed.
+
+Resulting contract
+------------------
+
+- On startup, saved CAT settings are applied.  If CAT is enabled in settings,
+  the existing persistent controller is connected automatically and polling
+  starts.  An explicitly disabled CAT setting remains disabled.
+- Selecting an FT8 or FT4 band commands the mode-specific standard dial
+  frequency through the existing CAT controller.
+- After a frequency write, the requested value is not published as if it were
+  measured.  Hamlib/HRD is read back immediately and only the actual radio
+  frequency is sent to the UI.
+- Every valid CAT frequency read updates the FT band selector.  Signal blocking
+  prevents a radio-originated UI update from sending the same QSY back to the
+  radio and creating a loop.
+- The CAT session remains open and uses the existing polling timer; no new
+  connect/disconnect cycle was added, avoiding unnecessary radio beeps.
+
+Runtime evidence to expect
+--------------------------
+
+- "CAT: saved configuration queued; auto-connect enabled."
+- "CAT: CAT connected"
+- "FT8 CAT QSY queued: 20m -> 14.074000 MHz." (example)
+- "CAT frequency readback: 14.074000 MHz - band 20m"
+- If a CAT read changes the selected band, the readback line also ends with
+  "FT band synchronized".
+
+Automated source audit
+----------------------
+Run:
+
+    python3 scripts/check_cat_ft_band_sync.py
+
+The audit checks startup auto-connect wiring, both synchronization directions,
+real CAT readback after QSY, persistent polling, loop prevention, and complete
+removal of the obsolete optional gate.

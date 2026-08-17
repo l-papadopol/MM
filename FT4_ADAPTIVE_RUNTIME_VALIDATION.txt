@@ -1,0 +1,31 @@
+MadModem 0.5.78 — FT4 adaptive runtime parity validation
+Date: 2026-08-02
+
+Source corrections checked:
+- FT4 81% live gate is one pass only.
+- FT4 complete boundary is limited to three decode-driven passes.
+- FT4 candidate decoding uses atomic work stealing in the persistent FT pool.
+- New FT capture/mode sessions restore the topology-derived worker budget.
+- Resource adaptation uses current queue latency, not the historical slot maximum.
+- Worker reduction requires sustained audio backlog.
+- Post-decode GUI table batches do not independently ratchet worker count down.
+- Per-row FT4 display logging removed; half-slot diagnostic key normalized.
+
+Regression/audit results in preparation environment:
+- FT4 adaptive runtime source audit: PASS
+- OpenGL HiDPI viewport audit: PASS
+- OpenGL/QPainter label audit: PASS
+- Waterfall leveler regression: 5/5 PASS
+- Native CW regression: PASS
+- Localization audit: 1735/1735 keys in EN/IT/FR/DE/NO/CS
+- Documentation audit: PASS
+- macOS portability preflight: PASS
+
+Not executed here:
+- Complete Qt GUI build/link (Qt development packages are unavailable).
+- Live FT4 timing/decode comparison on a real sound device.
+
+The target-machine log should now show approximately:
+- FT4 gate: 1 pass, about 120 candidates, workers around gate target/full target.
+- FT4 boundary: up to 3 passes, up to about 360 candidates, boundary worker target.
+- A new FT4 capture reset to the topology budget instead of inheriting 1 worker.

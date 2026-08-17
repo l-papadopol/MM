@@ -1,0 +1,4100 @@
+{
+  "schema": 1,
+  "updated_utc": "2026-08-15",
+  "description": "MadModem RTTY Contest Engine rules. File esterno ricaricabile: exchange, macro, seriali, condizioni, dupes, periodi, moltiplicatori e scoring sono dati; le regole dei singoli contest non sono hard-coded nel binario.",
+  "profiles": [
+    {
+      "id": "sartg_new_year",
+      "name": "SARTG New Year RTTY",
+      "cabrillo_id": "SARTG-NY-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          },
+          {
+            "id": "NAME",
+            "label": "Nome",
+            "type": "name",
+            "source": "my_name"
+          },
+          {
+            "id": "HNY",
+            "label": "Augurio HNY",
+            "type": "text",
+            "source": "station_setting:HNY_TEXT"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          },
+          {
+            "id": "NAME",
+            "label": "Nome RX",
+            "type": "name",
+            "regex": "^[A-Z]{2,12}$"
+          },
+          {
+            "id": "HNY",
+            "label": "Augurio RX",
+            "type": "text",
+            "required": false
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ SARTG NY",
+          "text": "CQ SARTG NY {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC/Scand. distretti",
+            "source": "dxcc_or_call_area",
+            "scope": "band",
+            "options": {
+              "call_area_primary_prefixes": [
+                "SM",
+                "LA",
+                "OZ",
+                "OH",
+                "OH0",
+                "OJ0",
+                "TF",
+                "JW",
+                "JX",
+                "OY",
+                "OX"
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.sartg.com/contest/nyrules.htm",
+        "note": "Regole correnti consultate 2026-08-15. HNY deve essere scritto per esteso nella lingua nativa."
+      }
+    },
+    {
+      "id": "arrl_rtty_roundup",
+      "name": "ARRL RTTY Roundup",
+      "cabrillo_id": "ARRL-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "LOCATION",
+            "label": "State/Province",
+            "type": "text",
+            "source": "station_setting:LOCATION",
+            "when": {
+              "own_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "LOCATION",
+            "label": "State/Province",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ ARRL RU",
+          "text": "CQ ARRL RU {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "usve",
+            "label": "State/Province",
+            "source": "field:LOCATION",
+            "scope": "overall",
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          },
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "overall",
+            "when": {
+              "not_dx_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.arrl.org/rtty-roundup",
+        "note": "RTTY-only dal regolamento corrente. K/VE inviano stato/provincia, DX seriale."
+      }
+    },
+    {
+      "id": "bartg_sprint",
+      "name": "BARTG RTTY Sprint",
+      "cabrillo_id": "BARTG-SPRINT",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ BARTG",
+          "text": "CQ BARTG {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS * CONTINENTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "overall"
+          },
+          {
+            "id": "call_area",
+            "label": "Call area W/VE/JA/VK",
+            "source": "call_area",
+            "scope": "overall",
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE",
+                "JA",
+                "VK"
+              ]
+            }
+          },
+          {
+            "id": "continents",
+            "label": "Continenti",
+            "source": "continent",
+            "scope": "overall",
+            "aggregate": "continents"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://bartg.org.uk/bartg-sprint-contest/",
+        "note": "Nessun RST; seriale progressivo. DXCC e call area W/VE/JA/VK sono moltiplicatori separati; continenti moltiplicano lo score."
+      }
+    },
+    {
+      "id": "mexico_rtty",
+      "name": "Mexico RTTY International",
+      "cabrillo_id": "XE-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "STATE",
+            "label": "Stato XE",
+            "type": "text",
+            "source": "station_setting:STATE",
+            "when": {
+              "own_primary_prefix_in": [
+                "XE"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_primary_prefix_in": [
+                "XE"
+              ]
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "STATE",
+            "label": "Stato XE RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_primary_prefix_in": [
+                "XE"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_primary_prefix_in": [
+                "XE"
+              ]
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ XE RTTY",
+          "text": "CQ XE RTTY {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "dx_primary_prefix_in": [
+                "XE"
+              ]
+            },
+            "points": 4
+          },
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 2
+          },
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "xe_states",
+            "label": "Stati XE",
+            "source": "field:STATE",
+            "scope": "band",
+            "when": {
+              "dx_primary_prefix_in": [
+                "XE"
+              ]
+            }
+          },
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://rtty.fmre.mx/",
+        "note": "Regole 2026 cross-check WA7BNM."
+      }
+    },
+    {
+      "id": "cq_wpx_rtty",
+      "name": "CQ WPX RTTY",
+      "cabrillo_id": "CQ-WPX-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ CQ WPX",
+          "text": "CQ CQ WPX {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "band_in": [
+                "80m",
+                "40m"
+              ],
+              "same_country": true
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "band_in": [
+                "80m",
+                "40m"
+              ],
+              "same_continent": true
+            },
+            "points": 4
+          },
+          {
+            "when": {
+              "band_in": [
+                "80m",
+                "40m"
+              ]
+            },
+            "points": 6
+          },
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 2
+          },
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "prefix",
+            "label": "Prefissi WPX",
+            "source": "wpx_prefix",
+            "scope": "overall"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://cqwpxrtty.com/rules.htm",
+        "note": ""
+      }
+    },
+    {
+      "id": "naqp_rtty",
+      "name": "NCJ NAQP RTTY",
+      "cabrillo_id": "NAQP-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "NAME",
+            "label": "Nome",
+            "type": "name",
+            "source": "my_name"
+          },
+          {
+            "id": "LOCATION",
+            "label": "QTH NA",
+            "type": "text",
+            "source": "station_setting:LOCATION",
+            "required": false,
+            "when": {
+              "own_continent_in": [
+                "NA"
+              ]
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "NAME",
+            "label": "Nome RX",
+            "type": "name",
+            "regex": "^[A-Z]{2,12}$"
+          },
+          {
+            "id": "LOCATION",
+            "label": "QTH RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_continent_in": [
+                "NA"
+              ]
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ NAQP",
+          "text": "CQ NAQP {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "own_continent_in": [
+                "NA"
+              ]
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "dx_continent_in": [
+                "NA"
+              ]
+            },
+            "points": 1
+          },
+          {
+            "points": 0
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "naqploc",
+            "label": "NA QTH",
+            "source": "field:LOCATION",
+            "scope": "band",
+            "when": {
+              "dx_continent_in": [
+                "NA"
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.ncjweb.com/NAQP-Rules.pdf",
+        "note": "Nessun RST. Bande 80/40/20/15/10 m; non-NA invia solo il nome e ottiene punti solo con stazioni NA."
+      }
+    },
+    {
+      "id": "yb_dx_rtty",
+      "name": "YB DX RTTY",
+      "cabrillo_id": "YB-DX-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ YB DX",
+          "text": "CQ YB DX {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "dx_call_regex": "^(YB|YC|YD|YE|YF|YG|7[A-I]|8[A-I])"
+            },
+            "points": 10
+          },
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 2
+          },
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "yb_area",
+            "label": "Call area YB",
+            "source": "call_area",
+            "scope": "band",
+            "when": {
+              "dx_call_regex": "^Y[B-G]"
+            }
+          },
+          {
+            "id": "yb_78_prefix",
+            "label": "Prefissi 7A-8I",
+            "source": "call_regex_capture",
+            "scope": "band",
+            "options": {
+              "pattern": "^([78][A-I])",
+              "group": 1
+            },
+            "when": {
+              "dx_call_regex": "^[78][A-I]"
+            }
+          },
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://rtty.ybdxcontest.com/",
+        "note": "RST + seriale. Stazioni YB/YG e prefissi 7A-8I valgono come moltiplicatori di call-area/prefisso, oltre al DXCC per banda; il parser call-area gestisce /portable."
+      }
+    },
+    {
+      "id": "na_sprint_rtty",
+      "name": "NCJ North American Sprint RTTY",
+      "cabrillo_id": "NA-SPRINT-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "DXCALL",
+            "label": "Call DX",
+            "type": "call",
+            "source": "dx_call"
+          },
+          {
+            "id": "MYCALL",
+            "label": "Mio call",
+            "type": "call",
+            "source": "my_call"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          },
+          {
+            "id": "NAME",
+            "label": "Nome",
+            "type": "name",
+            "source": "my_name"
+          },
+          {
+            "id": "LOCATION",
+            "label": "QTH",
+            "type": "text",
+            "source": "station_setting:LOCATION"
+          }
+        ],
+        "received": [
+          {
+            "id": "DXCALL",
+            "label": "Call",
+            "type": "call"
+          },
+          {
+            "id": "MYCALL",
+            "label": "Mio call",
+            "type": "call"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          },
+          {
+            "id": "NAME",
+            "label": "Nome RX",
+            "type": "name",
+            "regex": "^[A-Z]{2,12}$"
+          },
+          {
+            "id": "LOCATION",
+            "label": "QTH RX",
+            "type": "text"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ NA Sprint",
+          "text": "CQ NA Sprint {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "location",
+            "label": "QTH NA",
+            "source": "field:LOCATION",
+            "scope": "overall"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://ncjweb.com/",
+        "note": "Exchange Sprint: call chiamato + proprio call + seriale + nome + QTH."
+      }
+    },
+    {
+      "id": "bartg_hf",
+      "name": "BARTG HF RTTY",
+      "cabrillo_id": "BARTG-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          },
+          {
+            "id": "TIME",
+            "label": "UTC",
+            "type": "time",
+            "source": "utc_hhmm"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          },
+          {
+            "id": "TIME",
+            "label": "UTC RX",
+            "type": "time",
+            "regex": "^\\d{4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ BARTG HF",
+          "text": "CQ BARTG HF {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS * CONTINENTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          },
+          {
+            "id": "call_area",
+            "label": "Call area W/VE/JA/VK",
+            "source": "call_area",
+            "scope": "band",
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE",
+                "JA",
+                "VK"
+              ]
+            }
+          },
+          {
+            "id": "continents",
+            "label": "Continenti",
+            "source": "continent",
+            "scope": "overall",
+            "aggregate": "continents"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://bartg.org.uk/bartg-hf-rtty-contest/",
+        "note": "RST + seriale + UTC a 4 cifre. DXCC e call area W/VE/JA/VK separati per banda; continenti overall."
+      }
+    },
+    {
+      "id": "ea_rtty",
+      "name": "EA RTTY Contest",
+      "cabrillo_id": "EARTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia EA",
+            "type": "text",
+            "source": "station_setting:PROVINCE",
+            "when": {
+              "own_country_name_regex": "Spain|Balearic|Canary"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_country_name_regex": "Spain|Balearic|Canary"
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia EA RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_country_name_regex": "Spain|Balearic|Canary"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_country_name_regex": "Spain|Balearic|Canary"
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ EA RTTY",
+          "text": "CQ EA RTTY {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "own_country_name_regex": "Spain|Balearic|Canary",
+              "dx_country_name_regex": "Spain|Balearic|Canary"
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "own_country_name_regex": "Spain|Balearic|Canary"
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "dx_country_name_regex": "Spain|Balearic|Canary"
+            },
+            "points": 3
+          },
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "province",
+            "label": "Province EA",
+            "source": "field:PROVINCE",
+            "scope": "band",
+            "when": {
+              "dx_country_name_regex": "Spain|Balearic|Canary"
+            }
+          },
+          {
+            "id": "entity",
+            "label": "Entità EADX/DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          },
+          {
+            "id": "call_area",
+            "label": "Call area W/VE/JA/VK",
+            "source": "call_area",
+            "scope": "band",
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE",
+                "JA",
+                "VK"
+              ]
+            }
+          },
+          {
+            "id": "ea4ure",
+            "label": "EA4URE",
+            "source": "call",
+            "scope": "band",
+            "when": {
+              "dx_call_regex": "^EA4URE$"
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://concursos.ure.es/en/eartty/bases/",
+        "note": "2026: EA invia RSQ + provincia, DX invia RSQ + seriale. Score live usa CTY/DXCC come stima delle entità EADX-100; province, call area W/VE/JA/VK ed EA4URE sono moltiplicatori separati."
+      }
+    },
+    {
+      "id": "sp_dx_rtty",
+      "name": "SP DX RTTY Contest",
+      "cabrillo_id": "SPDX-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "POVIAT",
+            "label": "Powiat",
+            "type": "text",
+            "source": "station_setting:POVIAT",
+            "when": {
+              "own_primary_prefix_in": [
+                "SP"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_primary_prefix_in": [
+                "SP"
+              ]
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "POVIAT",
+            "label": "Powiat RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_primary_prefix_in": [
+                "SP"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_primary_prefix_in": [
+                "SP"
+              ]
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ SP DX",
+          "text": "CQ SP DX {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS * CONTINENTS",
+        "qso_points": [
+          {
+            "when": {
+              "dx_call_regex": "^(UA|EW)"
+            },
+            "points": 0
+          },
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 5
+          },
+          {
+            "points": 10
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band",
+            "when": {
+              "not_dx_call_regex": "^(UA|EW)"
+            }
+          },
+          {
+            "id": "poviat",
+            "label": "Powiat",
+            "source": "field:POVIAT",
+            "scope": "band",
+            "when": {
+              "dx_primary_prefix_in": [
+                "SP"
+              ]
+            }
+          },
+          {
+            "id": "continents",
+            "label": "Continenti",
+            "source": "continent",
+            "scope": "overall",
+            "aggregate": "continents"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://pkrvg.org/strona%2Cspdxrttyen.html",
+        "note": "2026: SP invia RST + powiat, non-SP RST + seriale. QSO con UA/EW = 0 punti e non valgono come country multiplier."
+      }
+    },
+    {
+      "id": "bartg_sprint75",
+      "name": "BARTG Sprint75 RTTY",
+      "cabrillo_id": "BARTG-SPRINT75",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ BARTG 75",
+          "text": "CQ BARTG 75 {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS * CONTINENTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "overall"
+          },
+          {
+            "id": "call_area",
+            "label": "Call area W/VE/JA/VK",
+            "source": "call_area",
+            "scope": "overall",
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE",
+                "JA",
+                "VK"
+              ]
+            }
+          },
+          {
+            "id": "continents",
+            "label": "Continenti",
+            "source": "continent",
+            "scope": "overall",
+            "aggregate": "continents"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://bartg.org.uk/bartg-sprint75-contests/",
+        "note": "75 baud, nessun RST, seriale progressivo; DXCC + call area W/VE/JA/VK + continenti."
+      }
+    },
+    {
+      "id": "ari_dx_rtty",
+      "name": "ARI International DX RTTY",
+      "cabrillo_id": "ARI-DX",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia",
+            "type": "text",
+            "source": "station_setting:PROVINCE",
+            "when": {
+              "own_primary_prefix_in": [
+                "I"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_primary_prefix_in": [
+                "I"
+              ]
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia I RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_primary_prefix_in": [
+                "I"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_primary_prefix_in": [
+                "I"
+              ]
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ ARI DX",
+          "text": "CQ ARI DX {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 0
+          },
+          {
+            "when": {
+              "dx_primary_prefix_in": [
+                "I"
+              ]
+            },
+            "points": 10
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 1
+          },
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "province",
+            "label": "Province I",
+            "source": "field:PROVINCE",
+            "scope": "band",
+            "when": {
+              "dx_primary_prefix_in": [
+                "I"
+              ]
+            }
+          },
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band",
+            "when": {
+              "not_dx_call_regex": "^I"
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.qsl.net/contest_ari/DX_rul_ing_new.html",
+        "note": "Italiane: RST + provincia; non-italiane: RST + seriale. Province italiane e DXCC/WAE non-italiani sono moltiplicatori per banda."
+      }
+    },
+    {
+      "id": "volta_rtty",
+      "name": "Alessandro Volta RTTY DX",
+      "cabrillo_id": "VOLTA-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          },
+          {
+            "id": "CQZONE",
+            "label": "Zona CQ",
+            "type": "zone",
+            "source": "my_cq_zone"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          },
+          {
+            "id": "CQZONE",
+            "label": "Zona CQ RX",
+            "type": "zone",
+            "regex": "^\\d{1,2}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ VOLTA",
+          "text": "CQ VOLTA {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "QSO * POINTS * MULTS",
+        "qso_points": [],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "Paesi/Call area",
+            "source": "dxcc_or_call_area",
+            "scope": "band",
+            "options": {
+              "call_area_primary_prefixes": [
+                "K",
+                "VE",
+                "JA",
+                "VK",
+                "ZL"
+              ]
+            }
+          }
+        ],
+        "note": "Il regolamento corrente rimanda a una Exchange Points Table esterna; macro/exchange sono completi, score live disabilitato finché la tabella non è rappresentata nel rules file."
+      },
+      "source": {
+        "url": "https://www.contestvolta.it/rules.pdf",
+        "note": "Regole 2026: RST + seriale + zona CQ. Formula QSO × exchange points × multipliers."
+      }
+    },
+    {
+      "id": "sartg_ww",
+      "name": "SARTG WW RTTY",
+      "cabrillo_id": "SARTG-WW-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ SARTG",
+          "text": "CQ SARTG {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 10
+          },
+          {
+            "points": 15
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          },
+          {
+            "id": "call_area",
+            "label": "Call area W/VE/JA/VK",
+            "source": "call_area",
+            "scope": "band",
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE",
+                "JA",
+                "VK"
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.sartg.com/contest/wwrules.htm",
+        "note": "2026: RST + seriale; 5/10/15 punti; DXCC e call area W/VE/JA/VK sono moltiplicatori separati per banda."
+      }
+    },
+    {
+      "id": "rttyops_scry",
+      "name": "SCRY / RTTYOps WW DX RTTY",
+      "cabrillo_id": "RTTYOPS-WW-RTTY",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "period",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "YEAR",
+            "label": "Anno licenza",
+            "type": "year",
+            "source": "station_setting:YEAR_LICENSED"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "YEAR",
+            "label": "Anno licenza RX",
+            "type": "year",
+            "regex": "^(19|20)\\d{2}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ SCRY",
+          "text": "CQ SCRY {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "band_in": [
+                "160m",
+                "80m"
+              ],
+              "dx_call_regex": "^(?:ES|JW|JX|L(?:A|B|C|G|I|J|M|N)|LY|O(?:F|G|H|I)|OJ0|OX|XP|OW|OY|5P|5Q|OU|OV|OZ|7S|8S|S[A-M]|TF|YL|(?:SN|SO|SP|SQ)[12]|3Z[12])"
+            },
+            "points": 8
+          },
+          {
+            "when": {
+              "band_in": [
+                "160m",
+                "80m"
+              ],
+              "same_country": true
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "band_in": [
+                "160m",
+                "80m"
+              ],
+              "same_continent": true
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "band_in": [
+                "160m",
+                "80m"
+              ]
+            },
+            "points": 15
+          },
+          {
+            "when": {
+              "band_in": [
+                "40m"
+              ],
+              "dx_call_regex": "^(?:ES|JW|JX|L(?:A|B|C|G|I|J|M|N)|LY|O(?:F|G|H|I)|OJ0|OX|XP|OW|OY|5P|5Q|OU|OV|OZ|7S|8S|S[A-M]|TF|YL|(?:SN|SO|SP|SQ)[12]|3Z[12])"
+            },
+            "points": 8
+          },
+          {
+            "when": {
+              "band_in": [
+                "40m"
+              ],
+              "same_country": true
+            },
+            "points": 6
+          },
+          {
+            "when": {
+              "band_in": [
+                "40m"
+              ],
+              "same_continent": true
+            },
+            "points": 6
+          },
+          {
+            "when": {
+              "band_in": [
+                "40m"
+              ]
+            },
+            "points": 10
+          },
+          {
+            "when": {
+              "band_in": [
+                "20m",
+                "15m",
+                "10m"
+              ],
+              "dx_call_regex": "^(?:ES|JW|JX|L(?:A|B|C|G|I|J|M|N)|LY|O(?:F|G|H|I)|OJ0|OX|XP|OW|OY|5P|5Q|OU|OV|OZ|7S|8S|S[A-M]|TF|YL|(?:SN|SO|SP|SQ)[12]|3Z[12])"
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "band_in": [
+                "20m",
+                "15m",
+                "10m"
+              ],
+              "same_country": true
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "band_in": [
+                "20m",
+                "15m",
+                "10m"
+              ],
+              "same_continent": true
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "band_in": [
+                "20m",
+                "15m",
+                "10m"
+              ]
+            },
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "year",
+            "label": "Anni licenza",
+            "source": "field:YEAR",
+            "scope": "band_period"
+          },
+          {
+            "id": "scry_prefix",
+            "label": "Prefissi Scandinavia/Baltico",
+            "source": "wpx_prefix",
+            "scope": "band_period",
+            "when": {
+              "all": [
+                {
+                  "dx_call_regex": "^(?:ES|JW|JX|L(?:A|B|C|G|I|J|M|N)|LY|O(?:F|G|H|I)|OJ0|OX|XP|OW|OY|5P|5Q|OU|OV|OZ|7S|8S|S[A-M]|TF|YL|(?:SN|SO|SP|SQ)[12]|3Z[12])"
+                },
+                {
+                  "not_own_call_regex": "^(?:ES|JW|JX|L(?:A|B|C|G|I|J|M|N)|LY|O(?:F|G|H|I)|OJ0|OX|XP|OW|OY|5P|5Q|OU|OV|OZ|7S|8S|S[A-M]|TF|YL|(?:SN|SO|SP|SQ)[12]|3Z[12])"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://rttyops.com/index.php/contests/cq-rttyops-ww-scry-rtty/cq-rttyops-ww-scry2-rtty-rules",
+        "note": "2026: due periodi indipendenti. RST + anno prima licenza; QSO una volta per periodo; anno e prefissi Scandinavia/Baltico sono moltiplicatori per banda e periodo."
+      },
+      "periods": [
+        {
+          "id": "P1",
+          "start_utc": "2026-08-28T22:00:00Z",
+          "end_utc": "2026-08-29T12:00:00Z"
+        },
+        {
+          "id": "P2",
+          "start_utc": "2026-08-30T12:00:00Z",
+          "end_utc": "2026-08-30T23:59:59Z"
+        }
+      ]
+    },
+    {
+      "id": "russian_ww_rtty",
+      "name": "Russian WW RTTY",
+      "cabrillo_id": "RUS-WW-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "OBLAST",
+            "label": "Oblast",
+            "type": "text",
+            "source": "station_setting:OBLAST",
+            "when": {
+              "own_country_name_regex": "Russia"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_country_name_regex": "Russia"
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "OBLAST",
+            "label": "Oblast RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_country_name_regex": "Russia"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_country_name_regex": "Russia"
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ RUS WW",
+          "text": "CQ RUS WW {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "dx_call_regex": "/MM$"
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "own_country_name_regex": "Russia",
+              "dx_country_name_regex": "Russia",
+              "same_continent": true
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "own_country_name_regex": "Russia",
+              "dx_country_name_regex": "Russia"
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "own_country_name_regex": "Russia",
+              "same_continent": true
+            },
+            "points": 3
+          },
+          {
+            "when": {
+              "own_country_name_regex": "Russia"
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "not_own_country_name_regex": "Russia",
+              "dx_country_name_regex": "Russia"
+            },
+            "points": 10
+          },
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 3
+          },
+          {
+            "points": 5
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "oblast",
+            "label": "Oblast RU",
+            "source": "field:OBLAST",
+            "scope": "band",
+            "when": {
+              "all": [
+                {
+                  "dx_country_name_regex": "Russia"
+                },
+                {
+                  "not_dx_call_regex": "/MM$"
+                }
+              ]
+            }
+          },
+          {
+            "id": "dxcc",
+            "label": "DXCC/WAE",
+            "source": "dxcc",
+            "scope": "band",
+            "when": {
+              "not_dx_call_regex": "/MM$"
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.contest.ru/russian-ww-rtty-contest-rules-en/",
+        "note": "Russiane: RSQ + oblast; non-Russiane: RSQ + seriale. /MM = 5 punti e nessun moltiplicatore. Score country usa il database CTY come stima DXCC/WAE."
+      }
+    },
+    {
+      "id": "cq_ww_rtty",
+      "name": "CQ WW RTTY DX",
+      "cabrillo_id": "CQ-WW-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "CQZONE",
+            "label": "Zona CQ",
+            "type": "zone",
+            "source": "my_cq_zone"
+          },
+          {
+            "id": "QTH",
+            "label": "State/Province",
+            "type": "text",
+            "source": "station_setting:LOCATION",
+            "required": false,
+            "when": {
+              "own_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "CQZONE",
+            "label": "Zona CQ RX",
+            "type": "zone",
+            "regex": "^\\d{1,2}$"
+          },
+          {
+            "id": "QTH",
+            "label": "State/Province RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ CQWW RTTY",
+          "text": "CQ CQWW RTTY {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 2
+          },
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "zone",
+            "label": "Zone CQ",
+            "source": "cq_zone",
+            "scope": "band"
+          },
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          },
+          {
+            "id": "qth",
+            "label": "W/VE QTH",
+            "source": "field:QTH",
+            "scope": "band",
+            "when": {
+              "dx_primary_prefix_in": [
+                "K",
+                "VE"
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://cqwwrtty.com/rules.htm",
+        "note": ""
+      }
+    },
+    {
+      "id": "urc_dx_rtty",
+      "name": "URC DX RTTY",
+      "cabrillo_id": "URCDX",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "TERRITORY",
+            "label": "Territorio",
+            "type": "text",
+            "source": "station_setting:TERRITORY"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "TERRITORY",
+            "label": "Territorio RX",
+            "type": "text",
+            "regex": "^[A-Z]{3}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ URC DX",
+          "text": "CQ URC DX {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "field_equals_own": "TERRITORY"
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "band_in": [
+                "40m",
+                "20m",
+                "15m"
+              ],
+              "same_continent": true
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "band_in": [
+                "40m",
+                "20m",
+                "15m"
+              ]
+            },
+            "points": 4
+          },
+          {
+            "when": {
+              "band_in": [
+                "10m"
+              ],
+              "same_continent": true
+            },
+            "points": 3
+          },
+          {
+            "when": {
+              "band_in": [
+                "10m"
+              ]
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "band_in": [
+                "80m"
+              ],
+              "same_continent": true
+            },
+            "points": 3
+          },
+          {
+            "when": {
+              "band_in": [
+                "80m"
+              ]
+            },
+            "points": 6
+          },
+          {
+            "when": {
+              "band_in": [
+                "160m"
+              ],
+              "same_continent": true
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "band_in": [
+                "160m"
+              ]
+            },
+            "points": 10
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "territory",
+            "label": "Territori",
+            "source": "field:TERRITORY",
+            "scope": "band"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://unicomradio.com/urc-dx-rtty-contest/",
+        "note": "RST + territorio a 3 lettere. 80m same-continent = 3 punti; Cabrillo URCDX. Inserire TERRITORY nei dati stazione contest."
+      }
+    },
+    {
+      "id": "makrothen",
+      "name": "Makrothen RTTY",
+      "cabrillo_id": "MAKROTHEN-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "GRID",
+            "label": "Locator",
+            "type": "locator",
+            "source": "my_grid4"
+          }
+        ],
+        "received": [
+          {
+            "id": "GRID",
+            "label": "Locator RX",
+            "type": "locator",
+            "regex": "^[A-R]{2}\\d{2}(?:[A-X]{2})?$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ Makrothen",
+          "text": "CQ Makrothen {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS",
+        "qso_points": [
+          {
+            "method": "distance_km",
+            "same_grid_points": 100,
+            "band_factors": {
+              "80m": 2.0,
+              "40m": 1.5,
+              "20m": 1.0,
+              "15m": 1.0,
+              "10m": 1.0
+            }
+          }
+        ],
+        "multipliers": []
+      },
+      "source": {
+        "url": "https://www.pl259.org/makrothen/makrothen-rules/",
+        "note": ""
+      }
+    },
+    {
+      "id": "jarl_ww_rtty",
+      "name": "JARL WW RTTY",
+      "cabrillo_id": "JARL-WW-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "AGE",
+            "label": "Età",
+            "type": "age",
+            "source": "station_setting:AGE"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "AGE",
+            "label": "Età RX",
+            "type": "age",
+            "regex": "^\\d{1,3}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ JARL WW",
+          "text": "CQ JARL WW {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 2
+          },
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC/Call area",
+            "source": "dxcc_or_call_area",
+            "scope": "band",
+            "options": {
+              "call_area_primary_prefixes": [
+                "K",
+                "VE",
+                "JA",
+                "VK"
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.jarl.org/English/4_Library/A-4-3_Contests/rtty_rules_en.html",
+        "note": "Single-op invia RST + età. Multi-op usa età media/01: profilo impostato per single-op."
+      }
+    },
+    {
+      "id": "waedc_rtty",
+      "name": "WAEDC RTTY",
+      "cabrillo_id": "WAE-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ WAEDC",
+          "text": "CQ WAEDC {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "country",
+            "label": "Paesi/call area ponderati",
+            "source": "dxcc_or_call_area",
+            "scope": "band",
+            "band_weights": {
+              "80m": 4,
+              "40m": 3,
+              "20m": 2,
+              "15m": 2,
+              "10m": 2
+            },
+            "options": {
+              "call_area_primary_prefixes": [
+                "BY",
+                "JA",
+                "PY",
+                "K",
+                "VE",
+                "VK",
+                "ZL",
+                "ZS"
+              ]
+            }
+          }
+        ],
+        "note": "Il punteggio completo WAEDC comprende QTC traffic. Il live score MM mostra QSO/multiplier ma non attribuisce QTC finché non esiste un gestore QTC strutturato."
+      },
+      "source": {
+        "url": "https://www.darc.de/der-club/referate/conteste/wae-dx-contest/en/wae-rules/",
+        "note": "RTTY: tutti possono lavorare tutti; QTC solo tra continenti diversi."
+      }
+    },
+    {
+      "id": "ok_dx_rtty",
+      "name": "OK DX RTTY",
+      "cabrillo_id": "OK-DX-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "CQZONE",
+            "label": "Zona CQ",
+            "type": "zone",
+            "source": "my_cq_zone"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "CQZONE",
+            "label": "Zona CQ RX",
+            "type": "zone",
+            "regex": "^\\d{1,2}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ OK DX",
+          "text": "CQ OK DX {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "band_in": [
+                "40m",
+                "80m"
+              ],
+              "same_continent": true
+            },
+            "points": 3
+          },
+          {
+            "when": {
+              "band_in": [
+                "40m",
+                "80m"
+              ]
+            },
+            "points": 6
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 1
+          },
+          {
+            "points": 2
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          },
+          {
+            "id": "ok",
+            "label": "Stazioni OK",
+            "source": "call",
+            "scope": "band",
+            "when": {
+              "all": [
+                {
+                  "dx_call_regex": "^O[K-L]"
+                },
+                {
+                  "not_own_call_regex": "^O[K-L]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "source": {
+        "url": "http://okrtty.crk.cz/index.php?page=english",
+        "note": "RST + zona CQ; score 1/2 punti su 20-10 e 3/6 su 40-80. DXCC per banda; stazioni OK sono moltiplicatori aggiuntivi per stazioni non-OK."
+      }
+    },
+    {
+      "id": "weekly_rtty_test",
+      "name": "Weekly RTTY Test",
+      "cabrillo_id": "WRTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "NAME",
+            "label": "Nome",
+            "type": "name",
+            "source": "my_name"
+          },
+          {
+            "id": "LOCATION",
+            "label": "State/Province/Country",
+            "type": "text",
+            "source": "station_setting:LOCATION"
+          }
+        ],
+        "received": [
+          {
+            "id": "NAME",
+            "label": "Nome RX",
+            "type": "name",
+            "regex": "^[A-Z]{2,12}$"
+          },
+          {
+            "id": "LOCATION",
+            "label": "State/Province/Country RX",
+            "type": "text"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ WRT",
+          "text": "CQ WRT {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "location",
+            "label": "State/Province/Country",
+            "source": "field:LOCATION",
+            "scope": "band"
+          }
+        ],
+        "note": "1 punto/QSO; state/province/country per banda. W/VE country handling remains determined by entered LOCATION."
+      },
+      "source": {
+        "url": "https://www.contestcalendar.com/weeklycont.php",
+        "note": "Weekly RTTY Test: name + state/province/country, 1 punto/QSO, moltiplicatori per banda."
+      }
+    },
+    {
+      "id": "arrl_rookie_roundup_rtty",
+      "name": "ARRL Rookie Roundup RTTY",
+      "cabrillo_id": "ARRL-RR-RTTY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "NAME",
+            "label": "Nome",
+            "type": "name",
+            "source": "my_name"
+          },
+          {
+            "id": "YEAR",
+            "label": "Check (YY)",
+            "type": "text",
+            "source": "station_setting:ROOKIE_CHECK",
+            "regex": "^\\d{2}$"
+          },
+          {
+            "id": "LOCATION",
+            "label": "SPC",
+            "type": "text",
+            "source": "station_setting:LOCATION"
+          }
+        ],
+        "received": [
+          {
+            "id": "NAME",
+            "label": "Nome RX",
+            "type": "name",
+            "regex": "^[A-Z]{2,12}$"
+          },
+          {
+            "id": "YEAR",
+            "label": "Check RX (YY)",
+            "type": "text",
+            "required": false,
+            "regex": "^\\d{2}$"
+          },
+          {
+            "id": "LOCATION",
+            "label": "SPC RX",
+            "type": "text"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ ARRL Rookie",
+          "text": "CQ ARRL Rookie {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "QSO",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [],
+        "note": "Macro/exchange 2026 disponibili; scoring lasciato N/D nel rules file finché non viene rappresentata integralmente la distinzione Rookie/Non-Rookie."
+      },
+      "source": {
+        "url": "https://www.arrl.org/rookie-roundup",
+        "note": "RTTY 16 agosto 2026: name + 2-digit year first licensed + SPC per i Rookie. Score N/D finché il log non registra in modo affidabile lo status Rookie/Non-Rookie."
+      }
+    },
+    {
+      "id": "ig_ry_ww_rtty",
+      "name": "IG-RY World Wide RTTY",
+      "cabrillo_id": "IG-WW-RY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "YEAR",
+            "label": "Anno prima licenza",
+            "type": "year",
+            "source": "station_setting:YEAR_LICENSED",
+            "regex": "^(19|20)\\d{2}$"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "YEAR",
+            "label": "Anno licenza RX",
+            "type": "year",
+            "regex": "^(19|20)\\d{2}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ IG-RY",
+          "text": "CQ IG-RY {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "year",
+            "label": "Anni licenza",
+            "source": "field:YEAR",
+            "scope": "band"
+          }
+        ],
+        "note": "1 punto/QSO; ogni anno a 4 cifre vale una volta per banda."
+      },
+      "source": {
+        "url": "https://www.ig-ry.de/ig-ry-ww-contest",
+        "note": "Regole correnti: RST + anno prima licenza; operazione autonoma/robot vietata, quindi il Contest Mode di MM resta operatore-guidato."
+      }
+    },
+    {
+      "id": "darc_rtty_sprint",
+      "name": "DARC RTTY Sprint",
+      "cabrillo_id": "ShortRY",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "DOK",
+            "label": "DOK / NM",
+            "type": "text",
+            "source": "station_setting:DOK",
+            "when": {
+              "own_country_name_regex": "Germany"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_country_name_regex": "Germany"
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "DOK",
+            "label": "DOK / NM RX",
+            "type": "text",
+            "required": false,
+            "when": {
+              "dx_country_name_regex": "Germany"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_country_name_regex": "Germany"
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ DARC RTTY",
+          "text": "CQ DARC RTTY {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dok",
+            "label": "DOK",
+            "source": "field:DOK",
+            "scope": "band",
+            "when": {
+              "dx_country_name_regex": "Germany"
+            }
+          },
+          {
+            "id": "prefix",
+            "label": "Prefissi",
+            "source": "wpx_prefix",
+            "scope": "band"
+          }
+        ],
+        "note": "1 punto/QSO; DOK e prefissi per banda."
+      },
+      "source": {
+        "url": "https://www.darc.de/der-club/referate/conteste/rtty-kurz/darc-rtty-contest-english-version/darc-rtty-rules/",
+        "note": "DL: RST + DOK/NM; non-DL: RST + seriale. Contest trimestrale."
+      }
+    },
+    {
+      "id": "r3a_cup_digi_rtty",
+      "name": "R3A-CUP-DIGI / MSK TIME RTTY",
+      "cabrillo_id": "R3A-CUP-DIGI",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m"
+      ],
+      "dupe_scope": "band_period",
+      "periods": [
+        {
+          "id": "T1",
+          "start_utc": "2026-03-27T17:00:00Z",
+          "end_utc": "2026-03-27T17:59:59Z"
+        },
+        {
+          "id": "T2",
+          "start_utc": "2026-03-27T18:00:00Z",
+          "end_utc": "2026-03-27T18:59:59Z"
+        },
+        {
+          "id": "T3",
+          "start_utc": "2026-03-27T19:00:00Z",
+          "end_utc": "2026-03-27T19:59:59Z"
+        }
+      ],
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "AREA",
+            "label": "Moscow/RDA area",
+            "type": "text",
+            "source": "station_setting:AREA",
+            "when": {
+              "own_country_name_regex": "Russia"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_country_name_regex": "Russia"
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "AREA",
+            "label": "Moscow/RDA RX",
+            "type": "text",
+            "required": false,
+            "regex": "^(?:[A-Z]{2}|[A-Z]{2}\\d{2})$",
+            "when": {
+              "dx_country_name_regex": "Russia"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_country_name_regex": "Russia"
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ MSK-CUP",
+          "text": "CQ MSK-CUP {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "all": [
+                {
+                  "field_own_regex": {
+                    "id": "AREA",
+                    "pattern": "^[A-Z]{2}$"
+                  }
+                },
+                {
+                  "field_rx_regex": {
+                    "id": "AREA",
+                    "pattern": "^[A-Z]{2}$"
+                  }
+                }
+              ]
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "all": [
+                {
+                  "field_own_regex": {
+                    "id": "AREA",
+                    "pattern": "^[A-Z]{2}$"
+                  }
+                },
+                {
+                  "not": {
+                    "field_rx_regex": {
+                      "id": "AREA",
+                      "pattern": "^[A-Z]{2}$"
+                    }
+                  }
+                }
+              ]
+            },
+            "points": 5
+          },
+          {
+            "when": {
+              "field_rx_regex": {
+                "id": "AREA",
+                "pattern": "^[A-Z]{2}$"
+              }
+            },
+            "points": 5
+          },
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "area",
+            "label": "Moscow/RDA area",
+            "source": "field:AREA",
+            "scope": "band",
+            "when": {
+              "dx_country_name_regex": "Russia"
+            }
+          }
+        ],
+        "note": "Tre tour 2026; dupes consentiti in tour diversi e, nello stesso tour, su banda diversa. Moscow = AREA a 2 lettere; altre aree RU = RDA a 4 caratteri."
+      },
+      "source": {
+        "url": "https://www.rdrclub.ru/r3a-cup-digi/296-r3a-cup-digi-rules",
+        "note": "2026: 27 marzo, 17:00-19:59 UTC, RTTY45 su 80/40 m; tre tour da un'ora."
+      }
+    },
+    {
+      "id": "paccdigi_rtty",
+      "name": "Dutch PACCdigi RTTY",
+      "cabrillo_id": "PACCDIGI",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia PA",
+            "type": "text",
+            "source": "station_setting:PROVINCE",
+            "when": {
+              "own_country_name_regex": "Netherlands"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_country_name_regex": "Netherlands"
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia PA RX",
+            "type": "text",
+            "required": false,
+            "regex": "^(NH|ZH|ZL|NB|UT|FL|FR|GR|OV|DR|GD|LB)$",
+            "when": {
+              "dx_country_name_regex": "Netherlands"
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "required": false,
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_country_name_regex": "Netherlands"
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ PACCDIGI",
+          "text": "CQ PACCDIGI {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "dx_country_name_regex": "Netherlands"
+            },
+            "points": 3
+          },
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "province",
+            "label": "Province PA",
+            "source": "field:PROVINCE",
+            "scope": "band",
+            "when": {
+              "all": [
+                {
+                  "dx_country_name_regex": "Netherlands"
+                },
+                {
+                  "not_dx_call_regex": "/MM$"
+                }
+              ]
+            }
+          }
+        ],
+        "note": "Profilo RTTY-only: 1 punto/QSO, 3 con PA; province PA per banda; /MM non moltiplica."
+      },
+      "source": {
+        "url": "https://veron.nl/vereniging/commissies-en-werkgroepen/traffic-bureau/hf-contesten/paccdigi-rules/",
+        "note": "PACCdigi 2026 include categoria RTTY-only; Dutch: RST+provincia, World: RST+seriale."
+      }
+    },
+    {
+      "id": "open_ukraine_rtty",
+      "name": "Open Ukraine RTTY (annullato 2026)",
+      "cabrillo_id": "OPEN-UKRAINE-RTTY",
+      "status": "cancelled",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ Open Ukraine",
+          "text": "CQ Open Ukraine {MYCALL} {MYCALL} CQ "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? AGN? "
+        },
+        {
+          "label": "NR? / EXCH?",
+          "text": "NR? EXCH? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} QRZ "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "QSO",
+        "qso_points": [],
+        "multipliers": [],
+        "note": "Contest annullato nel 2026."
+      },
+      "source": {
+        "url": "https://www.rttycontesting.com/records/",
+        "note": "Elencato come Cancelled in 2026; non appare nel selettore attivo."
+      }
+    }
+  ]
+}

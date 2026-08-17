@@ -1,0 +1,29 @@
+MadModem 0.5.78 — FT8/FT4 sensitivity regression fix validation
+Date: 2026-08-03
+
+Verified source invariants
+- FT8 live candidate finder is byte-identical to the adaptive-runtime checkpoint.
+  SHA-256: 2d4ca13f3ea884157d8343aaccff16a38b09351ce045bd156ef4f9c1afdc083f
+- FT4 live candidate finder is byte-identical to the adaptive-runtime checkpoint.
+  SHA-256: 3b160cfb8f022a74282c6907a2e470e2615f6792a81bb2af95baa6191fff2af3
+- FT8 ghost-candidate gate is byte-identical.
+  SHA-256: 6e7b4f9c15b21a01f3351442c08c916a7f57f49686a98dfc7acb2296adee1e36
+- Active live bucket-rescue injection is absent.
+- FT8/FT4 SPA and complex coherent recovery are offline-A/B only.
+- FT8/FT4 post-decode timing-offset SIC search is offline-A/B only.
+- CRC-derived exact 103-tone continuous-GFSK FT4 SIC remains active.
+
+Automated checks
+- tests/ft8/check_wideband_algorithms.py: PASS
+- scripts/check_ft_wideband_sensitivity.sh: PASS
+- scripts/check_ft4_adaptive_runtime.sh: PASS
+- scripts/check_waterfall_hidpi_labels.sh: PASS
+- scripts/check_waterfall_hidpi_viewport.sh: PASS
+- scripts/run_waterfall_leveler_regression.sh: 5/5 PASS
+- scripts/run_cw_native_regression.sh: PASS
+- scripts/check_macos_portability.sh: PASS
+
+Not performed
+- Full Qt build: Qt development package unavailable in the container.
+- Same-WAV FT8/FT4 sensitivity benchmark: reference WAV files unavailable.
+- Real-air validation: must be performed on the user's machine.

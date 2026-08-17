@@ -1,0 +1,158 @@
+MadModem 0.5.78 — FT LINEAR SEQUENCER / RX / CAT FIX
+======================================================
+
+Baseline
+--------
+Source baseline:
+  MadModem_0_5_78_FT8_ROTATOR_NONBLOCKING_FULL_SOURCE.zip
+
+Field evidence reviewed:
+  Pasted text(20260806-131308).txt
+
+The change is intentionally linear. It removes competing owners and recovery
+paths instead of adding another fallback around them.
+
+Confirmed failures reproduced from the log
+------------------------------------------
+1. Generated FT8 TX audio was routed into the RX waterfall, producing a local
+   white column and symmetric skirts that looked like RF sidebands.
+2. A QSO-activity/history selection could arm a RETRY, then the explicit TX
+   button could arm the same physical message again under a different tag.
+3. At 15:11:46.524 an RR73 from 7X2KF was decoded after R-16 TX had started.
+   The previous code let the obsolete R-16 frame finish and only queued 73.
+4. The AutoQSO reclaim path then resurrected 7X2KF IZ6NNH 73 after detecting
+   that 7X2KF was already replying to TA1MHS.
+5. Hamlib kept the CAT handle open, but the 0.5.78 mode capture/restore path
+   could issue unnecessary rig_get_mode/rig_set_mode traffic on every PTT cycle
+   even when the selected policy was "None / keep current mode".
+6. The live resource controller retained a mutable worker target and could
+   silently reduce FT parallelism. The displayed "queue latency" was actually
+   block/timestamp age and was not a valid reason to lower sensitivity.
+7. The FT period clock still existed but was hidden outside the Mode panel.
+
+Implemented architecture
+------------------------
+
+A. RX waterfall is RX-only
+- FtTxWorker::audioBlockReady is no longer connected to DspEngine.
+- The generic TX monitor ignores FT4/FT8 generated audio.
+- During FT TX the last RX waterfall frame remains frozen.
+- No statement is made about the RF spectrum from this local display; RF purity
+  must be checked with an independent receiver or SDR.
+
+B. One physical TX plan
+- Physical identity is message + immutable UTC boundary + TX audio frequency.
+- TX/SEQ/RETRY/AUTO is metadata, not plan identity.
+- An explicit TX press can take ownership of an identical already-armed plan
+  without creating a second timer or selecting a later slot.
+- QSO activity/history double-click only selects correspondent, message family,
+  frequency and standard row. It never schedules transmission.
+- Pressing TX is the only action that turns that selection into a live plan.
+
+C. Terminal messages have strict priority
+Priority:
+  73/RR73 > RRR > R-report > report > locator
+
+When 73/RR73 arrives while an obsolete report frame is already on air:
+- the current FT audio is stopped;
+- exactly one final Tx6 73 is retained as a deferred next-slot plan;
+- the obsolete frame cannot complete into old retry logic;
+- a repeated terminal decode while final 73 is on air schedules nothing;
+- final 73 completion closes the QSO.
+
+An FT8 frame cannot be changed in place after transmission has started. The
+correct action is therefore to stop the obsolete frame and transmit the new
+complete valid frame in the next selected UTC period.
+
+D. AutoQSO reclaim removed
+- reclaimFt8ActiveQsoAwayFromQrm() was deleted.
+- The conservative state-to-message reconstruction fallback was deleted.
+- If the active DX is working another station, pending/deferred/retry state is
+  cancelled, the QSO is abandoned, and MM remains in RX.
+- No old 73 is reconstructed or re-armed.
+
+E. CAT connection and mode policy
+- The Hamlib rig object/handle remains open across RX/TX cycles as before.
+- For "None / keep current mode":
+    * no rig_get_mode before PTT;
+    * no rig_set_mode after PTT;
+    * only PTT ON/OFF is sent.
+- For explicit USB/Data mode policies, the previous mode is restored only if
+  MadModem actually changed it during that TX cycle.
+- The log text "CAT connected" is a status update, not rig_open().
+
+F. Deterministic live compute budget and direct audio route
+- The adaptive mutable live-worker target and maybeAdjustLocked() were removed.
+- Gate/boundary/OSD budgets are deterministic functions of detected topology.
+- Runtime CPU/GUI/waterfall/block-age observations remain telemetry only.
+- "queue latency" wording was corrected to "block age" / "timestamp age".
+- AudioEngine now queues FT blocks directly to Ft8RxDecoder.
+- MainWindow no longer transports, gates or duplicates FT audio blocks.
+- Ft8RxDecoder owns an explicit live-input enable flag, changed synchronously
+  before input start/stop and before FT TX boundary shutdown.
+
+G. FT8/FT4 clock restored in Mode panel
+- Existing Ft8SlotClockWidget reused; no second clock/scheduler introduced.
+- The widget is inside the visible FT sequencer group in the Mode panel.
+- It shows period I/II, FT8 15+15 s or FT4 7.5+7.5 s, current RX/TX window,
+  remaining time and next selected TX countdown.
+- The same UTC slot model used by FtSlotScheduler drives the display.
+- New/changed UI text was updated in IT/EN/FR/DE/NO/CS.
+
+Main source files changed
+-------------------------
+- mainwindow.cpp / mainwindow.h
+- modems/ft8/Ft8RxDecoder.cpp / .h
+- modems/ft8/FtQsoSequencer.cpp / .h
+- modems/ft8/FtQsoSession.cpp
+- rig/HamlibController.cpp / .h
+- utils/SystemResourceManager.cpp / .h
+- tests/FtSequencerSelfTest.cpp
+- translations/ui_it.ini, ui_en.ini, ui_fr.ini, ui_de.ini, ui_no.ini, ui_cs.ini
+- scripts/check_ft_linear_sequencer.py
+
+Regression coverage added
+-------------------------
+FtSequencerSelfTest now includes:
+- RR73 during obsolete R-report TX -> InterruptAndArmRow, one Tx6 73;
+- plain 73 during obsolete R-report TX -> same terminal transition;
+- repeated RR73 while final 73 is on air -> no additional TX;
+- RR73 after final 73 finished -> QSO complete.
+
+Validation executed in this environment
+---------------------------------------
+PASS  git diff --check
+PASS  scripts/check_ft_linear_sequencer.py
+PASS  scripts/check_macos_portability.sh
+PASS  scripts/check_ft_atomic_tx_lifecycle.py
+PASS  scripts/check_ft4_adaptive_runtime.sh
+PASS  scripts/check_ft_wideband_sensitivity.sh
+PASS  scripts/check_cw_temporal_epoch.sh
+PASS  scripts/ci_release_version_guard.sh
+PASS  IT/EN/FR/DE/NO/CS translation-key parity (1731 keys each)
+
+The complete Qt build and MadModemFtSequencerSelfTest executable could not be
+built in this container because Qt development files are absent:
+  Qt5Config.cmake / qt5-config.cmake not found.
+
+Therefore this report does NOT claim a completed GUI link or live-radio test.
+The platform CI/build must compile the complete source, including the updated
+QtCore sequencer self-test.
+
+Required first live acceptance test
+-----------------------------------
+1. Start FT8 RX and leave it running for at least 15 minutes, including Evil
+   Auto QSO. Worker targets must remain fixed at topology values; STOP/RX must
+   not be required to recover decode sensitivity.
+2. During FT TX the waterfall must freeze; no local white TX column/skirts.
+3. Select a QSO-activity row: no arm occurs. Press TX: exactly one plan appears,
+   with a clear next-TX countdown.
+4. Reproduce late RR73/73 during an active old report:
+   - old TX stops promptly;
+   - one final 73 is armed;
+   - QSO completes after it;
+   - no 73 retry loop.
+5. When the DX works another station, MM cancels and remains RX; no reclaim.
+6. With radio TX mode set to "None / keep current mode", CAT remains connected
+   and the radio must not beep from redundant mode restore commands.
+7. Verify FT4 uses 7.5 s periods and the same linear behavior.
