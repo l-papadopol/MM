@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include "audio/AudioEngine.h"
+#include "audio/BoundedAudioDispatcher.h"
 #include "audio/RxAudioRecorder.h"
 #include "audio/TxAudioEngine.h"
 #include "audio/FtTxWorker.h"
@@ -945,7 +946,6 @@ private:
 
     void setupBandSchedulerTab();
     void updateBandSchedulerTabForMode(const QString &modeName);
-    void setupDspTab();
     void updateDspTabForMode(const QString &modeName);
     QWidget *createDspConditionerControls(const QString &modeKey, QWidget *parent);
     QString dspModeKeyForModeName(const QString &modeName) const;
@@ -1200,6 +1200,9 @@ private:
      */
     void highlightCallsignsInTerminal(QPlainTextEdit *terminal);
 
+    /** Coalesces high-frequency character updates before recolouring a terminal. */
+    void scheduleTerminalHighlight(QPlainTextEdit *terminal);
+
     // Data-driven RTTY contest mode.  Contest-specific exchange, macros and
     // scoring rules are loaded from the external rtty_rules file; no contest
     // identity is hard-coded into the runtime sequencer/UI path.
@@ -1352,6 +1355,8 @@ private:
      * @brief Returns the active audio output backend name.
      */
     QString selectedAudioOutputName() const;
+    bool startAudioInputBlocking(const QString &deviceName, int sampleRate);
+    void stopAudioInputBlocking();
 
     /**
      * @brief Returns the active audio output display label.
@@ -1553,6 +1558,8 @@ private:
     QAction *m_actionWhatsThisMode = nullptr;
 
     AudioEngine *m_audioEngine = nullptr;
+    BoundedAudioDispatcher *m_rxUiAudioDispatcher = nullptr;
+    QThread *m_audioThread = nullptr;
     RxAudioRecorder *m_rxAudioRecorder = nullptr;
     QThread *m_rxAudioRecorderThread = nullptr;
     QString m_pendingRxRecordingPath;
@@ -1562,6 +1569,7 @@ private:
     QThread *m_ftTxThread = nullptr;
     bool m_ftTxWorkerRunning = false;
     DspEngine *m_dspEngine = nullptr;
+    BoundedAudioDispatcher *m_dspAudioDispatcher = nullptr;
     QThread *m_dspThread = nullptr;
     WeatherFaxDecoder *m_weatherFaxDecoder = nullptr;
     SstvDecoder *m_sstvDecoder = nullptr;
@@ -1570,7 +1578,6 @@ private:
     Bpsk31Decoder *m_bpsk31Decoder = nullptr;
     MfskDecoder *m_mfskDecoder = nullptr;
     CwDecoder *m_cwDecoder = nullptr;
-    CwDecoder *m_cwSecondaryDecoder = nullptr;
     bool m_cwPrimaryLineOpen = false;
     bool m_cwSecondaryEnabled = false;
     bool m_cwSecondaryLineOpen = false;
@@ -1738,7 +1745,6 @@ private:
     QCheckBox *m_chkCwAutoBandwidth = nullptr;
     QCheckBox *m_chkCwAfc = nullptr;
     QSpinBox *m_spinCwAfcRangeHz = nullptr;
-    QCheckBox *m_chkCwSoftwareAgc = nullptr;
     QLabel *m_lblCwReceptionTitle = nullptr;
     QLabel *m_lblCwRxATitle = nullptr;
     QLabel *m_lblCwRxBTitle = nullptr;
@@ -1890,6 +1896,7 @@ private:
     QLabel *m_lblQ65AverageStatus = nullptr;
     QLabel *m_lblQ65SequencerStatus = nullptr;
     Q65Decoder *m_q65Decoder = nullptr;
+    QThread *m_q65Thread = nullptr;
 
     using Ft8SequencerState = FtQsoSequencer::State;
 
@@ -2103,6 +2110,7 @@ private:
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;
     int m_textAfcSamplesSinceUpdate = 0;
+    qint64 m_lastRxDispatcherDropLogUtcMs = 0;
 
     QString m_pendingModeName;
     bool m_pendingModeRestartRx = false;
@@ -2115,6 +2123,8 @@ private:
 
     QSerialPort m_pttSerial;
     QTimer m_pttTestTimer;
+    QTimer m_terminalHighlightTimer;
+    QSet<QPlainTextEdit *> m_pendingTerminalHighlights;
 };
 
 #endif // MAINWINDOW_H

@@ -99,6 +99,7 @@ private:
     qint64 m_samplesProcessed = 0;
     qint64 m_samplesUntilScan = 0;
     int m_lastScanMs = 0;
+    QVector<float> m_scanBuffer;
     QVector<Track> m_tracks;
     QVector<Callout> m_callouts;
 };

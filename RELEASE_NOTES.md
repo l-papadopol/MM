@@ -1,6 +1,31 @@
-# MadModem 0.5.79 — current source checkpoint
+# MadModem 0.5.8 — hardened runtime checkpoint
 
-## 0.5.79 release focus
+## 0.5.8 release focus
+
+- Preserved the restored, high-sensitivity FT8/FT4 candidate search, gate,
+  boundary, LDPC and sequencer path without speculative decoder changes.
+- Moved audio capture to its own thread and added bounded, drop-oldest UI/DSP
+  relays so a slow GUI or waterfall cannot grow an unbounded queued-copy backlog;
+  the FT worker keeps its existing direct queued input from AudioEngine.
+- Made CAT/PTT fail closed: rear/data routing never silently falls back to normal
+  PTT, requested USB/Data mode failures abort TX, shutdown attempts an acknowledged
+  PTT OFF, and logs no longer claim OFF unless Hamlib confirms it.
+- Added strict RIFF/WAV validation and a shared reader, streaming resampling state
+  for FT/MSK144/Q65, UTC-period assembly, joined MSK144 jobs and generation guards.
+- Made Q65 capability reporting truthful. TX remains available in every build;
+  RX starts only when the optional full FFTW/MSHV decoder backend is compiled.
+- Added atomic ADIF persistence, bounded terminal/table history, debounced terminal
+  highlighting, bounded OpenStreetMap tile downloads with normal TLS verification,
+  and an explicit classic-RIFF recorder size limit.
+- Removed UI-thread blocking NTP probes, decoder-thread termination, detached
+  MSK144 jobs and nested event processing in offline SSTV/WEFAX imports.
+- Kept the compact RTTY contest panel inside the side-tab viewport and retained
+  the CAT-synchronized FT band/frequency behavior.
+- Registered source guards and native regressions with CTest. Distribution
+  packages are test-gated on Linux, Windows and macOS, while a portable Linux
+  build plus the complete CTest suite runs on every push and pull request.
+
+## Retained 0.5.79 feature baseline
 
 - Added a dedicated RTTY `Contest mode` side tab between Mode and Rotator. It owns the contest operating surface (rules/profile, exchange fields, transactional serial, live score and contest macros) and mirrors the normal RTTY QSO form bidirectionally while logging through the same single QSO owner.
 - Added live decoded RTTY text inside the Mark/Space CRT scope. Auto polarity now uses the CAT demodulation mode (USB/LSB/RTTY/RTTYR when Hamlib reports it) as a prior and continuously compares normal/reverse ITA2 framing evidence; manual Reverse remains authoritative when Auto polarity is disabled.

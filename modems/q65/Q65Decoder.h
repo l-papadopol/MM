@@ -2,6 +2,7 @@
 #define Q65DECODER_H
 
 #include "../../audio/AudioBlock.h"
+#include "../../dsp/text/LinearResampler.h"
 #include "Q65Mode.h"
 
 #include <QObject>
@@ -30,6 +31,9 @@ class Q65Decoder : public QObject
 public:
     explicit Q65Decoder(QObject *parent = nullptr);
     ~Q65Decoder() override;
+
+    /** Returns true only when the real FFTW-backed MSHV RX decoder is linked. */
+    static bool fullRxAvailable();
 
     void setPeriodSeconds(int seconds);
     void setDecodeDepth(int depth); // 1 fast, 2 normal, 3 deep; MSHV menu semantics
@@ -60,6 +64,8 @@ signals:
 
 private:
     void appendResampledTo12k(const AudioBlock &block);
+    void beginUtcPeriod(qint64 periodId, qint64 firstSampleUtcNs);
+    void finishUtcPeriod(bool force);
     void tryPeriodDecode(bool force);
     void ensureMshvBackend();
     void configureMshvBackend();
@@ -70,6 +76,7 @@ private:
 
 private:
     QVector<double> m_samples12k;
+    LinearResampler m_resampler;
     int m_inputSampleRate = 48000;
     int m_periodSeconds = 60;
     int m_decodeDepth = 2;
@@ -86,6 +93,12 @@ private:
     QString m_dxCall;
     QString m_dxGrid;
     QDateTime m_periodStartUtc;
+    qint64 m_currentPeriodId = -1;
+    qint64 m_nextOutputUtcNs = 0;
+    qint64 m_outputTimeRemainder = 0;
+    qint64 m_lastInputEndUtcNs = 0;
+    quint64 m_captureGeneration = 0;
+    bool m_periodTimelineValid = false;
     QString m_lastStatus;
     int m_avgUsable = 0;
     int m_avgAll = 0;

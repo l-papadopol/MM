@@ -9,6 +9,7 @@
 #include <QString>
 #include <QVector>
 #include <QtGlobal>
+#include <atomic>
 
 class QIODevice;
 
@@ -138,9 +139,9 @@ private:
 
     QByteArray m_pendingBytes;
 
-    int m_sampleRate = 48000;
-    double m_clockCorrectionPpm = 0.0;
-    int m_inputVolumePercent = 100;
+    std::atomic<int> m_sampleRate{48000};
+    std::atomic<double> m_clockCorrectionPpm{0.0};
+    std::atomic<int> m_inputVolumePercent{100};
     int m_channelCount = 1;
     int m_blockSamples = 1024;
 
@@ -169,7 +170,7 @@ private:
     qint64 m_diagnosticLastCallbackFrames = 0;
     int m_diagnosticLastRemainderBytes = 0;
 
-    bool m_running = false;
+    std::atomic<bool> m_running{false};
 };
 
 #endif // AUDIOENGINE_H

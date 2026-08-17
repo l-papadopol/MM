@@ -1,4 +1,4 @@
-MadModem 0.5.79 — RTTY Contest Rules Catalog
+MadModem 0.5.8 — RTTY Contest Rules Catalog
 Generated: 2026-08-15
 
 Profiles: 30 total / 29 active

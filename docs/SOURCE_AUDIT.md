@@ -1,4 +1,4 @@
-# MadModem 0.5.78 source-origin audit
+# MadModem 0.5.8 source-origin audit
 
 Audit basis:
 
@@ -45,7 +45,8 @@ Test media and MM Flow Studio are not included in the production source package.
 
 ## Native runtime/resource additions
 
-`utils/SystemResourceManager.*`, the persistent FT coordinator and the circular
+`utils/SystemResourceManager.*`, `audio/WavFileReader.*`,
+`audio/BoundedAudioDispatcher.*`, the persistent FT coordinator and the circular
 OpenGL waterfall renderer are native MadModem C++ code. They introduce no new
 third-party runtime library. The FT8 FFT backend remains the existing in-tree
 radix-2 implementation; bundled FFTW headers remain part of MSHV/Q65 reference

@@ -1,9 +1,10 @@
-# Q65 in MadModem 0.5.79
+# Q65 in MadModem 0.5.8
 
 Q65 is a developing RX/TX mode with selectable submode, period and decode depth.
 The full receive bridge uses GPL-compatible MSHV-derived decoder components and
-FFTW3 when the required headers/library are available; otherwise CMake selects
-the documented safe buffered fallback.
+FFTW3 when the required headers/library are available. Without that full backend,
+Q65 TX remains available but RX is explicitly unavailable; MadModem does not
+pretend that buffered audio is a functioning decoder.
 
 Relevant source:
 

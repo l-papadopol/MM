@@ -207,13 +207,23 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 
     QAudioDevice selectedDevice = QMediaDevices::defaultAudioOutput();
+    bool exactDeviceMatch = false;
 
     const QList<QAudioDevice> devices = QMediaDevices::audioOutputs();
     for (const QAudioDevice &device : devices) {
         if (device.description() == deviceName) {
             selectedDevice = device;
+            exactDeviceMatch = true;
             break;
         }
+    }
+
+    const bool defaultRequested = deviceName.isEmpty() || deviceName == QStringLiteral("default");
+    if (!defaultRequested && !exactDeviceMatch) {
+        emit errorOccurred(QStringLiteral("Configured TX audio output '%1' is not available; automatic device fallback is disabled.")
+                               .arg(deviceName));
+        m_modulator.reset();
+        return false;
     }
 
     QAudioFormat format;
@@ -235,6 +245,7 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
 #else
 
     QAudioDeviceInfo selectedDevice = QAudioDeviceInfo::defaultOutputDevice();
+    bool exactDeviceMatch = false;
 
     const QList<QAudioDeviceInfo> devices =
         QAudioDeviceInfo::availableDevices(QAudio::AudioOutput);
@@ -242,8 +253,17 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
     for (const QAudioDeviceInfo &device : devices) {
         if (device.deviceName() == deviceName) {
             selectedDevice = device;
+            exactDeviceMatch = true;
             break;
         }
+    }
+
+    const bool defaultRequested = deviceName.isEmpty() || deviceName == QStringLiteral("default");
+    if (!defaultRequested && !exactDeviceMatch) {
+        emit errorOccurred(QStringLiteral("Configured TX audio output '%1' is not available; automatic device fallback is disabled.")
+                               .arg(deviceName));
+        m_modulator.reset();
+        return false;
     }
 
     QAudioFormat format;

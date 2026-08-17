@@ -19,6 +19,7 @@ Q65Decoder::Q65Decoder(QObject *parent)
     : QObject(parent)
 {
     qRegisterMetaType<Q65Decode>("Q65Decode");
+    m_resampler.configure(kInternalRate);
     ensureMshvBackend();
     reset();
 }
@@ -29,6 +30,15 @@ Q65Decoder::~Q65Decoder()
 #ifdef MADMODEM_Q65_FULL_MSHV_DECODER
     delete m_mshv;
     m_mshv = nullptr;
+#endif
+}
+
+bool Q65Decoder::fullRxAvailable()
+{
+#ifdef MADMODEM_Q65_FULL_MSHV_DECODER
+    return true;
+#else
+    return false;
 #endif
 }
 
@@ -67,7 +77,14 @@ QString Q65Decoder::submodeName() const { return Q65Mode::modeName(m_submode); }
 void Q65Decoder::reset()
 {
     m_samples12k.clear();
-    m_periodStartUtc = QDateTime::currentDateTimeUtc();
+    m_resampler.reset();
+    m_periodStartUtc = QDateTime();
+    m_currentPeriodId = -1;
+    m_nextOutputUtcNs = 0;
+    m_outputTimeRemainder = 0;
+    m_lastInputEndUtcNs = 0;
+    m_captureGeneration = 0;
+    m_periodTimelineValid = false;
     m_avgUsable = 0;
     m_avgAll = 0;
     m_lastStatus.clear();
@@ -88,6 +105,9 @@ void Q65Decoder::clearAverages()
 
 QString Q65Decoder::backendStatusText() const
 {
+    if (!fullRxAvailable()) {
+        return QStringLiteral("Q65 RX unavailable: build with the FFTW-backed MSHV decoder.");
+    }
     return QStringLiteral("%1 RX: %2 s, %3, RX %4 Hz, DF tol ±%5 Hz%6%7%8%9")
         .arg(submodeName())
         .arg(m_periodSeconds)
@@ -102,44 +122,89 @@ QString Q65Decoder::backendStatusText() const
 
 void Q65Decoder::processAudioBlock(const AudioBlock &block)
 {
+    if (!fullRxAvailable()) return;
     if (block.samples.isEmpty() || block.sampleRate <= 0) return;
     m_inputSampleRate = block.sampleRate;
     appendResampledTo12k(block);
-    const int periodSamples = m_periodSeconds * kInternalRate;
-    if (m_samples12k.size() >= periodSamples) {
-        tryPeriodDecode(false);
-        const int keep = qMin(kInternalRate, m_samples12k.size());
-        QVector<double> tail;
-        tail.reserve(keep);
-        for (int i = m_samples12k.size() - keep; i < m_samples12k.size(); ++i) {
-            if (i >= 0) tail.append(m_samples12k.at(i));
-        }
-        m_samples12k.swap(tail);
-        m_periodStartUtc = QDateTime::currentDateTimeUtc();
-    }
 }
 
-void Q65Decoder::flushPeriod() { tryPeriodDecode(true); }
+void Q65Decoder::flushPeriod() { finishUtcPeriod(true); }
 
 void Q65Decoder::appendResampledTo12k(const AudioBlock &block)
 {
-    const int inRate = block.sampleRate;
-    if (inRate == kInternalRate) {
-        for (float v : block.samples) m_samples12k.append(static_cast<double>(v));
+    qint64 blockStartUtcNs = block.firstSampleUtcNs;
+    if (blockStartUtcNs <= 0) {
+        const qint64 durationNs = (static_cast<qint64>(block.samples.size()) * 1000000000LL) /
+                                 qMax(1, block.sampleRate);
+        blockStartUtcNs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch() * 1000000LL - durationNs;
+    }
+
+    const bool generationChanged = block.captureGeneration != 0 &&
+                                   m_captureGeneration != 0 &&
+                                   block.captureGeneration != m_captureGeneration;
+    const qint64 inputSampleNs = 1000000000LL / qMax(1, block.sampleRate);
+    const bool timestampJump = m_lastInputEndUtcNs > 0 &&
+                               qAbs(blockStartUtcNs - m_lastInputEndUtcNs) > qMax<qint64>(qint64{5000000}, inputSampleNs * qint64{4});
+    if (generationChanged || timestampJump) {
+        m_resampler.reset();
+        m_samples12k.clear();
+        m_currentPeriodId = -1;
+        m_nextOutputUtcNs = 0;
+        m_outputTimeRemainder = 0;
+        m_periodTimelineValid = false;
+    }
+    if (block.captureGeneration != 0) {
+        m_captureGeneration = block.captureGeneration;
+    }
+
+    const QVector<double> resampled = m_resampler.process(block.samples, block.sampleRate);
+    m_lastInputEndUtcNs = blockStartUtcNs +
+        (static_cast<qint64>(block.samples.size()) * 1000000000LL) / qMax(1, block.sampleRate);
+    if (resampled.isEmpty()) return;
+
+    if (m_nextOutputUtcNs <= 0) {
+        m_nextOutputUtcNs = blockStartUtcNs;
+        m_outputTimeRemainder = 0;
+    }
+    const qint64 periodNs = static_cast<qint64>(m_periodSeconds) * 1000000000LL;
+    for (double value : resampled) {
+        const qint64 periodId = m_nextOutputUtcNs / periodNs;
+        if (m_currentPeriodId != periodId) {
+            if (m_currentPeriodId >= 0) finishUtcPeriod(false);
+            beginUtcPeriod(periodId, m_nextOutputUtcNs);
+        }
+        m_samples12k.append(qBound(-1.0, value, 1.0));
+        m_outputTimeRemainder += 1000000000LL;
+        m_nextOutputUtcNs += m_outputTimeRemainder / kInternalRate;
+        m_outputTimeRemainder %= kInternalRate;
+    }
+}
+
+void Q65Decoder::beginUtcPeriod(qint64 periodId, qint64 firstSampleUtcNs)
+{
+    m_currentPeriodId = periodId;
+    const qint64 periodNs = static_cast<qint64>(m_periodSeconds) * 1000000000LL;
+    const qint64 periodStartNs = periodId * periodNs;
+    m_periodStartUtc = QDateTime::fromMSecsSinceEpoch(periodStartNs / 1000000LL, Qt::UTC);
+    m_samples12k.clear();
+    const qint64 offsetNs = qMax<qint64>(qint64{0}, firstSampleUtcNs - periodStartNs);
+    const int missingSamples = static_cast<int>(qMin<qint64>(
+        static_cast<qint64>(m_periodSeconds * kInternalRate),
+        (offsetNs * kInternalRate) / 1000000000LL));
+    m_periodTimelineValid = missingSamples <= kInternalRate / 20;
+    if (missingSamples > 0) m_samples12k.fill(0.0, missingSamples);
+}
+
+void Q65Decoder::finishUtcPeriod(bool force)
+{
+    if (m_currentPeriodId < 0 || m_samples12k.isEmpty()) return;
+    const int periodSamples = m_periodSeconds * kInternalRate;
+    if (!force && (!m_periodTimelineValid || m_samples12k.size() < periodSamples - 2)) {
+        emit statusChanged(QStringLiteral("Q65 period skipped: incomplete or discontinuous UTC audio window."));
         return;
     }
-    const double ratio = static_cast<double>(kInternalRate) / static_cast<double>(inRate);
-    const int outCount = qMax(1, qRound(static_cast<double>(block.samples.size()) * ratio));
-    const int oldSize = m_samples12k.size();
-    m_samples12k.resize(oldSize + outCount);
-    for (int i = 0; i < outCount; ++i) {
-        const double src = static_cast<double>(i) / ratio;
-        const int i0 = qBound(0, static_cast<int>(std::floor(src)), block.samples.size() - 1);
-        const int i1 = qBound(0, i0 + 1, block.samples.size() - 1);
-        const double frac = src - static_cast<double>(i0);
-        const double v = (1.0 - frac) * block.samples.at(i0) + frac * block.samples.at(i1);
-        m_samples12k[oldSize + i] = qBound(-1.0, v, 1.0);
-    }
+    if (m_samples12k.size() > periodSamples) m_samples12k.resize(periodSamples);
+    tryPeriodDecode(force);
 }
 
 
@@ -194,8 +259,16 @@ void Q65Decoder::handleMshvDecodeList(const QStringList &list)
             const int mm = tmm.mid(2, 2).toInt(&ok);
             const int ss = tmm.mid(4, 2).toInt(&ok);
             if (ok) {
-                QDate date = QDateTime::currentDateTimeUtc().date();
-                d.utc = QDateTime(QDate(date.year(), date.month(), date.day()), QTime(hh, mm, ss), Qt::UTC);
+                const QDate baseDate = m_periodStartUtc.isValid()
+                    ? m_periodStartUtc.toUTC().date()
+                    : QDateTime::currentDateTimeUtc().date();
+                QDateTime candidate(baseDate, QTime(hh, mm, ss), Qt::UTC);
+                if (m_periodStartUtc.isValid() && candidate.secsTo(m_periodStartUtc) > 12 * 3600) {
+                    candidate = candidate.addDays(1);
+                } else if (m_periodStartUtc.isValid() && m_periodStartUtc.secsTo(candidate) > 12 * 3600) {
+                    candidate = candidate.addDays(-1);
+                }
+                d.utc = candidate;
             }
         }
     }
@@ -228,8 +301,9 @@ bool haveDecode = false;
     work.resize(periodSamples);
     for (int i = 0; i < periodSamples; ++i) work[i] = m_samples12k.at(i);
     if (!work.isEmpty() && m_mshv) {
-        const QString now = QDateTime::currentDateTimeUtc().toString(QStringLiteral("hhmmss"));
-        m_mshv->SetStDecode(now, 0, false);
+        const QString periodTime = (m_periodStartUtc.isValid() ? m_periodStartUtc : QDateTime::currentDateTimeUtc())
+                                       .toUTC().toString(QStringLiteral("hhmmss"));
+        m_mshv->SetStDecode(periodTime, 0, false);
         const int modeId = 14 + static_cast<int>(m_submode);
         const double fa = qMax(0, m_rxFrequencyHz - m_dfToleranceHz);
         const double fb = qMin(3000, m_rxFrequencyHz + m_dfToleranceHz);

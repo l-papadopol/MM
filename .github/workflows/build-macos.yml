@@ -34,11 +34,14 @@ jobs:
       - name: Build MadModem.app
         env:
           MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
-          MADMODEM_MIND_OPENMP: OFF
           MADMODEM_Q65_FULL: OFF
           MACOSX_DEPLOYMENT_TARGET: "13.0"
         run: |
           bash scripts/build_macos.sh
+
+      - name: Run regression suite
+        run: |
+          ctest --test-dir "build-macos-${{ matrix.arch }}" --output-on-failure
 
       - name: Package unsigned app
         env:

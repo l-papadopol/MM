@@ -2,13 +2,13 @@
 #include "Ft8Mode.h"
 #include "../../dsp/cpu/CpuFeatures.h"
 #include "../../utils/SystemResourceManager.h"
+#include "../../audio/WavFileReader.h"
 
 #define MN_NM_NRW_FT_174_91
 #include "../../third_party/mshv_gpl/port/HvGenFt8/bpdecode_ft8_174_91.h"
 #include "../../third_party/mshv_gpl/port/boost/boost_14.hpp"
 #include "../../third_party/mshv_gpl/port/genpom.h"
 
-#include <QCoreApplication>
 #include <QFile>
 #include <QMetaType>
 #include <QRegularExpression>
@@ -1112,143 +1112,16 @@ void makeFt4ReferenceWaveformRx(const std::array<int, 103> &tones,
 
 
 
-struct OfflineWavFormat
-{
-    quint16 audioFormat = 0;
-    quint16 channels = 0;
-    quint32 sampleRate = 0;
-    quint16 blockAlign = 0;
-    quint16 bitsPerSample = 0;
-    qint64 dataOffset = 0;
-    qint64 dataSize = 0;
-};
-
-quint16 readLe16(const char *p)
-{
-    return static_cast<quint16>(static_cast<unsigned char>(p[0])) |
-           static_cast<quint16>(static_cast<unsigned char>(p[1]) << 8);
-}
-
-quint32 readLe32(const char *p)
-{
-    return static_cast<quint32>(static_cast<unsigned char>(p[0])) |
-           (static_cast<quint32>(static_cast<unsigned char>(p[1])) << 8) |
-           (static_cast<quint32>(static_cast<unsigned char>(p[2])) << 16) |
-           (static_cast<quint32>(static_cast<unsigned char>(p[3])) << 24);
-}
+using OfflineWavFormat = MadModemAudio::WavFileFormat;
 
 bool parseOfflineWavHeader(QFile &file, OfflineWavFormat &format, QString &error)
 {
-    if (!file.seek(0)) {
-        error = QStringLiteral("cannot seek to file start");
-        return false;
-    }
-
-    const QByteArray riff = file.read(12);
-    if (riff.size() != 12 || riff.mid(0, 4) != "RIFF" || riff.mid(8, 4) != "WAVE") {
-        error = QStringLiteral("not a RIFF/WAVE file");
-        return false;
-    }
-
-    bool haveFmt = false;
-    bool haveData = false;
-
-    while (!file.atEnd()) {
-        const QByteArray header = file.read(8);
-        if (header.size() < 8) {
-            break;
-        }
-        const QByteArray id = header.mid(0, 4);
-        const quint32 size = readLe32(header.constData() + 4);
-        const qint64 payloadStart = file.pos();
-
-        if (id == "fmt ") {
-            const QByteArray fmt = file.read(qMin<quint32>(size, 40));
-            if (fmt.size() < 16) {
-                error = QStringLiteral("invalid fmt chunk");
-                return false;
-            }
-            format.audioFormat = readLe16(fmt.constData() + 0);
-            format.channels = readLe16(fmt.constData() + 2);
-            format.sampleRate = readLe32(fmt.constData() + 4);
-            format.blockAlign = readLe16(fmt.constData() + 12);
-            format.bitsPerSample = readLe16(fmt.constData() + 14);
-            haveFmt = true;
-        } else if (id == "data") {
-            format.dataOffset = payloadStart;
-            format.dataSize = static_cast<qint64>(size);
-            haveData = true;
-        }
-
-        const qint64 next = payloadStart + static_cast<qint64>(size) + (size & 1U);
-        if (!file.seek(next)) {
-            break;
-        }
-        if (haveFmt && haveData) {
-            break;
-        }
-    }
-
-    if (!haveFmt || !haveData) {
-        error = QStringLiteral("missing fmt or data chunk");
-        return false;
-    }
-    if (format.channels < 1 || format.channels > 8 || format.sampleRate < 8000 || format.sampleRate > 384000 || format.blockAlign == 0) {
-        error = QStringLiteral("unsupported WAV channel/rate layout");
-        return false;
-    }
-    const bool pcm = (format.audioFormat == 1 && (format.bitsPerSample == 8 || format.bitsPerSample == 16 || format.bitsPerSample == 24 || format.bitsPerSample == 32));
-    const bool ieeeFloat = (format.audioFormat == 3 && format.bitsPerSample == 32);
-    if (!pcm && !ieeeFloat) {
-        error = QStringLiteral("unsupported WAV sample format; use PCM 8/16/24/32-bit or 32-bit float");
-        return false;
-    }
-    return true;
+    return MadModemAudio::parseWavHeader(file, format, error);
 }
 
 QVector<float> convertOfflineWavToMono(const QByteArray &raw, const OfflineWavFormat &format)
 {
-    QVector<float> out;
-    if (format.blockAlign == 0 || format.channels == 0 || raw.isEmpty()) {
-        return out;
-    }
-    const int frames = raw.size() / static_cast<int>(format.blockAlign);
-    out.reserve(frames);
-    const char *data = raw.constData();
-    const int bytesPerSample = qMax(1, static_cast<int>(format.bitsPerSample / 8));
-
-    for (int frame = 0; frame < frames; ++frame) {
-        const char *framePtr = data + frame * static_cast<int>(format.blockAlign);
-        double sum = 0.0;
-        for (int ch = 0; ch < static_cast<int>(format.channels); ++ch) {
-            const char *p = framePtr + ch * bytesPerSample;
-            double sample = 0.0;
-            if (format.audioFormat == 3 && format.bitsPerSample == 32) {
-                float f = 0.0f;
-                std::memcpy(&f, p, sizeof(float));
-                sample = qBound(-1.0, static_cast<double>(f), 1.0);
-            } else if (format.bitsPerSample == 8) {
-                sample = (static_cast<int>(static_cast<unsigned char>(p[0])) - 128) / 128.0;
-            } else if (format.bitsPerSample == 16) {
-                const qint16 v = static_cast<qint16>(readLe16(p));
-                sample = static_cast<double>(v) / 32768.0;
-            } else if (format.bitsPerSample == 24) {
-                qint32 v = static_cast<qint32>(static_cast<unsigned char>(p[0])) |
-                           (static_cast<qint32>(static_cast<unsigned char>(p[1])) << 8) |
-                           (static_cast<qint32>(static_cast<unsigned char>(p[2])) << 16);
-                if (v & 0x00800000) {
-                    v |= static_cast<qint32>(0xff000000);
-                }
-                sample = static_cast<double>(v) / 8388608.0;
-            } else if (format.bitsPerSample == 32) {
-                const qint32 v = static_cast<qint32>(readLe32(p));
-                sample = static_cast<double>(v) / 2147483648.0;
-            }
-            sum += sample;
-        }
-        out.append(static_cast<float>(sum / static_cast<double>(format.channels)));
-    }
-    return out;
+    return MadModemAudio::convertWavBytesToMono(raw, format);
 }
 
 bool looksLikeUsefulFt8Message(const QString &message)
@@ -1408,9 +1281,13 @@ void Ft8RxDecoder::requestShutdown() noexcept
 
 void Ft8RxDecoder::reset()
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     ++m_decodeGeneration;
     m_inputSampleRate = 0;
-    m_resamplePos = 0.0;
+    m_resampleAbsoluteInputIndex = 0.0;
+    m_resampleNextOutputInputIndex = 0.0;
+    m_resamplePreviousSample = 0.0;
+    m_resampleHavePreviousSample = false;
     m_resamplePrefilterRate = 0;
     m_resamplePrefilterAlpha = 1.0;
     m_resampleLp1 = 0.0;
@@ -1455,12 +1332,14 @@ void Ft8RxDecoder::reset()
 
 void Ft8RxDecoder::setSearchRangeHz(int lowHz, int highHz)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_searchLowHz = qBound(50, lowHz, 3500);
     m_searchHighHz = qBound(m_searchLowHz + 50, highHz, 3600);
 }
 
 void Ft8RxDecoder::setRxMarkerHz(int hz)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_rxMarkerHz = qBound(100, hz, 3200);
     // Like WSJT-X/MSHV, decode the full FT8 audio passband.  The green RX
     // marker remains the selected/QSO audio frequency, not a narrow decode gate.
@@ -1469,6 +1348,7 @@ void Ft8RxDecoder::setRxMarkerHz(int hz)
 
 void Ft8RxDecoder::setMyCall(const QString &call)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_myCall = call.trimmed().toUpper();
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_myCall, 0);
@@ -1476,6 +1356,7 @@ void Ft8RxDecoder::setMyCall(const QString &call)
 
 void Ft8RxDecoder::setDxCall(const QString &call)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_dxCall = call.trimmed().toUpper();
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_dxCall, 1);
@@ -1488,6 +1369,7 @@ void Ft8RxDecoder::setQsoDeadlineActive(bool active)
 
 void Ft8RxDecoder::setModeName(const QString &modeName)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     const QString key = modeName.trimmed().toUpper();
     const QString next = (key == QStringLiteral("FT4")) ? QStringLiteral("FT4") : QStringLiteral("FT8");
     if (m_modeName == next) {
@@ -1499,11 +1381,13 @@ void Ft8RxDecoder::setModeName(const QString &modeName)
 
 QString Ft8RxDecoder::modeName() const
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     return m_modeName;
 }
 
 void Ft8RxDecoder::setDecodeEngine(const QString &engineName)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     Q_UNUSED(engineName)
     // v2.19: remove UI-selectable pseudo-engines.  Keep this slot for
     // backwards-compatible MainWindow/AppSettings calls, but force one
@@ -1518,6 +1402,7 @@ void Ft8RxDecoder::setDecodeEngine(const QString &engineName)
 
 QString Ft8RxDecoder::decodeEngine() const
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     return m_decodeEngine;
 }
 
@@ -1531,16 +1416,19 @@ bool Ft8RxDecoder::enhancedDecodeEngineEnabled() const
 
 bool Ft8RxDecoder::deepDecodeEnabled() const
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     return m_deepDecodeEnabled;
 }
 
 bool Ft8RxDecoder::dspPlusDecodeEnabled() const
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     return m_dspPlusDecodeEnabled;
 }
 
 void Ft8RxDecoder::setDeepDecodeEnabled(bool enabled)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     Q_UNUSED(enabled)
     // v4.10: user-facing Fast/Deep/Deep Max modes are removed.  The FT8
     // receiver always runs the unified adaptive pipeline; older MainWindow and
@@ -1555,6 +1443,7 @@ void Ft8RxDecoder::setDeepDecodeEnabled(bool enabled)
 
 void Ft8RxDecoder::setDspPlusDecodeEnabled(bool enabled)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     Q_UNUSED(enabled)
     // v4.10: this compatibility slot now means "enable the internal residual /
     // AP-OSD lab stage".  It is always on inside the single unified engine.
@@ -1568,6 +1457,7 @@ void Ft8RxDecoder::setDspPlusDecodeEnabled(bool enabled)
 
 int Ft8RxDecoder::currentSlotMs() const
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     return Ft8Mode::profileForMode(m_modeName).slotMs;
 }
 
@@ -1578,12 +1468,14 @@ int Ft8RxDecoder::currentSlotSamples() const
 
 QString Ft8RxDecoder::currentShortLabel() const
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     return Ft8Mode::profileForMode(m_modeName).shortLabel;
 }
 
 
 int Ft8RxDecoder::postTxPrepadLimitMs() const
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     // A TX audio/PTT release that is only slightly late after the UTC boundary
     // can still leave a useful FT RX slot.  Preserve its absolute timing by
     // inserting leading zero samples.  If we are much later than this, the slot
@@ -1728,7 +1620,10 @@ QVector<double> Ft8RxDecoder::resampleTo12k(const AudioBlock &block, qint64 *fir
 
     if (m_inputSampleRate != block.sampleRate) {
         m_inputSampleRate = block.sampleRate;
-        m_resamplePos = 0.0;
+        m_resampleAbsoluteInputIndex = 0.0;
+        m_resampleNextOutputInputIndex = 0.0;
+        m_resamplePreviousSample = 0.0;
+        m_resampleHavePreviousSample = false;
         configureResamplePrefilter(block.sampleRate);
     }
 
@@ -1742,27 +1637,41 @@ QVector<double> Ft8RxDecoder::resampleTo12k(const AudioBlock &block, qint64 *fir
     }
 
     const double step = static_cast<double>(block.sampleRate) / static_cast<double>(kDecodeSampleRate);
-    const int n = filtered.size();
-    out.reserve(static_cast<int>(std::ceil(n / step)) + 2);
+    out.reserve(static_cast<int>(std::ceil(filtered.size() / step)) + 2);
+    const double blockAbsoluteStart = m_resampleAbsoluteInputIndex;
+    bool recordedFirstTime = false;
+    for (double currentSample : filtered) {
+        const double currentIndex = m_resampleAbsoluteInputIndex;
+        if (!m_resampleHavePreviousSample) {
+            m_resamplePreviousSample = currentSample;
+            m_resampleHavePreviousSample = true;
+            if (m_resampleNextOutputInputIndex <= currentIndex) {
+                if (firstOutputUtcNs != nullptr && block.firstSampleUtcNs > 0) {
+                    *firstOutputUtcNs = block.firstSampleUtcNs;
+                }
+                recordedFirstTime = true;
+                out.append(currentSample);
+                m_resampleNextOutputInputIndex += step;
+            }
+            m_resampleAbsoluteInputIndex += 1.0;
+            continue;
+        }
 
-    double pos = m_resamplePos;
-    if (firstOutputUtcNs != nullptr && block.firstSampleUtcNs > 0) {
-        const qint64 offsetNs = static_cast<qint64>(std::llround(
-            (1000000000.0 * pos) / static_cast<double>(block.sampleRate)));
-        *firstOutputUtcNs = block.firstSampleUtcNs + offsetNs;
-    }
-    while (pos + 1.0 < static_cast<double>(n)) {
-        const int i = static_cast<int>(pos);
-        const double frac = pos - static_cast<double>(i);
-        const double a = filtered.at(i);
-        const double b = filtered.at(i + 1);
-        out.append(a + (b - a) * frac);
-        pos += step;
-    }
-
-    m_resamplePos = pos - static_cast<double>(n);
-    if (m_resamplePos < 0.0 || m_resamplePos > step * 2.0) {
-        m_resamplePos = 0.0;
+        const double previousIndex = currentIndex - 1.0;
+        while (m_resampleNextOutputInputIndex <= currentIndex) {
+            if (!recordedFirstTime && firstOutputUtcNs != nullptr && block.firstSampleUtcNs > 0) {
+                const double relativeInputIndex = m_resampleNextOutputInputIndex - blockAbsoluteStart;
+                const qint64 offsetNs = static_cast<qint64>(std::llround(
+                    (1000000000.0 * relativeInputIndex) / static_cast<double>(block.sampleRate)));
+                *firstOutputUtcNs = block.firstSampleUtcNs + offsetNs;
+                recordedFirstTime = true;
+            }
+            const double frac = qBound(0.0, m_resampleNextOutputInputIndex - previousIndex, 1.0);
+            out.append(m_resamplePreviousSample + frac * (currentSample - m_resamplePreviousSample));
+            m_resampleNextOutputInputIndex += step;
+        }
+        m_resamplePreviousSample = currentSample;
+        m_resampleAbsoluteInputIndex += 1.0;
     }
     return out;
 }
@@ -1945,7 +1854,10 @@ void Ft8RxDecoder::analyzeAudioFile(const QString &filePath)
                                .arg(candidateCount)
                                .arg(emitted)
                                .arg(QString::number(stats.totalMs, 'f', 0)));
-        QCoreApplication::processEvents();
+        // Signals above are queued to the GUI automatically.  Pumping this
+        // worker's event queue here allowed settings/reset slots to re-enter
+        // the offline decode loop between slots; shutdown cancellation is
+        // already atomic and is checked by the loop condition.
     }
 
     m_offlineAnalysisActive.store(false);
@@ -2025,7 +1937,10 @@ void Ft8RxDecoder::resetCaptureTimeline(quint64 generation, const QString &reaso
     m_decodeGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_activeCaptureGeneration = generation > 0 ? generation : 1;
     m_inputSampleRate = 0;
-    m_resamplePos = 0.0;
+    m_resampleAbsoluteInputIndex = 0.0;
+    m_resampleNextOutputInputIndex = 0.0;
+    m_resamplePreviousSample = 0.0;
+    m_resampleHavePreviousSample = false;
     m_resamplePrefilterRate = 0;
     m_resampleLp1 = 0.0;
     m_resampleLp2 = 0.0;
@@ -2490,6 +2405,8 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
 
     const int generation = m_decodeGeneration.load(std::memory_order_acquire);
     const QString label = currentShortLabel();
+    const QString jobModeName = modeName();
+    const int jobSlotMs = currentSlotMs();
     const QString phase = phaseLabel.isEmpty() ? QStringLiteral("boundary") : phaseLabel;
     const QString phaseForLog = phase.startsWith(QStringLiteral("wsjtx-gate"))
         ? QStringLiteral("gate")
@@ -2516,7 +2433,7 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
     const quint64 timestampJumps = m_timestampJumps;
     const quint64 invalidSlotsSkipped = m_invalidSlotsSkipped;
 
-    auto job = [this, samples, slotStartUtc, generation, phase,
+    auto job = [this, samples, slotStartUtc, generation, phase, jobModeName, jobSlotMs,
                 audioBlocksReceived, audioBoundarySplits, audioSequenceGaps,
                 audioGapSamples, audioOverlapSamples, currentCaptureQueueLatencyMs,
                 maxCaptureQueueLatencyMs,
@@ -2536,8 +2453,8 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
             if (!decodeCancellationRequested()) {
                 int candidateCount = 0;
                 PerfStats stats;
-                stats.modeName = m_modeName;
-                stats.slotUtc = formatSlotTime(slotStartUtc, currentSlotMs());
+                stats.modeName = jobModeName;
+                stats.slotUtc = formatSlotTime(slotStartUtc, jobSlotMs);
                 stats.phase = phase;
                 stats.offline = m_offlineAnalysisActive.load(std::memory_order_acquire);
                 stats.audioBlocksReceived = audioBlocksReceived;
@@ -2570,8 +2487,8 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
                     emit performanceUpdated(stats);
                     if (phase.startsWith(QStringLiteral("wsjtx-gate"))) {
                         emit statusChanged(QStringLiteral("%1 live decode gate: slot %2, %3 candidate(s), %4 decode(s), %5 ms")
-                                               .arg(m_modeName)
-                                               .arg(formatSlotTime(slotStartUtc, currentSlotMs()))
+                                               .arg(jobModeName)
+                                               .arg(formatSlotTime(slotStartUtc, jobSlotMs))
                                                .arg(candidateCount)
                                                .arg(emittedCount)
                                                .arg(QString::number(stats.totalMs, 'f', 0)) +
@@ -2583,34 +2500,34 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
                                                .arg(stats.audioSequenceGaps));
                     } else if (phase == QStringLiteral("boundary")) {
                         emit statusChanged(QStringLiteral("%1 live decode boundary: slot %2, %3 candidate(s), added %4 extra decode(s), %5 ms")
-                                               .arg(m_modeName)
-                                               .arg(formatSlotTime(slotStartUtc, currentSlotMs()))
+                                               .arg(jobModeName)
+                                               .arg(formatSlotTime(slotStartUtc, jobSlotMs))
                                                .arg(candidateCount)
                                                .arg(emittedCount)
                                                .arg(QString::number(stats.totalMs, 'f', 0)));
                     } else {
                         emit statusChanged(QStringLiteral("%1 RX %2: %3 candidate(s), %4 decode(s), %5 ms in slot %6")
-                                               .arg(m_modeName)
+                                               .arg(jobModeName)
                                                .arg(phase)
                                                .arg(candidateCount)
                                                .arg(emittedCount)
                                                .arg(QString::number(stats.totalMs, 'f', 0))
-                                               .arg(formatSlotTime(slotStartUtc, currentSlotMs())));
+                                               .arg(formatSlotTime(slotStartUtc, jobSlotMs)));
                     }
                 }
             }
         } catch (const std::exception &error) {
             const QString message = QStringLiteral("%1 decoder job failed for slot %2 (%3): %4")
-                .arg(m_modeName)
-                .arg(formatSlotTime(slotStartUtc, currentSlotMs()))
+                .arg(jobModeName)
+                .arg(formatSlotTime(slotStartUtc, jobSlotMs))
                 .arg(phase)
                 .arg(QString::fromLocal8Bit(error.what()));
             emit runtimeDiagnostic(message);
             emit statusChanged(message);
         } catch (...) {
             const QString message = QStringLiteral("%1 decoder job failed for slot %2 (%3): unknown exception")
-                .arg(m_modeName)
-                .arg(formatSlotTime(slotStartUtc, currentSlotMs()))
+                .arg(jobModeName)
+                .arg(formatSlotTime(slotStartUtc, jobSlotMs))
                 .arg(phase);
             emit runtimeDiagnostic(message);
             emit statusChanged(message);
@@ -2703,6 +2620,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                                                        int *candidateCount,
                                                        PerfStats *stats)
 {
+    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     if (decodeCancellationRequested()) {
         if (candidateCount != nullptr) *candidateCount = 0;
         if (stats != nullptr) stats->earlyStopReason = QStringLiteral("shutdown or capture-generation change requested");
@@ -4749,7 +4667,11 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
 
     decodeOut.utc = slotStartUtc.time().toString(QStringLiteral("HHmmss"));
     decodeOut.slotStartUtcMs = slotStartUtc.toMSecsSinceEpoch();
-    decodeOut.slotPeriodMs = currentSlotMs();
+    // decodeSlot() keeps m_decodeConfigMutex for the whole pass, therefore the
+    // mode is immutable while candidate workers run.  Do not call the locking
+    // currentSlotMs() accessor from this pool thread: the coordinator owns the
+    // recursive mutex while waiting for the pool and that would deadlock.
+    decodeOut.slotPeriodMs = Ft8Mode::profileForMode(m_modeName).slotMs;
     decodeOut.dt = static_cast<double>(startSample) / static_cast<double>(kDecodeSampleRate);
     decodeOut.frequencyHz = qRound(baseHz);
     decodeOut.message = message;
@@ -6057,7 +5979,10 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
 
     decodeOut.utc = slotStartUtc.time().toString(QStringLiteral("HHmmss"));
     decodeOut.slotStartUtcMs = slotStartUtc.toMSecsSinceEpoch();
-    decodeOut.slotPeriodMs = currentSlotMs();
+    // See the FT8 candidate path above: the coordinator owns the configuration
+    // lock for this complete pass, so pool workers read the stable mode directly
+    // and must not recurse into the accessor from another thread.
+    decodeOut.slotPeriodMs = Ft8Mode::profileForMode(m_modeName).slotMs;
     decodeOut.dt = static_cast<double>(bestStart) / static_cast<double>(kDecodeSampleRate) - 0.5;
     decodeOut.frequencyHz = qRound(bestBaseHz);
     decodeOut.message = message;

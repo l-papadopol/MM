@@ -1,6 +1,6 @@
 # MadModem translation audit
 
-Release: **0.5.79**
+Release: **0.5.8**
 
 Runtime UI dictionaries:
 
@@ -11,7 +11,7 @@ Runtime UI dictionaries:
 - `translations/ui_no.ini`
 - `translations/ui_cs.ini`
 
-Each dictionary contains **1730 canonical keys** in identical order, with no
+Each dictionary contains **1789 canonical keys** in identical order, with no
 missing, extra, duplicate or empty values. Qt placeholders are preserved.
 Standalone tests are intentionally excluded from UI-string harvesting because
 their console output is not application UI.

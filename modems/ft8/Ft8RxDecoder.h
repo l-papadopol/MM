@@ -408,7 +408,10 @@ private:
     std::atomic<bool> m_offlineAnalysisActive {false}; // true only while decoding user-loaded WAV files
 
     int m_inputSampleRate = 0;
-    double m_resamplePos = 0.0;
+    double m_resampleAbsoluteInputIndex = 0.0;
+    double m_resampleNextOutputInputIndex = 0.0;
+    double m_resamplePreviousSample = 0.0;
+    bool m_resampleHavePreviousSample = false;
     int m_resamplePrefilterRate = 0;
     double m_resamplePrefilterAlpha = 1.0;
     double m_resampleLp1 = 0.0;
@@ -467,6 +470,10 @@ private:
     std::atomic<int> m_lastCandidateCount {0};
     std::atomic<int> m_decodeGeneration {0};
     std::atomic<bool> m_shutdown {false};
+    // A complete decode pass holds this lock while its candidate workers are
+    // active.  Setters therefore cannot mutate QString/configuration state
+    // being read by the coordinator and its worker pool.
+    mutable std::recursive_mutex m_decodeConfigMutex;
     mutable std::mutex m_unpackMutex;
     mutable std::mutex m_emittedDecodeMutex;
     QSet<QString> m_emittedDecodeKeys;

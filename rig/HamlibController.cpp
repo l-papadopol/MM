@@ -452,9 +452,19 @@ bool HamlibController::connectRig()
 #endif
 }
 
-void HamlibController::disconnectRig()
+bool HamlibController::disconnectRig()
 {
-    if (m_pollTimer != nullptr) { m_pollTimer->stop(); };
+    if (m_pollTimer != nullptr) {
+        m_pollTimer->stop();
+    }
+
+    // Fail safe before releasing either backend.  Never rely on closing the
+    // serial/TCP handle to imply PTT OFF: several radios latch TX state.
+    const bool backendWasConnected = isConnected();
+    const bool pttOffConfirmed = !backendWasConnected || setPtt(false);
+    if (!pttOffConfirmed) {
+        emitError(QStringLiteral("CAT disconnect: the radio did not confirm PTT OFF; transmitter state remains unknown after closing the backend"));
+    }
     disconnectHrd();
 #ifdef MADMODEM_WITH_HAMLIB
     if (m_rig != nullptr) {
@@ -469,13 +479,20 @@ void HamlibController::disconnectRig()
         m_lastModeName.clear();
         emit modeChanged(QString());
     }
-    m_lastPtt = false;
+    // setPtt(false) already published the confirmed transition.  If it failed,
+    // deliberately retain the conservative ON/unknown state instead of lying
+    // to the UI merely because the transport handle has been closed.
+    if (pttOffConfirmed) {
+        m_lastPtt = false;
+    } else if (backendWasConnected) {
+        m_lastPtt = true;
+    }
 #ifdef MADMODEM_WITH_HAMLIB
     m_havePreTxMode = false;
     m_preTxMode = 0;
     m_preTxPassband = 0;
 #endif
-    emit pttChanged(false);
+    return pttOffConfirmed;
 }
 
 void HamlibController::pollNow()
@@ -701,8 +718,8 @@ bool HamlibController::setWsjtLikeCatPtt(bool enabled)
      *   transmit audio source Front/Mic vs Rear/Data;
      * - vendor-specific TX1/MS/USB-D commands are not part of the normal path;
      * - when the user asks for Rear/Data audio, prefer Hamlib's DATA PTT if
-     *   the backend/header supports it; otherwise fall back to the backend's
-     *   ordinary CAT PTT mapping;
+     *   the backend/header supports it; failure is terminal and never changes
+     *   the requested audio route;
      * - when Front/Mic is requested, prefer MIC PTT when available.
      *
      * This keeps the UI close to WSJT-X while still preserving the important
@@ -715,21 +732,12 @@ bool HamlibController::setWsjtLikeCatPtt(bool enabled)
     const bool rearData = (m_config.transmitAudioSource != QStringLiteral("front_mic"));
 
     if (rearData) {
-        // Hamlib exposes a standard DATA PTT state.  This is the generic
-        // counterpart of WSJT-X's Rear/Data audio-source handling; if the
-        // selected backend does not accept it, fall back to ordinary CAT PTT.
-        if (setHamlibPttMode(true, RIG_PTT_ON_DATA, QStringLiteral("CAT DATA PTT"), false)) {
-            return true;
-        }
+        return setHamlibPttMode(true,
+                                RIG_PTT_ON_DATA,
+                                QStringLiteral("CAT DATA PTT"),
+                                true);
     }
-
-    if (setHamlibPttMode(true, RIG_PTT_ON, rearData ? QStringLiteral("CAT PTT fallback") : QStringLiteral("CAT PTT"), true)) {
-        if (rearData) {
-            setStatus(QStringLiteral("CAT connected / CAT PTT ON; Hamlib DATA PTT not available, using backend default"));
-        }
-        return true;
-    }
-    return false;
+    return setHamlibPttMode(true, RIG_PTT_ON, QStringLiteral("CAT PTT"), true);
 #endif
 }
 
@@ -864,11 +872,12 @@ bool HamlibController::forceUsbMode(bool required)
     Q_UNUSED(required);
     return true;
 #else
+    Q_UNUSED(required);
     if (m_rig == nullptr && !connectRig()) {
-        return !required;
+        return false;
     }
     if (m_rig == nullptr) {
-        return !required;
+        return false;
     }
 
     RIG *rig = static_cast<RIG *>(m_rig);
@@ -880,12 +889,8 @@ bool HamlibController::forceUsbMode(bool required)
 
     const QString msg = QStringLiteral("Hamlib could not set USB transmit mode before PTT: %1")
                             .arg(QString::fromLocal8Bit(rigerror(ret)));
-    if (required) {
-        emitError(msg);
-        return false;
-    }
-    emitError(msg + QStringLiteral("; continuing with CAT PTT."));
-    return true;
+    emitError(msg + QStringLiteral("; TX aborted because automatic mode fallback is disabled."));
+    return false;
 #endif
 }
 
@@ -895,11 +900,12 @@ bool HamlibController::forceDataUsbMode(bool required)
     Q_UNUSED(required);
     return true;
 #else
+    Q_UNUSED(required);
     if (m_rig == nullptr && !connectRig()) {
-        return !required;
+        return false;
     }
     if (m_rig == nullptr) {
-        return !required;
+        return false;
     }
 
     RIG *rig = static_cast<RIG *>(m_rig);
@@ -928,13 +934,8 @@ bool HamlibController::forceDataUsbMode(bool required)
 
     const QString msg = QStringLiteral("Hamlib could not set Data/Pkt transmit mode before PTT: %1")
                             .arg(lastError.isEmpty() ? QStringLiteral("unsupported by backend/model") : lastError);
-    if (required) {
-        emitError(msg);
-        return false;
-    }
-
-    emitError(msg + QStringLiteral("; continuing with CAT PTT."));
-    return true;
+    emitError(msg + QStringLiteral("; TX aborted because automatic mode fallback is disabled."));
+    return false;
 #endif
 }
 
@@ -1265,8 +1266,16 @@ bool HamlibController::hrdReadResponse(const QString &command, QString *reply, Q
             continue;
         }
         buffer += m_hrdSocket->readAll();
+        if (buffer.size() > 1024 * 1024) {
+            if (errorMessage != nullptr) {
+                *errorMessage = QStringLiteral("HRD reply exceeds the 1 MiB safety limit");
+            }
+            return false;
+        }
         if (m_hrdProtocol == 4) {
-            if (buffer.contains('\r') || buffer.contains('\n') || !buffer.isEmpty()) {
+            // HRD v4 is a CR/LF-delimited text protocol.  A non-empty TCP
+            // fragment is not a complete reply: TCP may split even "OK".
+            if (buffer.contains('\r') || buffer.contains('\n')) {
                 if (reply != nullptr) {
                     *reply = QString::fromLocal8Bit(buffer).trimmed();
                 }

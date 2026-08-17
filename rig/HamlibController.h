@@ -16,7 +16,8 @@ class QTcpSocket;
  * The class is compiled as a safe stub when Hamlib headers/libraries are not
  * available.  When MadModem is built with MADMODEM_WITH_HAMLIB it owns one
  * Hamlib RIG handle, polls the transceiver frequency, and can key CAT PTT for
- * transmit.  Serial RTS PTT remains available as the legacy fallback.
+ * transmit.  Serial RTS/DTR is a separate, explicitly selected PTT method;
+ * this controller never changes PTT route automatically after a failure.
  */
 class HamlibController final : public QObject
 {
@@ -68,10 +69,11 @@ public:
     double lastFrequencyHz() const { return m_lastFrequencyHz; }
     QString lastModeName() const { return m_lastModeName; }
     QString lastStatus() const { return m_lastStatus; }
+    bool lastPttOn() const { return m_lastPtt; }
 
 public slots:
     bool connectRig();
-    void disconnectRig();
+    bool disconnectRig();
     void pollNow();
     bool setPtt(bool enabled);
     bool setFrequencyHz(double frequencyHz);

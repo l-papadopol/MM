@@ -1,5 +1,22 @@
 # MadModem changelog
 
+## 0.5.8 — integral source hardening — 2026-08-17
+
+- Preserved the validated FT8/FT4 candidate, gate, LDPC and sequencer core.
+- Isolated capture from the GUI and bounded UI/DSP audio delivery queues.
+- Made CAT audio routing, mode selection, PTT transitions and shutdown fail closed.
+- Consolidated strict WAV parsing and fixed streaming resampling/period assembly.
+- Replaced detached MSK144 work with owned, joined, generation-guarded jobs.
+- Gated Q65 RX on the real FFTW/MSHV backend and moved it to a decoder thread.
+- Made ADIF writes atomic and corrected contest STX/SRX import mapping.
+- Bounded runtime logs, terminals, decode tables and online map tile payloads.
+- Kept normal TLS certificate verification for OpenStreetMap requests.
+- Made classic-RIFF recorder overflow and finalization errors explicit.
+- Removed blocking clock probes, forced thread termination and nested UI event loops.
+- Added runtime-hardening, CAT/FT synchronization and layout regression guards.
+- Registered the guards and native regressions with CTest, made every package
+  build test-gated and added a Linux build/CTest workflow for every push and PR.
+
 ## 0.5.79 — RTTY contest engine and stable full-band waterfall — 2026-08-15
 
 - Added a dedicated RTTY Contest mode side tab between Mode and Rotator, with mirrored QSO fields and a second view of the data-driven contest macro buttons; both views write through the existing single RTTY QSO/log transaction.

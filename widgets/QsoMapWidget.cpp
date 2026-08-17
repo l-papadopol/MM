@@ -16,12 +16,14 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QHideEvent>
+#include <QIODevice>
 #include <QLineF>
 #include <QMessageBox>
 #include <QDir>
 #include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QSharedPointer>
 #include <QNetworkRequest>
 #include <QPainter>
 #include <QPainterPath>
@@ -1089,31 +1091,48 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
 #endif
 
     QNetworkReply *reply = m_tileNetwork->get(request);
+    const auto tilePayload = QSharedPointer<QByteArray>::create();
+    reply->setReadBufferSize(256 * 1024);
     m_osmTilePending.insert(tile.key);
     QsoMapWidget *self = const_cast<QsoMapWidget *>(this);
     const QString key = tile.key;
     const QString scheme = url.scheme().toLower();
     QObject::connect(reply, QOverload<const QList<QSslError> &>::of(&QNetworkReply::sslErrors),
-                     self, [self, reply](const QList<QSslError> &errors) {
+                     self, [self](const QList<QSslError> &errors) {
         QStringList messages;
         for (const QSslError &err : errors) {
             messages << err.errorString();
         }
         self->m_osmLastSslError = messages.join(QStringLiteral("; "));
-        self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM SSL warning: %1")).arg(self->m_osmLastSslError.left(120));
-#ifdef Q_OS_WIN
-        /*
-         * Map tiles are public raster images and Windows 7 installations often
-         * have obsolete root stores.  Ignore certificate-chain problems for
-         * tile downloads only so a Qt/OpenSSL build that is present but cannot
-         * verify old roots can still render OSM.  If OpenSSL is missing
-         * entirely, this signal is never enough and the HTTP fallback remains.
-         */
-        reply->ignoreSslErrors();
-#endif
+        self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM SSL verification failed: %1")).arg(self->m_osmLastSslError.left(120));
         self->logOsmDiagnostics(QStringLiteral("ssl-error"));
     });
-    QObject::connect(reply, &QNetworkReply::finished, self, [self, reply, key, scheme]() {
+    QObject::connect(reply, &QIODevice::readyRead, self, [reply, tilePayload]() {
+        constexpr int kMaximumTileBytesLocal = 2 * 1024 * 1024;
+        if (reply->property("madmodemTileOversize").toBool()) {
+            return;
+        }
+        const qint64 remaining = static_cast<qint64>(kMaximumTileBytesLocal) - tilePayload->size();
+        if (remaining <= 0) {
+            reply->setProperty("madmodemTileOversize", true);
+            reply->abort();
+            return;
+        }
+        const QByteArray chunk = reply->read(remaining + 1);
+        tilePayload->append(chunk);
+        if (tilePayload->size() > kMaximumTileBytesLocal) {
+            reply->setProperty("madmodemTileOversize", true);
+            reply->abort();
+        }
+    });
+    QObject::connect(reply, &QNetworkReply::finished, self, [self, reply, key, scheme, tilePayload]() {
+        constexpr int kMaximumTileBytesLocal = 2 * 1024 * 1024;
+        if (!reply->property("madmodemTileOversize").toBool()) {
+            tilePayload->append(reply->read(kMaximumTileBytesLocal - tilePayload->size() + 1));
+            if (tilePayload->size() > kMaximumTileBytesLocal) {
+                reply->setProperty("madmodemTileOversize", true);
+            }
+        }
         self->m_osmTilePending.remove(key);
         self->m_osmLastTileUrl = reply->url().toString(QUrl::RemoveUserInfo);
         const QVariant statusAttr = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
@@ -1135,9 +1154,14 @@ void QsoMapWidget::requestOsmTile(const TileSpec &tile) const
             self->m_onlineMapFailureReason = MadModemI18n::text(QStringLiteral("OSM tile endpoint redirected to %1; trying another configured source"))
                                                  .arg(redirectUrl.scheme().toUpper());
             providerShouldAdvance = true;
+        } else if (reply->property("madmodemTileOversize").toBool()) {
+            ++self->m_osmTileFailureCount;
+            self->m_osmLastNetworkError = MadModemI18n::text(QStringLiteral("Tile response exceeded the 2 MiB safety limit"));
+            self->m_onlineMapFailureReason = self->m_osmLastNetworkError;
+            providerShouldAdvance = true;
         } else if (reply->error() == QNetworkReply::NoError) {
             QPixmap pixmap;
-            if (pixmap.loadFromData(reply->readAll())) {
+            if (pixmap.loadFromData(*tilePayload)) {
                 self->m_osmTileCache.insert(key, pixmap);
                 self->m_osmTileFailureCount = 0;
                 self->m_onlineMapFailureReason.clear();

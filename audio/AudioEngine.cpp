@@ -132,9 +132,10 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
 {
     stopInput();
 
-    m_sampleRate = (requestedSampleRate == 44100 || requestedSampleRate == 48000 || requestedSampleRate == 96000)
-                       ? requestedSampleRate
-                       : 48000;
+    m_sampleRate.store((requestedSampleRate == 44100 || requestedSampleRate == 48000 || requestedSampleRate == 96000)
+                           ? requestedSampleRate
+                           : 48000,
+                       std::memory_order_relaxed);
     m_channelCount = 1;
     m_totalSamples = 0;
     m_pendingBytes.clear();
@@ -151,7 +152,7 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
 
     reportDiagnostic(QStringLiteral("Audio diagnostic: requested backend=\"%1\", requested format=%2 Hz, mono, signed 16-bit PCM.")
                          .arg(deviceName.isEmpty() ? QStringLiteral("<empty/default>") : deviceName)
-                         .arg(m_sampleRate));
+                         .arg(m_sampleRate.load(std::memory_order_relaxed)));
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 
@@ -168,6 +169,11 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
     }
 
     const bool defaultRequested = deviceName.isEmpty() || deviceName == QStringLiteral("default");
+    if (!defaultRequested && !exactDeviceMatch) {
+        reportDiagnostic(QStringLiteral("Audio diagnostic: requested input backend was not found; automatic device fallback is disabled."));
+        emit errorOccurred(QStringLiteral("Configured audio input '%1' is not available.").arg(deviceName));
+        return false;
+    }
     reportDiagnostic(QStringLiteral("Audio diagnostic: selected backend=\"%1\" (%2); available inputs=%3.")
                          .arg(selectedDevice.description())
                          .arg(exactDeviceMatch ? QStringLiteral("exact match")
@@ -176,7 +182,7 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
                          .arg(devices.size()));
 
     QAudioFormat format;
-    format.setSampleRate(m_sampleRate);
+    format.setSampleRate(m_sampleRate.load(std::memory_order_relaxed));
     format.setChannelCount(1);
     format.setSampleFormat(QAudioFormat::Int16);
 
@@ -201,7 +207,7 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
         return false;
     }
 
-    m_sampleRate = format.sampleRate();
+    m_sampleRate.store(format.sampleRate(), std::memory_order_relaxed);
     m_channelCount = format.channelCount();
     resetDiagnosticCounters();
 
@@ -238,6 +244,11 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
     }
 
     const bool defaultRequested = deviceName.isEmpty() || deviceName == QStringLiteral("default");
+    if (!defaultRequested && !exactDeviceMatch) {
+        reportDiagnostic(QStringLiteral("Audio diagnostic: requested input backend was not found; automatic device fallback is disabled."));
+        emit errorOccurred(QStringLiteral("Configured audio input '%1' is not available.").arg(deviceName));
+        return false;
+    }
     reportDiagnostic(QStringLiteral("Audio diagnostic: selected backend=\"%1\" (%2); available inputs=%3.")
                          .arg(selectedDevice.deviceName())
                          .arg(exactDeviceMatch ? QStringLiteral("exact match")
@@ -246,7 +257,7 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
                          .arg(devices.size()));
 
     QAudioFormat format;
-    format.setSampleRate(m_sampleRate);
+    format.setSampleRate(m_sampleRate.load(std::memory_order_relaxed));
     format.setChannelCount(1);
     format.setSampleSize(16);
     format.setCodec("audio/pcm");
@@ -273,7 +284,7 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
         return false;
     }
 
-    m_sampleRate = format.sampleRate();
+    m_sampleRate.store(format.sampleRate(), std::memory_order_relaxed);
     m_channelCount = format.channelCount();
     resetDiagnosticCounters();
 
@@ -310,7 +321,7 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
     connect(m_inputDevice, &QIODevice::readyRead,
             this, &AudioEngine::readInputData);
 
-    m_running = true;
+    m_running.store(true, std::memory_order_release);
     m_diagnosticReportClock.start();
 
     reportDiagnostic(QStringLiteral("Audio diagnostic: QIODevice open=%1, readable=%2, configured backend buffer request=%3 bytes, block=%4 frames (%5 bytes).")
@@ -327,7 +338,7 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
 
 void AudioEngine::stopInput()
 {
-    if (!m_running && m_audioInput == nullptr) {
+    if (!m_running.load(std::memory_order_acquire) && m_audioInput == nullptr) {
         return;
     }
 
@@ -345,46 +356,46 @@ void AudioEngine::stopInput()
     m_streamFirstMonotonicNs = 0;
     m_streamTimestampValid = false;
     m_inputDevice = nullptr;
-    m_running = false;
+    m_running.store(false, std::memory_order_release);
 
     emit stopped();
 }
 
 bool AudioEngine::isRunning() const
 {
-    return m_running;
+    return m_running.load(std::memory_order_acquire);
 }
 
 int AudioEngine::sampleRate() const
 {
-    const double corrected = static_cast<double>(m_sampleRate) *
-                             (1.0 + m_clockCorrectionPpm / 1000000.0);
+    const double corrected = static_cast<double>(m_sampleRate.load(std::memory_order_relaxed)) *
+                             (1.0 + m_clockCorrectionPpm.load(std::memory_order_relaxed) / 1000000.0);
     return qMax(1, static_cast<int>(qRound(corrected)));
 }
 
 void AudioEngine::setClockCorrectionPpm(double ppm)
 {
     if (!qIsFinite(ppm) || ppm < -5000.0 || ppm > 5000.0) {
-        m_clockCorrectionPpm = 0.0;
+        m_clockCorrectionPpm.store(0.0, std::memory_order_relaxed);
         return;
     }
 
-    m_clockCorrectionPpm = ppm;
+    m_clockCorrectionPpm.store(ppm, std::memory_order_relaxed);
 }
 
 double AudioEngine::clockCorrectionPpm() const
 {
-    return m_clockCorrectionPpm;
+    return m_clockCorrectionPpm.load(std::memory_order_relaxed);
 }
 
 void AudioEngine::setInputVolumePercent(int percent)
 {
-    m_inputVolumePercent = qBound(0, percent, 100);
+    m_inputVolumePercent.store(qBound(0, percent, 100), std::memory_order_relaxed);
 }
 
 int AudioEngine::inputVolumePercent() const
 {
-    return m_inputVolumePercent;
+    return m_inputVolumePercent.load(std::memory_order_relaxed);
 }
 
 // -----------------------------------------------------------------------------
@@ -451,7 +462,9 @@ void AudioEngine::processPendingBytes()
     const int bytesPerFrame = bytesPerSample * m_channelCount;
     const int bytesPerBlock = bytesPerFrame * m_blockSamples;
 
-    while (m_pendingBytes.size() >= bytesPerBlock) {
+    int consumedBytes = 0;
+    const float gain = static_cast<float>(m_inputVolumePercent.load(std::memory_order_relaxed)) / 100.0f;
+    while (m_pendingBytes.size() - consumedBytes >= bytesPerBlock) {
         AudioBlock block;
         block.sampleRate = sampleRate();
         block.firstSampleIndex = m_totalSamples;
@@ -464,7 +477,7 @@ void AudioEngine::processPendingBytes()
         block.captureGeneration = m_captureGeneration;
         block.samples.resize(m_blockSamples);
 
-        const char *raw = m_pendingBytes.constData();
+        const char *raw = m_pendingBytes.constData() + consumedBytes;
 
         // Diagnostic-only pass over all negotiated channels.  The conversion
         // loop below remains exactly channel 1, as in the supplied baseline.
@@ -476,16 +489,18 @@ void AudioEngine::processPendingBytes()
             qint16 sample = 0;
             memcpy(&sample, frame, sizeof(qint16));
 
-            const float gain = static_cast<float>(qBound(0, m_inputVolumePercent, 100)) / 100.0f;
             block.samples[i] = (static_cast<float>(sample) / 32768.0f) * gain;
         }
 
-        m_pendingBytes.remove(0, bytesPerBlock);
+        consumedBytes += bytesPerBlock;
         m_totalSamples += m_blockSamples;
 
         emitLevel(block.samples);
         emit audioBlockReady(block);
         maybeEmitPeriodicDiagnostics();
+    }
+    if (consumedBytes > 0) {
+        m_pendingBytes.remove(0, consumedBytes);
     }
 }
 

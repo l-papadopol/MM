@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.5.79
+    VERSION 0.5.8
     LANGUAGES CXX
 )
 
@@ -36,7 +36,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # default because modem DSP and timing code should keep IEEE behaviour.
 
 option(MADMODEM_MAX_OPTIMIZE
-    "Enable high-performance portable Release flags (-O3, LTO/IPO when supported)."
+    "Enable high-performance portable Release flags (-O3; LTO remains a separate opt-in)."
     ON)
 option(MADMODEM_NATIVE_OPTIMIZE
     "Also tune generated code for the build machine CPU (-march=native). OFF keeps packages portable."
@@ -302,7 +302,7 @@ endif()
 # FFTW remain green; when FFTW3 is found the bridge sources can be promoted
 # without touching MainWindow or the UI layer.
 option(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER
-    "Build the experimental full MSHV DecoderQ65 FFTW-backed RX bridge. Disabled by default in the 0.5.79 recovery line."
+    "Build the experimental full MSHV DecoderQ65 FFTW-backed RX bridge. Disabled by default in the 0.5.8 recovery line."
     OFF)
 if(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER)
     find_path(MADMODEM_FFTW3_INCLUDE_DIR fftw3.h)
@@ -341,7 +341,7 @@ if(MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER)
         target_link_libraries(madmodem_q65 PRIVATE "${MADMODEM_FFTW3_LIBRARY}")
         message(STATUS "Q65 full MSHV RX bridge enabled with FFTW3: ${MADMODEM_FFTW3_LIBRARY}")
     else()
-        message(WARNING "MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER=ON but FFTW3/header could not be found; Q65 RX falls back to safe buffered mode")
+        message(WARNING "MADMODEM_ENABLE_Q65_FULL_MSHV_DECODER=ON but FFTW3/header could not be found; Q65 RX will be unavailable")
     endif()
 endif()
 
@@ -356,9 +356,13 @@ add_executable(MadModem
     mainwindow.ui
     resources.qrc
     audio/AudioEngine.cpp
+    audio/BoundedAudioDispatcher.cpp
     audio/RxAudioRecorder.h
     audio/RxAudioRecorder.cpp
     audio/AudioEngine.h
+    audio/BoundedAudioDispatcher.h
+    audio/WavFileReader.cpp
+    audio/WavFileReader.h
     audio/TxAudioEngine.cpp
     audio/TxAudioEngine.h
     audio/FtTxWorker.cpp
@@ -700,7 +704,7 @@ endif()
 
 option(MADMODEM_AUTOBUILD_HAMLIB
     "Automatically build bundled Hamlib from source during CMake configuration when it is missing."
-    ON)
+    OFF)
 
 if(MADMODEM_AUTOBUILD_HAMLIB)
     set(_MADMODEM_AUTOBUILD_PREFIX "")
@@ -784,6 +788,11 @@ find_package(PkgConfig QUIET)
 if(PKG_CONFIG_FOUND)
     pkg_check_modules(HAMLIB_PC QUIET IMPORTED_TARGET hamlib)
 endif()
+
+# Do not leak project-specific pkg-config search paths into later configure
+# checks or parent projects that include MadModem as a subdirectory.
+set(ENV{PKG_CONFIG_PATH} "${_MADMODEM_ORIGINAL_PKG_CONFIG_PATH}")
+set(ENV{PKG_CONFIG_LIBDIR} "${_MADMODEM_ORIGINAL_PKG_CONFIG_LIBDIR}")
 
 set(MADMODEM_HAMLIB_FOUND OFF)
 set(HAMLIB_LIBRARY_DIR "")
@@ -923,13 +932,6 @@ if(MADMODEM_HAMLIB_FOUND AND HAMLIB_LIBRARY_DIR)
     endif()
 endif()
 
-if(Qt6_FOUND)
-    target_link_libraries(MadModem PRIVATE
-        Qt6::OpenGLWidgets
-    )
-endif()
-
-
 # -------------------------------------------------------------------------
 # Install
 # -------------------------------------------------------------------------
@@ -938,6 +940,66 @@ install(TARGETS MadModem
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
     BUNDLE DESTINATION .
 )
+
+# Native regression tests are registered with CTest so CI can protect the
+# timing-sensitive production components instead of only producing packages.
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(madmodem_wav_reader_test
+        tests/WavFileReaderTest.cpp
+        audio/WavFileReader.cpp
+        audio/WavFileReader.h
+    )
+    target_include_directories(madmodem_wav_reader_test PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    target_link_libraries(madmodem_wav_reader_test PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_wav_reader_test COMMAND madmodem_wav_reader_test)
+
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME madmodem_runtime_hardening_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_runtime_hardening.py")
+        add_test(NAME madmodem_cat_ft_band_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_cat_ft_band_sync.py")
+        add_test(NAME madmodem_rtty_contest_layout_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_rtty_contest_layout.py")
+        add_test(NAME madmodem_rtty_runtime_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_rtty_live_contest_runtime.py")
+        add_test(NAME madmodem_ft_atomic_lifecycle_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_atomic_tx_lifecycle.py")
+        add_test(NAME madmodem_ft_caller_queue_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_caller_queue_waterfall_restore.py")
+        add_test(NAME madmodem_ft_linear_sequencer_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_linear_sequencer.py")
+        add_test(NAME madmodem_localization_audit
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_localization.py")
+        add_test(NAME madmodem_documentation_audit
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_documentation.py")
+        add_test(NAME madmodem_rtty_rules_audit
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_rtty_rules.py")
+    endif()
+
+    if(UNIX)
+        add_test(NAME madmodem_cw_native_regression
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_cw_native_regression.sh"
+                         "${CMAKE_CURRENT_BINARY_DIR}/tests-cw")
+        add_test(NAME madmodem_waterfall_native_regression
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_waterfall_leveler_regression.sh"
+                         "${CMAKE_CURRENT_BINARY_DIR}/tests-waterfall")
+        add_test(NAME madmodem_ft4_runtime_guard
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft4_adaptive_runtime.sh")
+        add_test(NAME madmodem_ft_sensitivity_guard
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_wideband_sensitivity.sh")
+        add_test(NAME madmodem_waterfall_flattening_guard
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_waterfall_wsjtx_flattening.sh")
+        add_test(NAME madmodem_release_version_guard
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/ci_release_version_guard.sh")
+        set_tests_properties(madmodem_cw_native_regression
+                             madmodem_waterfall_native_regression
+                             PROPERTIES TIMEOUT 180)
+    endif()
+endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules")
     if(APPLE)

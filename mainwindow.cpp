@@ -33,6 +33,7 @@
 #include "rig/HamlibController.h"
 #include "dsp/cpu/CpuFeatures.h"
 #include "third_party/decodium_gpl/port/NtpClient.hpp"
+#include "audio/WavFileReader.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -96,7 +97,6 @@
 #include <cmath>
 #include <QEvent>
 #include <QProgressDialog>
-#include <QProcess>
 #include <QPixmap>
 #include <QPointer>
 #include <QPainter>
@@ -447,70 +447,6 @@ bool selectDocumentRange(QTextCursor &cursor, int start, int end)
         remaining -= step;
     }
     return true;
-}
-
-QString readShortProcessText(const QString &program,
-                             const QStringList &arguments,
-                             int timeoutMs = 900)
-{
-    QProcess process;
-    process.start(program, arguments);
-    if (!process.waitForFinished(timeoutMs)) {
-        process.kill();
-        process.waitForFinished(100);
-        return QString();
-    }
-    QString out = QString::fromLocal8Bit(process.readAllStandardOutput());
-    const QString err = QString::fromLocal8Bit(process.readAllStandardError());
-    if (out.trimmed().isEmpty()) {
-        out = err;
-    }
-    return out;
-}
-
-QString cachedSystemClockSyncText()
-{
-    static QDateTime nextRefreshUtc;
-    static QString cached = QStringLiteral("unknown");
-    const QDateTime now = QDateTime::currentDateTimeUtc();
-    if (nextRefreshUtc.isValid() && now < nextRefreshUtc) {
-        return cached;
-    }
-    nextRefreshUtc = now.addSecs(45);
-
-#ifdef Q_OS_LINUX
-    QString out = readShortProcessText(QStringLiteral("timedatectl"),
-                                       QStringList() << QStringLiteral("show")
-                                                     << QStringLiteral("-p") << QStringLiteral("SystemClockSynchronized")
-                                                     << QStringLiteral("-p") << QStringLiteral("NTPSynchronized"));
-    const QString lower = out.toLower();
-    if (lower.contains(QStringLiteral("systemclocksynchronized=yes")) ||
-        lower.contains(QStringLiteral("ntpsynchronized=yes"))) {
-        cached = QStringLiteral("synced");
-        return cached;
-    }
-    if (lower.contains(QStringLiteral("systemclocksynchronized=no")) ||
-        lower.contains(QStringLiteral("ntpsynchronized=no"))) {
-        cached = QStringLiteral("not synced");
-        return cached;
-    }
-    out = readShortProcessText(QStringLiteral("ntpq"), QStringList() << QStringLiteral("-p"));
-    if (out.contains(QChar('*'))) {
-        cached = QStringLiteral("synced");
-        return cached;
-    }
-#elif defined(Q_OS_WIN)
-    const QString out = readShortProcessText(QStringLiteral("w32tm"),
-                                            QStringList() << QStringLiteral("/query") << QStringLiteral("/status"));
-    if (out.contains(QStringLiteral("Source"), Qt::CaseInsensitive) &&
-        !out.contains(QStringLiteral("Local CMOS Clock"), Qt::CaseInsensitive)) {
-        cached = QStringLiteral("synced");
-        return cached;
-    }
-#endif
-
-    cached = QStringLiteral("unknown");
-    return cached;
 }
 
 QString ft8StatusColour(const QString &state)
@@ -877,16 +813,7 @@ int nudgedToneValue(int currentHz, double measuredHz, int maxStepHz, int minHz, 
 /**
  * @brief Minimal parsed WAV stream metadata.
  */
-struct WavStreamFormat
-{
-    quint16 audioFormat = 0;
-    quint16 channels = 0;
-    quint32 sampleRate = 0;
-    quint16 blockAlign = 0;
-    quint16 bitsPerSample = 0;
-    qint64 dataStart = 0;
-    qint64 dataSize = 0;
-};
+using WavStreamFormat = MadModemAudio::WavFileFormat;
 
 /**
  * @brief User-facing WEFAX station/preset entry.
@@ -1153,206 +1080,14 @@ void promoteToolTipsToContextHelp(QWidget *root)
     }
 }
 
-quint16 readUInt16Le(const char *data)
-{
-    return static_cast<quint16>(static_cast<unsigned char>(data[0])) |
-           static_cast<quint16>(static_cast<unsigned char>(data[1]) << 8);
-}
-
-quint32 readUInt32Le(const char *data)
-{
-    return static_cast<quint32>(static_cast<unsigned char>(data[0])) |
-           (static_cast<quint32>(static_cast<unsigned char>(data[1])) << 8) |
-           (static_cast<quint32>(static_cast<unsigned char>(data[2])) << 16) |
-           (static_cast<quint32>(static_cast<unsigned char>(data[3])) << 24);
-}
-
-qint32 readInt24Le(const char *data)
-{
-    qint32 value = static_cast<qint32>(static_cast<unsigned char>(data[0])) |
-                   (static_cast<qint32>(static_cast<unsigned char>(data[1])) << 8) |
-                   (static_cast<qint32>(static_cast<unsigned char>(data[2])) << 16);
-
-    if ((value & 0x00800000) != 0) {
-        value |= static_cast<qint32>(0xFF000000);
-    }
-
-    return value;
-}
-
 bool parseWavHeader(QFile &file, WavStreamFormat &format, QString &errorMessage)
 {
-    const QByteArray riffHeader = file.read(12);
-
-    if (riffHeader.size() != 12 ||
-        riffHeader.mid(0, 4) != "RIFF" ||
-        riffHeader.mid(8, 4) != "WAVE") {
-        errorMessage = "The selected file is not a RIFF/WAVE file.";
-        return false;
-    }
-
-    bool hasFormat = false;
-    bool hasData = false;
-
-    while (!file.atEnd()) {
-        const QByteArray chunkHeader = file.read(8);
-
-        if (chunkHeader.size() == 0) {
-            break;
-        }
-
-        if (chunkHeader.size() != 8) {
-            errorMessage = "Unexpected end of file while reading WAV chunks.";
-            return false;
-        }
-
-        const QByteArray chunkId = chunkHeader.mid(0, 4);
-        const quint32 chunkSize = readUInt32Le(chunkHeader.constData() + 4);
-        const qint64 chunkDataStart = file.pos();
-        const qint64 nextChunk = chunkDataStart + static_cast<qint64>(chunkSize) +
-                                 static_cast<qint64>(chunkSize & 1U);
-
-        if (chunkId == "fmt ") {
-            if (chunkSize < 16 || chunkSize > 4096) {
-                errorMessage = "Unsupported or corrupted WAV fmt chunk.";
-                return false;
-            }
-
-            const QByteArray fmt = file.read(static_cast<qint64>(chunkSize));
-
-            if (fmt.size() != static_cast<int>(chunkSize)) {
-                errorMessage = "Unexpected end of file while reading WAV format.";
-                return false;
-            }
-
-            format.audioFormat = readUInt16Le(fmt.constData() + 0);
-            format.channels = readUInt16Le(fmt.constData() + 2);
-            format.sampleRate = readUInt32Le(fmt.constData() + 4);
-            format.blockAlign = readUInt16Le(fmt.constData() + 12);
-            format.bitsPerSample = readUInt16Le(fmt.constData() + 14);
-
-            if (format.audioFormat == 0xFFFE && fmt.size() >= 40) {
-                format.audioFormat = readUInt16Le(fmt.constData() + 24);
-            }
-
-            hasFormat = true;
-        } else if (chunkId == "data") {
-            format.dataStart = chunkDataStart;
-            format.dataSize = static_cast<qint64>(chunkSize);
-            hasData = true;
-        }
-
-        if (hasFormat && hasData) {
-            break;
-        }
-
-        if (!file.seek(nextChunk)) {
-            errorMessage = "Unable to seek inside WAV file.";
-            return false;
-        }
-    }
-
-    if (!hasFormat) {
-        errorMessage = "WAV format chunk not found.";
-        return false;
-    }
-
-    if (!hasData) {
-        errorMessage = "WAV data chunk not found.";
-        return false;
-    }
-
-    if (format.channels == 0 || format.sampleRate == 0 || format.blockAlign == 0) {
-        errorMessage = "Invalid WAV stream parameters.";
-        return false;
-    }
-
-    const bool supportedPcm =
-        format.audioFormat == 1 &&
-        (format.bitsPerSample == 8 ||
-         format.bitsPerSample == 16 ||
-         format.bitsPerSample == 24 ||
-         format.bitsPerSample == 32);
-
-    const bool supportedFloat =
-        format.audioFormat == 3 &&
-        format.bitsPerSample == 32;
-
-    if (!supportedPcm && !supportedFloat) {
-        errorMessage = "Unsupported WAV format. Use PCM 8/16/24/32-bit or 32-bit float.";
-        return false;
-    }
-
-    if (!file.seek(format.dataStart)) {
-        errorMessage = "Unable to seek to WAV audio data.";
-        return false;
-    }
-
-    return true;
-}
-
-float decodeWavSample(const char *data, const WavStreamFormat &format)
-{
-    if (format.audioFormat == 3 && format.bitsPerSample == 32) {
-        const quint32 raw = readUInt32Le(data);
-        float value = 0.0f;
-        std::memcpy(&value, &raw, sizeof(float));
-        return qBound(-1.0f, value, 1.0f);
-    }
-
-    switch (format.bitsPerSample) {
-    case 8: {
-        const int value = static_cast<int>(static_cast<unsigned char>(data[0])) - 128;
-        return static_cast<float>(value) / 128.0f;
-    }
-    case 16: {
-        const quint16 raw = readUInt16Le(data);
-        const qint16 value = static_cast<qint16>(raw);
-        return static_cast<float>(value) / 32768.0f;
-    }
-    case 24:
-        return static_cast<float>(readInt24Le(data)) / 8388608.0f;
-    case 32: {
-        const quint32 raw = readUInt32Le(data);
-        const qint32 value = static_cast<qint32>(raw);
-        return static_cast<float>(static_cast<double>(value) / 2147483648.0);
-    }
-    default:
-        break;
-    }
-
-    return 0.0f;
+    return MadModemAudio::parseWavHeader(file, format, errorMessage);
 }
 
 QVector<float> convertWavBytesToMono(const QByteArray &bytes, const WavStreamFormat &format)
 {
-    QVector<float> samples;
-
-    if (format.blockAlign == 0 || format.channels == 0) {
-        return samples;
-    }
-
-    const int bytesPerSample = format.bitsPerSample / 8;
-    const int frames = bytes.size() / static_cast<int>(format.blockAlign);
-
-    samples.reserve(frames);
-
-    for (int frame = 0; frame < frames; ++frame) {
-        const char *frameData = bytes.constData() +
-                                frame * static_cast<int>(format.blockAlign);
-
-        double mono = 0.0;
-
-        for (quint16 channel = 0; channel < format.channels; ++channel) {
-            const char *sampleData = frameData + channel * bytesPerSample;
-            mono += static_cast<double>(decodeWavSample(sampleData, format));
-        }
-
-        mono /= static_cast<double>(format.channels);
-        samples.append(static_cast<float>(qBound(-1.0, mono, 1.0)));
-    }
-
-    return samples;
+    return MadModemAudio::convertWavBytesToMono(bytes, format);
 }
 
 
@@ -1744,13 +1479,16 @@ private:
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
     ui(new Ui::MainWindow),
-    m_audioEngine(new AudioEngine(this)),
+    m_audioEngine(new AudioEngine()),
+    m_rxUiAudioDispatcher(new BoundedAudioDispatcher(48)),
+    m_audioThread(new QThread(this)),
     m_rxAudioRecorder(new RxAudioRecorder()),
     m_rxAudioRecorderThread(new QThread(this)),
     m_txAudioEngine(new TxAudioEngine(this)),
     m_ftTxWorker(new FtTxWorker()),
     m_ftTxThread(new QThread(this)),
     m_dspEngine(new DspEngine()),
+    m_dspAudioDispatcher(new BoundedAudioDispatcher(24)),
     m_dspThread(new QThread(this)),
     m_weatherFaxDecoder(new WeatherFaxDecoder(this)),
     m_sstvDecoder(new SstvDecoder(this)),
@@ -1759,7 +1497,6 @@ MainWindow::MainWindow(QWidget *parent)
     m_bpsk31Decoder(new Bpsk31Decoder(this)),
     m_mfskDecoder(new MfskDecoder(this)),
     m_cwDecoder(new CwDecoder(this)),
-    m_cwSecondaryDecoder(nullptr),
     m_hellDecoder(new HellschreiberDecoder(this)),
     m_msk144Decoder(new Msk144Decoder(this)),
     m_ft8RxDecoder(new Ft8RxDecoder()),
@@ -1772,6 +1509,21 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     setWindowIcon(QIcon(":/icons/madmodem.png"));
+    if (ui->txtLog != nullptr) {
+        ui->txtLog->setMaximumBlockCount(5000);
+    }
+
+    if (m_audioEngine != nullptr && m_audioThread != nullptr) {
+        m_audioEngine->moveToThread(m_audioThread);
+        connect(m_audioThread, &QThread::finished,
+                m_audioEngine, &QObject::deleteLater);
+        if (m_rxUiAudioDispatcher != nullptr) {
+            m_rxUiAudioDispatcher->moveToThread(m_audioThread);
+            connect(m_audioThread, &QThread::finished,
+                    m_rxUiAudioDispatcher, &QObject::deleteLater);
+        }
+        m_audioThread->start();
+    }
 
     if (m_rxAudioRecorder != nullptr && m_rxAudioRecorderThread != nullptr) {
         m_rxAudioRecorder->moveToThread(m_rxAudioRecorderThread);
@@ -1784,6 +1536,20 @@ MainWindow::MainWindow(QWidget *parent)
         m_dspEngine->moveToThread(m_dspThread);
         connect(m_dspThread, &QThread::finished,
                 m_dspEngine, &QObject::deleteLater);
+        if (m_dspAudioDispatcher != nullptr) {
+            m_dspAudioDispatcher->moveToThread(m_dspThread);
+            connect(m_dspThread, &QThread::finished,
+                    m_dspAudioDispatcher, &QObject::deleteLater);
+            connect(m_dspAudioDispatcher, &BoundedAudioDispatcher::blocksAvailable,
+                    m_dspEngine,
+                    [dispatcher = m_dspAudioDispatcher, engine = m_dspEngine]() {
+                        const QVector<AudioBlock> blocks = dispatcher->takePending(2);
+                        for (const AudioBlock &block : blocks) {
+                            engine->processAudioBlock(block);
+                        }
+                    },
+                    Qt::QueuedConnection);
+        }
         m_dspThread->start();
     }
 
@@ -1883,6 +1649,15 @@ MainWindow::MainWindow(QWidget *parent)
     MadModemUi::polishCockpitWidgetTree(this);
 
     m_pttTestTimer.setSingleShot(true);
+    m_terminalHighlightTimer.setSingleShot(true);
+    m_terminalHighlightTimer.setInterval(160);
+    connect(&m_terminalHighlightTimer, &QTimer::timeout, this, [this]() {
+        const QSet<QPlainTextEdit *> pending = m_pendingTerminalHighlights;
+        m_pendingTerminalHighlights.clear();
+        for (QPlainTextEdit *terminal : pending) {
+            highlightCallsignsInTerminal(terminal);
+        }
+    });
     m_ft8FullAutoCqSelectionTimer.setSingleShot(true);
     connect(&m_ft8FullAutoCqSelectionTimer, &QTimer::timeout,
             this, &MainWindow::processFt8FullAutoCqCandidates);
@@ -1917,7 +1692,25 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    m_terminalHighlightTimer.stop();
+    m_pendingTerminalHighlights.clear();
     shutdownRuntime("destructor");
+    // The form wrappers are plain bookkeeping structs. Their QWidget members
+    // remain owned by Qt's parent hierarchy and are destroyed with the UI.
+    delete m_rttyQsoForm;
+    delete m_bpsk31QsoForm;
+    delete m_mfskQsoForm;
+    delete m_cwQsoForm;
+    delete m_hellQsoForm;
+    delete m_msk144QsoForm;
+    delete m_q65QsoForm;
+    m_rttyQsoForm = nullptr;
+    m_bpsk31QsoForm = nullptr;
+    m_mfskQsoForm = nullptr;
+    m_cwQsoForm = nullptr;
+    m_hellQsoForm = nullptr;
+    m_msk144QsoForm = nullptr;
+    m_q65QsoForm = nullptr;
     qWarning().noquote() << QStringLiteral("[shutdown] deleting UI");
     delete ui;
     ui = nullptr;
@@ -2017,7 +1810,6 @@ void MainWindow::shutdownRuntime(const char *reason)
     if (m_bpsk31Decoder != nullptr) disconnect(m_bpsk31Decoder, nullptr, this, nullptr);
     if (m_mfskDecoder != nullptr) disconnect(m_mfskDecoder, nullptr, this, nullptr);
     if (m_cwDecoder != nullptr) disconnect(m_cwDecoder, nullptr, this, nullptr);
-    if (m_cwSecondaryDecoder != nullptr) disconnect(m_cwSecondaryDecoder, nullptr, this, nullptr);
     if (m_msk144Decoder != nullptr) disconnect(m_msk144Decoder, nullptr, this, nullptr);
     if (m_q65Decoder != nullptr) disconnect(m_q65Decoder, nullptr, this, nullptr);
 
@@ -2026,7 +1818,14 @@ void MainWindow::shutdownRuntime(const char *reason)
     if (m_audioEngine != nullptr) {
         shutdownLog(QStringLiteral("stopping RX audio"));
         disconnect(m_audioEngine, nullptr, this, nullptr);
-        m_audioEngine->stopInput();
+        stopAudioInputBlocking();
+    }
+    if (m_rxUiAudioDispatcher != nullptr) {
+        disconnect(m_rxUiAudioDispatcher, nullptr, this, nullptr);
+        m_rxUiAudioDispatcher->clear();
+    }
+    if (m_dspAudioDispatcher != nullptr) {
+        m_dspAudioDispatcher->clear();
     }
     if (m_txAudioEngine != nullptr) {
         shutdownLog(QStringLiteral("stopping TX audio"));
@@ -2050,12 +1849,26 @@ void MainWindow::shutdownRuntime(const char *reason)
     }
 
     if (m_rigController != nullptr) {
-        shutdownLog(QStringLiteral("queueing CAT PTT-OFF/disconnect"));
+        shutdownLog(QStringLiteral("requesting confirmed CAT PTT-OFF/disconnect"));
+        bool pttOffConfirmed = false;
+        bool disconnectExecuted = false;
+        const auto stopRig = [controller = m_rigController, &pttOffConfirmed, &disconnectExecuted]() {
+            pttOffConfirmed = controller->disconnectRig();
+            disconnectExecuted = true;
+        };
+        if (m_rigController->thread() == QThread::currentThread()) {
+            stopRig();
+        } else if (m_rigController->thread() != nullptr && m_rigController->thread()->isRunning()) {
+            QMetaObject::invokeMethod(m_rigController, stopRig, Qt::BlockingQueuedConnection);
+        }
+        if (!disconnectExecuted) {
+            shutdownLog(QStringLiteral("CAT shutdown failed: controller thread was not running"));
+        } else if (!pttOffConfirmed) {
+            shutdownLog(QStringLiteral("CAT shutdown warning: PTT-OFF was not confirmed by the backend"));
+        } else {
+            shutdownLog(QStringLiteral("CAT PTT-OFF confirmed and backend disconnected"));
+        }
         disconnect(m_rigController, nullptr, this, nullptr);
-        QMetaObject::invokeMethod(m_rigController, [controller = m_rigController]() {
-            controller->setPtt(false);
-            controller->disconnectRig();
-        }, Qt::QueuedConnection);
     }
 
     savePersistentSettings();
@@ -2067,9 +1880,11 @@ void MainWindow::shutdownRuntime(const char *reason)
     };
     const QVector<RuntimeThreadStop> workers = {
         {m_rxAudioRecorderThread, QStringLiteral("RX audio recorder")},
+        {m_audioThread, QStringLiteral("RX audio capture")},
         {m_ftTxThread, QStringLiteral("FT TX")},
         {m_ftSlotThread, QStringLiteral("FT slot scheduler")},
         {m_ft8RxThread, QStringLiteral("FT RX decoder")},
+        {m_q65Thread, QStringLiteral("Q65 RX decoder")},
         {m_rigThread, QStringLiteral("CAT/Hamlib")},
         {m_dspThread, QStringLiteral("DSP")}
     };
@@ -2086,7 +1901,7 @@ void MainWindow::shutdownRuntime(const char *reason)
         worker.thread->quit();
     }
 
-    constexpr qint64 kGracefulShutdownBudgetMs = 2200;
+    constexpr qint64 kGracefulShutdownBudgetMs = 5000;
     QElapsedTimer gracefulTimer;
     gracefulTimer.start();
     for (;;) {
@@ -2103,38 +1918,11 @@ void MainWindow::shutdownRuntime(const char *reason)
         QThread::msleep(10);
     }
 
-    QVector<RuntimeThreadStop> forced;
-    for (const RuntimeThreadStop &worker : workers) {
-        if (worker.thread != nullptr && worker.thread->isRunning()) {
-            forced.append(worker);
-            shutdownLog(QStringLiteral("thread exceeded shared %1 ms shutdown budget: %2; forcing terminate")
-                            .arg(kGracefulShutdownBudgetMs)
-                            .arg(worker.name));
-            worker.thread->terminate();
-        }
-    }
-
-    if (!forced.isEmpty()) {
-        QElapsedTimer forcedTimer;
-        forcedTimer.start();
-        while (forcedTimer.elapsed() < 500) {
-            bool anyRunning = false;
-            for (const RuntimeThreadStop &worker : forced) {
-                if (worker.thread != nullptr && worker.thread->isRunning()) {
-                    anyRunning = true;
-                    break;
-                }
-            }
-            if (!anyRunning) break;
-            QThread::msleep(10);
-        }
-    }
-
-    // Join already-stopped QThreads without creating a new per-thread timeout.
-    // A thread that remains inside an uninterruptible third-party/system call
-    // after terminate() is detached from MainWindow's QObject tree.  This is
-    // process-exit-only: it prevents QThread's destructor from blocking or
-    // aborting while the OS is about to reclaim the process.
+    // Never use QThread::terminate(): it can kill a worker while it owns a
+    // mutex, an audio handle or a CAT resource.  Join cooperative workers; a
+    // genuinely uninterruptible OS/third-party call is detached only for the
+    // final process-exit path after all signals and hardware backends above
+    // have already been stopped.
     for (const RuntimeThreadStop &worker : workers) {
         if (worker.thread == nullptr) {
             continue;
@@ -2142,7 +1930,8 @@ void MainWindow::shutdownRuntime(const char *reason)
         if (!worker.thread->isRunning()) {
             worker.thread->wait(0);
         } else {
-            shutdownLog(QStringLiteral("thread still blocked after forced shutdown; detaching for process exit: %1")
+            shutdownLog(QStringLiteral("thread exceeded shared %1 ms shutdown budget; detaching for process exit: %2")
+                            .arg(kGracefulShutdownBudgetMs)
                             .arg(worker.name));
             worker.thread->setParent(nullptr);
         }
@@ -2150,16 +1939,22 @@ void MainWindow::shutdownRuntime(const char *reason)
 
     m_rxAudioRecorderThread = nullptr;
     m_rxAudioRecorder = nullptr;
+    m_audioThread = nullptr;
+    m_audioEngine = nullptr;
+    m_rxUiAudioDispatcher = nullptr;
     m_ftTxThread = nullptr;
     m_ftTxWorker = nullptr;
     m_ftSlotThread = nullptr;
     m_ftSlotScheduler = nullptr;
     m_ft8RxThread = nullptr;
     m_ft8RxDecoder = nullptr;
+    m_q65Thread = nullptr;
+    m_q65Decoder = nullptr;
     m_rigThread = nullptr;
     m_rigController = nullptr;
     m_dspThread = nullptr;
     m_dspEngine = nullptr;
+    m_dspAudioDispatcher = nullptr;
 
     m_runtimeShutdownComplete = true;
     m_shutdownInProgress = false;
@@ -2420,9 +2215,7 @@ void MainWindow::setupCustomWidgets()
     setupRadioTelescopePage();
     setupMsk144Page();
     setupQ65Page();
-    // DSP tab removed: useful per-mode conditioning now lives inside Mode pages.
-    // Keep the backend helpers for Software AGC and legacy settings migration.
-    // setupDspTab();
+    // Useful per-mode conditioning lives inside the relevant Mode pages.
     setupFt8Page();
 
     m_grpTxImage = new QGroupBox(QString(), ui->tabModeSettings);
@@ -2807,10 +2600,15 @@ void MainWindow::scanTextForHeardStations(QPlainTextEdit *terminal, const QStrin
     }
     const QString band = (form != nullptr && form->band != nullptr) ? form->band->text().trimmed().toLower() : QString();
 
-    QString text = terminal->toPlainText();
+    QString tail = terminal->property("madmodemHeardScanTail").toString();
+    if (terminal->document() != nullptr && terminal->document()->characterCount() <= newText.size() + 1) {
+        tail.clear();
+    }
+    QString text = tail + newText;
     if (text.size() > 1200) {
         text = text.right(1200);
     }
+    terminal->setProperty("madmodemHeardScanTail", text.right(256));
     const QRegularExpression tokenRe(QStringLiteral("\\b([A-Z0-9/]{3,16})\\b"));
     QRegularExpressionMatchIterator it = tokenRe.globalMatch(text.toUpper());
     QStringList tokens;
@@ -2878,6 +2676,7 @@ QWidget *MainWindow::createTextTerminalPage(const QString &title,
 
     *rxTerminal = new QPlainTextEdit(page);
     (*rxTerminal)->setReadOnly(true);
+    (*rxTerminal)->setMaximumBlockCount(2500);
     (*rxTerminal)->setPlaceholderText("Received and transmitted text appears here.");
     (*rxTerminal)->setLineWrapMode(QPlainTextEdit::WidgetWidth);
     (*rxTerminal)->setMinimumHeight(190);
@@ -2990,6 +2789,7 @@ QWidget *MainWindow::createCwTerminalPage()
 
         QPlainTextEdit *terminal = new QPlainTextEdit(panel);
         terminal->setReadOnly(true);
+        terminal->setMaximumBlockCount(2500);
         terminal->setLineWrapMode(QPlainTextEdit::WidgetWidth);
         terminal->setMinimumHeight(150);
         installRxTextContextMenu(terminal);
@@ -3183,6 +2983,7 @@ MainWindow::QsoFormWidgets *MainWindow::activeQsoForm() const
     }
 
     const QString modeName = ui->cmbMode->currentText();
+
     if (modeName == RttyDecoder::modeName()) {
         return m_rttyQsoForm;
     }
@@ -3685,6 +3486,17 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
     moveCursorToDocumentPosition(restore, safeCursorPosition);
     terminal->setTextCursor(restore);
     terminal->ensureCursorVisible();
+}
+
+void MainWindow::scheduleTerminalHighlight(QPlainTextEdit *terminal)
+{
+    if (terminal == nullptr || terminal->document() == nullptr) {
+        return;
+    }
+    m_pendingTerminalHighlights.insert(terminal);
+    if (!m_terminalHighlightTimer.isActive()) {
+        m_terminalHighlightTimer.start();
+    }
 }
 
 void MainWindow::refreshFt8DecodeWorkedHighlights()
@@ -6113,9 +5925,7 @@ void MainWindow::setupCwPage()
     m_spinCwAfcRangeHz->setPrefix(QString::fromUtf8("±"));
     m_spinCwAfcRangeHz->setSuffix(" Hz");
 
-    // RX A/RX B use a real narrow selected-tone front-end. The controls below
-    // directly affect that front-end and are therefore visible again.
-    m_chkCwSoftwareAgc = nullptr;
+    // RX A/RX B use the real narrow selected-tone front-end below.
 
     QLabel *rxALabel = new QLabel(uiText("cw_rx_a_short", "RX A"), settingsGroup);
     QLabel *rxBLabel = new QLabel(uiText("cw_rx_b_short", "RX B"), settingsGroup);
@@ -7988,10 +7798,18 @@ void MainWindow::setupQ65Page()
     connect(m_btnQ65Rx, &QPushButton::clicked, this, &MainWindow::startQ65RxShell);
     connect(m_btnQ65Tx, &QPushButton::clicked, this, &MainWindow::startQ65TxShell);
     connect(m_btnQ65Stop, &QPushButton::clicked, this, &MainWindow::stopQ65Shell);
-    connect(m_btnQ65ClearAvg, &QPushButton::clicked, this, [this]() { if (m_q65Decoder != nullptr) m_q65Decoder->clearAverages(); });
+    connect(m_btnQ65ClearAvg, &QPushButton::clicked, this, [this]() {
+        if (m_q65Decoder != nullptr) {
+            QMetaObject::invokeMethod(m_q65Decoder, "clearAverages", Qt::QueuedConnection);
+        }
+    });
 
     if (m_q65Decoder == nullptr) {
-        m_q65Decoder = new Q65Decoder(this);
+        m_q65Decoder = new Q65Decoder();
+        m_q65Thread = new QThread(this);
+        m_q65Decoder->moveToThread(m_q65Thread);
+        connect(m_q65Thread, &QThread::finished,
+                m_q65Decoder, &QObject::deleteLater);
         connect(m_q65Decoder, &Q65Decoder::decoded, this, &MainWindow::handleQ65DecodeReady, Qt::QueuedConnection);
         connect(m_q65Decoder, &Q65Decoder::statusChanged, this, [this](const QString &s) {
             if (m_lblQ65Status != nullptr) m_lblQ65Status->setText(s);
@@ -8006,6 +7824,19 @@ void MainWindow::setupQ65Page()
                 m_lblQ65AverageStatus->setText(QStringLiteral("AVG: %1 | %2").arg(usable).arg(all));
             }
         }, Qt::QueuedConnection);
+        m_q65Thread->start();
+    }
+
+    if (!Q65Decoder::fullRxAvailable()) {
+        const QString unavailable = QStringLiteral("Q65 RX unavailable: this build does not include the FFTW-backed MSHV decoder. Q65 TX remains available.");
+        if (m_lblQ65Status != nullptr) {
+            m_lblQ65Status->setText(unavailable);
+            m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 600; color: #ff8c42;"));
+        }
+        if (m_btnQ65Rx != nullptr) {
+            m_btnQ65Rx->setEnabled(false);
+            m_btnQ65Rx->setToolTip(unavailable);
+        }
     }
 
     refreshQ65StandardMessages();
@@ -8793,25 +8624,40 @@ void MainWindow::setupHelpTooltips()
 
 void MainWindow::setupProcessingConnections()
 {
-    connect(m_audioEngine, &AudioEngine::audioBlockReady,
-            this, [this](const AudioBlock &block) {
-                if (!m_rxRunning || m_txRunning || m_offlineAnalysisActive || m_dspEngine == nullptr) {
-                    return;
-                }
-
-                const AudioBlock waterfallBlock = conditionAudioForWaterfall(block);
-
-                QMetaObject::invokeMethod(
-                    m_dspEngine,
-                    "processAudioBlock",
-                    Qt::QueuedConnection,
-                    Q_ARG(AudioBlock, waterfallBlock)
-                    );
-            },
-            Qt::QueuedConnection);
-
-    connect(m_audioEngine, &AudioEngine::audioBlockReady,
-            this, &MainWindow::handleRxAudioBlock);
+    if (m_rxUiAudioDispatcher != nullptr) {
+        // This is the bounded branch for waterfall and non-FT decoders. At
+        // most one UI notification is queued, independently of capture rate.
+        connect(m_audioEngine, &AudioEngine::audioBlockReady,
+                m_rxUiAudioDispatcher, &BoundedAudioDispatcher::enqueue,
+                Qt::DirectConnection);
+        connect(m_rxUiAudioDispatcher, &BoundedAudioDispatcher::blocksAvailable,
+                this, [this]() {
+                    if (m_rxUiAudioDispatcher == nullptr) {
+                        return;
+                    }
+                    int droppedBlocks = 0;
+                    const QVector<AudioBlock> blocks = m_rxUiAudioDispatcher->takePending(2, &droppedBlocks);
+                    if (droppedBlocks > 0) {
+                        const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+                        if (nowMs - m_lastRxDispatcherDropLogUtcMs >= 2000) {
+                            m_lastRxDispatcherDropLogUtcMs = nowMs;
+                            appendLog(QStringLiteral("RX overload protection: dropped %1 stale UI/non-FT audio block(s); FT worker input was not affected.")
+                                          .arg(droppedBlocks));
+                        }
+                    }
+                    if (!m_rxRunning || m_txRunning || m_offlineAnalysisActive) {
+                        return;
+                    }
+                    for (const AudioBlock &block : blocks) {
+                        if (m_dspAudioDispatcher != nullptr) {
+                            const AudioBlock waterfallBlock = conditionAudioForWaterfall(block);
+                            m_dspAudioDispatcher->enqueue(waterfallBlock);
+                        }
+                        handleRxAudioBlock(block);
+                    }
+                },
+                Qt::QueuedConnection);
+    }
 
     // FT live audio bypasses MainWindow completely.  The sound-card callback
     // queues blocks straight to the FT decoder thread; MainWindow remains a UI
@@ -10422,11 +10268,6 @@ void MainWindow::setupUiConnections()
                 this, [this](int) { applyCwSettings(); });
     }
 
-    if (m_chkCwSoftwareAgc != nullptr) {
-        connect(m_chkCwSoftwareAgc, &QCheckBox::toggled,
-                this, [this](bool) { applyCwSettings(); });
-    }
-
     if (m_btnCwClearRx != nullptr) {
         connect(m_btnCwClearRx, &QPushButton::clicked,
                 this, &MainWindow::clearCwRxAText);
@@ -10923,6 +10764,50 @@ void MainWindow::invokeRigSetFrequency(double frequencyHz)
     }, Qt::QueuedConnection);
 }
 
+bool MainWindow::startAudioInputBlocking(const QString &deviceName, int sampleRate)
+{
+    if (m_audioEngine == nullptr) {
+        return false;
+    }
+    if (m_rxUiAudioDispatcher != nullptr) {
+        m_rxUiAudioDispatcher->clear();
+    }
+    if (m_dspAudioDispatcher != nullptr) {
+        m_dspAudioDispatcher->clear();
+    }
+    bool started = false;
+    if (m_audioEngine->thread() == QThread::currentThread()) {
+        started = m_audioEngine->startInput(deviceName, sampleRate);
+    } else if (m_audioEngine->thread() != nullptr && m_audioEngine->thread()->isRunning()) {
+        QMetaObject::invokeMethod(m_audioEngine,
+                                  [engine = m_audioEngine, deviceName, sampleRate, &started]() {
+                                      started = engine->startInput(deviceName, sampleRate);
+                                  },
+                                  Qt::BlockingQueuedConnection);
+    }
+    return started;
+}
+
+void MainWindow::stopAudioInputBlocking()
+{
+    if (m_audioEngine == nullptr) {
+        return;
+    }
+    if (m_audioEngine->thread() == QThread::currentThread()) {
+        m_audioEngine->stopInput();
+    } else if (m_audioEngine->thread() != nullptr && m_audioEngine->thread()->isRunning()) {
+        QMetaObject::invokeMethod(m_audioEngine,
+                                  [engine = m_audioEngine]() { engine->stopInput(); },
+                                  Qt::BlockingQueuedConnection);
+    }
+    if (m_rxUiAudioDispatcher != nullptr) {
+        m_rxUiAudioDispatcher->clear();
+    }
+    if (m_dspAudioDispatcher != nullptr) {
+        m_dspAudioDispatcher->clear();
+    }
+}
+
 
 
 void MainWindow::applyUiAppearanceSettings()
@@ -11166,14 +11051,6 @@ void MainWindow::applyPersistentSettingsToRuntime(const AppSettings *previousSet
     m_cwDecoder->setReceiverWpm(1, static_cast<double>(m_settings.cwWpmB));
     m_cwDecoder->setBandwidthHz(static_cast<double>(m_settings.cwBandwidthHz));
     m_cwDecoder->setAutoBandwidth(m_settings.cwAutoBandwidth);
-    if (m_cwSecondaryDecoder != nullptr) {
-        m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
-        m_cwSecondaryToneHz = m_settings.cwSecondaryToneHz;
-        m_cwSecondaryDecoder->setToneHz(static_cast<double>(m_cwSecondaryToneHz));
-        m_cwSecondaryDecoder->setAutoWpm(m_settings.cwAutoWpmB);
-        m_cwSecondaryDecoder->setWpm(static_cast<double>(m_settings.cwWpmB));
-        m_cwSecondaryDecoder->setBandwidthHz(static_cast<double>(m_settings.cwBandwidthHz));
-    }
     m_hellDecoder->setVariant(HellschreiberDecoder::variantFromKey(m_settings.hellVariant));
     m_hellDecoder->setToneHz(static_cast<double>(m_settings.hellToneHz));
     m_hellDecoder->setColumnRate(m_settings.hellColumnRate);
@@ -11619,13 +11496,6 @@ void MainWindow::updateBandSchedulerTabForMode(const QString &modeName)
 }
 
 
-void MainWindow::setupDspTab()
-{
-    // Removed by design: the generic DSP tab exposed mostly ineffective controls.
-    // Keep useful RX conditioning in the relevant Mode pages instead.
-}
-
-
 void MainWindow::updateDspTabForMode(const QString &modeName)
 {
     if (m_tabDspSettings == nullptr || ui == nullptr || ui->sideTabWidget == nullptr) {
@@ -11753,7 +11623,7 @@ bool MainWindow::dspAgcEnabledForModeKey(const QString &modeKey) const
     if (key == QStringLiteral("RTTY")) return m_settings.rttyAgcEnabled;
     if (key == QStringLiteral("BPSK31")) return m_settings.bpsk31AgcEnabled;
     if (key == QStringLiteral("MFSK")) return m_settings.mfskAgcEnabled;
-    if (key == QStringLiteral("CW")) return m_settings.cwAgcEnabled;
+    if (key == QStringLiteral("CW")) return false;
     if (key == QStringLiteral("HELL")) return m_settings.hellAgcEnabled;
     return false;
 }
@@ -11786,7 +11656,7 @@ void MainWindow::setDspAgcEnabledForModeKey(const QString &modeKey, bool enabled
     else if (key == QStringLiteral("RTTY")) m_settings.rttyAgcEnabled = enabled;
     else if (key == QStringLiteral("BPSK31")) m_settings.bpsk31AgcEnabled = enabled;
     else if (key == QStringLiteral("MFSK")) m_settings.mfskAgcEnabled = enabled;
-    else if (key == QStringLiteral("CW")) m_settings.cwAgcEnabled = enabled;
+    else if (key == QStringLiteral("CW")) m_settings.cwAgcEnabled = false;
     else if (key == QStringLiteral("HELL")) m_settings.hellAgcEnabled = enabled;
 
     for (QCheckBox *check : m_dspAgcChecks.value(key)) {
@@ -12221,7 +12091,6 @@ void MainWindow::setReceiverRunning(bool running)
             !(m_chkCwAutoBandwidth != nullptr && m_chkCwAutoBandwidth->isChecked()));
         m_chkCwAfc->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         m_spinCwAfcRangeHz->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
-        if (m_chkCwSoftwareAgc != nullptr) m_chkCwSoftwareAgc->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         m_btnCwClearRx->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         if (m_btnCwClearRxB != nullptr) m_btnCwClearRxB->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
         if (m_txtCwTx != nullptr) {
@@ -12353,7 +12222,7 @@ bool MainWindow::prepareForOfflineAnalysis(const QString &label)
 
     if (m_audioEngine != nullptr && m_audioEngine->isRunning()) {
         appendLog(label + ": stopping live RX first.");
-        m_audioEngine->stopInput();
+        stopAudioInputBlocking();
     }
 
     m_rxRunning = false;
@@ -12418,7 +12287,7 @@ void MainWindow::requestModeChange(const QString &modeName)
     }
 
     if (rxActive && m_audioEngine != nullptr) {
-        m_audioEngine->stopInput();
+        stopAudioInputBlocking();
         return;
     }
 
@@ -12891,10 +12760,6 @@ void MainWindow::handleWaterfallFrequencyClicked(double frequencyHz, Qt::MouseBu
                 m_cwDecoder->setSecondaryToneHz(static_cast<double>(newTone));
                 m_cwDecoder->setSecondaryEnabled(true);
             }
-            if (m_cwSecondaryDecoder != nullptr) {
-                m_cwSecondaryDecoder->setToneHz(static_cast<double>(newTone));
-                m_cwSecondaryDecoder->reset();
-            }
             m_cwTrackedWpmB = 0.0;
             if (m_lblCwTrackedWpmB != nullptr) m_lblCwTrackedWpmB->setText(QStringLiteral("--"));
             updateCwDualRxStatusLabel();
@@ -13210,7 +13075,11 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
 
     if (Q65Mode::isFamilyMode(modeName)) {
         if (m_q65Decoder != nullptr) {
-            m_q65Decoder->processAudioBlock(block);
+            QMetaObject::invokeMethod(m_q65Decoder,
+                                      [decoder = m_q65Decoder, block]() {
+                                          decoder->processAudioBlock(block);
+                                      },
+                                      Qt::QueuedConnection);
         }
         return;
     }
@@ -13398,6 +13267,9 @@ void MainWindow::handleMsk144DecodeReady(const Msk144Decode &decode)
         m_tableMsk144Rx->setItem(row, 2, new QTableWidgetItem(QString::number(decode.tSeconds, 'f', 1)));
         m_tableMsk144Rx->setItem(row, 3, new QTableWidgetItem(QString::number(decode.dfHz)));
         m_tableMsk144Rx->setItem(row, 4, new QTableWidgetItem(decode.message));
+        while (m_tableMsk144Rx->rowCount() > 600) {
+            m_tableMsk144Rx->removeRow(0);
+        }
         m_tableMsk144Rx->scrollToBottom();
     }
 
@@ -13509,30 +13381,49 @@ void MainWindow::applyQ65Settings()
     const int rxHz = (m_spinQ65RxFreq != nullptr) ? m_spinQ65RxFreq->value() : 1500;
     const int dfTol = (m_spinQ65DfTolerance != nullptr) ? m_spinQ65DfTolerance->value() : 100;
     const Q65Mode::Submode submode = currentQ65Submode();
+    const bool averaging = m_chkQ65AverageDecode != nullptr && m_chkQ65AverageDecode->isChecked();
+    const bool autoClear = m_chkQ65AutoClearAvg != nullptr && m_chkQ65AutoClearAvg->isChecked();
+    const bool singleDecode = m_chkQ65SingleDecode != nullptr && m_chkQ65SingleDecode->isChecked();
+    const bool apDecode = m_chkQ65ApDecode != nullptr && m_chkQ65ApDecode->isChecked();
+    const bool maxDrift = m_chkQ65MaxDrift != nullptr && m_chkQ65MaxDrift->isChecked();
+    const bool emeDelay = m_chkQ65EmeDelay != nullptr && m_chkQ65EmeDelay->isChecked();
+    const QString myCall = stationCallsign();
+    const QString dxCall = m_editQ65DxCall != nullptr ? m_editQ65DxCall->text() : QString();
+    const QString dxGrid = m_editQ65DxGrid != nullptr ? m_editQ65DxGrid->text() : QString();
 
-    m_q65Decoder->setSubmode(submode);
-    m_q65Decoder->setPeriodSeconds(period);
-    m_q65Decoder->setDecodeDepth(depth);
-    m_q65Decoder->setRxFrequencyHz(rxHz);
-    m_q65Decoder->setDfToleranceHz(dfTol);
-    m_q65Decoder->setAveragingEnabled(m_chkQ65AverageDecode != nullptr && m_chkQ65AverageDecode->isChecked());
-    m_q65Decoder->setAutoClearAverages(m_chkQ65AutoClearAvg != nullptr && m_chkQ65AutoClearAvg->isChecked());
-    m_q65Decoder->setSingleDecode(m_chkQ65SingleDecode != nullptr && m_chkQ65SingleDecode->isChecked());
-    m_q65Decoder->setApDecodeEnabled(m_chkQ65ApDecode != nullptr && m_chkQ65ApDecode->isChecked());
-    m_q65Decoder->setMaxDriftEnabled(m_chkQ65MaxDrift != nullptr && m_chkQ65MaxDrift->isChecked());
-    m_q65Decoder->setEmeDelayEnabled(m_chkQ65EmeDelay != nullptr && m_chkQ65EmeDelay->isChecked());
-    m_q65Decoder->setMyCall(stationCallsign());
-    m_q65Decoder->setDxCall(m_editQ65DxCall != nullptr ? m_editQ65DxCall->text() : QString());
-    m_q65Decoder->setDxGrid(m_editQ65DxGrid != nullptr ? m_editQ65DxGrid->text() : QString());
+    QMetaObject::invokeMethod(m_q65Decoder,
+                              [decoder = m_q65Decoder, submode, period, depth, rxHz, dfTol,
+                               averaging, autoClear, singleDecode, apDecode, maxDrift,
+                               emeDelay, myCall, dxCall, dxGrid]() {
+                                  decoder->setSubmode(submode);
+                                  decoder->setPeriodSeconds(period);
+                                  decoder->setDecodeDepth(depth);
+                                  decoder->setRxFrequencyHz(rxHz);
+                                  decoder->setDfToleranceHz(dfTol);
+                                  decoder->setAveragingEnabled(averaging);
+                                  decoder->setAutoClearAverages(autoClear);
+                                  decoder->setSingleDecode(singleDecode);
+                                  decoder->setApDecodeEnabled(apDecode);
+                                  decoder->setMaxDriftEnabled(maxDrift);
+                                  decoder->setEmeDelayEnabled(emeDelay);
+                                  decoder->setMyCall(myCall);
+                                  decoder->setDxCall(dxCall);
+                                  decoder->setDxGrid(dxGrid);
+                              },
+                              Qt::QueuedConnection);
 
     if (m_lblQ65Status != nullptr) {
-        m_lblQ65Status->setText(QStringLiteral("%1 RX: %2 s, %3, RX %4 Hz, DF ±%5 Hz; TX %6 Hz")
-                                    .arg(Q65Mode::modeName(submode))
-                                    .arg(period)
-                                    .arg(depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep")))
-                                    .arg(rxHz)
-                                    .arg(dfTol)
-                                    .arg(m_spinQ65TxFreq != nullptr ? m_spinQ65TxFreq->value() : 1500));
+        if (Q65Decoder::fullRxAvailable()) {
+            m_lblQ65Status->setText(QStringLiteral("%1 RX: %2 s, %3, RX %4 Hz, DF ±%5 Hz; TX %6 Hz")
+                                        .arg(Q65Mode::modeName(submode))
+                                        .arg(period)
+                                        .arg(depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep")))
+                                        .arg(rxHz)
+                                        .arg(dfTol)
+                                        .arg(m_spinQ65TxFreq != nullptr ? m_spinQ65TxFreq->value() : 1500));
+        } else {
+            m_lblQ65Status->setText(QStringLiteral("Q65 RX unavailable: build without the FFTW-backed MSHV decoder; TX is available."));
+        }
     }
     updateWaterfallMarkers();
 }
@@ -13596,7 +13487,9 @@ void MainWindow::stopQ65Shell()
 {
     if (m_txRunning) { stopImageTx(); return; }
     if (m_rxRunning) stopRx();
-    if (m_q65Decoder != nullptr) m_q65Decoder->flushPeriod();
+    if (m_q65Decoder != nullptr) {
+        QMetaObject::invokeMethod(m_q65Decoder, "flushPeriod", Qt::QueuedConnection);
+    }
 }
 
 void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
@@ -13609,6 +13502,9 @@ void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
         m_tableQ65Rx->setItem(row, 2, new QTableWidgetItem(QString::number(decode.dtSeconds, 'f', 1)));
         m_tableQ65Rx->setItem(row, 3, new QTableWidgetItem(QString::number(decode.dfHz)));
         m_tableQ65Rx->setItem(row, 4, new QTableWidgetItem(decode.message));
+        while (m_tableQ65Rx->rowCount() > 600) {
+            m_tableQ65Rx->removeRow(0);
+        }
         m_tableQ65Rx->scrollToBottom();
     }
     appendLog(QStringLiteral("Q65 decode: %1 dB DT %2 DF %3: %4")
@@ -13673,7 +13569,9 @@ void MainWindow::updateQ65SequencerFromDecode(const QString &message, int snrDb)
 void MainWindow::clearQ65RxTable()
 {
     if (m_tableQ65Rx != nullptr) m_tableQ65Rx->setRowCount(0);
-    if (m_q65Decoder != nullptr) m_q65Decoder->clearAverages();
+    if (m_q65Decoder != nullptr) {
+        QMetaObject::invokeMethod(m_q65Decoder, "clearAverages", Qt::QueuedConnection);
+    }
 }
 
 void MainWindow::applyWeatherFaxSettings()
@@ -14231,7 +14129,6 @@ void MainWindow::applyCwSettings()
     const bool autoBandwidth = m_chkCwAutoBandwidth->isChecked();
     const bool afc = m_chkCwAfc->isChecked();
     const int afcRangeHz = m_spinCwAfcRangeHz->value();
-    const bool softwareAgc = false;
 
     m_cwDecoder->setToneHz(static_cast<double>(toneHz));
     m_cwDecoder->setSecondaryToneHz(static_cast<double>(m_cwSecondaryToneHz));
@@ -14244,14 +14141,6 @@ void MainWindow::applyCwSettings()
     m_cwDecoder->setAutoBandwidth(autoBandwidth);
     m_cwDecoder->setAfcEnabled(afc);
     m_cwDecoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
-    if (m_cwSecondaryDecoder != nullptr) {
-        m_cwSecondaryDecoder->setToneHz(static_cast<double>(m_cwSecondaryToneHz));
-        m_cwSecondaryDecoder->setAutoWpm(autoWpmB);
-        m_cwSecondaryDecoder->setWpm(static_cast<double>(wpmB));
-        m_cwSecondaryDecoder->setBandwidthHz(static_cast<double>(bandwidthHz));
-        m_cwSecondaryDecoder->setAfcEnabled(afc);
-        m_cwSecondaryDecoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
-    }
     m_settings.cwToneHz = toneHz;
     m_settings.cwSecondaryEnabled = m_cwSecondaryEnabled;
     m_settings.cwSecondaryToneHz = m_cwSecondaryToneHz;
@@ -14264,8 +14153,8 @@ void MainWindow::applyCwSettings()
     m_settings.cwAutoBandwidth = autoBandwidth;
     m_settings.cwAfcEnabled = afc;
     m_settings.cwAfcRangeHz = afcRangeHz;
-    if (m_settings.cwAgcEnabled != softwareAgc) {
-        m_settings.cwAgcEnabled = softwareAgc;
+    if (m_settings.cwAgcEnabled) {
+        m_settings.cwAgcEnabled = false;
         m_decoderConditioner.reset();
     }
 
@@ -14392,7 +14281,7 @@ void MainWindow::appendCwDecoderText(const QString &channel, const QString &text
     if (lineOpen != nullptr) {
         *lineOpen = !normalized.endsWith(QLatin1Char('\n'));
     }
-    highlightCallsignsInTerminal(terminal);
+    scheduleTerminalHighlight(terminal);
 }
 
 void MainWindow::recolorCwChannelPrefixes(QPlainTextEdit *terminal)
@@ -15744,7 +15633,12 @@ void MainWindow::updateFt8DecodePerformanceUi()
         return;
     }
 
-    const QString systemClockState = cachedSystemClockSyncText();
+    // NtpClient is asynchronous.  Never invoke timedatectl/ntpq/w32tm from
+    // this GUI/audio status path: their process timeout previously stalled
+    // live capture for up to 1.8 seconds.
+    const QString systemClockState = m_ft8NtpSynced
+        ? QStringLiteral("synced")
+        : QStringLiteral("unknown");
     QString ntpState = m_ft8NtpStatusText.trimmed().isEmpty()
         ? systemClockState
         : m_ft8NtpStatusText.trimmed();
@@ -17891,6 +17785,9 @@ void MainWindow::appendFt8LocalTxRow(const QString &message, int frequencyHz, co
     for (int col = 0; col < items.size(); ++col) {
         m_tableFt8Rx->setItem(row, col, items.at(col));
     }
+    while (m_tableFt8Rx->rowCount() > 600) {
+        m_tableFt8Rx->removeRow(0);
+    }
     m_tableFt8Rx->scrollToBottom();
 
     appendFt8QsoHistoryRow(utc,
@@ -19300,7 +19197,7 @@ void MainWindow::appendRxTextTerminal(QPlainTextEdit *terminal,
     terminal->insertPlainText(chunk);
     terminal->moveCursor(QTextCursor::End);
     terminal->ensureCursorVisible();
-    highlightCallsignsInTerminal(terminal);
+    scheduleTerminalHighlight(terminal);
 }
 
 void MainWindow::appendTextTerminal(QPlainTextEdit *terminal, const QString &prefix, const QString &text)
@@ -19357,7 +19254,7 @@ void MainWindow::appendTextTerminal(QPlainTextEdit *terminal, const QString &pre
     terminal->moveCursor(QTextCursor::End);
     terminal->ensureCursorVisible();
     if (terminal == m_txtRttyRx || terminal == m_txtBpsk31Rx || terminal == m_txtMfskRx || terminal == m_txtCwRx || terminal == m_txtCwRxB) {
-        highlightCallsignsInTerminal(terminal);
+        scheduleTerminalHighlight(terminal);
     }
     if (terminal == m_txtRttyRx || terminal == m_txtBpsk31Rx) {
         scanTextForHeardStations(terminal, chunk);
@@ -19830,190 +19727,6 @@ void MainWindow::processDspAudioBlockForWav(const AudioBlock &block)
         Q_ARG(AudioBlock, block)
         );
 }
-
-
-
-namespace {
-struct SimpleWavFormat
-{
-    quint16 audioFormat = 0;
-    quint16 channels = 0;
-    quint32 sampleRate = 0;
-    quint16 bitsPerSample = 0;
-    quint16 blockAlign = 0;
-    qint64 dataOffset = 0;
-    qint64 dataSize = 0;
-};
-
-quint16 mmReadLe16(const QByteArray &data, int offset)
-{
-    const uchar *p = reinterpret_cast<const uchar *>(data.constData() + offset);
-    return static_cast<quint16>(p[0] | (p[1] << 8));
-}
-
-quint32 mmReadLe32(const QByteArray &data, int offset)
-{
-    const uchar *p = reinterpret_cast<const uchar *>(data.constData() + offset);
-    return static_cast<quint32>(p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24));
-}
-
-float mmReadLeFloat32(const char *ptr)
-{
-    quint32 raw = static_cast<quint32>(static_cast<uchar>(ptr[0]) |
-                                      (static_cast<uchar>(ptr[1]) << 8) |
-                                      (static_cast<uchar>(ptr[2]) << 16) |
-                                      (static_cast<uchar>(ptr[3]) << 24));
-    float value = 0.0f;
-    static_assert(sizeof(value) == sizeof(raw), "float32 size");
-    std::memcpy(&value, &raw, sizeof(value));
-    return value;
-}
-
-bool mmParseSimpleWavHeader(QFile &file, SimpleWavFormat &wav, QString &error)
-{
-    if (!file.seek(0)) {
-        error = QStringLiteral("cannot seek WAV header");
-        return false;
-    }
-    const QByteArray riff = file.read(12);
-    if (riff.size() != 12 || riff.mid(0, 4) != "RIFF" || riff.mid(8, 4) != "WAVE") {
-        error = QStringLiteral("not a RIFF/WAVE file");
-        return false;
-    }
-
-    bool haveFmt = false;
-    bool haveData = false;
-    while (!file.atEnd()) {
-        const QByteArray chunkHeader = file.read(8);
-        if (chunkHeader.size() != 8) break;
-        const QByteArray id = chunkHeader.left(4);
-        const quint32 size = mmReadLe32(chunkHeader, 4);
-        const qint64 payloadOffset = file.pos();
-        if (id == "fmt ") {
-            const QByteArray fmt = file.read(qMin<quint32>(size, 40));
-            if (fmt.size() < 16) {
-                error = QStringLiteral("invalid WAV fmt chunk");
-                return false;
-            }
-            wav.audioFormat = mmReadLe16(fmt, 0);
-            wav.channels = mmReadLe16(fmt, 2);
-            wav.sampleRate = mmReadLe32(fmt, 4);
-            wav.blockAlign = mmReadLe16(fmt, 12);
-            wav.bitsPerSample = mmReadLe16(fmt, 14);
-            haveFmt = true;
-        } else if (id == "data") {
-            wav.dataOffset = payloadOffset;
-            wav.dataSize = size;
-            haveData = true;
-        }
-        const qint64 next = payloadOffset + static_cast<qint64>(size) + static_cast<qint64>(size & 1u);
-        if (!file.seek(next)) break;
-        if (haveFmt && haveData) break;
-    }
-
-    if (!haveFmt || !haveData) {
-        error = QStringLiteral("WAV missing fmt/data chunk");
-        return false;
-    }
-    if (wav.channels < 1 || wav.channels > 8 || wav.sampleRate == 0 || wav.blockAlign == 0) {
-        error = QStringLiteral("unsupported WAV channel/rate layout");
-        return false;
-    }
-    if (!((wav.audioFormat == 1 && (wav.bitsPerSample == 16 || wav.bitsPerSample == 24 || wav.bitsPerSample == 32)) ||
-          (wav.audioFormat == 3 && wav.bitsPerSample == 32))) {
-        error = QStringLiteral("unsupported WAV format; expected PCM16/24/32 or float32");
-        return false;
-    }
-    return true;
-}
-
-QVector<float> mmConvertSimpleWavToMono(const QByteArray &raw, const SimpleWavFormat &wav)
-{
-    QVector<float> out;
-    const int bytesPerSample = qMax<quint16>(1, wav.bitsPerSample / 8);
-    const int frameCount = raw.size() / qMax<quint16>(1, wav.blockAlign);
-    out.reserve(frameCount);
-    for (int frame = 0; frame < frameCount; ++frame) {
-        const char *base = raw.constData() + frame * wav.blockAlign;
-        double sum = 0.0;
-        for (int ch = 0; ch < wav.channels; ++ch) {
-            const char *ptr = base + ch * bytesPerSample;
-            double v = 0.0;
-            if (wav.audioFormat == 3 && wav.bitsPerSample == 32) {
-                v = mmReadLeFloat32(ptr);
-            } else if (wav.bitsPerSample == 16) {
-                const qint16 sample = static_cast<qint16>(static_cast<uchar>(ptr[0]) |
-                                                          (static_cast<uchar>(ptr[1]) << 8));
-                v = static_cast<double>(sample) / 32768.0;
-            } else if (wav.bitsPerSample == 24) {
-                qint32 sample = static_cast<qint32>(static_cast<uchar>(ptr[0]) |
-                                                   (static_cast<uchar>(ptr[1]) << 8) |
-                                                   (static_cast<uchar>(ptr[2]) << 16));
-                if (sample & 0x00800000) sample |= ~0x00ffffff;
-                v = static_cast<double>(sample) / 8388608.0;
-            } else if (wav.bitsPerSample == 32) {
-                qint32 sample = static_cast<qint32>(static_cast<uchar>(ptr[0]) |
-                                                   (static_cast<uchar>(ptr[1]) << 8) |
-                                                   (static_cast<uchar>(ptr[2]) << 16) |
-                                                   (static_cast<uchar>(ptr[3]) << 24));
-                v = static_cast<double>(sample) / 2147483648.0;
-            }
-            sum += v;
-        }
-        out.append(static_cast<float>(qBound(-1.0, sum / static_cast<double>(wav.channels), 1.0)));
-    }
-    return out;
-}
-
-QVector<float> mmResampleFloatTo12k(const QVector<float> &mono, int sampleRate)
-{
-    if (mono.isEmpty() || sampleRate <= 0) return QVector<float>();
-    if (sampleRate == 12000) return mono;
-    const double ratio = 12000.0 / static_cast<double>(sampleRate);
-    const int outCount = qMax(1, qRound(static_cast<double>(mono.size()) * ratio));
-    QVector<float> out(outCount);
-    for (int i = 0; i < outCount; ++i) {
-        const double src = static_cast<double>(i) / ratio;
-        const int i0 = qBound(0, static_cast<int>(std::floor(src)), mono.size() - 1);
-        const int i1 = qBound(0, i0 + 1, mono.size() - 1);
-        const double frac = src - static_cast<double>(i0);
-        const double v = (1.0 - frac) * mono.at(i0) + frac * mono.at(i1);
-        out[i] = static_cast<float>(qBound(-1.0, v, 1.0));
-    }
-    return out;
-}
-
-bool mmLoadWavAs12kMono(const QString &path, QVector<float> &samples12k, SimpleWavFormat *format, QString &error)
-{
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        error = file.errorString();
-        return false;
-    }
-    SimpleWavFormat wav;
-    if (!mmParseSimpleWavHeader(file, wav, error)) {
-        return false;
-    }
-    if (!file.seek(wav.dataOffset)) {
-        error = QStringLiteral("cannot seek WAV data");
-        return false;
-    }
-    const QByteArray raw = file.read(wav.dataSize);
-    if (raw.isEmpty()) {
-        error = QStringLiteral("empty WAV data");
-        return false;
-    }
-    const QVector<float> mono = mmConvertSimpleWavToMono(raw, wav);
-    samples12k = mmResampleFloatTo12k(mono, static_cast<int>(wav.sampleRate));
-    if (samples12k.isEmpty()) {
-        error = QStringLiteral("resampling produced no audio");
-        return false;
-    }
-    if (format != nullptr) *format = wav;
-    return true;
-}
-}
-
 void MainWindow::openFtWavFile()
 {
     if (!Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) {
@@ -20195,12 +19908,13 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
 
     QProgressDialog progress(
         "Analyzing WEFAX WAV...",
-        "Cancel",
+        QString(),
         0,
         100,
         this
         );
     progress.setWindowModality(Qt::ApplicationModal);
+    progress.setCancelButton(nullptr);
     progress.setMinimumDuration(300);
     progress.setValue(0);
 
@@ -20251,16 +19965,7 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
                 );
 
             progress.setValue(percent);
-            QCoreApplication::processEvents();
-
-            if (progress.wasCanceled()) {
-                appendLog("WAV analysis cancelled by user.");
-                m_weatherFaxDecoder->setAutoStartEnabled(restoreAutoStartAfterWav);
-                ui->lblAppStatus->setText("Ready");
-                m_offlineAnalysisActive = false;
-                setReceiverRunning(false);
-                return false;
-            }
+            progress.repaint();
         }
     }
 
@@ -20373,12 +20078,13 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
 
     QProgressDialog progress(
         "Analyzing SSTV WAV...",
-        "Cancel",
+        QString(),
         0,
         100,
         this
         );
     progress.setWindowModality(Qt::ApplicationModal);
+    progress.setCancelButton(nullptr);
     progress.setMinimumDuration(300);
     progress.setValue(0);
 
@@ -20428,15 +20134,7 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
                 );
 
             progress.setValue(percent);
-            QCoreApplication::processEvents();
-
-            if (progress.wasCanceled()) {
-                appendLog("SSTV WAV analysis cancelled by user.");
-                ui->lblAppStatus->setText("Ready");
-                m_offlineAnalysisActive = false;
-                setReceiverRunning(false);
-                return false;
-            }
+            progress.repaint();
         }
     }
 
@@ -21821,6 +21519,16 @@ void MainWindow::startRx()
 
     const QString modeName = ui->cmbMode->currentText();
 
+    if (Q65Mode::isFamilyMode(modeName) && !Q65Decoder::fullRxAvailable()) {
+        const QString reason = QStringLiteral("Q65 RX start blocked: this build does not include the FFTW-backed MSHV decoder. Q65 TX remains available.");
+        appendLog(reason);
+        if (m_lblQ65Status != nullptr) {
+            m_lblQ65Status->setText(reason);
+        }
+        statusBar()->showMessage(reason, 8000);
+        return;
+    }
+
     if (m_ft8RxDecoder != nullptr) {
         const bool enableFtLive = Ft8Mode::isFamilyMode(modeName) &&
                                   Ft8Mode::profileForMode(modeName).interoperableCoreAvailable;
@@ -21921,9 +21629,6 @@ void MainWindow::startRx()
         }
     } else if (modeName == CwDecoder::modeName()) {
         m_cwDecoder->reset();
-        if (m_cwSecondaryDecoder != nullptr) {
-            m_cwSecondaryDecoder->reset();
-        }
         m_cwPrimaryLineOpen = false;
         m_cwSecondaryLineOpen = false;
         if (!preserveTextTerminal && m_txtCwRx != nullptr) {
@@ -21949,7 +21654,11 @@ void MainWindow::startRx()
         m_msk144PingOverlays.clear();
     } else if (Q65Mode::isFamilyMode(modeName)) {
         if (m_q65Decoder != nullptr) {
-            m_q65Decoder->reset();
+            const Qt::ConnectionType resetConnection =
+                (m_q65Decoder->thread() == QThread::currentThread())
+                    ? Qt::DirectConnection
+                    : Qt::BlockingQueuedConnection;
+            QMetaObject::invokeMethod(m_q65Decoder, "reset", resetConnection);
         }
         if (m_tableQ65Rx != nullptr && !preserveTextTerminal) {
             m_tableQ65Rx->setRowCount(0);
@@ -22063,7 +21772,7 @@ void MainWindow::startRx()
                       .arg(profile.interoperableCoreAvailable ? QStringLiteral("Live Costas/LDPC decoder active.") : profile.note));
     }
 
-    if (!m_audioEngine->startInput(inputName, m_settings.audioSampleRate)) {
+    if (!startAudioInputBlocking(inputName, m_settings.audioSampleRate)) {
         setReceiverRunning(false);
         appendLog("RX start failed.");
         return;
@@ -22088,7 +21797,7 @@ void MainWindow::stopRx()
         return;
     }
 
-    m_audioEngine->stopInput();
+    stopAudioInputBlocking();
 }
 
 void MainWindow::startRxAudioRecording()
@@ -23083,8 +22792,11 @@ void MainWindow::unkeyPttAfterTx()
                                      ((pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr")) &&
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
     if (pttViaRigController && m_rigController != nullptr) {
-        invokeRigPttBlocking(false);
-        appendLog("Hamlib CAT PTT OFF.");
+        if (invokeRigPttBlocking(false)) {
+            appendLog("Hamlib CAT PTT OFF.");
+        } else {
+            appendLog("TX PTT ERROR: Hamlib did not confirm PTT OFF; transmitter state is unknown.");
+        }
     }
 
     if (!m_pttSerial.isOpen()) {
@@ -23293,7 +23005,7 @@ void MainWindow::startImageTx()
     if (liveRxRunning && m_audioEngine != nullptr) {
         m_preserveTextTerminalOnNextRx = true;
         appendLog("Pausing RX for text TX.");
-        m_audioEngine->stopInput();
+        stopAudioInputBlocking();
     }
 
     if (activeModeName == WeatherFaxDecoder::modeName()) {
@@ -23572,7 +23284,7 @@ void MainWindow::startFtPreparedSlotTransmit()
         }
         if (m_audioEngine != nullptr) {
             appendLog("FT timing: RX audio stop requested at UTC boundary for FT TX.");
-            m_audioEngine->stopInput();
+            stopAudioInputBlocking();
         }
     }
 
@@ -23948,8 +23660,9 @@ void MainWindow::finishPttTest()
     const bool pttViaRigController = (pttMethod == QStringLiteral("cat_hamlib")) ||
                                      ((pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr")) &&
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
+    bool rigPttReleased = true;
     if (pttViaRigController && m_rigController != nullptr) {
-        invokeRigPttBlocking(false);
+        rigPttReleased = invokeRigPttBlocking(false);
     }
 
     if (m_pttSerial.isOpen()) {
@@ -23961,7 +23674,13 @@ void MainWindow::finishPttTest()
     m_txRunning = false;
     setReceiverRunning(m_rxRunning);
 
-    appendLog(pttViaRigController ? QStringLiteral("Hamlib/CAT-port PTT OFF.") : QStringLiteral("PTT serial line OFF."));
+    if (pttViaRigController) {
+        appendLog(rigPttReleased
+                      ? QStringLiteral("Hamlib/CAT-port PTT OFF.")
+                      : QStringLiteral("PTT TEST ERROR: Hamlib did not confirm PTT OFF; transmitter state is unknown."));
+    } else {
+        appendLog(QStringLiteral("PTT serial line OFF."));
+    }
 }
 
 void MainWindow::txToneTest()

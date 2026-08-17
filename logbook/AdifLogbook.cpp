@@ -164,18 +164,40 @@ ParsedRecord parseRecordFieldsBytes(const QByteArray &record)
 QVector<QByteArray> splitAdifRecordsBytes(const QByteArray &body)
 {
     QVector<QByteArray> result;
-    const QByteArray lower = body.toLower();
     int start = 0;
-    while (true) {
-        const int eor = lower.indexOf(QByteArrayLiteral("<eor>"), start);
-        if (eor < 0) {
+    int cursor = 0;
+    while (cursor < body.size()) {
+        const int lt = body.indexOf('<', cursor);
+        if (lt < 0) {
             break;
         }
-        const QByteArray rec = body.mid(start, eor - start);
-        if (!rec.trimmed().isEmpty()) {
-            result.append(rec);
+        const int gt = body.indexOf('>', lt + 1);
+        if (gt < 0) {
+            break;
         }
-        start = eor + 5;
+        const QList<QByteArray> descriptor = body.mid(lt + 1, gt - lt - 1).trimmed().split(':');
+        const QByteArray name = descriptor.value(0).trimmed().toUpper();
+        if (name == QByteArrayLiteral("EOR")) {
+            const QByteArray record = body.mid(start, gt + 1 - start);
+            if (!record.trimmed().isEmpty()) {
+                result.append(record);
+            }
+            start = gt + 1;
+            cursor = start;
+            continue;
+        }
+
+        // ADIF lengths are byte counts.  Skip the declared value so a literal
+        // "<EOR>" inside COMMENT/NOTES cannot terminate the record.
+        if (descriptor.size() >= 2) {
+            bool ok = false;
+            const int valueLength = descriptor.at(1).trimmed().toInt(&ok);
+            if (ok && valueLength >= 0 && valueLength <= body.size() - (gt + 1)) {
+                cursor = gt + 1 + valueLength;
+                continue;
+            }
+        }
+        cursor = gt + 1;
     }
     const QByteArray tail = body.mid(start);
     if (!tail.trimmed().isEmpty()) {
@@ -221,8 +243,8 @@ LogbookEntry entryFromParsed(const ParsedRecord &parsed)
     entry.adifFieldOrder = parsed.order;
 
     entry.callsign = AdifLogbook::normalizeCallsign(valueFromMap(entry, "CALL"));
-    entry.rstSent = firstValue(entry, {"RST_SENT", "SRX_STRING"});
-    entry.rstReceived = firstValue(entry, {"RST_RCVD", "STX_STRING"});
+    entry.rstSent = firstValue(entry, {"RST_SENT", "STX_STRING"});
+    entry.rstReceived = firstValue(entry, {"RST_RCVD", "SRX_STRING"});
     entry.band = valueFromMap(entry, "BAND");
     entry.mode = valueFromMap(entry, "MODE").toUpper();
     entry.grid = firstValue(entry, {"GRIDSQUARE", "VUCC_GRIDS"}).toUpper();
@@ -273,6 +295,53 @@ QByteArray headerBytesForFile(const QString &headerText)
     return header.toUtf8();
 }
 
+bool writeLogbookAtomically(const QString &fileName,
+                            const QString &headerText,
+                            const QVector<LogbookEntry> &records,
+                            QString *errorMessage)
+{
+    QDir dir(QFileInfo(fileName).absolutePath());
+    if (!dir.exists() && !dir.mkpath(QStringLiteral("."))) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("Cannot create logbook directory.");
+        }
+        return false;
+    }
+
+    QSaveFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = file.errorString();
+        }
+        return false;
+    }
+    const QByteArray header = headerBytesForFile(headerText);
+    if (file.write(header) != header.size()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = file.errorString();
+        }
+        file.cancelWriting();
+        return false;
+    }
+    for (const LogbookEntry &entry : records) {
+        const QByteArray record = AdifLogbook::entryToAdif(entry).toUtf8() + '\n';
+        if (file.write(record) != record.size()) {
+            if (errorMessage != nullptr) {
+                *errorMessage = file.errorString();
+            }
+            file.cancelWriting();
+            return false;
+        }
+    }
+    if (file.error() != QFile::NoError || !file.commit()) {
+        if (errorMessage != nullptr) {
+            *errorMessage = file.errorString();
+        }
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 QString AdifLogbook::defaultPath()
@@ -320,41 +389,7 @@ bool AdifLogbook::load(QString *errorMessage)
 
 bool AdifLogbook::save(QString *errorMessage) const
 {
-    QDir dir(QFileInfo(m_fileName).absolutePath());
-    if (!dir.exists() && !dir.mkpath(".")) {
-        if (errorMessage != nullptr) {
-            *errorMessage = "Cannot create logbook directory.";
-        }
-        return false;
-    }
-
-    QSaveFile file(m_fileName);
-    if (!file.open(QIODevice::WriteOnly)) {
-        if (errorMessage != nullptr) {
-            *errorMessage = file.errorString();
-        }
-        return false;
-    }
-
-    file.write(headerBytesForFile(m_headerText));
-    for (const LogbookEntry &entry : m_records) {
-        file.write(entryToAdif(entry).toUtf8());
-        file.write("\n");
-    }
-
-    if (file.error() != QFile::NoError) {
-        if (errorMessage != nullptr) {
-            *errorMessage = file.errorString();
-        }
-        return false;
-    }
-    if (!file.commit()) {
-        if (errorMessage != nullptr) {
-            *errorMessage = file.errorString();
-        }
-        return false;
-    }
-    return true;
+    return writeLogbookAtomically(m_fileName, m_headerText, m_records, errorMessage);
 }
 
 bool AdifLogbook::append(const LogbookEntry &entry, QString *errorMessage)
@@ -374,43 +409,13 @@ bool AdifLogbook::append(const LogbookEntry &entry, QString *errorMessage)
     normalized.utc = normalized.utc.toUTC();
     syncCommonFieldsToAdif(&normalized);
 
-    m_records.append(normalized);
+    QVector<LogbookEntry> nextRecords = m_records;
+    nextRecords.append(normalized);
+    if (!writeLogbookAtomically(m_fileName, m_headerText, nextRecords, errorMessage)) {
+        return false;
+    }
+    m_records.swap(nextRecords);
     rebuildCallsignIndex();
-
-    // QSO logging must be append-only for normal operation.  Rewriting a 60+ MB
-    // ADIF file just because one QSO was added is slow and, if a parser bug or
-    // crash occurs, dangerous.  Full rewrites are reserved for explicit export,
-    // import-merge, or delete operations.
-    QFileInfo info(m_fileName);
-    QDir dir(info.absolutePath());
-    if (!dir.exists() && !dir.mkpath(".")) {
-        if (errorMessage != nullptr) {
-            *errorMessage = "Cannot create logbook directory.";
-        }
-        return false;
-    }
-
-    const bool needsHeader = !info.exists() || info.size() == 0;
-    QFile file(m_fileName);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        if (errorMessage != nullptr) {
-            *errorMessage = file.errorString();
-        }
-        return false;
-    }
-    if (needsHeader) {
-        file.write(headerBytesForFile(m_headerText));
-    } else {
-        file.write("\n");
-    }
-    file.write(entryToAdif(normalized).toUtf8());
-    file.write("\n");
-    if (file.error() != QFile::NoError) {
-        if (errorMessage != nullptr) {
-            *errorMessage = file.errorString();
-        }
-        return false;
-    }
     return true;
 }
 
@@ -451,11 +456,11 @@ int AdifLogbook::removeEntries(const QVector<LogbookEntry> &entries, QString *er
         return 0;
     }
 
-    m_records = remaining;
-    rebuildCallsignIndex();
-    if (!save(errorMessage)) {
+    if (!writeLogbookAtomically(m_fileName, m_headerText, remaining, errorMessage)) {
         return -1;
     }
+    m_records.swap(remaining);
+    rebuildCallsignIndex();
     return removed;
 }
 
@@ -470,20 +475,26 @@ bool AdifLogbook::importAdif(const QString &fileName, int *importedCount, QStrin
     }
 
     const QVector<LogbookEntry> imported = parseAdifBytes(file.readAll());
+    QVector<LogbookEntry> nextRecords = m_records;
     int added = 0;
     for (const LogbookEntry &entry : imported) {
-        m_records.append(entry);
+        nextRecords.append(entry);
         if (!normalizeCallsign(entry.callsign).isEmpty()) {
             ++added;
         }
     }
-
+    if (!writeLogbookAtomically(m_fileName, m_headerText, nextRecords, errorMessage)) {
+        if (importedCount != nullptr) {
+            *importedCount = 0;
+        }
+        return false;
+    }
+    m_records.swap(nextRecords);
+    rebuildCallsignIndex();
     if (importedCount != nullptr) {
         *importedCount = added;
     }
-
-    rebuildCallsignIndex();
-    return save(errorMessage);
+    return true;
 }
 
 bool AdifLogbook::exportAdif(const QString &fileName, QString *errorMessage) const

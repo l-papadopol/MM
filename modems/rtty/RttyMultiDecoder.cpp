@@ -63,6 +63,8 @@ void RttyMultiDecoder::reset()
     m_callouts.clear();
     m_samplesProcessed = 0;
     m_samplesUntilScan = 0;
+    m_lastScanMs = 0;
+    m_scanBuffer.clear();
     emit calloutsChanged(m_callouts);
 }
 
@@ -122,7 +124,19 @@ void RttyMultiDecoder::processAudioBlock(const AudioBlock &block)
         }
     }
 
+    m_scanBuffer += block.samples;
+    if (m_scanBuffer.size() > kEnhancedScanWindowSamples) {
+        m_scanBuffer.remove(0, m_scanBuffer.size() - kEnhancedScanWindowSamples);
+    }
+
     m_samplesProcessed += block.samples.size();
+    const int requiredScanSamples = m_contestEnhanced
+        ? kEnhancedScanWindowSamples
+        : kFastScanWindowSamples;
+    if (m_scanBuffer.size() < requiredScanSamples) {
+        pruneTracks(m_samplesProcessed);
+        return;
+    }
     if (m_samplesUntilScan > 0) {
         m_samplesUntilScan -= block.samples.size();
         if (m_samplesUntilScan > 0) {
@@ -133,7 +147,9 @@ void RttyMultiDecoder::processAudioBlock(const AudioBlock &block)
 
     QElapsedTimer scanTimer;
     scanTimer.start();
-    QVector<Candidate> candidates = scanCandidates(block);
+    AudioBlock scanBlock = block;
+    scanBlock.samples = m_scanBuffer;
+    QVector<Candidate> candidates = scanCandidates(scanBlock);
 
     const bool allowSecondPass = m_secondPass && m_lastScanMs < 120;
     if (allowSecondPass && !candidates.isEmpty()) {
@@ -143,7 +159,7 @@ void RttyMultiDecoder::processAudioBlock(const AudioBlock &block)
         for (int i = 0; i < guardCount; ++i) {
             strongBands.append(qMakePair(candidates.at(i).markHz, candidates.at(i).spaceHz));
         }
-        QVector<Candidate> second = scanCandidates(block, strongBands);
+        QVector<Candidate> second = scanCandidates(scanBlock, strongBands);
         for (const Candidate &candidate : second) {
             candidates.append(candidate);
         }
@@ -476,4 +492,3 @@ double RttyMultiDecoder::goertzelPower(const QVector<float> &samples, int sample
 
     return (s1 * s1) + (s2 * s2) - (coeff * s1 * s2);
 }
-

@@ -10,6 +10,8 @@
 namespace {
 constexpr qint64 kWavHeaderBytes = 44;
 constexpr quint64 kMaxInsertedSilenceSeconds = 10;
+constexpr quint64 kMaximumRiffDataBytes = std::numeric_limits<quint32>::max() - 36ULL;
+constexpr quint64 kMaximumRiffSamples = kMaximumRiffDataBytes / 2ULL;
 
 qint16 floatToPcm16(float sample)
 {
@@ -93,7 +95,7 @@ void RxAudioRecorder::writeAudioBlock(const AudioBlock &block)
             "Audio recording stopped: sample rate changed from %1 Hz to %2 Hz.")
                                 .arg(m_sampleRate)
                                 .arg(block.sampleRate));
-        closeFile(true);
+        closeFile(false);
         return;
     }
 
@@ -119,11 +121,18 @@ void RxAudioRecorder::writeAudioBlock(const AudioBlock &block)
         const quint64 gap = static_cast<quint64>(blockBegin - m_nextSampleIndex);
         const quint64 maximumGap = static_cast<quint64>(m_sampleRate) *
                                    kMaxInsertedSilenceSeconds;
-        if (gap <= maximumGap && !writeSilence(gap)) {
-            emit recordingError(QStringLiteral("Audio recording stopped: disk write failed: %1")
-                                    .arg(m_file.errorString()));
-            closeFile(true);
-            return;
+        if (gap <= maximumGap) {
+            if (gap > kMaximumRiffSamples - qMin(m_samplesWritten, kMaximumRiffSamples)) {
+                emit recordingError(QStringLiteral("Audio recording stopped at the classic WAV 4 GiB limit; the file was finalized without truncating its header."));
+                closeFile(false);
+                return;
+            }
+            if (!writeSilence(gap)) {
+                emit recordingError(QStringLiteral("Audio recording stopped: disk write failed: %1")
+                                        .arg(m_file.errorString()));
+                closeFile(false);
+                return;
+            }
         }
         m_nextSampleIndex = blockBegin;
     } else if (m_nextSampleIndex >= 0 && blockBegin < m_nextSampleIndex) {
@@ -136,10 +145,15 @@ void RxAudioRecorder::writeAudioBlock(const AudioBlock &block)
         blockBegin += overlap;
     }
 
+    if (static_cast<quint64>(sampleCount) > kMaximumRiffSamples - qMin(m_samplesWritten, kMaximumRiffSamples)) {
+        emit recordingError(QStringLiteral("Audio recording stopped at the classic WAV 4 GiB limit; the file was finalized without truncating its header."));
+        closeFile(false);
+        return;
+    }
     if (!writeSamples(block.samples, sampleBegin, sampleCount)) {
         emit recordingError(QStringLiteral("Audio recording stopped: disk write failed: %1")
                                 .arg(m_file.errorString()));
-        closeFile(true);
+        closeFile(false);
         return;
     }
     m_nextSampleIndex = blockBegin + sampleCount;
@@ -178,8 +192,10 @@ bool RxAudioRecorder::writeHeader(int sampleRate, quint32 dataBytes)
 bool RxAudioRecorder::rewriteHeader()
 {
     const quint64 dataBytes64 = m_samplesWritten * 2U;
-    const quint32 dataBytes = static_cast<quint32>(std::min<quint64>(
-        dataBytes64, std::numeric_limits<quint32>::max() - 36U));
+    if (dataBytes64 > kMaximumRiffDataBytes) {
+        return false;
+    }
+    const quint32 dataBytes = static_cast<quint32>(dataBytes64);
     const qint64 endPosition = m_file.pos();
     if (!writeHeader(m_sampleRate, dataBytes)) {
         return false;
@@ -234,10 +250,19 @@ void RxAudioRecorder::closeFile(bool emitStoppedSignal)
 
     const QString finishedName = m_fileName;
     const quint64 finishedSamples = m_samplesWritten;
+    bool finalized = true;
+    QString finalizationError;
     if (m_recording) {
-        rewriteHeader();
+        if (!rewriteHeader()) {
+            finalized = false;
+            finalizationError = QStringLiteral("could not rewrite the WAV header");
+        }
     }
-    m_file.flush();
+    if (!m_file.flush()) {
+        finalized = false;
+        if (!finalizationError.isEmpty()) finalizationError += QStringLiteral("; ");
+        finalizationError += QStringLiteral("flush failed: %1").arg(m_file.errorString());
+    }
     const qint64 finalBytes = m_file.size();
     m_file.close();
 
@@ -247,7 +272,12 @@ void RxAudioRecorder::closeFile(bool emitStoppedSignal)
     m_nextSampleIndex = -1;
     m_haveCaptureSequence = false;
 
-    if (emitStoppedSignal) {
+    if (!finalized) {
+        if (emitStoppedSignal) {
+            emit recordingError(QStringLiteral("Audio recording finalization failed for %1: %2")
+                                    .arg(finishedName, finalizationError));
+        }
+    } else if (emitStoppedSignal) {
         emit recordingStopped(finishedName, finishedSamples, finalBytes);
     }
 }

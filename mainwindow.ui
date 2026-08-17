@@ -17,7 +17,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string notr="true">MadModem 0.5.79</string>
+   <string notr="true">MadModem 0.5.8</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="mainVerticalLayout">

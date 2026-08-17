@@ -164,7 +164,8 @@ public:
     bool cwAutoWpmA = true;
     bool cwAutoWpmB = true;
     bool cwNoiseReductionEnabled = false;
-    bool cwAgcEnabled = true;
+    // Retained only for settings-file migration; CW always runs without software AGC.
+    bool cwAgcEnabled = false;
     bool cwAdaptiveLineEnhancerEnabled = false;
 
     QString hellVariant = "FeldHell";

@@ -1,6 +1,6 @@
 > Current CW comparison checkpoint: live Bayesian posterior beam; see `docs/CW_BAYESIAN_BEAM_DECODER_0_5_78.md`.
 
-# MadModem 0.5.79
+# MadModem 0.5.8
 ## All-in-one digital modem and station hub for amateur radio
 
 MadModem is a Qt/C++ amateur-radio application for Linux, Windows and macOS.
@@ -19,7 +19,7 @@ rami sperimentali sono stati rimossi.
 
 - FT8 and FT4 RX/TX with integrated sequencer and live adaptive decoding.
 - RTTY, BPSK/QPSK, MFSK, Feld Hell, CW, SSTV and WEFAX/MeteoFax work areas.
-- MSK144 and Q65 development modes using GPL-compatible in-tree components.
+- MSK144 and Q65 development modes using GPL-compatible in-tree components; Q65 TX is always available, while Q65 RX requires the optional full FFTW/MSHV backend.
 - Hamlib CAT/PTT and rotator control.
 - Integrated QSO logbook, ADIF import/export, DXCC lookup and QSO map.
 - Radio Telescope receive-only scanning and CSV export.
@@ -27,7 +27,7 @@ rami sperimentali sono stati rimossi.
 
 - FT8 e FT4 RX/TX con sequencer integrato e decoder live adattivo.
 - Aree operative RTTY, BPSK/QPSK, MFSK, Feld Hell, CW, SSTV e WEFAX/MeteoFax.
-- Modi MSK144 e Q65 in sviluppo con componenti GPL compatibili inclusi.
+- Modi MSK144 e Q65 in sviluppo con componenti GPL compatibili inclusi; il TX Q65 è sempre disponibile, mentre l'RX Q65 richiede il backend completo FFTW/MSHV opzionale.
 - Controllo CAT/PTT e rotore tramite Hamlib.
 - Registro QSO, import/export ADIF, ricerca DXCC e mappa QSO.
 - Scansione Radio Telescope in sola ricezione ed esportazione CSV.
@@ -140,12 +140,14 @@ QImage restano invariati.
 ```
 
 Requirements: CMake, a C++17 compiler, Qt 5 or Qt 6 development packages,
-Hamlib and the normal audio/serial development tools. FFTW3 is required for the
-full optional Q65 bridge.
+Hamlib and the normal audio/serial development tools. FFTW3 and the full MSHV
+decoder bridge are required to enable Q65 reception; without them Q65 TX remains
+available and RX is explicitly disabled.
 
 Servono CMake, un compilatore C++17, i pacchetti di sviluppo Qt 5 o Qt 6,
-Hamlib e i normali strumenti di sviluppo audio/seriale. FFTW3 è necessario per
-il bridge Q65 completo opzionale.
+Hamlib e i normali strumenti di sviluppo audio/seriale. FFTW3 e il bridge decoder
+MSHV completo sono necessari per abilitare la ricezione Q65; senza di essi il TX
+Q65 resta disponibile e l'RX viene esplicitamente disabilitato.
 
 ## Regression checks
 

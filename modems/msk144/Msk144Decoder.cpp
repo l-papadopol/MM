@@ -38,7 +38,16 @@ Msk144Decoder::Msk144Decoder(QObject *parent)
     : QObject(parent)
 {
     qRegisterMetaType<Msk144Decode>("Msk144Decode");
+    m_resampler.configure(kInternalRate);
     reset();
+}
+
+Msk144Decoder::~Msk144Decoder()
+{
+    m_decodeGeneration.fetch_add(1, std::memory_order_acq_rel);
+    if (m_decodeThread.joinable()) {
+        m_decodeThread.join();
+    }
 }
 
 void Msk144Decoder::setPeriodSeconds(int seconds)
@@ -93,11 +102,19 @@ void Msk144Decoder::setDxCall(const QString &call)
 
 void Msk144Decoder::reset()
 {
+    m_decodeGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_samples12k.clear();
+    m_resampler.reset();
     m_totalInputSamples = 0;
     m_total12kSamples = 0;
     m_nextPingAnalysisSample = 0;
-    m_periodStartUtc = QDateTime::currentDateTimeUtc();
+    m_periodStartUtc = QDateTime();
+    m_currentPeriodId = -1;
+    m_nextOutputUtcNs = 0;
+    m_outputTimeRemainder = 0;
+    m_lastInputEndUtcNs = 0;
+    m_captureGeneration = 0;
+    m_periodTimelineValid = false;
     m_lastStatus.clear();
     emit statusChanged(backendStatusText());
 }
@@ -122,53 +139,106 @@ void Msk144Decoder::processAudioBlock(const AudioBlock &block)
     }
     m_inputSampleRate = block.sampleRate;
     appendResampledTo12k(block);
-    analyzeRecentPingWindow();
-
-    const int periodSamples = m_periodSeconds * kInternalRate;
-    if (m_samples12k.size() >= periodSamples) {
-        tryPeriodDecode(false);
-        const int keep = qMin(kInternalRate, m_samples12k.size()); // one second overlap for pings across edge
-        QVector<float> tail;
-        tail.reserve(keep);
-        for (int i = m_samples12k.size() - keep; i < m_samples12k.size(); ++i) {
-            if (i >= 0) tail.append(m_samples12k.at(i));
-        }
-        m_samples12k.swap(tail);
-        m_periodStartUtc = QDateTime::currentDateTimeUtc();
-        m_nextPingAnalysisSample = qMin<qint64>(m_nextPingAnalysisSample, static_cast<qint64>(m_samples12k.size()));
-    }
 }
 
 void Msk144Decoder::flushPeriod()
 {
-    tryPeriodDecode(true);
+    finishUtcPeriod(true);
 }
 
 void Msk144Decoder::appendResampledTo12k(const AudioBlock &block)
 {
-    const int inRate = block.sampleRate;
-    if (inRate == kInternalRate) {
-        m_samples12k += block.samples;
-        m_total12kSamples += block.samples.size();
-        m_totalInputSamples += block.samples.size();
+    qint64 blockStartUtcNs = block.firstSampleUtcNs;
+    if (blockStartUtcNs <= 0) {
+        const qint64 durationNs = (static_cast<qint64>(block.samples.size()) * 1000000000LL) /
+                                 qMax(1, block.sampleRate);
+        blockStartUtcNs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch() * 1000000LL - durationNs;
+    }
+
+    const bool generationChanged = block.captureGeneration != 0 &&
+                                   m_captureGeneration != 0 &&
+                                   block.captureGeneration != m_captureGeneration;
+    const qint64 inputSampleNs = 1000000000LL / qMax(1, block.sampleRate);
+    const bool timestampJump = m_lastInputEndUtcNs > 0 &&
+                               qAbs(blockStartUtcNs - m_lastInputEndUtcNs) > qMax<qint64>(qint64{5000000}, inputSampleNs * qint64{4});
+    if (generationChanged || timestampJump) {
+        m_resampler.reset();
+        m_samples12k.clear();
+        m_currentPeriodId = -1;
+        m_nextOutputUtcNs = 0;
+        m_outputTimeRemainder = 0;
+        m_periodTimelineValid = false;
+        m_nextPingAnalysisSample = 0;
+    }
+    if (block.captureGeneration != 0) {
+        m_captureGeneration = block.captureGeneration;
+    }
+
+    const QVector<double> resampled = m_resampler.process(block.samples, block.sampleRate);
+    m_totalInputSamples += block.samples.size();
+    m_lastInputEndUtcNs = blockStartUtcNs +
+        (static_cast<qint64>(block.samples.size()) * 1000000000LL) / qMax(1, block.sampleRate);
+    if (resampled.isEmpty()) {
         return;
     }
 
-    const double ratio = static_cast<double>(kInternalRate) / static_cast<double>(inRate);
-    const int outCount = qMax(1, qRound(static_cast<double>(block.samples.size()) * ratio));
-    const int oldSize = m_samples12k.size();
-    m_samples12k.resize(oldSize + outCount);
-
-    for (int i = 0; i < outCount; ++i) {
-        const double src = static_cast<double>(i) / ratio;
-        const int i0 = qBound(0, static_cast<int>(std::floor(src)), block.samples.size() - 1);
-        const int i1 = qBound(0, i0 + 1, block.samples.size() - 1);
-        const double frac = src - static_cast<double>(i0);
-        const double v = (1.0 - frac) * block.samples.at(i0) + frac * block.samples.at(i1);
-        m_samples12k[oldSize + i] = static_cast<float>(qBound(-1.0, v, 1.0));
+    if (m_nextOutputUtcNs <= 0) {
+        m_nextOutputUtcNs = blockStartUtcNs;
+        m_outputTimeRemainder = 0;
     }
-    m_total12kSamples += outCount;
-    m_totalInputSamples += block.samples.size();
+
+    const qint64 periodNs = static_cast<qint64>(m_periodSeconds) * 1000000000LL;
+    for (double value : resampled) {
+        const qint64 periodId = m_nextOutputUtcNs / periodNs;
+        if (m_currentPeriodId != periodId) {
+            if (m_currentPeriodId >= 0) {
+                finishUtcPeriod(false);
+            }
+            beginUtcPeriod(periodId, m_nextOutputUtcNs);
+        }
+        m_samples12k.append(static_cast<float>(qBound(-1.0, value, 1.0)));
+        ++m_total12kSamples;
+        m_outputTimeRemainder += 1000000000LL;
+        m_nextOutputUtcNs += m_outputTimeRemainder / kInternalRate;
+        m_outputTimeRemainder %= kInternalRate;
+    }
+    analyzeRecentPingWindow();
+}
+
+void Msk144Decoder::beginUtcPeriod(qint64 periodId, qint64 firstSampleUtcNs)
+{
+    m_currentPeriodId = periodId;
+    const qint64 periodNs = static_cast<qint64>(m_periodSeconds) * 1000000000LL;
+    const qint64 periodStartNs = periodId * periodNs;
+    m_periodStartUtc = QDateTime::fromMSecsSinceEpoch(periodStartNs / 1000000LL, Qt::UTC);
+    m_samples12k.clear();
+    m_nextPingAnalysisSample = 0;
+
+    const qint64 offsetNs = qMax<qint64>(qint64{0}, firstSampleUtcNs - periodStartNs);
+    const int missingSamples = static_cast<int>(qMin<qint64>(
+        static_cast<qint64>(m_periodSeconds * kInternalRate),
+        (offsetNs * kInternalRate) / 1000000000LL));
+    m_periodTimelineValid = missingSamples <= kInternalRate / 20; // at most 50 ms startup tolerance
+    if (missingSamples > 0) {
+        m_samples12k.fill(0.0f, missingSamples);
+        m_nextPingAnalysisSample = missingSamples;
+    }
+}
+
+void Msk144Decoder::finishUtcPeriod(bool force)
+{
+    if (m_currentPeriodId < 0 || m_samples12k.isEmpty()) {
+        return;
+    }
+    const int periodSamples = m_periodSeconds * kInternalRate;
+    if (!force && (!m_periodTimelineValid || m_samples12k.size() < periodSamples - 2)) {
+        emit statusChanged(QStringLiteral("MSK144 period skipped: incomplete or discontinuous UTC audio window."));
+        return;
+    }
+    if (m_samples12k.size() > periodSamples) {
+        m_samples12k.resize(periodSamples);
+    }
+    tryPeriodDecode(force);
 }
 
 double Msk144Decoder::bandEnergyGoertzel(const QVector<float> &samples, int start, int count, double frequencyHz) const
@@ -246,9 +316,12 @@ void Msk144Decoder::tryPeriodDecode(bool force)
         const bool contest = m_contest;
         const QString myCall = m_myCall;
         const QString dxCall = m_dxCall;
-        QPointer<Msk144Decoder> self(this);
+        const quint64 generation = m_decodeGeneration.load(std::memory_order_acquire);
+        if (m_decodeThread.joinable()) {
+            m_decodeThread.join();
+        }
 
-        std::thread([self, samples, periodStartUtc, periodSeconds, decodeDepth, rxFrequencyHz, frequencyToleranceHz,
+        m_decodeThread = std::thread([this, generation, samples, periodStartUtc, periodSeconds, decodeDepth, rxFrequencyHz, frequencyToleranceHz,
                      shortMessages, swl, contest, myCall, dxCall]() mutable {
             struct Result {
                 QVector<Msk144Decode> decodes;
@@ -277,9 +350,11 @@ void Msk144Decoder::tryPeriodDecode(bool force)
             });
             worker.tryPeriodDecodeSync(true);
 
-            if (self) {
-                QMetaObject::invokeMethod(self.data(), [self, result]() mutable {
-                    if (!self) return;
+            m_decodeInProgress.store(false, std::memory_order_release);
+            if (generation == m_decodeGeneration.load(std::memory_order_acquire)) {
+                QPointer<Msk144Decoder> self(this);
+                QMetaObject::invokeMethod(this, [self, generation, result]() mutable {
+                    if (!self || generation != self->m_decodeGeneration.load(std::memory_order_acquire)) return;
                     for (const Msk144Decode &decode : result.decodes) {
                         emit self->decoded(decode);
                     }
@@ -287,10 +362,9 @@ void Msk144Decoder::tryPeriodDecode(bool force)
                         self->m_lastStatus = result.status;
                         emit self->statusChanged(result.status);
                     }
-                    self->m_decodeInProgress.store(false);
                 }, Qt::QueuedConnection);
             }
-        }).detach();
+        });
         return;
     }
 

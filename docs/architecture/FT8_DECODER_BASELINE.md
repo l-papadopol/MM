@@ -1,4 +1,4 @@
-# FT8 validated decoder baseline — retained in MadModem 0.5.78
+# FT8 validated decoder baseline — retained in MadModem 0.5.8
 
 The frozen decoder reference is the validated production line carried into
 `0.5.76ad`. On the four standard WAV recordings, the required MadModem counts

@@ -2,6 +2,7 @@
 #define MSK144DECODER_H
 
 #include "../../audio/AudioBlock.h"
+#include "../../dsp/text/LinearResampler.h"
 
 #include <QObject>
 #include <QDateTime>
@@ -9,6 +10,7 @@
 #include <QVector>
 #include <complex>
 #include <atomic>
+#include <thread>
 
 struct Msk144Decode
 {
@@ -29,6 +31,7 @@ class Msk144Decoder : public QObject
     Q_OBJECT
 public:
     explicit Msk144Decoder(QObject *parent = nullptr);
+    ~Msk144Decoder() override;
 
     static QString modeName() { return QStringLiteral("MSK144"); }
 
@@ -54,6 +57,8 @@ signals:
 
 private:
     void appendResampledTo12k(const AudioBlock &block);
+    void beginUtcPeriod(qint64 periodId, qint64 firstSampleUtcNs);
+    void finishUtcPeriod(bool force);
     void analyzeRecentPingWindow();
     void tryPeriodDecode(bool force);
     void tryPeriodDecodeSync(bool force);
@@ -67,6 +72,7 @@ private:
 
 private:
     QVector<float> m_samples12k;
+    LinearResampler m_resampler;
     qint64 m_totalInputSamples = 0;
     qint64 m_total12kSamples = 0;
     int m_inputSampleRate = 48000;
@@ -80,9 +86,17 @@ private:
     QString m_myCall;
     QString m_dxCall;
     QDateTime m_periodStartUtc;
+    qint64 m_currentPeriodId = -1;
+    qint64 m_nextOutputUtcNs = 0;
+    qint64 m_outputTimeRemainder = 0;
+    qint64 m_lastInputEndUtcNs = 0;
+    quint64 m_captureGeneration = 0;
+    bool m_periodTimelineValid = false;
     qint64 m_nextPingAnalysisSample = 0;
     QString m_lastStatus;
     std::atomic_bool m_decodeInProgress{false};
+    std::atomic<quint64> m_decodeGeneration{0};
+    std::thread m_decodeThread;
     bool m_asyncDecodeEnabled = true;
 };
 

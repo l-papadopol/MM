@@ -446,7 +446,9 @@ void AppSettings::load()
         cwAfcRangeHz = 20;
     }
     cwNoiseReductionEnabled = settings.value("CW/noiseReductionEnabled", cwNoiseReductionEnabled).toBool();
-    cwAgcEnabled = settings.value("CW/agcEnabled", cwAgcEnabled).toBool();
+    // Old releases exposed this setting, but the production CW path has no
+    // software AGC. Ignore stale values so the saved file cannot re-enable it.
+    cwAgcEnabled = false;
     cwAdaptiveLineEnhancerEnabled = settings.value("CW/adaptiveLineEnhancerEnabled", cwAdaptiveLineEnhancerEnabled).toBool();
 
     hellVariant = settings.value("Hell/variant", hellVariant).toString();
