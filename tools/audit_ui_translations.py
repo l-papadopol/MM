@@ -13,10 +13,33 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-from update_ui_translations import LANGS, TRANS_DIR, harvest_keys, read_ini
+from update_ui_translations import (
+    FT_OPERATOR_TRANSLATIONS,
+    KEY_EXACT,
+    LANGS,
+    OPERATOR_ERROR_TRANSLATIONS,
+    TRANS_DIR,
+    UI_058_KEY_TRANSLATIONS,
+    harvest_keys,
+    looks_like_mixed_sentence,
+    read_ini,
+)
+from reviewed_operator_translations_058 import KEYS as REVIEWED_OPERATOR_KEYS_058
 
 PLACEHOLDER_RE = re.compile(r"%(?:L?\d+|n)")
 RETIRED_RE = re.compile(r"(?:\bMIND\b|\bDeepDsp\b|\bDDSP\b)", re.IGNORECASE)
+BROKEN_FRAGMENT_RE = re.compile(
+    r"(?:\bdecodificar\b|\bcandidatos\b|\btrasmissiones\b|\bblockoed\b|"
+    r"\bdekódovánír\b|\bkandidáts\b|\buložitd\b|OtevřítSSL|ApriSSL|"
+    r"trying another configurato|Tile immagine|decode fallito)",
+    re.IGNORECASE,
+)
+REVIEWED_OPERATOR_KEYS = (
+    set(UI_058_KEY_TRANSLATIONS)
+    | set(FT_OPERATOR_TRANSLATIONS)
+    | set(OPERATOR_ERROR_TRANSLATIONS)
+    | set(REVIEWED_OPERATOR_KEYS_058)
+)
 
 
 def raw_keys(path: Path) -> list[str]:
@@ -81,6 +104,40 @@ def main() -> int:
                 f"first: {placeholder_errors[:8]}"
             )
 
+        if lang == "en":
+            stale_english = [key for key, english in canonical.items() if data.get(key) != english]
+            if stale_english:
+                errors.append(
+                    f"en: {len(stale_english)} values differ from their canonical source; "
+                    f"first: {stale_english[:8]}"
+                )
+        else:
+            mixed = [
+                key for key, english in canonical.items()
+                if key not in KEY_EXACT.get(lang, {})
+                and data.get(key) != english
+                and looks_like_mixed_sentence(data.get(key, ""), english)
+            ]
+            if mixed:
+                errors.append(
+                    f"{lang}: {len(mixed)} mixed-language sentence(s); first: {mixed[:8]}"
+                )
+
+            broken = [key for key, value in data.items() if BROKEN_FRAGMENT_RE.search(value)]
+            if broken:
+                errors.append(
+                    f"{lang}: broken word-substitution fragments remain; first: {broken[:8]}"
+                )
+
+            unreviewed_operator = [
+                key for key in sorted(REVIEWED_OPERATOR_KEYS)
+                if key not in KEY_EXACT.get(lang, {})
+            ]
+            if unreviewed_operator:
+                errors.append(
+                    f"{lang}: operator-critical keys lack exact review; first: {unreviewed_operator[:8]}"
+                )
+
     if "en" in dictionaries:
         en = dictionaries["en"]
         print(f"Canonical keys: {len(canonical_keys)}")
@@ -94,8 +151,8 @@ def main() -> int:
                 print(f"{lang}: {len(data)} keys; canonical source dictionary")
             else:
                 print(
-                    f"{lang}: {len(data)} keys; {translated} values differ from English; "
-                    f"{identical} intentionally/shared-or-pending English values"
+                    f"{lang}: {len(data)} keys; {translated} localized values; "
+                    f"{identical} shared technical terms or coherent English fallbacks"
                 )
 
     if errors:
@@ -104,7 +161,7 @@ def main() -> int:
             print(f"- {error}", file=sys.stderr)
         return 1
 
-    print("Translation audit PASSED: parity, order, non-empty values, placeholders and retired-key checks are clean.")
+    print("Translation audit PASSED: structure, placeholders, reviewed operator text and semantic-mixing checks are clean.")
     return 0
 
 

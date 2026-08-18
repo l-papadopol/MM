@@ -10,12 +10,18 @@ def must(path, needles):
             errors.append(f'{path}: missing {n!r}')
     return text
 
-scope=must(Path('widgets/RttyScopeWidget.cpp'), ['setPolarityInfo(', 'MARK', 'SPACE'])
+scope=must(Path('widgets/RttyScopeWidget.cpp'), ['setReversePolarity(', 'MARK', 'SPACE'])
 if 'setLiveText(' in scope or 'm_liveText' in scope or 'Live decoder tape' in scope:
     errors.append('widgets/RttyScopeWidget.cpp: decoded text still covers the tuning scope')
+scope_header=(root/'widgets/RttyScopeWidget.h').read_text(encoding='utf-8', errors='replace')
+for obsolete in ['polarityLine', 'm_polaritySource', 'm_catMode', ' · CAT ']:
+    if obsolete in scope or obsolete in scope_header:
+        errors.append(f'widgets/RttyScopeWidget: obsolete in-scope status text remains: {obsolete}')
 dec=must(Path('modems/rtty/RttyDecoder.cpp'), ['setCatModeHint(', 'advancePolarityProbe(m_normalProbe', 'advancePolarityProbe(m_reverseProbe'])
 must(Path('rig/HamlibController.cpp'), ['rig_get_mode(', 'rig_strrmode(', 'emit modeChanged(modeName)'])
-main=must(Path('mainwindow.cpp'), ['m_tabRttyContest', 'insertTab(insertIndex, m_tabRttyContest', 'updateRttyWaterfallOverlays()', 'live.verticalTrail = true', 'live.streamId = QStringLiteral("rtty-live")', 'markHz + (shiftHz * 0.5)', 'setPolarityInfo(reverse, source, catMode)', 'addQsoToLogFromForm(m_rttyQsoForm)'])
+main=must(Path('mainwindow.cpp'), ['m_tabRttyContest', 'insertTab(insertIndex, m_tabRttyContest', 'updateRttyWaterfallOverlays()', 'live.verticalTrail = true', 'live.streamId = QStringLiteral("rtty-live")', 'markHz + (shiftHz * 0.5)', 'setReversePolarity(reverse)', 'm_chkRttyWaterfallTextOverlay', 'rttyWaterfallTextOverlayEnabled &&', 'clearTextOverlayStream(QStringLiteral("rtty-live"))', 'addQsoToLogFromForm(m_rttyQsoForm)'])
+settings=must(Path('settings/AppSettings.cpp'), ['RTTY/waterfallTextOverlayEnabled'])
+settings_header=must(Path('settings/AppSettings.h'), ['rttyWaterfallTextOverlayEnabled = false'])
 waterfall=must(Path('widgets/WaterfallWidget.cpp'), ['appendVerticalTextTrail(overlay)', 'drawVerticalTextTrails(painter)', 'centerOnFrequency'])
 if 'discardedVerticalTrail' in waterfall:
     errors.append('widgets/WaterfallWidget.cpp: live vertical trails are still discarded')
@@ -37,7 +43,7 @@ except Exception as e:
     errors.append(f'rtty_rules parse failed: {e}')
 
 # All UI dictionaries must contain the new contest tab fields.
-keys=['rtty_contest_qso','rtty_contest_macros','qso_callsign','qso_mode','qso_rst_sent','qso_rst_received','qso_grid','qso_utc','qso_add_to_log']
+keys=['rtty_contest_qso','rtty_contest_macros','qso_callsign','qso_mode','qso_rst_sent','qso_rst_received','qso_grid','qso_utc','qso_add_to_log','rtty_waterfall_text_overlay']
 for lang in ['en','it','fr','de','no','cs']:
     text=(root/f'translations/ui_{lang}.ini').read_text(encoding='utf-8', errors='replace')
     for key in keys:

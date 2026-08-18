@@ -376,6 +376,7 @@ void AppSettings::load()
     rttyMarkSpaceEnhancerEnabled = settings.value("RTTY/markSpaceEnhancerEnabled", rttyMarkSpaceEnhancerEnabled).toBool();
     rttyMultiDecodeEnabled = settings.value("RTTY/multiDecodeEnabled", rttyMultiDecodeEnabled).toBool();
     rttyOverlayCallsignsEnabled = settings.value("RTTY/overlayCallsignsEnabled", rttyOverlayCallsignsEnabled).toBool();
+    rttyWaterfallTextOverlayEnabled = settings.value("RTTY/waterfallTextOverlayEnabled", rttyWaterfallTextOverlayEnabled).toBool();
     rttyContestEnhancedEnabled = settings.value("RTTY/contestEnhancedEnabled", rttyContestEnhancedEnabled).toBool();
     rttySecondPassEnabled = settings.value("RTTY/secondPassEnabled", rttySecondPassEnabled).toBool();
     rttyMaxParallelDecoders = settings.value("RTTY/maxParallelDecoders", rttyMaxParallelDecoders).toInt();
@@ -803,6 +804,7 @@ bool AppSettings::save() const
     settings.setValue("RTTY/markSpaceEnhancerEnabled", rttyMarkSpaceEnhancerEnabled);
     settings.setValue("RTTY/multiDecodeEnabled", rttyMultiDecodeEnabled);
     settings.setValue("RTTY/overlayCallsignsEnabled", rttyOverlayCallsignsEnabled);
+    settings.setValue("RTTY/waterfallTextOverlayEnabled", rttyWaterfallTextOverlayEnabled);
     settings.setValue("RTTY/contestEnhancedEnabled", rttyContestEnhancedEnabled);
     settings.setValue("RTTY/secondPassEnabled", rttySecondPassEnabled);
     settings.setValue("RTTY/maxParallelDecoders", rttyMaxParallelDecoders);

@@ -978,6 +978,8 @@ if(BUILD_TESTING)
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_rtty_live_contest_runtime.py")
         add_test(NAME madmodem_ui_theme_integrity_guard
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ui_theme_integrity.py")
+        add_test(NAME madmodem_operator_ui_copy_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_operator_ui_copy.py")
         add_test(NAME madmodem_ft_atomic_lifecycle_guard
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_atomic_tx_lifecycle.py")
         add_test(NAME madmodem_ft_caller_queue_guard

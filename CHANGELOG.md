@@ -2,6 +2,19 @@
 
 ## 0.5.8 — integral source hardening — 2026-08-17
 
+- Extended the active-QSO deadline policy to FT4. Its bounded correspondent
+  search now runs before the wideband pass, validates both callsigns and leaves
+  the existing wideband candidate/LDPC path unchanged when the target is not
+  recovered.
+- Reworked the dense FT status area into short, stable labels while preserving
+  detailed explanations in tooltips and What's This help. Added a source guard
+  that rejects new oversized runtime copy and untranslated operator messages.
+- Replaced hybrid word-by-word UI translation with reviewed whole sentences.
+  All six dictionaries now contain the same 1821 canonical keys with preserved
+  placeholders and audited operator-critical translations.
+- Rewrote the GitHub README, release notes and the most error-prone localized
+  help pages as concise user documentation, including a six-image screenshot
+  plan for the public project page.
 - Added a single-path FT8 active-QSO deadline policy. The live gate now reserves
   a bounded candidate quota around the tracked correspondent, decodes it before
   wideband LDPC, validates both callsigns and returns immediately on success;

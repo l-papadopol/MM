@@ -2,7 +2,6 @@
 #define RTTYSCOPEWIDGET_H
 
 #include <QPointF>
-#include <QString>
 #include <QTimer>
 #include <QVector>
 #include <QWidget>
@@ -15,9 +14,9 @@
  * phosphor persistence and beam intensity; it does not invent a perfect trace
  * when RX is stopped or squelch is closed.
  *
- * The scope contains tuning and resolved-polarity information only. Live
- * decoded text is rendered in the waterfall at the Mark/Space midpoint, where
- * it remains aligned with the received signal instead of covering this trace.
+ * The scope contains only the Mark/Space tuning trace and its two axis labels.
+ * Live decoded text is optionally rendered in the waterfall at the Mark/Space
+ * midpoint, where it remains aligned with the received signal.
  */
 class RttyScopeWidget : public QWidget
 {
@@ -34,9 +33,7 @@ public slots:
     void setTrace(const QVector<QPointF> &tracePoints,
                   double snrLike,
                   bool locked);
-    void setPolarityInfo(bool reverse,
-                         const QString &source,
-                         const QString &catMode);
+    void setReversePolarity(bool reverse);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -52,8 +49,6 @@ private:
     QVector<QPointF> m_tracePoints;
     int m_framesSinceTraceUpdate = 1000;
     QTimer m_animTimer;
-    QString m_polaritySource;
-    QString m_catMode;
     bool m_reverse = false;
 };
 

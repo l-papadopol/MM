@@ -16,6 +16,7 @@
 
 #include "SoundCardCalibrationDialog.h"
 #include "../utils/UiScale.h"
+#include "../utils/RuntimeI18n.h"
 
 #include <QApplication>
 #include <QByteArray>
@@ -313,7 +314,7 @@ void SoundCardCalibrationDialog::updateStandardButtonText()
 
 void SoundCardCalibrationDialog::buildUi()
 {
-    setWindowTitle(QStringLiteral("Soundcard calibration"));
+    setWindowTitle(MadModemI18n::text(QStringLiteral("Soundcard calibration")));
     // Compact tab-friendly layout: keep the QSSTV information readable, but avoid
     // fixed columns/buttons wider than the unified Settings window.
     resize(780, 500);

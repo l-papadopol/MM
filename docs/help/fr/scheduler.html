@@ -1,5 +1,8 @@
 <!DOCTYPE html><html lang='fr'><head><meta charset='utf-8'><title>Planificateur</title><link rel='stylesheet' href='../style.css'></head><body>
 <div class='nav'><strong>Sommaire:</strong> <a href='index.html'>Aide MM</a> <a href='quickstart.html'>Démarrage rapide</a> <a href='audio_cat_ptt.html'>Audio, CAT et PTT</a> <a href='waterfall.html'>Waterfall et marqueurs</a> <a href='text_modes.html'>Modes texte</a> <a href='cw.html'>CW / Morse</a> <a href='ft8_ft4.html'>FT4 / FT8</a> <a href='rotator.html'>Rotateur</a> <a href='radio_telescope.html'>Radiotélescope</a> <a href='scheduler.html'>Planificateur</a> <a href='logbook_map.html'>Journal et carte</a> <a href='troubleshooting.html'>Dépannage</a></div>
-<h1>Planificateur</h1><p>Dans Planificateur, saisissez un locator Maidenhead, un pays/DXCC ou un préfixe de cty.csv. MM calcule bearing et distance depuis le QTH puis pointe le rotor actif.</p><p>La table des reçus inclut le Bearing. Le TX FT reste sous le scheduler UTC et est inhibé si l’identité station manque ou si le rotor demandé n’est pas prêt.</p><p>MOV rouge vif indique un rotor en mouvement; RDY vert vif indique configuré, connecté et arrêté. Sans rotor configuré, les voyants sont gris.</p>
+<h1>Planificateur</h1>
+<p>Le planificateur applique par CAT un programme UTC quotidien de changements de bande et de fréquence. Chaque ligne indique l'heure, le groupe de modes et la fréquence ; une entrée FT4/FT8 peut utiliser la fréquence standard de la bande choisie.</p>
+<h2>Changement sûr</h2><p>Un changement programmé attend la fin d'une TX ou d'un QSO FT actif. Il ne modifie que la fréquence/bande de la radio et ne lance jamais d'émission. Si la CAT est désactivée ou déconnectée, l'événement est signalé sans accorder la radio.</p>
+<p>Activez le programme séparément pour chaque groupe de modes. L'onglet Mode indique son état et tout changement en attente.</p>
 <div class='footer'>MadModem 0.5.8 — Qt Help — Français</div>
 </body></html>

@@ -19,6 +19,7 @@ from pathlib import Path
 from collections import OrderedDict
 
 from release_078_exact import KEYS as RELEASE_078_KEYS
+from reviewed_operator_translations_058 import KEYS as REVIEWED_OPERATOR_KEYS_058
 
 ROOT = Path(__file__).resolve().parents[1]
 TRANS_DIR = ROOT / "translations"
@@ -608,20 +609,35 @@ def translate_value(lang: str, english: str) -> str:
     # Preserve pure technical/numeric/callsign/stylesheet-ish strings.
     if TECH_RE.match(english) or "{" in english or "}" in english or "background-color:" in english:
         return english
-    out = english
-    # Common phrases that may appear inside longer status/log messages.
-    phrase_overrides = {
-        "it": [("Logbook", "Registro QSO"), ("Soundcard", "Scheda audio"), ("sound-card", "scheda audio"), ("Waterfall", "Waterfall"), ("waterfall", "waterfall"), ("callsign", "nominativo"), ("Callsign", "Nominativo"), ("locator", "locator"), ("Grid", "Locator"), ("grid", "locator"), ("received", "ricevuto"), ("Received", "Ricevuto"), ("decoded", "decodificato"), ("Decoded", "Decodificato"), ("completed", "completato"), ("Completed", "Completato")],
-        "fr": [("Logbook", "Journal QSO"), ("Soundcard", "Carte son"), ("sound-card", "carte son"), ("callsign", "indicatif"), ("Callsign", "Indicatif"), ("Grid", "Locator"), ("grid", "locator"), ("received", "reçu"), ("Received", "Reçu"), ("decoded", "décodé"), ("Decoded", "Décodé")],
-        "de": [("Logbook", "QSO-Logbuch"), ("Soundcard", "Soundkarte"), ("sound-card", "Soundkarte"), ("callsign", "Rufzeichen"), ("Callsign", "Rufzeichen"), ("Grid", "Locator"), ("grid", "Locator"), ("received", "empfangen"), ("Received", "Empfangen"), ("decoded", "dekodiert"), ("Decoded", "Dekodiert")],
-        "no": [("Logbook", "QSO-logg"), ("Soundcard", "Lydkort"), ("sound-card", "lydkort"), ("callsign", "kallesignal"), ("Callsign", "Kallesignal"), ("Grid", "Lokator"), ("grid", "lokator"), ("received", "mottatt"), ("Received", "Mottatt"), ("decoded", "dekodet"), ("Decoded", "Dekodet")],
-        "cs": [("Logbook", "QSO deník"), ("Soundcard", "Zvuková karta"), ("sound-card", "zvuková karta"), ("callsign", "značka"), ("Callsign", "Značka"), ("Grid", "Locator"), ("grid", "locator"), ("received", "přijato"), ("Received", "Přijato"), ("decoded", "dekódováno"), ("Decoded", "Dekódováno")],
-    }
-    for a, b in phrase_overrides.get(lang, []):
-        out = out.replace(a, b)
-    for a, b in TERMS.get(lang, []):
-        out = re.sub(rf"\b{re.escape(a)}\b", b, out)
-    return out
+    # Never manufacture a translation by replacing isolated words inside an
+    # English sentence.  That old policy produced unreadable mixed-language
+    # strings.  A missing curated sentence now remains coherent English until
+    # an exact, reviewed translation is supplied.
+    return english
+
+
+MIXED_ENGLISH_WORD_RE = re.compile(
+    r"\b(?:the|this|that|these|those|is|are|was|were|will|would|should|cannot|"
+    r"when|while|before|after|only|from|with|without|into|using|selected|unable|"
+    r"available|unavailable|current|shows|where|which|then|again|load|loaded|"
+    r"complete|found|input|output|failed|rules|ready|build|text|"
+    r"frequency|correspondent|message|transmission|unified|adaptive|of|"
+    r"and|or|not|has|have|another|trying|source|request|response|exceeded|"
+    r"redirected|support|reason|pointing|strongest|provider|decode|"
+    r"decoding|tile|verify|rebuild|local|proxy|cache|finish|change|changing)\b",
+    re.IGNORECASE,
+)
+
+
+def looks_like_mixed_sentence(value: str, english: str) -> bool:
+    """Recognize old word-substitution artefacts without rejecting radio terms."""
+    if value == english:
+        return False
+    # A reviewed translation should not retain English grammatical glue. One
+    # such word in a value that otherwise differs from the source is enough to
+    # classify the old value as mixed; protocol names and abbreviations are not
+    # part of this expression.
+    return bool(MIXED_ENGLISH_WORD_RE.search(value))
 
 
 KEY_EXACT: dict[str, dict[str, str]] = {
@@ -677,6 +693,425 @@ for _release_key, _translations in RELEASE_078_KEYS.items():
         KEY_EXACT.setdefault(_lang, {})[_release_key] = _value
 
 
+# Compact operator-facing state text introduced in 0.5.8 R10. These are exact
+# sentence translations: never route them through word substitution.
+UI_058_KEY_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "tooltip.status_rx": {
+        "it": "Avvia o ferma la ricezione dall’ingresso audio selezionato.",
+        "fr": "Démarre ou arrête la réception depuis l’entrée audio sélectionnée.",
+        "de": "Startet oder stoppt den Empfang vom ausgewählten Audioeingang.",
+        "no": "Starter eller stopper mottak fra valgt lydinngang.",
+        "cs": "Spustí nebo zastaví příjem z vybraného zvukového vstupu.",
+    },
+    "tooltip.status_tx": {
+        "it": "Avvia o ferma la trasmissione nel modo attivo.",
+        "fr": "Démarre ou arrête l’émission dans le mode actif.",
+        "de": "Startet oder stoppt die Übertragung in der aktiven Betriebsart.",
+        "no": "Starter eller stopper sending i aktiv modus.",
+        "cs": "Spustí nebo zastaví vysílání v aktivním režimu.",
+    },
+    "ft_selected_tx_short": {
+        "it": "%1 · TX %2", "fr": "%1 · TX %2", "de": "%1 · TX %2",
+        "no": "%1 · TX %2", "cs": "%1 · TX %2",
+    },
+    "ft_core_unavailable_short": {
+        "it": "decoder non disponibile", "fr": "décodeur indisponible",
+        "de": "Decoder nicht verfügbar", "no": "dekoder utilgjengelig",
+        "cs": "dekodér není k dispozici",
+    },
+    "ft_selected_tx_period_tip": {
+        "it": "Periodo di trasmissione selezionato: %1.",
+        "fr": "Période d’émission sélectionnée : %1.",
+        "de": "Ausgewählte Sendeperiode: %1.",
+        "no": "Valgt sendeperiode: %1.",
+        "cs": "Vybraná perioda vysílání: %1.",
+    },
+    "ft_state_armed_short": {
+        "it": "programmato", "fr": "programmé", "de": "vorgemerkt",
+        "no": "planlagt", "cs": "naplánováno",
+    },
+    "ft_state_waiting_short": {
+        "it": "in attesa", "fr": "en attente", "de": "wartet",
+        "no": "venter", "cs": "čeká",
+    },
+    "status_tx_active": {
+        "it": "TX attiva", "fr": "TX active", "de": "TX aktiv",
+        "no": "TX aktiv", "cs": "TX aktivní",
+    },
+    "status_wav_analysis": {
+        "it": "Analisi WAV", "fr": "Analyse WAV", "de": "WAV-Analyse",
+        "no": "WAV-analyse", "cs": "Analýza WAV",
+    },
+    "status_rx_running": {
+        "it": "RX attiva", "fr": "RX active", "de": "RX aktiv",
+        "no": "RX aktiv", "cs": "RX aktivní",
+    },
+    "ft_tx_banner_on_air": {
+        "it": "IN TRASMISSIONE", "fr": "EN ÉMISSION", "de": "AUF SENDUNG",
+        "no": "PÅ LUFTA", "cs": "VE VYSÍLÁNÍ",
+    },
+    "ft_tx_banner_armed": {
+        "it": "PROSSIMA TX", "fr": "PROCHAINE TX", "de": "NÄCHSTE TX",
+        "no": "NESTE TX", "cs": "DALŠÍ TX",
+    },
+    "ft_tx_banner_next_valid": {
+        "it": "Lo slot corrente è già iniziato; prossima TX tra %1 s.",
+        "fr": "Le créneau actuel a déjà commencé ; prochaine TX dans %1 s.",
+        "de": "Der aktuelle Zeitschlitz läuft bereits; nächste TX in %1 s.",
+        "no": "Gjeldende tidsluke har startet; neste TX om %1 s.",
+        "cs": "Aktuální slot již začal; další TX za %1 s.",
+    },
+    "ft_tx_banner_seq_ready": {
+        "it": "IN ATTESA DELLO SLOT", "fr": "EN ATTENTE DU CRÉNEAU",
+        "de": "WARTET AUF ZEITSCHLITZ", "no": "VENTER PÅ TIDSLUKE",
+        "cs": "ČEKÁ NA SLOT",
+    },
+    "ft_tx_banner_rx_monitor": {
+        "it": "RX · ULTIMA TX", "fr": "RX · DERNIÈRE TX",
+        "de": "RX · LETZTE TX", "no": "RX · SISTE TX",
+        "cs": "RX · POSLEDNÍ TX",
+    },
+    "ft_tx_banner_rx": {
+        "it": "RX", "fr": "RX", "de": "RX", "no": "RX", "cs": "RX",
+    },
+}
+
+for _key, _translations in UI_058_KEY_TRANSLATIONS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
+FT_OPERATOR_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "ft_clear_decodes_tooltip": {
+        "it": "Cancella l’elenco FT4/FT8 e i richiami temporanei CQ/risposta sulla waterfall.",
+        "fr": "Efface la liste FT4/FT8 et les repères temporaires CQ/réponse sur la waterfall.",
+        "de": "Löscht die FT4/FT8-Liste und vorübergehende CQ-/Antwort-Hinweise im Wasserfall.",
+        "no": "Tømmer FT4/FT8-listen og midlertidige CQ-/svarmarkører i fossefallet.",
+        "cs": "Vymaže seznam FT4/FT8 a dočasné značky CQ/odpovědí ve waterfallu.",
+    },
+    "ft_auto_scroll_tooltip": {
+        "it": "Mantiene visibile l’ultima riga decodificata durante la ricezione.",
+        "fr": "Garde la dernière ligne décodée visible pendant la réception.",
+        "de": "Hält beim Empfang die neueste decodierte Zeile sichtbar.",
+        "no": "Holder den nyeste dekodede linjen synlig under mottak.",
+        "cs": "Během příjmu ponechá viditelný nejnovější dekódovaný řádek.",
+    },
+    "ft_band_tooltip": {
+        "it": "Seleziona la banda e porta via CAT la radio sulla frequenza FT4/FT8 standard.",
+        "fr": "Sélectionne la bande et règle par CAT la radio sur la fréquence FT4/FT8 standard.",
+        "de": "Wählt das Band und stellt das Funkgerät per CAT auf die FT4/FT8-Standardfrequenz.",
+        "no": "Velger bånd og stiller radioen via CAT til standardfrekvensen for FT4/FT8.",
+        "cs": "Vybere pásmo a přes CAT naladí rádio na standardní frekvenci FT4/FT8.",
+    },
+    "ft8_queue_callers_tooltip": {
+        "it": "Accoda chi chiama direttamente il tuo nominativo durante un altro QSO FT. Viene servita una sola stazione alla volta.",
+        "fr": "Met en file les stations qui appellent directement votre indicatif pendant un autre QSO FT. Une seule station est servie à la fois.",
+        "de": "Stellt direkte Anrufer während eines anderen FT-QSOs in die Warteschlange. Es wird immer nur eine Station bedient.",
+        "no": "Kølegger stasjoner som kaller direkte under et annet FT-QSO. Bare én stasjon håndteres om gangen.",
+        "cs": "Zařadí přímé volající do fronty během jiného FT QSO. Vždy se obsluhuje pouze jedna stanice.",
+    },
+    "ft8_session_stats_tooltip": {
+        "it": "Mostra i QSO FT4/FT8 completati nella sessione e i chiamanti in attesa.",
+        "fr": "Affiche les QSO FT4/FT8 terminés pendant la session et les appelants en attente.",
+        "de": "Zeigt abgeschlossene FT4/FT8-QSOs der Sitzung und wartende Anrufer.",
+        "no": "Viser fullførte FT4/FT8-QSO-er i økten og ventende anropere.",
+        "cs": "Zobrazuje dokončená FT4/FT8 QSO v relaci a čekající volající.",
+    },
+    "ft8_auto_qso_tooltip": {
+        "it": "Automazione stile WSJT-Z: ordina i CQ per nuova entità, locator, banda, modo, distanza e SNR prima di rispondere.",
+        "fr": "Automatisation de style WSJT-Z : classe les CQ par nouvelle entité, locator, bande, mode, distance et SNR avant de répondre.",
+        "de": "Automatik im WSJT-Z-Stil: priorisiert CQs nach neuem Land, Locator, Band, Mode, Entfernung und SNR.",
+        "no": "Automatikk i WSJT-Z-stil: prioriterer CQ etter nytt land, lokator, bånd, modus, avstand og SNR.",
+        "cs": "Automatika ve stylu WSJT-Z: řadí CQ podle nové země, lokátoru, pásma, režimu, vzdálenosti a SNR.",
+    },
+    "hold_tx_frequency_tooltip": {
+        "it": "Mantiene fisso il marcatore TX quando selezioni una decodifica; usalo solo per trasmettere in uno slot audio libero.",
+        "fr": "Maintient le marqueur TX fixe lors de la sélection d’un décodage ; utilisez-le seulement pour émettre sur un créneau audio libre.",
+        "de": "Hält den TX-Marker bei Auswahl einer Decodierung fest; nur für einen freien Audio-Zeitschlitz verwenden.",
+        "no": "Holder TX-markøren fast når en dekoding velges; bruk dette bare på en ledig lydfrekvens.",
+        "cs": "Při výběru dekódování ponechá TX značku pevnou; používejte jen na volné zvukové frekvenci.",
+    },
+    "ft_tx_strategy_tooltip": {
+        "it": "Imposta il marcatore TX rosso: slot libero automatico, posizione manuale o frequenza del corrispondente.",
+        "fr": "Règle le marqueur TX rouge : créneau libre automatique, position manuelle ou fréquence du correspondant.",
+        "de": "Setzt den roten TX-Marker: automatisch freie Stelle, manuelle Position oder Frequenz der Gegenstation.",
+        "no": "Styrer den røde TX-markøren: automatisk ledig plass, manuell posisjon eller motpartens frekvens.",
+        "cs": "Nastaví červenou TX značku: automaticky volné místo, ruční poloha nebo frekvence protistanice.",
+    },
+    "ft8_cq_retry_count_tooltip": {
+        "it": "Numero di CQ da trasmettere. Dopo l’ultimo CQ senza risposta MM torna in attesa RX.",
+        "fr": "Nombre de CQ à émettre. Après le dernier CQ sans réponse, MM revient en attente RX.",
+        "de": "Anzahl der CQ-Aussendungen. Nach dem letzten unbeantworteten CQ kehrt MM in RX-Bereitschaft zurück.",
+        "no": "Antall CQ-sendinger. Etter siste CQ uten svar går MM tilbake til RX-beredskap.",
+        "cs": "Počet vysílání CQ. Po posledním CQ bez odpovědi se MM vrátí do pohotovosti RX.",
+    },
+    "ft8_no_response_limit_tooltip": {
+        "it": "Numero massimo di trasmissioni senza risposta in un QSO FT; poi MM annulla la sequenza e torna in RX.",
+        "fr": "Nombre maximal d’émissions sans réponse dans un QSO FT ; MM annule ensuite la séquence et revient en RX.",
+        "de": "Maximale Anzahl unbeantworteter Aussendungen in einem FT-QSO; danach bricht MM ab und kehrt zu RX zurück.",
+        "no": "Maksimalt antall sendinger uten svar i et FT-QSO; deretter avbryter MM og går tilbake til RX.",
+        "cs": "Maximální počet vysílání bez odpovědi v FT QSO; poté MM sekvenci zruší a vrátí se do RX.",
+    },
+    "ft_engine_tooltip_unified_native": {
+        "it": "Un solo percorso FT: decodifica di base, recupero dei residui con CRC valido e tentativi AP/OSD sui candidati promettenti.",
+        "fr": "Un seul parcours FT : décodage de base, récupération des résidus avec CRC valide et essais AP/OSD sur les candidats prometteurs.",
+        "de": "Ein FT-Pfad: Basisdecodierung, Restesignal-Rückgewinnung mit gültiger CRC und AP/OSD-Versuche für gute Kandidaten.",
+        "no": "Én FT-bane: grunnleggende dekoding, restsignalgjenfinning med gyldig CRC og AP/OSD-forsøk på lovende kandidater.",
+        "cs": "Jediná cesta FT: základní dekódování, obnova zbytků s platným CRC a pokusy AP/OSD u nadějných kandidátů.",
+    },
+    "ft8_evil_mode_tooltip": {
+        "it": "Mostra Auto CQ e Auto QSO solo dopo una conferma esplicita; lo sblocco vale per la sessione corrente.",
+        "fr": "Affiche Auto CQ et Auto QSO uniquement après confirmation explicite ; le déverrouillage vaut pour la session en cours.",
+        "de": "Zeigt Auto CQ und Auto QSO erst nach ausdrücklicher Bestätigung; die Freigabe gilt nur für die aktuelle Sitzung.",
+        "no": "Viser Auto CQ og Auto QSO først etter uttrykkelig bekreftelse; opplåsingen gjelder bare denne økten.",
+        "cs": "Zobrazí Auto CQ a Auto QSO až po výslovném potvrzení; odemčení platí jen pro aktuální relaci.",
+    },
+    "ft_tx_arrow_tooltip": {
+        "it": "La freccia indica il messaggio standard selezionato o programmato dal sequencer FT.",
+        "fr": "La flèche indique le message standard sélectionné ou programmé par le séquenceur FT.",
+        "de": "Der Pfeil kennzeichnet die ausgewählte oder vom FT-Sequenzer vorgemerkte Standardnachricht.",
+        "no": "Pilen viser standardmeldingen som er valgt eller planlagt av FT-sekvenseren.",
+        "cs": "Šipka označuje standardní zprávu vybranou nebo naplánovanou FT sekvencerem.",
+    },
+    "ft_tx_banner_on_air_tip": {
+        "it": "Il trasmettitore FT è attivo e sta inviando esattamente questo messaggio.",
+        "fr": "L’émetteur FT est actif et envoie exactement ce message.",
+        "de": "Der FT-Sender ist aktiv und sendet genau diese Nachricht.",
+        "no": "FT-senderen er aktiv og sender akkurat denne meldingen.",
+        "cs": "Vysílač FT je aktivní a vysílá přesně tuto zprávu.",
+    },
+    "ft_tx_banner_armed_tip": {
+        "it": "Il messaggio è programmato per il prossimo slot TX UTC selezionato.",
+        "fr": "Le message est programmé pour le prochain créneau TX UTC sélectionné.",
+        "de": "Die Nachricht ist für den nächsten ausgewählten UTC-TX-Zeitschlitz vorgemerkt.",
+        "no": "Meldingen er planlagt for neste valgte UTC-TX-luke.",
+        "cs": "Zpráva je naplánována pro další vybraný slot TX UTC.",
+    },
+    "ft_tx_banner_seq_ready_tip": {
+        "it": "Il sequencer ha scelto il prossimo messaggio; la RX continua fino al momento utile per la TX.",
+        "fr": "Le séquenceur a choisi le prochain message ; la RX continue jusqu’au moment utile pour la TX.",
+        "de": "Der Sequenzer hat die nächste Nachricht gewählt; RX läuft bis zum TX-Zeitpunkt weiter.",
+        "no": "Sekvenseren har valgt neste melding; RX fortsetter fram til TX-tidspunktet.",
+        "cs": "Sekvencer vybral další zprávu; RX pokračuje až do času vysílání.",
+    },
+    "ft_tx_banner_rx_last_tip": {
+        "it": "La ricezione è attiva; viene mostrata l’ultima trasmissione FT completata.",
+        "fr": "La réception est active ; la dernière émission FT terminée est affichée.",
+        "de": "Der Empfang ist aktiv; angezeigt wird die letzte abgeschlossene FT-Aussendung.",
+        "no": "Mottak er aktivt; siste fullførte FT-sending vises.",
+        "cs": "Příjem je aktivní; zobrazuje se poslední dokončené vysílání FT.",
+    },
+    "ft_tx_banner_idle_tip": {
+        "it": "La ricezione FT è attiva e non è programmato alcun messaggio TX.",
+        "fr": "La réception FT est active et aucun message TX n’est programmé.",
+        "de": "Der FT-Empfang ist aktiv und keine TX-Nachricht ist vorgemerkt.",
+        "no": "FT-mottak er aktivt og ingen TX-melding er planlagt.",
+        "cs": "Příjem FT je aktivní a není naplánována žádná TX zpráva.",
+    },
+}
+
+for _key, _translations in FT_OPERATOR_TRANSLATIONS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
+OPERATOR_ERROR_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "text.load_rtty_text_failed": {
+        "it": "Caricamento testo RTTY non riuscito", "fr": "Échec du chargement du texte RTTY",
+        "de": "RTTY-Text konnte nicht geladen werden", "no": "Kunne ikke laste RTTY-tekst",
+        "cs": "Načtení textu RTTY se nezdařilo",
+    },
+    "text.load_psk_text_failed": {
+        "it": "Caricamento testo PSK non riuscito", "fr": "Échec du chargement du texte PSK",
+        "de": "PSK-Text konnte nicht geladen werden", "no": "Kunne ikke laste PSK-tekst",
+        "cs": "Načtení textu PSK se nezdařilo",
+    },
+    "text.load_mfsk_text_failed": {
+        "it": "Caricamento testo MFSK non riuscito", "fr": "Échec du chargement du texte MFSK",
+        "de": "MFSK-Text konnte nicht geladen werden", "no": "Kunne ikke laste MFSK-tekst",
+        "cs": "Načtení textu MFSK se nezdařilo",
+    },
+    "text.load_cw_text_failed": {
+        "it": "Caricamento testo CW non riuscito", "fr": "Échec du chargement du texte CW",
+        "de": "CW-Text konnte nicht geladen werden", "no": "Kunne ikke laste CW-tekst",
+        "cs": "Načtení textu CW se nezdařilo",
+    },
+    "text.load_hellschreiber_text_failed": {
+        "it": "Caricamento testo Hellschreiber non riuscito", "fr": "Échec du chargement du texte Hellschreiber",
+        "de": "Hellschreiber-Text konnte nicht geladen werden", "no": "Kunne ikke laste Hellschreiber-tekst",
+        "cs": "Načtení textu Hellschreiber se nezdařilo",
+    },
+    "text.unable_to_open_the_selected_text_file": {
+        "it": "Impossibile aprire il file di testo selezionato.",
+        "fr": "Impossible d’ouvrir le fichier texte sélectionné.",
+        "de": "Die ausgewählte Textdatei kann nicht geöffnet werden.",
+        "no": "Kan ikke åpne den valgte tekstfilen.",
+        "cs": "Vybraný textový soubor nelze otevřít.",
+    },
+    "text.unable_to_analyze_the_selected_wav_file_see_the_log_panel_for_details": {
+        "it": "Impossibile analizzare il file WAV selezionato. Consulta il pannello del log.",
+        "fr": "Impossible d’analyser le fichier WAV sélectionné. Consultez le journal.",
+        "de": "Die ausgewählte WAV-Datei kann nicht analysiert werden. Einzelheiten stehen im Protokoll.",
+        "no": "Kan ikke analysere den valgte WAV-filen. Se loggpanelet for detaljer.",
+        "cs": "Vybraný soubor WAV nelze analyzovat. Podrobnosti jsou v panelu protokolu.",
+    },
+    "text.unable_to_save_the_sstv_image": {
+        "it": "Impossibile salvare l’immagine SSTV.", "fr": "Impossible d’enregistrer l’image SSTV.",
+        "de": "Das SSTV-Bild kann nicht gespeichert werden.", "no": "Kan ikke lagre SSTV-bildet.",
+        "cs": "Obrázek SSTV nelze uložit.",
+    },
+    "text.unable_to_save_the_meteofax_image": {
+        "it": "Impossibile salvare l’immagine MeteoFax.", "fr": "Impossible d’enregistrer l’image MeteoFax.",
+        "de": "Das MeteoFax-Bild kann nicht gespeichert werden.", "no": "Kan ikke lagre MeteoFax-bildet.",
+        "cs": "Obrázek MeteoFax nelze uložit.",
+    },
+    "text.auto_save_png_failed": {
+        "it": "Salvataggio automatico PNG non riuscito", "fr": "Échec de l’enregistrement PNG automatique",
+        "de": "Automatisches PNG-Speichern fehlgeschlagen", "no": "Automatisk PNG-lagring mislyktes",
+        "cs": "Automatické uložení PNG se nezdařilo",
+    },
+    "text.unable_to_auto_save_the_completed_meteofax_image": {
+        "it": "Impossibile salvare automaticamente l’immagine MeteoFax completata.",
+        "fr": "Impossible d’enregistrer automatiquement l’image MeteoFax terminée.",
+        "de": "Das fertige MeteoFax-Bild kann nicht automatisch gespeichert werden.",
+        "no": "Kan ikke lagre det ferdige MeteoFax-bildet automatisk.",
+        "cs": "Dokončený obrázek MeteoFax nelze automaticky uložit.",
+    },
+    "text.unable_to_load_the_selected_image_file": {
+        "it": "Impossibile caricare il file immagine selezionato.",
+        "fr": "Impossible de charger le fichier image sélectionné.",
+        "de": "Die ausgewählte Bilddatei kann nicht geladen werden.",
+        "no": "Kan ikke laste den valgte bildefilen.",
+        "cs": "Vybraný soubor obrázku nelze načíst.",
+    },
+    "text.stop_rx_before_starting_wefax_sstv_image_tx_text_modes_can_pause_and_resume_rx_automatical": {
+        "it": "Ferma RX prima di trasmettere un’immagine WEFAX/SSTV. I modi testuali sospendono e riprendono RX automaticamente.",
+        "fr": "Arrêtez RX avant d’émettre une image WEFAX/SSTV. Les modes texte suspendent et reprennent RX automatiquement.",
+        "de": "RX vor einer WEFAX-/SSTV-Bildübertragung stoppen. Textmodi pausieren und starten RX automatisch.",
+        "no": "Stopp RX før sending av WEFAX-/SSTV-bilde. Tekstmoduser pauser og starter RX automatisk.",
+        "cs": "Před vysíláním obrázku WEFAX/SSTV zastavte RX. Textové režimy RX pozastaví a obnoví automaticky.",
+    },
+    "text.enter_or_load_text_before_starting_rtty_tx": {
+        "it": "Inserisci o carica il testo prima di avviare la TX RTTY.",
+        "fr": "Saisissez ou chargez le texte avant de démarrer la TX RTTY.",
+        "de": "Vor dem RTTY-Senden Text eingeben oder laden.",
+        "no": "Skriv inn eller last tekst før RTTY-sending.",
+        "cs": "Před vysíláním RTTY zadejte nebo načtěte text.",
+    },
+    "text.enter_or_load_text_before_starting_psk_tx": {
+        "it": "Inserisci o carica il testo prima di avviare la TX PSK.",
+        "fr": "Saisissez ou chargez le texte avant de démarrer la TX PSK.",
+        "de": "Vor dem PSK-Senden Text eingeben oder laden.",
+        "no": "Skriv inn eller last tekst før PSK-sending.",
+        "cs": "Před vysíláním PSK zadejte nebo načtěte text.",
+    },
+    "text.enter_or_load_text_before_starting_mfsk_tx": {
+        "it": "Inserisci o carica il testo prima di avviare la TX MFSK.",
+        "fr": "Saisissez ou chargez le texte avant de démarrer la TX MFSK.",
+        "de": "Vor dem MFSK-Senden Text eingeben oder laden.",
+        "no": "Skriv inn eller last tekst før MFSK-sending.",
+        "cs": "Před vysíláním MFSK zadejte nebo načtěte text.",
+    },
+    "text.enter_or_load_text_before_starting_cw_tx": {
+        "it": "Inserisci o carica il testo prima di avviare la TX CW.",
+        "fr": "Saisissez ou chargez le texte avant de démarrer la TX CW.",
+        "de": "Vor dem CW-Senden Text eingeben oder laden.",
+        "no": "Skriv inn eller last tekst før CW-sending.",
+        "cs": "Před vysíláním CW zadejte nebo načtěte text.",
+    },
+    "text.enter_or_load_text_before_starting_hellschreiber_tx": {
+        "it": "Inserisci o carica il testo prima di avviare la TX Hellschreiber.",
+        "fr": "Saisissez ou chargez le texte avant de démarrer la TX Hellschreiber.",
+        "de": "Vor dem Hellschreiber-Senden Text eingeben oder laden.",
+        "no": "Skriv inn eller last tekst før Hellschreiber-sending.",
+        "cs": "Před vysíláním Hellschreiber zadejte nebo načtěte text.",
+    },
+    "text.generate_or_select_an_msk144_message_before_starting_tx": {
+        "it": "Genera o seleziona un messaggio MSK144 prima di avviare la TX.",
+        "fr": "Générez ou sélectionnez un message MSK144 avant de démarrer la TX.",
+        "de": "Vor dem Senden eine MSK144-Nachricht erzeugen oder auswählen.",
+        "no": "Generer eller velg en MSK144-melding før sending.",
+        "cs": "Před vysíláním vytvořte nebo vyberte zprávu MSK144.",
+    },
+    "text.generate_or_select_a_q65_message_before_starting_tx": {
+        "it": "Genera o seleziona un messaggio Q65 prima di avviare la TX.",
+        "fr": "Générez ou sélectionnez un message Q65 avant de démarrer la TX.",
+        "de": "Vor dem Senden eine Q65-Nachricht erzeugen oder auswählen.",
+        "no": "Generer eller velg en Q65-melding før sending.",
+        "cs": "Před vysíláním vytvořte nebo vyberte zprávu Q65.",
+    },
+    "text.unable_to_create_a_transmitter_for_the_active_mode": {
+        "it": "Impossibile creare il trasmettitore per il modo attivo.",
+        "fr": "Impossible de créer l’émetteur pour le mode actif.",
+        "de": "Für die aktive Betriebsart kann kein Sender erstellt werden.",
+        "no": "Kan ikke opprette sender for aktiv modus.",
+        "cs": "Pro aktivní režim nelze vytvořit vysílač.",
+    },
+    "text.no_tx_image_loaded": {
+        "it": "Nessuna immagine TX caricata", "fr": "Aucune image TX chargée",
+        "de": "Kein TX-Bild geladen", "no": "Ingen TX-bilde lastet",
+        "cs": "Není načten žádný TX obrázek",
+    },
+    "text.no_audio_input_found": {
+        "it": "Nessun ingresso audio trovato", "fr": "Aucune entrée audio trouvée",
+        "de": "Kein Audioeingang gefunden", "no": "Ingen lydinngang funnet",
+        "cs": "Nebyl nalezen žádný zvukový vstup",
+    },
+    "text.no_audio_output_found": {
+        "it": "Nessuna uscita audio trovata", "fr": "Aucune sortie audio trouvée",
+        "de": "Kein Audioausgang gefunden", "no": "Ingen lydutgang funnet",
+        "cs": "Nebyl nalezen žádný zvukový výstup",
+    },
+    "text.q65_rx_unavailable_build_without_the_fftw_backed_mshv_decoder_tx_is_available": {
+        "it": "RX Q65 non disponibile: il decoder MSHV con FFTW non è incluso in questa build; TX è disponibile.",
+        "fr": "RX Q65 indisponible : le décodeur MSHV avec FFTW n’est pas inclus dans cette version ; TX reste disponible.",
+        "de": "Q65-RX nicht verfügbar: Diese Version enthält den FFTW-gestützten MSHV-Decoder nicht; TX ist verfügbar.",
+        "no": "Q65 RX er utilgjengelig: denne byggingen mangler MSHV-dekoderen med FFTW; TX er tilgjengelig.",
+        "cs": "RX Q65 není k dispozici: sestavení neobsahuje dekodér MSHV s FFTW; TX je dostupné.",
+    },
+}
+
+for _key, _translations in OPERATOR_ERROR_TRANSLATIONS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
+SEMANTIC_REPAIR_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "text.openssl_build_1": {
+        "it": "Build OpenSSL: %1", "fr": "Version de compilation OpenSSL : %1",
+        "de": "OpenSSL-Build: %1", "no": "OpenSSL-bygg: %1",
+        "cs": "Sestavení OpenSSL: %1",
+    },
+    "text.openssl_runtime_1": {
+        "it": "Runtime OpenSSL: %1", "fr": "Version OpenSSL utilisée : %1",
+        "de": "OpenSSL-Laufzeit: %1", "no": "OpenSSL-kjøretid: %1",
+        "cs": "OpenSSL za běhu: %1",
+    },
+    "text.auto_save_completed_image": {
+        "it": "Salva automaticamente l’immagine completata",
+        "fr": "Enregistrer automatiquement l’image terminée",
+        "de": "Fertiges Bild automatisch speichern",
+        "no": "Lagre ferdig bilde automatisk",
+        "cs": "Automaticky uložit dokončený obrázek",
+    },
+    "placeholder.auto_save_completed_image": {
+        "it": "Salva automaticamente l’immagine completata",
+        "fr": "Enregistrer automatiquement l’image terminée",
+        "de": "Fertiges Bild automatisch speichern",
+        "no": "Lagre ferdig bilde automatisk",
+        "cs": "Automaticky uložit dokončený obrázek",
+    },
+}
+
+for _key, _translations in SEMANTIC_REPAIR_TRANSLATIONS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+for _key, _translations in REVIEWED_OPERATOR_KEYS_058.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)
@@ -686,22 +1121,44 @@ def main() -> int:
     for lang in LANGS:
         existing = read_ini(TRANS_DIR / f"ui_{lang}.ini")
         data: OrderedDict[str, str] = OrderedDict()
+        discarded_mixed = 0
+        # A visible sentence can be harvested under both a stable uiText key
+        # and a generated text./placeholder. key.  When one of those keys has
+        # an exact reviewed translation, reuse it for every identical source
+        # sentence instead of leaving a duplicate control in English.
+        reviewed_by_source: dict[str, str] = {}
+        if lang != "en":
+            for reviewed_key, reviewed_value in KEY_EXACT.get(lang, {}).items():
+                source = canonical.get(reviewed_key)
+                if source and reviewed_value.strip():
+                    reviewed_by_source.setdefault(source, reviewed_value)
         for k, english in canonical.items():
+            if lang == "en":
+                # English is the canonical source, never a stale cached value.
+                data[k] = english
+                continue
             exact = KEY_EXACT.get(lang, {}).get(k)
             if exact is not None:
                 data[k] = exact
-            elif k in existing and existing[k].strip():
+            elif english in reviewed_by_source:
+                data[k] = reviewed_by_source[english]
+            elif (k in existing and existing[k].strip() and
+                  not looks_like_mixed_sentence(existing[k], english)):
                 # Preserve translations already stored under the canonical key.
                 data[k] = existing[k]
-            elif english in existing and existing[english].strip():
+            elif (english in existing and existing[english].strip() and
+                  not looks_like_mixed_sentence(existing[english], english)):
                 # Older dictionaries also contained literal English source
                 # phrases as keys.  Migrate those curated values to the stable
                 # harvested key, then omit the obsolete duplicate key.
                 data[k] = existing[english]
             else:
+                if k in existing and looks_like_mixed_sentence(existing[k], english):
+                    discarded_mixed += 1
                 data[k] = translate_value(lang, english)
         write_ini(TRANS_DIR / f"ui_{lang}.ini", lang, data)
-        print(f"{lang}: {len(data)} keys")
+        suffix = f"; removed {discarded_mixed} mixed-language artefact(s)" if discarded_mixed else ""
+        print(f"{lang}: {len(data)} keys{suffix}")
     return 0
 
 if __name__ == "__main__":

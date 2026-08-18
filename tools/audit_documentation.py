@@ -8,6 +8,8 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+from update_help_pages import PAGES as REVIEWED_HELP_PAGES
+
 ROOT = Path(__file__).resolve().parents[1]
 HELP = ROOT / "docs" / "help"
 LANGS = ["en", "it", "fr", "de", "no", "cs"]
@@ -34,6 +36,21 @@ def main() -> int:
         if VERSION not in path.read_text(encoding="utf-8"):
             errors.append(f"{path.relative_to(ROOT)}: current version {VERSION} is not mentioned")
 
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    for required in (
+        "One desktop for digital modes, station control and radio experiments.",
+        "## What you can do",
+        "## Operating views",
+        "## Screenshots wanted",
+        "## Languages and help",
+    ):
+        if required not in readme:
+            errors.append(f"README.md: missing public overview section/text {required!r}")
+
+    release_notes = (ROOT / "RELEASE_NOTES.md").read_text(encoding="utf-8")
+    if re.search(r"\b(?:checkpoint|branch|superseded)\b", release_notes, re.IGNORECASE):
+        errors.append("RELEASE_NOTES.md: contains internal development-history wording")
+
     qrc = ET.parse(ROOT / "resources.qrc")
     qrc_aliases = {node.get("alias") for node in qrc.findall(".//file")}
 
@@ -50,6 +67,12 @@ def main() -> int:
                 parser.close()
             except Exception as exc:
                 errors.append(f"{page.relative_to(ROOT)}: HTML parse error: {exc}")
+            if text.count("<body>") != 1 or text.count("</body>") != 1:
+                errors.append(f"{page.relative_to(ROOT)}: malformed or duplicate body element")
+            if text.count("<html ") != 1 or text.count("</html>") != 1:
+                errors.append(f"{page.relative_to(ROOT)}: malformed or duplicate html element")
+            if not text.rstrip().endswith("</body></html>"):
+                errors.append(f"{page.relative_to(ROOT)}: content exists outside the body/html close")
             if f"MadModem {VERSION}" not in text:
                 errors.append(f"{page.relative_to(ROOT)}: missing current footer version")
             for href in re.findall(r"href=['\"]([^'\"]+)['\"]", text):
@@ -60,6 +83,12 @@ def main() -> int:
             alias = f"{lang}/{page.name}"
             if alias not in qrc_aliases:
                 errors.append(f"resources.qrc: missing embedded help alias {alias}")
+
+            reviewed = REVIEWED_HELP_PAGES.get(lang, {}).get(page.name)
+            if reviewed is not None:
+                reviewed_title, reviewed_body = reviewed
+                if f"<title>{reviewed_title}</title>" not in text or reviewed_body not in text:
+                    errors.append(f"{page.relative_to(ROOT)}: reviewed localized body is stale")
 
         qhp = HELP / f"MM_{lang}.qhp"
         qhcp = HELP / f"MM_{lang}.qhcp"

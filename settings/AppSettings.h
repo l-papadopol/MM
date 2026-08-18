@@ -131,6 +131,7 @@ public:
     bool rttyMarkSpaceEnhancerEnabled = false;
     bool rttyMultiDecodeEnabled = false;
     bool rttyOverlayCallsignsEnabled = true;
+    bool rttyWaterfallTextOverlayEnabled = false;
     bool rttyContestEnhancedEnabled = false;
     bool rttySecondPassEnabled = false;
     int rttyMaxParallelDecoders = 8;

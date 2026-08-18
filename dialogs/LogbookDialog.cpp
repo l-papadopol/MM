@@ -1,5 +1,6 @@
 #include "LogbookDialog.h"
 #include "../utils/UiScale.h"
+#include "../utils/RuntimeI18n.h"
 #include "../settings/AppSettings.h"
 
 #include <QAbstractItemView>
@@ -188,7 +189,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     m_quickSearchEdit->setPlaceholderText(L("Any field: callsign, grid, band, mode, report or UTC date..."));
     m_quickSearchEdit->setMinimumWidth(520);
     m_callEdit = new QLineEdit(this);
-    m_callEdit->setPlaceholderText("e.g. IK6ABC");
+    m_callEdit->setPlaceholderText(MadModemI18n::placeholder(QStringLiteral("e.g. IK6ABC")));
     m_callEdit->setMinimumWidth(220);
     m_rstSentEdit = new QLineEdit(this);
     m_rstSentEdit->setPlaceholderText("599");
@@ -198,10 +199,10 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     m_bandEdit->setPlaceholderText("20m");
     m_bandEdit->setMinimumWidth(160);
     m_modeEdit = new QLineEdit(this);
-    m_modeEdit->setPlaceholderText("RTTY, BPSK31, CW, HELL...");
+    m_modeEdit->setPlaceholderText(MadModemI18n::placeholder(QStringLiteral("RTTY, BPSK31, CW, HELL...")));
     m_modeEdit->setMinimumWidth(220);
     m_gridEdit = new QLineEdit(this);
-    m_gridEdit->setPlaceholderText("JN63");
+    m_gridEdit->setPlaceholderText(MadModemI18n::placeholder(QStringLiteral("JN63")));
     m_gridEdit->setMinimumWidth(140);
 
     m_fromEnabled = new QCheckBox(L("From UTC"), this);
@@ -731,9 +732,9 @@ void LogbookDialog::importAdif()
 
     const QString fileName = QFileDialog::getOpenFileName(
         this,
-        "Import ADIF logbook",
+        L("Import ADIF logbook"),
         QString(),
-        "ADIF logbook (*.adi *.adif);;All files (*)"
+        L("ADIF logbook (*.adi *.adif);;All files (*)")
         );
     if (fileName.isEmpty()) {
         return;

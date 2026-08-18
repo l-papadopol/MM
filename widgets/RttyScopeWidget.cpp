@@ -62,18 +62,12 @@ void RttyScopeWidget::setTrace(const QVector<QPointF> &tracePoints,
     update();
 }
 
-void RttyScopeWidget::setPolarityInfo(bool reverse,
-                                      const QString &source,
-                                      const QString &catMode)
+void RttyScopeWidget::setReversePolarity(bool reverse)
 {
-    const QString cleanSource = source.trimmed();
-    const QString cleanCat = catMode.trimmed().toUpper();
-    if (m_reverse == reverse && m_polaritySource == cleanSource && m_catMode == cleanCat) {
+    if (m_reverse == reverse) {
         return;
     }
     m_reverse = reverse;
-    m_polaritySource = cleanSource;
-    m_catMode = cleanCat;
     update();
 }
 
@@ -194,22 +188,6 @@ void RttyScopeWidget::paintEvent(QPaintEvent *event)
     const QRectF labelRect = screenRect.adjusted(11.0, 10.0, -11.0, -10.0);
     painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignTop, leftLabel);
     painter.drawText(labelRect, Qt::AlignRight | Qt::AlignTop, rightLabel);
-
-    QString polarityLine = m_reverse ? QStringLiteral("REV") : QStringLiteral("NOR");
-    if (!m_polaritySource.isEmpty()) {
-        polarityLine += QStringLiteral(" · ") + m_polaritySource.toUpper();
-    }
-    if (!m_catMode.isEmpty()) {
-        polarityLine += QStringLiteral(" · CAT ") + m_catMode;
-    }
-    QFont statusFont = painter.font();
-    statusFont.setPointSizeF(7.0);
-    statusFont.setBold(false);
-    painter.setFont(statusFont);
-    painter.setPen(QColor(145, 210, 155, 190));
-    painter.drawText(screenRect.adjusted(10.0, 0.0, -10.0, -8.0),
-                     Qt::AlignHCenter | Qt::AlignBottom,
-                     polarityLine);
 
     painter.restore();
 

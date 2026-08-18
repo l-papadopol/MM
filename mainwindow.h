@@ -1658,6 +1658,7 @@ private:
     QSpinBox *m_spinRttyAfcRangeHz = nullptr;
     QCheckBox *m_chkRttyMultiDecode = nullptr;
     QCheckBox *m_chkRttyOverlayCallsigns = nullptr;
+    QCheckBox *m_chkRttyWaterfallTextOverlay = nullptr;
     QCheckBox *m_chkRttyContestEnhanced = nullptr;
     QCheckBox *m_chkRttySecondPass = nullptr;
     QSpinBox *m_spinRttyMaxDecoders = nullptr;

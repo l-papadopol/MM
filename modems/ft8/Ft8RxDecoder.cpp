@@ -5165,23 +5165,16 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
     double candidateSearchMs = 0.0;
     double candidateDecodeMs = 0.0;
 
-    const auto searchStart = Clock::now();
-    const QVector<Candidate> candidates = findFt4Candidates(samples, 0.0);
-    const auto searchEnd = Clock::now();
-    candidateSearchMs += std::chrono::duration<double, std::milli>(searchEnd - searchStart).count();
+    QVector<Candidate> candidates;
+    QVector<CandidateDecode> rawPairs;
+    QVector<CandidateDecode> deduped;
 
-    const auto decodeStart = Clock::now();
-    QVector<CandidateDecode> rawPairs = decodeCandidateSet(samples, candidates, &workerCount);
-    QVector<CandidateDecode> deduped = deduplicate(rawPairs, &dropped);
-    const auto decodeEnd = Clock::now();
-    candidateDecodeMs += std::chrono::duration<double, std::milli>(decodeEnd - decodeStart).count();
-
-    // The wideband FT4 gate is deliberately small and fast.  During an active
-    // QSO it gets one additional, explicit deadline pass around the selected
-    // correspondent frequency.  This pass runs before the opposite TX boundary
-    // and replaces reliance on the full boundary decode, whose results can only
-    // arrive after PTT/audio have already started.
+    // FT4 now follows the same deadline ownership as FT8: during an active QSO
+    // the bounded marker-adjacent set enters LDPC before any general wideband
+    // candidates.  A valid reply mentioning both stations is returned at once;
+    // on a miss, the unchanged wideband quota still runs in the same linear job.
     const QString deadlineCall = m_dxCall.trimmed().toUpper();
+    const QString deadlineMyCall = m_myCall.trimmed().toUpper();
     const bool qsoDeadlinePassEnabled = gateCandidateSet &&
                                         m_qsoDeadlineActive.load(std::memory_order_acquire) &&
                                         !deadlineCall.isEmpty();
@@ -5204,73 +5197,82 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
         return false;
     };
 
+    auto isDeadlineTargetDecode = [&messageMentionsCall, &deadlineCall, &deadlineMyCall](const CandidateDecode &pair) {
+        return messageMentionsCall(pair.decode.message, deadlineCall) &&
+               (deadlineMyCall.isEmpty() || messageMentionsCall(pair.decode.message, deadlineMyCall));
+    };
+
+    QVector<Candidate> focusedCandidates;
     bool deadlineTargetDecoded = false;
+    constexpr int kFt4QsoPriorityCandidateLimit = 64;
     if (qsoDeadlinePassEnabled) {
-        for (const CandidateDecode &pair : deduped) {
-            if (messageMentionsCall(pair.decode.message, deadlineCall)) {
-                deadlineTargetDecoded = true;
-                break;
+        const auto focusedSearchStart = Clock::now();
+        focusedCandidates = findFt4DeadlineCandidates(samples,
+                                                       m_rxMarkerHz,
+                                                       180,
+                                                       kFt4QsoPriorityCandidateLimit);
+        const auto focusedSearchEnd = Clock::now();
+        candidateSearchMs += std::chrono::duration<double, std::milli>(focusedSearchEnd - focusedSearchStart).count();
+        secondPassCandidates = focusedCandidates.size();
+
+        if (!focusedCandidates.isEmpty()) {
+            int focusedWorkerCount = 0;
+            const auto focusedDecodeStart = Clock::now();
+            const QVector<CandidateDecode> focusedRaw = decodeCandidateSet(samples,
+                                                                            focusedCandidates,
+                                                                            &focusedWorkerCount);
+            const auto focusedDecodeEnd = Clock::now();
+            candidateDecodeMs += std::chrono::duration<double, std::milli>(focusedDecodeEnd - focusedDecodeStart).count();
+            workerCount = qMax(workerCount, focusedWorkerCount);
+            for (const CandidateDecode &pair : focusedRaw) {
+                rawPairs.append(pair);
             }
+            deduped = deduplicate(rawPairs, &dropped);
+            deadlineTargetDecoded = std::any_of(deduped.cbegin(),
+                                                deduped.cend(),
+                                                isDeadlineTargetDecode);
         }
+
+        earlyStopReason = deadlineTargetDecoded
+            ? QStringLiteral("FT4 QSO deadline: %1 decoded first; wideband gate deferred").arg(deadlineCall)
+            : QStringLiteral("FT4 QSO priority miss around %1 Hz; wideband gate continued").arg(m_rxMarkerHz);
     }
 
-    constexpr double kFt4DeadlinePassLatestStartMs = 260.0;
-    constexpr double kFt4DeadlinePassBudgetMs = 520.0;
-    if (qsoDeadlinePassEnabled && !deadlineTargetDecoded) {
-        const double elapsedBeforeDeadlinePassMs =
-            std::chrono::duration<double, std::milli>(Clock::now() - totalStart).count();
-        if (elapsedBeforeDeadlinePassMs <= kFt4DeadlinePassLatestStartMs) {
-            const auto focusedSearchStart = Clock::now();
-            const QVector<Candidate> focusedAll = findFt4DeadlineCandidates(samples,
-                                                                            m_rxMarkerHz,
-                                                                            180,
-                                                                            220);
-            QVector<Candidate> focusedCandidates;
-            focusedCandidates.reserve(focusedAll.size());
-            constexpr double kFt4ToneSpacingHz = 12000.0 / 576.0;
-            for (const Candidate &candidate : focusedAll) {
-                bool alreadyAttempted = false;
-                for (const Candidate &wideCandidate : candidates) {
-                    if (std::abs(wideCandidate.baseHz - candidate.baseHz) <= kFt4ToneSpacingHz &&
-                        std::abs(wideCandidate.startSec - candidate.startSec) <= 0.10) {
-                        alreadyAttempted = true;
-                        break;
-                    }
-                }
-                if (!alreadyAttempted) {
-                    focusedCandidates.append(candidate);
-                }
-            }
-            const auto focusedSearchEnd = Clock::now();
-            candidateSearchMs += std::chrono::duration<double, std::milli>(focusedSearchEnd - focusedSearchStart).count();
-            secondPassCandidates = focusedCandidates.size();
+    if (!deadlineTargetDecoded) {
+        const auto searchStart = Clock::now();
+        const QVector<Candidate> widebandCandidates = findFt4Candidates(samples, 0.0);
+        const auto searchEnd = Clock::now();
+        candidateSearchMs += std::chrono::duration<double, std::milli>(searchEnd - searchStart).count();
 
-            if (!focusedCandidates.isEmpty()) {
-                int focusedWorkerCount = 0;
-                const auto focusedDecodeStart = Clock::now();
-                const QVector<CandidateDecode> focusedRaw = decodeCandidateSet(samples,
-                                                                                focusedCandidates,
-                                                                                &focusedWorkerCount);
-                const auto focusedDecodeEnd = Clock::now();
-                candidateDecodeMs += std::chrono::duration<double, std::milli>(focusedDecodeEnd - focusedDecodeStart).count();
-                workerCount = qMax(workerCount, focusedWorkerCount);
-                for (const CandidateDecode &pair : focusedRaw) {
-                    rawPairs.append(pair);
-                }
-                deduped = deduplicate(rawPairs, &dropped);
-                passCount = 2;
+        // Do not spend LDPC twice on candidates already attempted by the QSO
+        // priority set. The ordinary wideband admission limit itself is not
+        // reduced; only exact frequency/time duplicates are removed.
+        constexpr double kFt4ToneSpacingHz = 12000.0 / 576.0;
+        candidates.reserve(widebandCandidates.size());
+        for (const Candidate &candidate : widebandCandidates) {
+            const bool alreadyAttempted = std::any_of(focusedCandidates.cbegin(),
+                                                      focusedCandidates.cend(),
+                                                      [&candidate](const Candidate &focused) {
+                return std::abs(focused.baseHz - candidate.baseHz) <= kFt4ToneSpacingHz &&
+                       std::abs(focused.startSec - candidate.startSec) <= 0.10;
+            });
+            if (!alreadyAttempted) {
+                candidates.append(candidate);
             }
+        }
 
-            const double elapsedAfterDeadlinePassMs =
-                std::chrono::duration<double, std::milli>(Clock::now() - totalStart).count();
-            earlyStopReason = elapsedAfterDeadlinePassMs > kFt4DeadlinePassBudgetMs
-                ? QStringLiteral("FT4 QSO deadline pass exceeded %1 ms budget").arg(kFt4DeadlinePassBudgetMs, 0, 'f', 0)
-                : QStringLiteral("FT4 QSO deadline pass around %1 Hz for %2")
-                      .arg(m_rxMarkerHz)
-                      .arg(deadlineCall);
-        } else {
-            earlyStopReason = QStringLiteral("FT4 QSO deadline pass skipped: wideband gate already used %1 ms")
-                .arg(elapsedBeforeDeadlinePassMs, 0, 'f', 0);
+        int widebandWorkerCount = 0;
+        const auto decodeStart = Clock::now();
+        const QVector<CandidateDecode> widebandRaw = decodeCandidateSet(samples, candidates, &widebandWorkerCount);
+        workerCount = qMax(workerCount, widebandWorkerCount);
+        for (const CandidateDecode &pair : widebandRaw) {
+            rawPairs.append(pair);
+        }
+        deduped = deduplicate(rawPairs, &dropped);
+        const auto decodeEnd = Clock::now();
+        candidateDecodeMs += std::chrono::duration<double, std::milli>(decodeEnd - decodeStart).count();
+        if (!focusedCandidates.isEmpty()) {
+            passCount = 2;
         }
     }
 

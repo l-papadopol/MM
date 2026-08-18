@@ -428,7 +428,7 @@ private:
 SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle("SSTV QSO / QSL image editor");
+    setWindowTitle(L18n(QStringLiteral("SSTV QSO / QSL image editor")));
     resize(MadModemUi::size(2100, 1500));
     setMinimumSize(1650, 1180);
 
@@ -606,9 +606,9 @@ void SstvImageEditorDialog::setBackgroundImage(const QImage &image, const QStrin
 void SstvImageEditorDialog::loadBackground()
 {
     const QString fileName = QFileDialog::getOpenFileName(this,
-                                                          "Load SSTV background",
+                                                          L18n(QStringLiteral("Load SSTV background")),
                                                           QDir::homePath(),
-                                                          "Images (*.png *.jpg *.jpeg *.bmp);;All files (*)");
+                                                          L18n(QStringLiteral("Images (*.png *.jpg *.jpeg *.bmp);;All files (*)")));
     if (fileName.isEmpty()) {
         return;
     }
@@ -635,9 +635,9 @@ void SstvImageEditorDialog::makeWhiteCard()
 void SstvImageEditorDialog::loadLogo()
 {
     const QString fileName = QFileDialog::getOpenFileName(this,
-                                                          "Load logo",
+                                                          L18n(QStringLiteral("Load logo")),
                                                           QDir::homePath(),
-                                                          "Images (*.png *.jpg *.jpeg *.bmp);;All files (*)");
+                                                          L18n(QStringLiteral("Images (*.png *.jpg *.jpeg *.bmp);;All files (*)")));
     if (fileName.isEmpty()) {
         return;
     }
@@ -669,9 +669,9 @@ QString SstvImageEditorDialog::suggestedSavePath() const
 void SstvImageEditorDialog::savePng()
 {
     const QString fileName = QFileDialog::getSaveFileName(this,
-                                                          "Save SSTV PNG",
+                                                          L18n(QStringLiteral("Save SSTV PNG")),
                                                           suggestedSavePath(),
-                                                          "PNG image (*.png)");
+                                                          L18n(QStringLiteral("PNG image (*.png)")));
     if (fileName.isEmpty()) {
         return;
     }
@@ -746,7 +746,8 @@ void SstvImageEditorDialog::updateSelectedOverlayText()
 
 void SstvImageEditorDialog::chooseTextColor()
 {
-    const QColor color = QColorDialog::getColor(m_currentColor, this, "Choose text color");
+    const QColor color = QColorDialog::getColor(
+        m_currentColor, this, L18n(QStringLiteral("Choose text color")));
     if (!color.isValid()) {
         return;
     }

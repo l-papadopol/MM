@@ -1,15 +1,18 @@
 # MadModem 0.5.8 — correction and validation report
 
-Date: 2026-08-17  
+Date: 2026-08-18  
 Source: `MadModem_0_5_8_FULL_SOURCE`  
 Starting point: known-good FT8/FT4 source carried by the 0.5.78/0.5.79 recovery
 
 ## Release decision
 
-0.5.8 is a runtime-hardening release. The FT8/FT4 candidate search, live gate,
-LDPC load-shed decision and proven sequencer topology were not redesigned.
-Corrections were concentrated on ownership, synchronization, input validation,
-bounded queues, persistence, CAT/PTT safety and feature gating.
+0.5.8 is a runtime-hardening release. The validated FT8/FT4 candidate finders,
+LDPC gate and proven sequencer topology were not redesigned. R10 extends the
+already validated active-QSO deadline orchestration from FT8 to FT4: a bounded
+focused pass is attempted before wideband work and the normal wideband path is
+left unchanged on a miss. Other corrections concentrate on ownership,
+synchronization, input validation, bounded queues, persistence, CAT/PTT safety,
+localization, documentation and feature gating.
 
 The source guards prove that the three sensitivity-critical blocks still match
 the validated checkpoint:
@@ -21,8 +24,25 @@ the validated checkpoint:
 | FT8 LDPC ghost-candidate gate | `6e7b4f9c15b21a01f3351442c08c916a7f57f49686a98dfc7acb2296adee1e36` | PASS |
 
 The complete `Ft8RxDecoder.cpp` necessarily changed around the protected core
-to fix synchronization and streaming resampling. Its 0.5.8 source hash is
-`87253a921e4475fc79fef70ed86a8606db2dc915bdc47426cffb2e4936697c7d`.
+to fix synchronization, streaming resampling and FT4 active-QSO scheduling. Its
+R10 source hash is
+`4bfc4f48a0438f1ce2e724152c1fe13477264f0e77a6bc916628a6c2ae27c3ca`.
+
+## R10 operator UI, documentation, localization and FT4 parity
+
+- FT status banners and slot state now expose only the immediate action/state;
+  verbose explanations remain available as tooltips and contextual help.
+- Runtime operator messages and dialogs use stable translation keys. A new
+  guard rejects untranslated dynamic labels and oversized FT copy.
+- The word-by-word translation fallback was removed. Six dictionaries contain
+  1821 canonical keys in the same order, preserve every Qt placeholder and pass
+  semantic-mixing checks.
+- The project README is a concise feature overview with a six-screenshot capture
+  plan. Release notes, the documentation index and 36 high-risk localized help
+  pages were rewritten and are generator/audit owned.
+- FT4 now receives the same bounded active-correspondent-first scheduling as
+  FT8. Both callsigns must validate; failure immediately resumes the existing
+  full-band pipeline, so no second decoder or fallback topology was introduced.
 
 ## R5 complete UI theme correction
 
@@ -46,8 +66,8 @@ state, semantic status colour and map overlay colour.
 `madmodem_ui_theme_integrity_guard` verifies all five theme definitions, rejects
 known local colour/border leaks and enforces a minimum 4.5:1 contrast ratio for
 normal, editor, button, selection, semantic and map text. The lowest measured
-ratio is 4.76:1 (Qt Default warning text). The protected FT decoder remains
-byte-identical to R4 at the SHA-256 shown above.
+ratio is 4.76:1 (Qt Default warning text). Theme work does not touch any FT DSP
+path; the protected candidate and LDPC blocks retain the hashes shown above.
 
 ## R4 FT TX and RTTY waterfall correction
 
@@ -70,8 +90,9 @@ cancelled TX. R4 closes that failure as follows:
 - automatic sequencer, CQ and retry plans never use the partial path and defer
   an intact frame whenever the complete frame no longer fits.
 
-The entire protected `Ft8RxDecoder.cpp` remains byte-identical to the R3
-checkpoint and retains the SHA-256 recorded above.
+The R4 change was confined to TX orchestration and did not modify the protected
+candidate and LDPC blocks whose hashes are recorded above. The later R10 FT4
+active-QSO scheduling change is documented separately in the R10 section.
 
 RTTY live text no longer covers the crossed-ellipse scope. The existing
 time-locked waterfall glyph engine is now active for a single `rtty-live`
@@ -132,7 +153,8 @@ with waterfall time while multidecoder callsign callouts remain static.
 | FT atomic lifecycle, caller queue/waterfall restore and linear sequencer | PASS |
 | FT4 runtime topology and FT8/FT4 wideband/sensitivity invariants | PASS |
 | UI themes: five complete palettes, semantic/map contrast and border ownership | PASS |
-| Localization: 1787 keys in each of six languages | PASS |
+| Localization: 1821 keys in each of six languages | PASS |
+| Operator UI copy: compact state, translated runtime text and RTTY overlay control | PASS |
 | Documentation: version 0.5.8, 72 HTML pages, six Qt Help projects | PASS |
 | RTTY rules: 30 profiles, 29 active | PASS |
 | macOS portability and release-version guards | PASS |

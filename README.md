@@ -1,193 +1,142 @@
-> Current CW comparison checkpoint: live Bayesian posterior beam; see `docs/CW_BAYESIAN_BEAM_DECODER_0_5_78.md`.
-
 # MadModem 0.5.8
-## All-in-one digital modem and station hub for amateur radio
 
-MadModem is a Qt/C++ amateur-radio application for Linux, Windows and macOS.
-The current source tree contains one native CW receive implementation. Carrier
-discrimination, timing-family estimation and probabilistic Morse sequence
-decoding are independent live tasks; previous experimental decoder branches
-have been removed.
+**One desktop for digital modes, station control and radio experiments.**
 
-MadModem è un'applicazione radioamatoriale Qt/C++ per Linux, Windows e macOS.
-Il sorgente corrente contiene una sola implementazione CW nativa. La
-discriminazione della portante, la stima delle famiglie temporali e la decodifica
-probabilistica della sequenza Morse sono task live indipendenti; i precedenti
-rami sperimentali sono stati rimossi.
+MadModem is a free, cross-platform amateur-radio application built with Qt and
+C++. It brings receive and transmit tools, a wideband waterfall, CAT/PTT,
+rotator control, logging and mapping into a single operating workspace for
+Linux, Windows and macOS.
 
-## Main features / Funzioni principali
+The interface is designed for live use: mode controls stay beside the decoder,
+the waterfall remains visible while operating, and station data moves through a
+single logbook instead of separate utilities.
 
-- FT8 and FT4 RX/TX with integrated sequencer and live adaptive decoding.
-- RTTY, BPSK/QPSK, MFSK, Feld Hell, CW, SSTV and WEFAX/MeteoFax work areas.
-- MSK144 and Q65 development modes using GPL-compatible in-tree components; Q65 TX is always available, while Q65 RX requires the optional full FFTW/MSHV backend.
-- Hamlib CAT/PTT and rotator control.
-- Integrated QSO logbook, ADIF import/export, DXCC lookup and QSO map.
-- Radio Telescope receive-only scanning and CSV export.
-- Runtime UI and help in English, Italian, French, German, Norwegian and Czech.
+<!-- Hero screenshot requested: docs/images/madmodem-ft8-overview.png -->
 
-- FT8 e FT4 RX/TX con sequencer integrato e decoder live adattivo.
-- Aree operative RTTY, BPSK/QPSK, MFSK, Feld Hell, CW, SSTV e WEFAX/MeteoFax.
-- Modi MSK144 e Q65 in sviluppo con componenti GPL compatibili inclusi; il TX Q65 è sempre disponibile, mentre l'RX Q65 richiede il backend completo FFTW/MSHV opzionale.
-- Controllo CAT/PTT e rotore tramite Hamlib.
-- Registro QSO, import/export ADIF, ricerca DXCC e mappa QSO.
-- Scansione Radio Telescope in sola ricezione ed esportazione CSV.
-- Interfaccia e guida in inglese, italiano, francese, tedesco, norvegese e ceco.
+## What you can do
 
-## Adaptive FT runtime / Runtime FT adattivo
+- Work **FT8 and FT4** with live wideband decoding, standard messages, UTC slot
+  timing, QSO sequencing, caller queue and automatic logbook entry.
+- Receive and transmit **RTTY, BPSK/QPSK, MFSK and Feld Hell**, with macros and
+  a data-driven RTTY contest workspace.
+- Follow two signals at once in **CW**, using independent RX A/RX B markers,
+  AFC, adaptive speed tracking and diagnostic views.
+- Receive and transmit **SSTV** and **WEFAX/MeteoFax**, including direct WAV
+  analysis and image saving.
+- Experiment with **MSK144 and Q65**. Q65 receive requires the optional complete
+  FFTW/MSHV backend; the application reports clearly when that backend is not
+  present.
+- Control a radio through **Hamlib CAT/PTT**, keep the FT dial frequency aligned
+  with the selected band and use saved station settings at startup.
+- Control up to three rotator profiles, point by locator or DXCC, and track the
+  mechanical azimuth range safely.
+- Keep an **ADIF logbook**, inspect DXCC information and plot contacts on the
+  integrated QSO map.
+- Run receive-only **Radio Telescope** sky scans with rotator movement, timed
+  integration and CSV export.
 
-FT8/FT4 use a persistent worker pool sized from the processors available to the
-process rather than a fixed worker limit. Gate, boundary and OSD budgets adapt
-between slots using audio-queue and GUI/waterfall latency. Capture generations
-and timestamp checks prevent stale work from contaminating later slots.
+## Operating views
 
-FT8/FT4 usano un pool persistente dimensionato sulle risorse realmente
-disponibili. I budget di gate, boundary e OSD si adattano fra gli slot usando la
-latenza audio e della GUI/waterfall. Generazioni di cattura e controlli temporali
-impediscono a lavori obsoleti di contaminare gli slot successivi.
+| Area | Highlights |
+| --- | --- |
+| FT4 / FT8 | Wideband decode table, QSO timeline, standard messages, slot clock, focused QSO priority |
+| CW | Two independent receivers, Auto-WPM, AFC, selectable bandwidth, soft-decision timing diagnostics |
+| RTTY | Live terminal, Mark/Space tuning scope, optional waterfall text, contest profiles and macros |
+| Image modes | SSTV and WEFAX receive/transmit, image preview, WAV analysis and PNG export |
+| Station | CAT/PTT, audio routing, rotators, scheduler, logbook, DXCC and map |
+| Radio Telescope | Receive-only Alt-Az scans, beam-sized sampling cells and CSV measurements |
 
-## Native CW receiver / Ricevitore CW nativo
+## Built for on-air operation
 
-The live path is split into four responsibilities for each RX A/RX B receiver:
+MadModem keeps audio capture away from the GUI thread, bounds display queues and
+uses persistent decoder workers so a busy waterfall cannot create an unlimited
+backlog. FT4/FT8 scheduling follows UTC slot boundaries, while an active QSO
+receives a focused first decode pass around the correspondent's audio frequency.
 
-```text
-selected complex carrier
-  -> CwCarrierDiscriminator
-       timestamped MARK/SPACE runs + carrier quality
-  -> CwRelativeTimingTask
-       robust dit/dah and spacing-family estimation
-  -> CwMorseBeamDecoder
-       per-path dit/dah/gap duration posteriors
-       credible-posterior stable-prefix commit
-  -> continuous RX A/RX B text
-```
+The waterfall provides stable full-band levelling, OpenGL acceleration when
+available and a software fallback. Five complete themes cover controls, tables,
+menus, dialogs and maps rather than applying partial colour overrides.
 
-The exact-tone DSP, bounded neighbouring-lane separation, narrow fourth-order
-I/Q filtering, AFC and carrier/noise measurements remain unchanged. Timing is
-updated only by credible short/long pairs; isolated fragments cannot move WPM.
-SPACE observations train element, character and word families by relative
-likelihood rather than one hard threshold. Measured family centres are scored
-alongside canonical 1/3/7-unit centres at the acquired dit scale, with soft
-minimum-duration penalties: an initial WPM hint that is far too fast or slow no
-longer turns ordinary character gaps into words or intra-element jitter into
-character boundaries.
+## Station integration
 
-The Morse layer keeps a bounded beam of concurrent dot/dash and boundary paths.
-Each path owns Normal-Inverse-Gamma posteriors for dit, dah and the three SPACE
-families. Predictive Student-t likelihoods are mixed with the MARK/SPACE, QSB,
-noise and carrier-centering probabilities exported by the discriminator. Its
-short observation window is replayed whenever the external timing prior changes,
-so a wrong initial WPM hint cannot permanently classify the first dash. Text is
-published from shared credible posterior mass or a decisively dominant path. The
-delay is normally one following element/gap, not phrase-level or end-of-
-transmission decoding. No dictionary or language model is used.
+- Hamlib radio control over serial CAT, `rigctld` or supported TCP endpoints
+- CAT, serial RTS or serial DTR PTT routes
+- separate RX and TX audio-device selection
+- CAT-aware FT band changes and stored startup configuration
+- independent radio and rotator connections
+- ADIF import/export and atomic logbook saving
+- direct recording of the normalized RX stream as 16-bit PCM WAV
 
-Carrier continuity is no longer a fixed 8.5/12-dit timeout. Each receiver keeps
-a session probability with fast attack and a decay constant derived from the
-learned word-space family and prior carrier stability. Normal/Farnsworth word
-gaps remain alive, while a dead noisy lane loses qualification progressively.
-A bounded timeout remains only as a final safety for confirmed carrier loss.
+Before transmitting, verify the selected radio mode, PTT route, TX audio level,
+frequency and antenna. Before automatic movement, configure rotator limits,
+cable-wrap behaviour and an accessible emergency stop.
 
-The Runtime Log shows the exact committed pattern plus Bayesian hypothesis count,
-sequence confidence, best posterior and best/second posterior odds. Auto-WPM remains bounded to 5-50 WPM. All processing is in
-the production RX live path; the pure-C++ tests only validate that same code.
+## Screenshots wanted
 
-Il percorso CW live separa discriminatore di portante, stima robusta del timing
-e decoder Morse a ipotesi concorrenti. Le osservazioni non ancora pubblicate
-vengono ricalcolate quando cambia il clock, evitando che il WPM iniziale errato
-condanni il primo elemento. Il testo viene emesso con un piccolo ritardo solo
-quando le ipotesi migliori concordano. La continuità della sessione è
-probabilistica e dipende dallo spazio-parola appreso, non da un timeout fisso in
-dit.
+The following images will give the project page a useful visual tour. Capture
+them at 1920×1080 (or the monitor's native resolution) with the **Avionica**
+theme, no open tooltip or Runtime Log window, and a clean audio level below
+clipping.
 
-The implementation was informed by architectural study of the two open-source
-CW skimmer projects supplied for comparison. No source code from either project
-was copied into MadModem.
+1. **FT8 live QSO** — received decodes, QSO history, selected standard message,
+   slot clock, waterfall and CAT frequency all visible.
+2. **CW dual receiver** — two separated waterfall markers, RX A/RX B text and
+   the diagnostic envelopes visible without covering one another.
+3. **RTTY contest** — terminal, Mark/Space scope, compact Contest tab and the
+   optional vertical waterfall decode trail.
+4. **SSTV or WEFAX** — a completed decoded image beside the relevant receive
+   controls.
+5. **Logbook and QSO map** — a filtered set of contacts with paths or Maidenhead
+   squares visible.
+6. **Radio Telescope** — an active or completed sky scan with the measurement
+   grid and rotator state.
 
-## Direct RX WAV recording / Registrazione WAV RX
+Suggested filenames are `madmodem-ft8-overview.png`,
+`madmodem-cw-dual-rx.png`, `madmodem-rtty-contest.png`,
+`madmodem-image-mode.png`, `madmodem-logbook-map.png` and
+`madmodem-radio-telescope.png`. Place them in `docs/images/`; the first can then
+replace the hero comment near the top of this file.
 
-Use **File → Start RX audio recording…** (`Ctrl+Shift+R`) to record the exact
-normalized mono stream used by the waterfall and decoders. The recorder writes
-16-bit PCM WAV at the active input sample rate and closes safely on Stop RX,
-audio error, sample-rate change or application shutdown.
+## Languages and help
 
-Usare **File → Avvia registrazione audio RX…** (`Ctrl+Shift+R`) per registrare lo
-stesso flusso mono normalizzato usato dal waterfall e dai decoder. Il file WAV è
-PCM 16 bit al sample rate attivo e viene chiuso in sicurezza all'arresto RX, in
-caso di errore audio, cambio sample rate o chiusura dell'applicazione.
+The runtime interface and embedded Qt Help are available in English, Italian,
+French, German, Norwegian and Czech. Language changes apply to the active
+interface without changing radio or decoder settings.
 
-## Waterfall
+Start with **Help → MadModem Help** or open [`docs/README.md`](docs/README.md)
+for the documentation index.
 
-The waterfall uses WSJT-X-style per-row Flatten processing: the lowest ten
-percent of each of ten frequency segments define a fourth-order lower-envelope
-fit that is subtracted before fixed gain/zero colour mapping. Receiver AGC steps
-therefore disappear in the next row instead of pumping the occupied band orange.
-A persistent passband detector excludes digitally silent monitor bins. Downward
-scrolling uses a circular OpenGL texture with one-row presentation, HiDPI viewport
-correction and a QImage fallback.
+## Build from source
 
-Il waterfall usa il Flatten per-riga derivato da WSJT-X: il dieci per cento più
-basso di ciascuno dei dieci segmenti di frequenza definisce l'inviluppo inferiore
-polinomiale di quarto ordine, sottratto prima della mappatura colore a guadagno
-fisso. Le variazioni dell'AGC del ricevitore vengono quindi compensate nella riga
-successiva senza rendere arancione tutta la banda. Il rilevatore persistente della
-banda esclude i bin digitalmente silenziosi; scorrimento OpenGL, HiDPI e fallback
-QImage restano invariati.
-
-## Building from source / Compilazione
+The project requires CMake, a C++17 compiler, Qt 5 or Qt 6 development packages
+and the usual audio/serial development libraries. Hamlib enables radio and
+rotator control.
 
 ```bash
 ./build_all.sh
 ```
 
-Requirements: CMake, a C++17 compiler, Qt 5 or Qt 6 development packages,
-Hamlib and the normal audio/serial development tools. FFTW3 and the full MSHV
-decoder bridge are required to enable Q65 reception; without them Q65 TX remains
-available and RX is explicitly disabled.
-
-Servono CMake, un compilatore C++17, i pacchetti di sviluppo Qt 5 o Qt 6,
-Hamlib e i normali strumenti di sviluppo audio/seriale. FFTW3 e il bridge decoder
-MSHV completo sono necessari per abilitare la ricezione Q65; senza di essi il TX
-Q65 resta disponibile e l'RX viene esplicitamente disabilitato.
-
-## Regression checks
+The repository includes CI configurations for Linux, Windows and macOS. Native
+decoder regressions and source audits can also be run through CTest after a
+test-enabled build.
 
 ```bash
-./scripts/run_cw_native_regression.sh
-./scripts/run_waterfall_leveler_regression.sh
+ctest --test-dir build --output-on-failure
 ```
 
-The CW test compiles the production discriminator, temporal worker, timing
-model and beam decoder. It covers replay after a wrong initial clock, the real
-30.5 WPM/8.8-dit OG50YL case, additive noise, deep QSB notches, human timing, a
-non-ideal 2.45 dash ratio, a stronger known carrier at +70 Hz, post-message noise
-and noise-only suppression. Recorded and on-air signals remain the decisive
-acceptance test.
+See [`RELEASE_NOTES.md`](RELEASE_NOTES.md) for the current user-visible changes,
+[`CHANGELOG.md`](CHANGELOG.md) for development history and
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for component provenance.
 
-Il test CW compila il discriminatore, il worker temporale e il decoder relativo
-di produzione. Verifica WPM iniziale errato, rumore, notch QSB profondi, timing
-umano, rapporto linea/punto 2,45, una portante nota più forte a +70 Hz e la
-soppressione del solo rumore. L'accettazione decisiva resta su registrazioni e
-segnali in aria.
+## Project status
 
-## Documentation
+MadModem is under active development. FT4/FT8, CW and live radio control should
+always be validated with the same recorded audio and on-air setup when decoder
+or timing code changes. MSK144 and Q65 remain development areas; Q65 receive is
+available only when its complete optional backend is compiled.
 
-- `RELEASE_NOTES.md` — current release notes
-- `CHANGELOG.md` — current concise changelog
-- `docs/cwskimmer/` — native CW architecture and tests
-- `docs/help/` — localized user help
-- `THIRD_PARTY_NOTICES.md` — source origins and third-party notices
-
-## Safety notes / Note di sicurezza
-
-Verify PTT, CAT mode, TX audio routing, frequency and antenna direction before
-transmitting. Configure rotator limits and emergency-stop behaviour before any
-automatic scan.
-
-Verificare PTT, modo CAT, instradamento audio TX, frequenza e direzione
-dell'antenna prima di trasmettere. Configurare limiti del rotore e arresto di
-emergenza prima di ogni scansione automatica.
-
-## Author and license
+## Author and licence
 
 MadModem is developed by **Lucian-Ioan Papadopol, IZ6NNH** and released under
-the **GNU GPLv3**. See `LICENSE.md`, `COPYING` and `THIRD_PARTY_NOTICES.md`.
+the **GNU General Public License v3**. See [`LICENSE.md`](LICENSE.md) and
+[`COPYING`](COPYING).
