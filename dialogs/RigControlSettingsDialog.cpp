@@ -1,4 +1,5 @@
 #include "RigControlSettingsDialog.h"
+#include "../utils/CockpitTheme.h"
 #include "../utils/UiScale.h"
 
 #include "../rig/HamlibController.h"
@@ -411,9 +412,11 @@ void RigControlSettingsDialog::buildUi()
 
     m_lblCompiled = new QLabel(this);
     m_lblCompiled->setWordWrap(true);
-    m_lblCompiled->setStyleSheet(HamlibController::isCompiledWithHamlib()
-                                     ? QStringLiteral("color: #118a2a; font-weight: 500;")
-                                     : QStringLiteral("color: #b00020; font-weight: 500;"));
+    m_lblCompiled->setStyleSheet(QStringLiteral("font-weight: 500;"));
+    MadModemUi::setSemanticRole(m_lblCompiled,
+                                HamlibController::isCompiledWithHamlib()
+                                    ? QStringLiteral("positive")
+                                    : QStringLiteral("negative"));
     outer->addWidget(m_lblCompiled);
 
     QGroupBox *catGroup = new QGroupBox;
@@ -514,7 +517,8 @@ void RigControlSettingsDialog::buildUi()
 
     m_lblBaudHint = new QLabel(catGroup);
     m_lblBaudHint->setWordWrap(true);
-    m_lblBaudHint->setStyleSheet(QStringLiteral("color: #5b6b5b; font-style: italic;"));
+    m_lblBaudHint->setStyleSheet(QStringLiteral("font-style: italic;"));
+    MadModemUi::setSemanticRole(m_lblBaudHint, QStringLiteral("muted"));
 
     m_lblPoll = new QLabel(catGroup);
     m_spinPollMs = new QSpinBox(catGroup);
@@ -1342,9 +1346,10 @@ void RigControlSettingsDialog::setTestStatus(const QString &message, bool ok)
 {
     if (m_lblTestStatus != nullptr) {
         m_lblTestStatus->setText(message);
-        m_lblTestStatus->setStyleSheet(ok
-            ? QStringLiteral("color: #118a2a; font-weight: 500;")
-            : QStringLiteral("color: #b00020; font-weight: 500;"));
+        m_lblTestStatus->setStyleSheet(QStringLiteral("font-weight: 500;"));
+        MadModemUi::setSemanticRole(m_lblTestStatus,
+                                    ok ? QStringLiteral("positive")
+                                       : QStringLiteral("negative"));
     }
 
     if (m_lblCatLed != nullptr) {

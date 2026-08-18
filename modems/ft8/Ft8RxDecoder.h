@@ -239,6 +239,7 @@ private:
         double syncNoisePower = 0.0;
         double spectralScore = 0.0;
         bool bucketRescue = false;
+        bool qsoPriority = false;
         bool refined = false;
     };
 

@@ -2,6 +2,17 @@
 
 ## 0.5.8 release focus
 
+- Active FT8 QSOs now own the pre-boundary decode deadline. A bounded set around
+  the tracked RX frequency is admitted and decoded first, with both callsigns
+  required before early completion. This prevents a valid reply from waiting
+  for the 1.3–1.4 s full boundary pass while preserving the normal wideband
+  quota whenever the focused set does not recover the correspondent.
+- Rebuilt all five UI themes as complete, deterministic palettes instead of
+  partial overrides layered over Avionica. Qt Default/Classic now uses dark
+  text on light surfaces, one quiet frame, palette-aware popups and tables, and
+  a readable map; Hacker Green, Classic Dark and High Contrast receive the same
+  complete treatment. Live switching recolours existing dialogs, semantic
+  status text, FT banners, map chrome and waterfall controls without restart.
 - Fixed the FT8/FT4 TX boundary regression that keyed PTT and then cancelled
   audio after roughly two seconds. CAT/PTT now pre-arms 650 ms before the UTC
   boundary, while boundary/deep RX decoding is finalized asynchronously and

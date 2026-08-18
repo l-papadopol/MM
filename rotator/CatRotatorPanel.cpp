@@ -138,7 +138,8 @@ void CatRotatorPanel::buildUi()
     m_btnConnect->setToolTip(MadModemI18n::text(QStringLiteral("Connect or disconnect the configured rotator backend.")));
     m_btnStop = new QPushButton(MadModemI18n::text(QStringLiteral("STOP")), this);
     m_btnStop->setToolTip(MadModemI18n::text(QStringLiteral("Stop the current rotator movement immediately.")));
-    m_btnStop->setStyleSheet(QStringLiteral("QPushButton { color: #ff3b55; font-weight: 500; }"));
+    m_btnStop->setStyleSheet(QStringLiteral("QPushButton { font-weight: 500; }"));
+    m_btnStop->setProperty("mmRole", QStringLiteral("negative"));
 
     m_btnGo = new QPushButton(MadModemI18n::text(QStringLiteral("Go")), this);
     m_btnGo->setToolTip(MadModemI18n::text(QStringLiteral("Move the rotator to the manual Set Az / Set El values.")));

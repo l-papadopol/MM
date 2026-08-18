@@ -1,4 +1,5 @@
 #include "CwDiagnosticWidget.h"
+#include "../utils/CockpitTheme.h"
 
 #include <QBoxLayout>
 #include <QIcon>
@@ -667,9 +668,10 @@ public:
         tools->setContentsMargins(0, 0, 0, 0);
         tools->setSpacing(3);
         m_title = new QLabel(this);
-        m_title->setStyleSheet(primary
-            ? QStringLiteral("font-weight:700;color:#50ff78;")
-            : QStringLiteral("font-weight:700;color:#4aa8ff;"));
+        m_title->setStyleSheet(QStringLiteral("font-weight:700;"));
+        MadModemUi::setSemanticRole(m_title,
+                                    primary ? QStringLiteral("rxPrimary")
+                                            : QStringLiteral("rxSecondary"));
         tools->addWidget(m_title);
         tools->addStretch(1);
 

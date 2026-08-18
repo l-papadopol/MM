@@ -1,5 +1,6 @@
 #include "QsoMapWidget.h"
 #include "../utils/RuntimeI18n.h"
+#include "../utils/CockpitTheme.h"
 #include "../dxcc/CtyCountryFile.h"
 
 #include <QDateTime>
@@ -62,6 +63,15 @@ constexpr double kEarthRadiusKm = 6371.0;
 
 constexpr int kOsmTileSize = 256;
 constexpr double kMaxMapZoom = 8192.0;
+
+QColor blendColours(const QColor &base, const QColor &tint, int tintPercent)
+{
+    const int weight = qBound(0, tintPercent, 100);
+    const int baseWeight = 100 - weight;
+    return QColor((base.red() * baseWeight + tint.red() * weight) / 100,
+                  (base.green() * baseWeight + tint.green() * weight) / 100,
+                  (base.blue() * baseWeight + tint.blue() * weight) / 100);
+}
 
 int wrapTileX(int x, int z)
 {
@@ -1221,7 +1231,11 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 {
     painter->save();
     painter->setClipRect(mapRect);
-    painter->fillRect(mapRect, QColor(7, 9, 10));
+    painter->fillRect(mapRect, MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBackdrop));
+
+    QColor attributionBackground = MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBackdrop);
+    attributionBackground.setAlpha(220);
+    const QColor attributionText = MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapText);
 
     if (m_exportRendering) {
         // v4.13a: export/print should use the same cached OpenStreetMap tiles
@@ -1248,8 +1262,8 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 
         painter->setClipping(false);
         const QRect attrib(mapRect.left() + 6, mapRect.bottom() - 21, 420, 18);
-        painter->fillRect(attrib, QColor(5, 6, 7, 220));
-        painter->setPen(QColor(255, 179, 90));
+        painter->fillRect(attrib, attributionBackground);
+        painter->setPen(attributionText);
         painter->drawText(attrib.adjusted(5, 0, -5, 0),
                           Qt::AlignVCenter | Qt::AlignLeft,
                           cachedTiles > 0
@@ -1280,8 +1294,8 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
     if (m_osmTileRequestBlocked && m_osmTileCache.isEmpty()) {
         painter->setClipping(false);
         const QRect attrib(mapRect.left() + 6, mapRect.bottom() - 21, 340, 18);
-        painter->fillRect(attrib, QColor(5, 6, 7, 215));
-        painter->setPen(QColor(255, 179, 90));
+        painter->fillRect(attrib, attributionBackground);
+        painter->setPen(attributionText);
         painter->drawText(attrib.adjusted(5, 0, -5, 0),
                           Qt::AlignVCenter | Qt::AlignLeft,
                           QStringLiteral("Offline bundled map"));
@@ -1318,8 +1332,9 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 
     painter->setClipping(false);
     const QRect attrib(mapRect.left() + 6, mapRect.bottom() - 21, 260, 18);
-    painter->fillRect(attrib, QColor(5, 6, 7, 205));
-    painter->setPen(QColor(255, 179, 90));
+    attributionBackground.setAlpha(205);
+    painter->fillRect(attrib, attributionBackground);
+    painter->setPen(attributionText);
     painter->drawText(attrib.adjusted(5, 0, -5, 0),
                       Qt::AlignVCenter | Qt::AlignLeft,
                       QStringLiteral("OpenStreetMap raster tiles"));
@@ -1329,13 +1344,13 @@ void QsoMapWidget::drawOsmTiles(QPainter *painter, const QRect &mapRect) const
 void QsoMapWidget::drawMap(QPainter *painter, const QRect &targetRect) const
 {
     painter->save();
-    painter->fillRect(targetRect, QColor(5, 6, 7));
+    painter->fillRect(targetRect, MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBackdrop));
 
     const QRect titleLine(targetRect.left() + 12,
                           targetRect.top() + 6,
                           qMax(10, targetRect.width() - 24),
                           24);
-    painter->setPen(QPen(QColor(255, 179, 90), 1));
+    painter->setPen(QPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapText), 1));
     painter->drawText(titleLine,
                       Qt::AlignLeft | Qt::AlignVCenter,
                       mapTitleText());
@@ -1348,7 +1363,7 @@ void QsoMapWidget::drawMap(QPainter *painter, const QRect &targetRect) const
         QFont smallFont = painter->font();
         smallFont.setPointSize(qMax(7, smallFont.pointSize() - 1));
         painter->setFont(smallFont);
-        painter->setPen(QPen(QColor(80, 95, 110), 1));
+        painter->setPen(QPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapMutedText), 1));
         const QString elided = painter->fontMetrics().elidedText(reason, Qt::ElideRight, reasonLine.width());
         painter->drawText(reasonLine,
                           Qt::AlignLeft | Qt::AlignTop,
@@ -1362,7 +1377,7 @@ void QsoMapWidget::drawMap(QPainter *painter, const QRect &targetRect) const
     drawGrid(painter, mapRect);
     drawOverlays(painter, targetRect);
     painter->setClipping(false);
-    painter->setPen(QPen(QColor(50, 60, 70), 1));
+    painter->setPen(QPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBorder), 1));
     painter->drawRect(mapRect.adjusted(-1, -1, 1, 1));
     painter->restore();
 }
@@ -1371,8 +1386,12 @@ void QsoMapWidget::drawLand(QPainter *painter, const QRect &mapRect) const
 {
     painter->save();
     painter->setClipRect(mapRect);
-    painter->setBrush(QColor(38, 48, 42));
-    painter->setPen(QPen(QColor(95, 115, 96), 1));
+    const QColor backdrop = MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBackdrop);
+    const QColor land = blendColours(backdrop,
+                                     MadModemUi::themeColor(MadModemUi::ThemeColorRole::Positive),
+                                     25);
+    painter->setBrush(land);
+    painter->setPen(QPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapMutedText), 1));
     for (const QPolygonF &poly : worldLandPolygons()) {
         QPolygonF screenPoly;
         for (const QPointF &lonLat : poly) {
@@ -1387,7 +1406,9 @@ void QsoMapWidget::drawGrid(QPainter *painter, const QRect &mapRect) const
 {
     painter->save();
     painter->setClipRect(mapRect);
-    painter->setPen(QPen(QColor(80, 108, 122, 150), 1, Qt::DashLine));
+    QColor gridColor = MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapMutedText);
+    gridColor.setAlpha(150);
+    painter->setPen(QPen(gridColor, 1, Qt::DashLine));
     for (int lon = -180; lon <= 180; lon += 30) {
         const QPointF a = lonLatToScreen(QPointF(lon, -90), mapRect);
         const QPointF b = lonLatToScreen(QPointF(lon, 90), mapRect);
@@ -1443,11 +1464,14 @@ void QsoMapWidget::drawMaidenheadGrid(QPainter *painter, const QRect &mapRect) c
             const bool isWorked = worked.contains(grid4);
             const int count = worked.value(grid4, 0);
             const int alpha = isWorked ? qMin(92, 42 + count * 10) : 34;
-            painter->fillRect(cell, isWorked ? QColor(0, 150, 70, alpha)
-                                             : QColor(190, 30, 30, alpha));
-            painter->setPen(QPen(isWorked ? QColor(0, 120, 55, 110)
-                                           : QColor(160, 20, 20, 95),
-                                 isWorked ? 1.2 : 0.8));
+            QColor cellColour = MadModemUi::themeColor(isWorked
+                ? MadModemUi::ThemeColorRole::Positive
+                : MadModemUi::ThemeColorRole::Negative);
+            cellColour.setAlpha(alpha);
+            QColor cellOutline = cellColour.darker(140);
+            cellOutline.setAlpha(isWorked ? 130 : 110);
+            painter->fillRect(cell, cellColour);
+            painter->setPen(QPen(cellOutline, isWorked ? 1.2 : 0.8));
             painter->drawRect(cell);
 
             if (cell.width() >= 42.0 && cell.height() >= 20.0) {
@@ -1455,7 +1479,7 @@ void QsoMapWidget::drawMaidenheadGrid(QPainter *painter, const QRect &mapRect) c
                 f.setBold(isWorked);
                 f.setPointSize(qMax(6, f.pointSize() - 2));
                 painter->setFont(f);
-                painter->setPen(isWorked ? QColor(0, 70, 28, 210) : QColor(120, 0, 0, 185));
+                painter->setPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapText));
                 painter->drawText(cell.adjusted(2, 1, -2, -1),
                                   Qt::AlignCenter,
                                   grid4);
@@ -1649,15 +1673,19 @@ void QsoMapWidget::drawOverlays(QPainter *painter, const QRect &targetRect) cons
     painter->setRenderHint(QPainter::Antialiasing, true);
 
     if (haveHome && m_showPaths) {
-        painter->setPen(QPen(QColor(40, 95, 145, 130), 1.2));
+        QColor pathColour = MadModemUi::themeColor(MadModemUi::ThemeColorRole::RxSecondary);
+        pathColour.setAlpha(150);
+        painter->setPen(QPen(pathColour, 1.2));
         for (const MapPoint &p : points) {
             painter->drawLine(homeScreen, p.screen);
         }
     }
 
     if (haveHome) {
+        QColor labelBackground = MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBackdrop);
+        labelBackground.setAlpha(225);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(255, 255, 255, 210));
+        painter->setBrush(labelBackground);
         painter->drawEllipse(homeScreen, 18, 18);
 
         QPainterPath house;
@@ -1669,8 +1697,9 @@ void QsoMapWidget::drawOverlays(QPainter *painter, const QRect &targetRect) cons
         house.lineTo(homeScreen.x() - 9, homeScreen.y() + 13);
         house.lineTo(homeScreen.x() - 9, homeScreen.y() + 2);
         house.closeSubpath();
-        painter->setBrush(QColor(255, 215, 40));
-        painter->setPen(QPen(QColor(90, 48, 0), 2.2));
+        const QColor homeColour = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Warning);
+        painter->setBrush(homeColour);
+        painter->setPen(QPen(homeColour.darker(190), 2.2));
         painter->drawPath(house);
 
         const QString homeLabel = QStringLiteral("HOME %1").arg(m_homeGrid.left(6));
@@ -1690,25 +1719,25 @@ void QsoMapWidget::drawOverlays(QPainter *painter, const QRect &targetRect) cons
         }
         QRectF labelRect(labelX, labelY, labelW, labelH);
         painter->setPen(Qt::NoPen);
-        painter->setBrush(QColor(255, 255, 255, 225));
+        painter->setBrush(labelBackground);
         painter->drawRoundedRect(labelRect, 5, 5);
-        painter->setPen(QPen(QColor(60, 65, 70), 1));
+        painter->setPen(QPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBorder), 1));
         painter->drawRoundedRect(labelRect, 5, 5);
-        painter->setPen(QColor(20, 35, 50));
+        painter->setPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapText));
         painter->drawText(labelRect.adjusted(8, 0, -8, 0), Qt::AlignVCenter | Qt::AlignLeft, homeLabel);
     }
 
     painter->setFont(QFont(painter->font().family(), 8, QFont::Bold));
     for (const MapPoint &p : points) {
-        QColor fill(230, 64, 64);
-        QColor outline(80, 0, 0);
+        QColor fill = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Negative);
+        QColor outline = fill.darker(190);
         QString label = p.entry.callsign.left(12);
         if (m_displayBehavior == DisplayBehavior::HeardToday) {
-            fill = QColor(255, 185, 35);
-            outline = QColor(120, 70, 0);
+            fill = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Warning);
+            outline = fill.darker(190);
         } else if (m_displayBehavior == DisplayBehavior::WorkedDxcc) {
-            fill = QColor(45, 170, 85);
-            outline = QColor(0, 90, 35);
+            fill = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Positive);
+            outline = fill.darker(190);
             label = p.entry.country.trimmed();
             if (label.isEmpty()) {
                 label = p.entry.adifFields.value(QStringLiteral("CTY_NAME"));
@@ -1724,12 +1753,23 @@ void QsoMapWidget::drawOverlays(QPainter *painter, const QRect &targetRect) cons
         painter->setBrush(fill);
         painter->setPen(QPen(outline, 1.2));
         painter->drawEllipse(p.screen, 5, 5);
-        painter->setPen(QColor(20, 20, 20));
-        painter->drawText(p.screen + QPoint(7, -5), label);
+        const QFontMetrics labelMetrics(painter->font());
+        const QRect labelBounds = labelMetrics.boundingRect(label);
+        QRectF markerLabel(p.screen.x() + 7.0,
+                           p.screen.y() - labelBounds.height() - 5.0,
+                           labelBounds.width() + 8.0,
+                           labelBounds.height() + 4.0);
+        QColor markerBackground = MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBackdrop);
+        markerBackground.setAlpha(215);
+        painter->setBrush(markerBackground);
+        painter->setPen(QPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapBorder), 0.8));
+        painter->drawRoundedRect(markerLabel, 3, 3);
+        painter->setPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapText));
+        painter->drawText(markerLabel.adjusted(4, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft, label);
     }
 
     painter->setClipping(false);
-    painter->setPen(QColor(30, 50, 65));
+    painter->setPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapText));
     painter->drawText(targetRect.adjusted(12, -24, -12, -6),
                       Qt::AlignRight | Qt::AlignBottom,
                       mapStatusText());

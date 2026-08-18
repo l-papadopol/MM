@@ -24,6 +24,31 @@ The complete `Ft8RxDecoder.cpp` necessarily changed around the protected core
 to fix synchronization and streaming resampling. Its 0.5.8 source hash is
 `87253a921e4475fc79fef70ed86a8606db2dc915bdc47426cffb2e4936697c7d`.
 
+## R5 complete UI theme correction
+
+R5 removes the split ownership that let Avionica colours and borders leak into
+the other appearance choices. `CockpitTheme` is now the single owner of five
+complete themes: Avionica, Qt Default/Classic, Hacker Green, Classic Dark and
+High Contrast. Each defines every application surface, selection, disabled
+state, semantic status colour and map overlay colour.
+
+- Avionica retains its intentional three-part aircraft-instrument outer bezel;
+- every non-Avionica theme uses a single quiet palette-derived outer outline;
+- Qt Default/Classic is a deterministic light theme, with dark text on light
+  editors, buttons, tables, menus and dialogs;
+- surviving dialogs, combo popups, map overlays and custom-painted controls are
+  repolished and repainted during a live theme switch;
+- fixed orange/black styles were removed from Logbook, settings popups, the QSO
+  map container, FT diagnostics, CW/RTTY status text and waterfall controls;
+- the RF waterfall remains an intentionally dark instrument surface in every
+  theme, while its controls follow the active palette.
+
+`madmodem_ui_theme_integrity_guard` verifies all five theme definitions, rejects
+known local colour/border leaks and enforces a minimum 4.5:1 contrast ratio for
+normal, editor, button, selection, semantic and map text. The lowest measured
+ratio is 4.76:1 (Qt Default warning text). The protected FT decoder remains
+byte-identical to R4 at the SHA-256 shown above.
+
 ## R4 FT TX and RTTY waterfall correction
 
 The captured live log showed that the FT waveform was not intrinsically two
@@ -106,7 +131,8 @@ with waterfall time while multidecoder callsign callouts remain static.
 | RTTY narrow contest layout and live/runtime rules | PASS |
 | FT atomic lifecycle, caller queue/waterfall restore and linear sequencer | PASS |
 | FT4 runtime topology and FT8/FT4 wideband/sensitivity invariants | PASS |
-| Localization: 1791 keys in each of six languages | PASS |
+| UI themes: five complete palettes, semantic/map contrast and border ownership | PASS |
+| Localization: 1787 keys in each of six languages | PASS |
 | Documentation: version 0.5.8, 72 HTML pages, six Qt Help projects | PASS |
 | RTTY rules: 30 profiles, 29 active | PASS |
 | macOS portability and release-version guards | PASS |

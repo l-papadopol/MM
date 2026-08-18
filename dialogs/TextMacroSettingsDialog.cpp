@@ -1,6 +1,7 @@
 #include "TextMacroSettingsDialog.h"
 #include "../utils/UiScale.h"
 #include "../utils/RuntimeI18n.h"
+#include "../utils/CockpitTheme.h"
 
 #include <QDialogButtonBox>
 #include <QFrame>
@@ -45,7 +46,7 @@ QLabel *makeTokenLabel(const QString &text, QWidget *parent)
     label->setMinimumWidth(kTokenMinWidth);
     label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    label->setStyleSheet("color: #555555;");
+    MadModemUi::setSemanticRole(label, QStringLiteral("muted"));
     return label;
 }
 

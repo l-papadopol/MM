@@ -65,11 +65,6 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     setMinimumSize(1280, 760);
     resize(MadModemUi::size(1480, 840));
     setObjectName(QStringLiteral("MadModemLogbookDialog"));
-    setStyleSheet(styleSheet() + QStringLiteral(
-        "QDialog#MadModemLogbookDialog { border: 3px double #a56725; background: #030303; }"
-        "QDialog#MadModemLogbookDialog QGroupBox { border: 1px solid #69451f; border-radius: 7px; margin-top: 8px; padding: 8px; }"
-        "QDialog#MadModemLogbookDialog QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #ffb343; }"
-    ));
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(8);
@@ -153,14 +148,10 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     // QLayout::setMenuBar().  setMenuBar() reserves a native top strip outside
     // the layout margins and, with the cockpit/double-border theme, the menu
     // paint area covers the outer frame: visually the frame looks interrupted
-    // above "File/Edit/Search/Tools".  As a normal child widget it respects
-    // the 10 px inset and the triple-style outer border remains continuous.
+    // above "File/Edit/Search/Tools". As a normal child widget it respects the
+    // 10 px inset and the one theme-owned window frame remains continuous.
     m_menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    m_menuBar->setStyleSheet(QStringLiteral(
-        "QMenuBar { background: #050505; border: 1px solid #4b331b; border-radius: 5px; padding: 2px 6px; }"
-        "QMenuBar::item { background: transparent; color: #ffb343; padding: 3px 12px; }"
-        "QMenuBar::item:selected { background: #20140a; border: 1px solid #8a5a25; border-radius: 4px; }"
-    ));
+    m_menuBar->setStyleSheet(QStringLiteral("QMenuBar::item { padding: 3px 12px; }"));
     mainLayout->addWidget(m_menuBar);
 
     m_toolbar = new QToolBar(this);
@@ -282,11 +273,8 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     m_table->setSortingEnabled(true);
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
     m_table->setStyleSheet(QStringLiteral(
-        "QTableWidget { background: #050505; alternate-background-color: #101010; color: #ffb343; gridline-color: #3a2612; selection-background-color: #5a3815; selection-color: #ffd28a; }"
         "QTableWidget::item { padding: 2px; }"
-        "QHeaderView::section { background: #1a1712; color: #ffb343; padding: 3px; border: 1px solid #5a3815; font-weight: 600; }"
-        "QTableCornerButton::section { background: #1a1712; border: 1px solid #5a3815; }"
-    ));
+        "QHeaderView::section { padding: 3px; font-weight: 600; }"));
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     m_importButton = new QPushButton(L("Import ADIF..."), this);
@@ -1961,4 +1949,3 @@ void LogbookDialog::saveStatisticsPdf()
     }
     saveStatisticsToPdf(records, scopeLabel, defaultBaseName);
 }
-

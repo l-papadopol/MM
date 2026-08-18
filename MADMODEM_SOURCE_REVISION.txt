@@ -1,1 +1,1 @@
-0.5.8-source-r4-ft-tx-rtty-waterfall-fix
+0.5.8-source-r6-ft8-qso-deadline-priority

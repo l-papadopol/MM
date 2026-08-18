@@ -2,6 +2,14 @@
 
 ## 0.5.8 — integral source hardening — 2026-08-17
 
+- Added a single-path FT8 active-QSO deadline policy. The live gate now reserves
+  a bounded candidate quota around the tracked correspondent, decodes it before
+  wideband LDPC, validates both callsigns and returns immediately on success;
+  the existing full-passband candidate budget remains unchanged on a miss.
+- Replaced the incomplete non-Avionica style fragments with five centralized
+  themes covering palettes, controls, dialogs, popups, maps and semantic state
+  colours. Non-Avionica windows use one border, while Avionica deliberately
+  retains its cockpit bezel. Added a WCAG contrast/source-integrity CTest guard.
 - Preserved the validated FT8/FT4 candidate, gate, LDPC and sequencer core.
 - Isolated capture from the GUI and bounded UI/DSP audio delivery queues.
 - Made CAT audio routing, mode selection, PTT transitions and shutdown fail closed.

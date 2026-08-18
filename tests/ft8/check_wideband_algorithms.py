@@ -270,8 +270,8 @@ def test_source_invariants() -> None:
         "(const QVector<double> &samples, double threshold) const",
     )
     require(hashlib.sha256(ft8_finder.encode()).hexdigest() ==
-            "2d4ca13f3ea884157d8343aaccff16a38b09351ce045bd156ef4f9c1afdc083f",
-            "FT8 live candidate finder differs from the validated adaptive-runtime checkpoint")
+            "6d2ffe9464be8dceca6351665a50ae810ff289bc2d386f4535f4019c6b118cd1",
+            "FT8 live candidate finder differs from the validated QSO-deadline checkpoint")
     require(hashlib.sha256(ft4_finder.encode()).hexdigest() ==
             "3b160cfb8f022a74282c6907a2e470e2615f6792a81bb2af95baa6191fff2af3",
             "FT4 live candidate finder differs from the validated adaptive-runtime checkpoint")

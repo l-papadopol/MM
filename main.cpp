@@ -240,14 +240,14 @@ int main(int argc, char *argv[])
     AppSettings bootSettings;
     bootSettings.load();
     const QString bootTheme = bootSettings.uiTheme.trimmed().toLower();
-    if (bootTheme != QStringLiteral("qt_default")) {
-        MadModemUi::applyCockpitTheme(app);
-    }
+    MadModemUi::applyUiTheme(app, bootTheme);
 
     MainWindow window;
-    if (bootTheme != QStringLiteral("qt_default")) {
-        MadModemUi::installCockpitMainWindowChrome(&window);
-    }
+    // Use one stable window/chrome ownership path for every theme. The active
+    // palette decides whether the rim is Avionica metal, a classic single line
+    // or a high-contrast outline, so live theme changes cannot leave behind a
+    // native/custom hybrid title bar.
+    MadModemUi::installCockpitMainWindowChrome(&window);
     // Cockpit UI is intended to run like a radio console / fullscreen
     // instrument panel.  Keep the custom minimize/maximize/close buttons in
     // the in-app title bar, but hide the OS panel/taskbar.

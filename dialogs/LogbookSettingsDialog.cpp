@@ -1,5 +1,6 @@
 #include "LogbookSettingsDialog.h"
 #include "../utils/UiScale.h"
+#include "../utils/CockpitTheme.h"
 
 #include <QDialogButtonBox>
 #include <QDir>
@@ -81,7 +82,7 @@ void LogbookSettingsDialog::buildUi()
 
     m_lblWarning = new QLabel(this);
     m_lblWarning->setWordWrap(true);
-    m_lblWarning->setStyleSheet("color: #b00020;");
+    MadModemUi::setSemanticRole(m_lblWarning, QStringLiteral("negative"));
     outer->addWidget(m_lblWarning);
 
     m_buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);

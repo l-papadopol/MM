@@ -36,10 +36,10 @@ WaterfallWidget::WaterfallWidget(QWidget *parent)
     m_frequencyScrollBar->setRange(0, 10000);
     m_frequencyScrollBar->setSingleStep(120);
     m_frequencyScrollBar->setStyleSheet(QStringLiteral(
-        "QScrollBar:horizontal { background:#080a0b; height:12px; border:1px solid #4f3212; }"
-        "QScrollBar::handle:horizontal { background:#8b5b20; min-width:24px; border:1px solid #d49a42; }"
+        "QScrollBar:horizontal { background:palette(window); height:12px; border:1px solid palette(mid); }"
+        "QScrollBar::handle:horizontal { background:palette(highlight); min-width:24px; border:1px solid palette(dark); }"
         "QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width:0px; }"
-        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background:#111416; }"));
+        "QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background:palette(base); }"));
     m_frequencyScrollBar->hide();
     connect(m_frequencyScrollBar, &QScrollBar::valueChanged, this, [this](int value) {
         if (m_updatingFrequencyScrollBar || m_maxHz <= m_minHz) return;

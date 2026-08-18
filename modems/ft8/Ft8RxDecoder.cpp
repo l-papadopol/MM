@@ -2794,7 +2794,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                                   stats->phase.startsWith(QStringLiteral("wsjtx-gate"));
     auto decodeCandidateSet = [this, &slotStartUtc, &betterDecode, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueCandidates, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, gateCandidateSet](const QVector<double> &slotSamples,
                                                                                                                const QVector<Candidate> &candidateSet,
-                                                                                                               int *workerCountOut) {
+                                                                                                               int *workerCountOut,
+                                                                                                               bool qsoDeadlineSet) {
         QVector<CandidateDecode> rawPairs;
         if (candidateSet.isEmpty()) {
             if (workerCountOut != nullptr) {
@@ -2821,8 +2822,10 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
          * the boundary budget or starve audio and presentation work.
          */
         const bool classicalDeepRecovery = m_dspPlusDecodeEnabled;
-        const int osdGf2TryLimit = classicalDeepRecovery ? (offline ? 42 : 16) : (offline ? 16 : 8);
-        const int osdGf2BudgetTenthsMs = classicalDeepRecovery ? (offline ? 1600 : 500) : (offline ? 600 : 250);
+        const int osdGf2TryLimit = qsoDeadlineSet ? 4
+            : (classicalDeepRecovery ? (offline ? 42 : 16) : (offline ? 16 : 8));
+        const int osdGf2BudgetTenthsMs = qsoDeadlineSet ? 200
+            : (classicalDeepRecovery ? (offline ? 1600 : 500) : (offline ? 600 : 250));
         std::atomic<int> osdGf2TriedInSet {0};
         std::atomic<int> osdGf2TenthsMsInSet {0};
 
@@ -2832,7 +2835,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         // LDPC and metric retries have variable cost. Dynamic candidate
         // stealing keeps every permitted worker useful without creating threads
         // or statically pinning one expensive cluster to one worker.
-        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet](int, int) {
+        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet, qsoDeadlineSet](int, int) {
             QVector<CandidateDecode> localPairs;
             localPairs.reserve(8);
             int localAttempted = 0;
@@ -2861,7 +2864,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 // expensive metric/OSD recovery.  This follows the practical
                 // MSHV rule: do not spend rescue CPU before a complete slot is
                 // available.
-                const bool osdCandidateBudget = !gateCandidateSet &&
+                const bool osdCandidateBudget = (!gateCandidateSet || qsoDeadlineSet) &&
                         osdGf2TriedInSet.load(std::memory_order_relaxed) < osdGf2TryLimit &&
                         osdGf2TenthsMsInSet.load(std::memory_order_relaxed) < osdGf2BudgetTenthsMs;
                 const bool osdPermit = osdCandidateBudget &&
@@ -2873,7 +2876,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                                                      &refinedCandidate,
                                                      &rejectReason,
                                                      &quality,
-                                                     !gateCandidateSet,
+                                                     !gateCandidateSet || qsoDeadlineSet,
                                                      osdPermit);
                 if (osdPermit) {
                     MadModemRuntime::SystemResourceManager::instance().releaseOsdPermit();
@@ -3048,6 +3051,33 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     const bool offlineFastReference = offlineAnalysis &&
                                       !m_deepDecodeEnabled &&
                                       !m_dspPlusDecodeEnabled;
+    const QString qsoTargetCall = m_dxCall.trimmed().toUpper();
+    const QString qsoMyCall = m_myCall.trimmed().toUpper();
+    const bool qsoDeadlineEnabled = liveGateDecode &&
+                                    m_qsoDeadlineActive.load(std::memory_order_acquire) &&
+                                    !qsoTargetCall.isEmpty();
+    auto messageMentionsCall = [](const QString &message, const QString &call) {
+        if (call.isEmpty()) {
+            return false;
+        }
+        const QString upper = message.trimmed().toUpper();
+        int pos = upper.indexOf(call);
+        while (pos >= 0) {
+            const int before = pos - 1;
+            const int after = pos + call.size();
+            const bool leftOk = before < 0 || !upper.at(before).isLetterOrNumber();
+            const bool rightOk = after >= upper.size() || !upper.at(after).isLetterOrNumber();
+            if (leftOk && rightOk) {
+                return true;
+            }
+            pos = upper.indexOf(call, pos + 1);
+        }
+        return false;
+    };
+    auto isQsoTargetDecode = [&messageMentionsCall, &qsoTargetCall, &qsoMyCall](const CandidateDecode &pair) {
+        return messageMentionsCall(pair.decode.message, qsoTargetCall) &&
+               (qsoMyCall.isEmpty() || messageMentionsCall(pair.decode.message, qsoMyCall));
+    };
 
     // v2.89: follow MSHV's practical live policy instead of doing blind rescue
     // passes. In decoderft8.cpp, subtraction/rescan passes are useful only after
@@ -3119,17 +3149,74 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         QVector<Candidate> passCandidates = findCandidates(working, passes[pass].threshold);
         QVector<Candidate> filtered;
         filtered.reserve(passCandidates.size());
+        int normalFilteredCount = 0;
         for (const Candidate &c : passCandidates) {
             if (pass > 0 && alreadyDecoded(decodedSoFar, c)) {
                 continue;
             }
             filtered.append(c);
-            if (filtered.size() >= passes[pass].maxCandidates) {
+            if (!c.qsoPriority) {
+                ++normalFilteredCount;
+            }
+            // The reserved QSO quota is additive: when the focused pass does
+            // not recover the correspondent, the validated wideband pass must
+            // still receive its original candidate budget unchanged.
+            if (normalFilteredCount >= passes[pass].maxCandidates) {
                 break;
             }
         }
         const auto searchEnd = Clock::now();
         searchMs += std::chrono::duration<double, std::milli>(searchEnd - searchStart).count();
+
+        // The active QSO owns the live deadline.  Candidate discovery remains
+        // one full-passband scan, but marker-adjacent candidates reserved by
+        // findCandidates() are decoded first as a small, bounded set.  If the
+        // expected two calls are recovered, publish that result immediately
+        // and leave the non-QSO wideband work to a later boundary.  This is a
+        // single linear decoder job, not a concurrent/fallback decoder path.
+        if (pass == 0 && qsoDeadlineEnabled) {
+            QVector<Candidate> qsoCandidates;
+            QVector<Candidate> widebandCandidates;
+            qsoCandidates.reserve(32);
+            widebandCandidates.reserve(filtered.size());
+            for (const Candidate &candidate : filtered) {
+                if (candidate.qsoPriority) {
+                    qsoCandidates.append(candidate);
+                } else {
+                    widebandCandidates.append(candidate);
+                }
+            }
+
+            if (!qsoCandidates.isEmpty()) {
+                int qsoWorkers = 0;
+                const auto qsoDecodeStart = Clock::now();
+                const QVector<CandidateDecode> qsoPairs = decodeCandidateSet(working,
+                                                                              qsoCandidates,
+                                                                              &qsoWorkers,
+                                                                              true);
+                const auto qsoDecodeEnd = Clock::now();
+                decodeMs += std::chrono::duration<double, std::milli>(qsoDecodeEnd - qsoDecodeStart).count();
+                firstWorkerCount = qMax(firstWorkerCount, qsoWorkers);
+                totalCandidates += qsoCandidates.size();
+                for (const CandidateDecode &pair : qsoPairs) {
+                    rawPairs.append(pair);
+                }
+                decodedSoFar = deduplicate(rawPairs, &dedupDropped);
+                passCount = 1;
+
+                const auto targetIt = std::find_if(decodedSoFar.cbegin(),
+                                                   decodedSoFar.cend(),
+                                                   isQsoTargetDecode);
+                if (targetIt != decodedSoFar.cend()) {
+                    earlyStopReason = QStringLiteral("FT8 QSO deadline: %1 decoded first at %2 Hz; wideband gate deferred")
+                        .arg(qsoTargetCall)
+                        .arg(targetIt->decode.frequencyHz);
+                    break;
+                }
+            }
+            filtered = widebandCandidates;
+        }
+
         totalCandidates += filtered.size();
         if (pass == 1) {
             secondPassCandidates = filtered.size();
@@ -3140,7 +3227,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
         int workersThisPass = 0;
         const auto decodeStart = Clock::now();
-        QVector<CandidateDecode> passPairs = decodeCandidateSet(working, filtered, &workersThisPass);
+        QVector<CandidateDecode> passPairs = decodeCandidateSet(working, filtered, &workersThisPass, false);
         const auto decodeEnd = Clock::now();
         decodeMs += std::chrono::duration<double, std::milli>(decodeEnd - decodeStart).count();
         firstWorkerCount = qMax(firstWorkerCount, workersThisPass);
@@ -3167,27 +3254,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             const int syncGateRejects = diagSyncGateRejects.load();
             const int ldpcTried = diagLdpcTried.load();
             const int ldpcFailures = diagLdpcFailures.load();
-            const QString targetCall = m_dxCall.trimmed().toUpper();
+            const QString targetCall = qsoTargetCall;
             const bool haveTargetContext = !targetCall.isEmpty();
-
-            auto messageMentions = [](const QString &message, const QString &call) {
-                if (call.isEmpty()) {
-                    return false;
-                }
-                const QString upper = message.toUpper();
-                int pos = upper.indexOf(call);
-                while (pos >= 0) {
-                    const int before = pos - 1;
-                    const int after = pos + call.size();
-                    const bool leftOk = before < 0 || !upper.at(before).isLetterOrNumber();
-                    const bool rightOk = after >= upper.size() || !upper.at(after).isLetterOrNumber();
-                    if (leftOk && rightOk) {
-                        return true;
-                    }
-                    pos = upper.indexOf(call, pos + 1);
-                }
-                return false;
-            };
 
             bool targetDecoded = false;
             int cqDecodeCount = 0;
@@ -3196,7 +3264,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 if (msg.startsWith(QStringLiteral("CQ "))) {
                     ++cqDecodeCount;
                 }
-                if (messageMentions(msg, targetCall)) {
+                if (messageMentionsCall(msg, targetCall)) {
                     targetDecoded = true;
                 }
             }
@@ -3625,6 +3693,12 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
 
     const bool offlineAnalysis = m_offlineAnalysisActive.load();
     const bool liveAdaptive = !offlineAnalysis && (m_deepDecodeEnabled || m_dspPlusDecodeEnabled);
+    const bool qsoPriorityActive = !offlineAnalysis &&
+                                   t_currentFtWorkClass == MadModemRuntime::WorkClass::FtGate &&
+                                   m_qsoDeadlineActive.load(std::memory_order_acquire) &&
+                                   !m_dxCall.trimmed().isEmpty();
+    constexpr double kQsoFocusHalfSpanHz = 90.0;
+    constexpr int kQsoPriorityCandidateLimit = 32;
     // v4.13k: the old "liveDeep" candidate breadth was accidentally active in
     // normal live RX because MainWindow forced both compatibility flags on.
     // Keep full breadth for offline analysis, but live radio uses the adaptive
@@ -3792,6 +3866,8 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
     FtDecodeWorkerPool::instance().parallelFor(startCount, workerCount, [&](int begin, int end) {
         QVector<Candidate> local;
         local.reserve(128);
+        QVector<Candidate> localQso;
+        localQso.reserve(48);
         CostasSpectrumCache cache;
         std::vector<std::complex<double>> fft(static_cast<size_t>(kFftSize));
         for (int startIndex = begin; startIndex < end; ++startIndex) {
@@ -3800,10 +3876,13 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
             buildCacheForStart(startSample, cache, fft);
             for (double baseHz = static_cast<double>(lowHz);
                  baseHz <= static_cast<double>(highHz);
-                 baseHz += kFreqStepHz) {
+                baseHz += kFreqStepHz) {
                 double noise = 0.0;
                 const double sync = scoreCandidate(cache, baseHz, &noise);
-                if (!(sync >= kSyncMin) || !std::isfinite(sync)) {
+                const double focusDelta = std::abs(baseHz - static_cast<double>(m_rxMarkerHz));
+                const bool qsoPriority = qsoPriorityActive && focusDelta <= kQsoFocusHalfSpanHz;
+                const double admissionThreshold = qsoPriority ? qMin(kSyncMin, 0.92) : kSyncMin;
+                if (!(sync >= admissionThreshold) || !std::isfinite(sync)) {
                     continue;
                 }
 
@@ -3813,18 +3892,21 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
                 c.syncNoisePower = noise;
                 c.startSec = startSec;
                 c.baseHz = baseHz;
-                // v4.13a: the FT RX marker is a focus marker, not a gate.
-                // Decode remains full-passband, but candidates close to the
-                // selected/QSO frequency get a small rank boost so their LDPC
-                // attempts are scheduled earlier and survive bucket pruning in
-                // crowded slots.  The boost is capped and never excludes other
-                // signals.
-                const double focusDelta = std::abs(baseHz - static_cast<double>(m_rxMarkerHz));
-                const double focusBoost = (focusDelta <= 140.0)
-                    ? (0.18 * (1.0 - (focusDelta / 140.0)))
-                    : 0.0;
+                // The RX marker never narrows the normal passband. Outside an
+                // active QSO it only supplies the validated small rank boost.
+                // During an active-QSO gate, a separate bounded quota close to
+                // the known correspondent is admitted at a lower sync floor;
+                // the original wideband quota remains unchanged.
+                const double focusBoost = qsoPriority
+                    ? (1.00 * (1.0 - (focusDelta / kQsoFocusHalfSpanHz)))
+                    : ((focusDelta <= 140.0) ? (0.18 * (1.0 - (focusDelta / 140.0))) : 0.0);
                 c.rankScore = sync + focusBoost;
-                local.append(c);
+                c.qsoPriority = qsoPriority;
+                if (qsoPriority) {
+                    localQso.append(c);
+                } else {
+                    local.append(c);
+                }
             }
         }
         std::sort(local.begin(), local.end(), [](const Candidate &a, const Candidate &b) {
@@ -3833,8 +3915,18 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
         if (local.size() > kMaxPreCandidates / workerCount + 16) {
             local.resize(kMaxPreCandidates / workerCount + 16);
         }
-        if (!local.isEmpty()) {
+        std::sort(localQso.begin(), localQso.end(), [](const Candidate &a, const Candidate &b) {
+            return a.rankScore > b.rankScore;
+        });
+        const int qsoLocalLimit = kQsoPriorityCandidateLimit / qMax(1, workerCount) + 8;
+        if (localQso.size() > qsoLocalLimit) {
+            localQso.resize(qsoLocalLimit);
+        }
+        if (!local.isEmpty() || !localQso.isEmpty()) {
             std::lock_guard<std::mutex> lock(mergedMutex);
+            for (const Candidate &c : localQso) {
+                merged.append(c);
+            }
             for (const Candidate &c : local) {
                 merged.append(c);
             }
@@ -3846,11 +3938,46 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
     });
 
     QVector<Candidate> candidates;
-    candidates.reserve(kMaxCandidates);
+    candidates.reserve(kMaxCandidates + (qsoPriorityActive ? kQsoPriorityCandidateLimit : 0));
+    std::map<int, int> qsoFrequencyBucketUse;
+    if (qsoPriorityActive) {
+        constexpr double qsoBucketHz = 18.0;
+        constexpr int qsoBucketLimit = 8;
+        for (const Candidate &c : merged) {
+            if (!c.qsoPriority) {
+                continue;
+            }
+            bool duplicate = false;
+            for (const Candidate &kept : candidates) {
+                if (std::abs(kept.baseHz - c.baseHz) <= 6.5 &&
+                    std::abs(kept.startSec - c.startSec) <= 0.12) {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (duplicate) {
+                continue;
+            }
+            const int bucket = static_cast<int>(std::floor(c.baseHz / qsoBucketHz));
+            if (qsoFrequencyBucketUse[bucket] >= qsoBucketLimit) {
+                continue;
+            }
+            candidates.append(c);
+            ++qsoFrequencyBucketUse[bucket];
+            if (candidates.size() >= kQsoPriorityCandidateLimit) {
+                break;
+            }
+        }
+    }
+
     std::map<int, int> frequencyBucketUse;
     const double bucketHz = offlineAnalysis ? 18.0 : (liveDeep ? 22.0 : (liveAdaptive ? 28.0 : 45.0));
     const int bucketLimit = offlineAnalysis ? 10 : (liveDeep ? 7 : (liveAdaptive ? 5 : 3));
+    int normalCandidateCount = 0;
     for (const Candidate &c : merged) {
+        if (c.qsoPriority) {
+            continue;
+        }
         bool duplicate = false;
         for (const Candidate &kept : candidates) {
             // One physical FT8 signal creates a DT/DF cloud on the 40 ms /
@@ -3872,8 +3999,9 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
             continue;
         }
         candidates.append(c);
+        ++normalCandidateCount;
         ++frequencyBucketUse[bucket];
-        if (candidates.size() >= kMaxCandidates) {
+        if (normalCandidateCount >= kMaxCandidates) {
             break;
         }
     }

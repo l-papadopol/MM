@@ -478,12 +478,12 @@ QString ft8StatusColour(const QString &state)
 {
     const QString lower = state.toLower();
     if (lower.contains(QStringLiteral("not")) || lower.contains(QStringLiteral("slow")) || lower.contains(QStringLiteral("warning")) || lower.contains(QStringLiteral("unknown"))) {
-        return QStringLiteral("#d84a4a");
+        return MadModemUi::themeColor(MadModemUi::ThemeColorRole::Negative).name();
     }
     if (lower.contains(QStringLiteral("synced")) || lower.contains(QStringLiteral("locked")) || lower.contains(QStringLiteral("ok")) || lower.contains(QStringLiteral("none"))) {
-        return QStringLiteral("#2f80ed");
+        return MadModemUi::themeColor(MadModemUi::ThemeColorRole::Positive).name();
     }
-    return QStringLiteral("#c8c8c8");
+    return MadModemUi::themeColor(MadModemUi::ThemeColorRole::MutedText).name();
 }
 
 QString htmlEscaped(const QString &text)
@@ -2460,14 +2460,14 @@ QWidget *MainWindow::wrapTextDisplayPageWithMap(QWidget *mainPage,
 
     QWidget *mapPage = new QWidget(tabs);
     mapPage->setAutoFillBackground(false);
-    mapPage->setStyleSheet(QStringLiteral("background-color: #050607; color: #ffb35a;"));
+    mapPage->setObjectName(QStringLiteral("qsoMapPage"));
     QVBoxLayout *outer = new QVBoxLayout(mapPage);
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(6);
 
     QsoMapWidget *map = new QsoMapWidget(mapPage);
     map->setAutoFillBackground(false);
-    map->setStyleSheet(QStringLiteral("background-color: #050607;"));
+    map->setObjectName(QStringLiteral("qsoMapCanvas"));
 
     // Keep the map controls inside the map canvas instead of reserving a
     // separate row above it.  The layout is owned by QsoMapWidget, so the
@@ -2794,9 +2794,10 @@ QWidget *MainWindow::createCwTerminalPage()
 
         QLabel *title = new QLabel(panel);
         title->setObjectName(primary ? QStringLiteral("cwRxATitle") : QStringLiteral("cwRxBTitle"));
-        title->setStyleSheet(primary
-                                 ? QStringLiteral("font-weight: 700; color: #50ff78;")
-                                 : QStringLiteral("font-weight: 700; color: #55aaff;"));
+        title->setStyleSheet(QStringLiteral("font-weight: 700;"));
+        MadModemUi::setSemanticRole(title,
+                                    primary ? QStringLiteral("rxPrimary")
+                                            : QStringLiteral("rxSecondary"));
         QPushButton *clearButton = new QPushButton(panel);
         clearButton->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         clearButton->setMinimumWidth(92);
@@ -3335,13 +3336,7 @@ void MainWindow::installRxTextContextMenu(QPlainTextEdit *terminal)
     connect(terminal, &QPlainTextEdit::customContextMenuRequested,
             this, [this, terminal](const QPoint &pos) {
                 QMenu *menu = terminal->createStandardContextMenu();
-                menu->setStyleSheet(
-                    "QMenu { background-color: #ffffff; color: #111111; border: 1px solid #777777; }"
-                    "QMenu::item { padding: 6px 26px 6px 26px; }"
-                    "QMenu::item:selected { background-color: #2f6fba; color: #ffffff; }"
-                    "QMenu::item:disabled { color: #777777; }"
-                    "QMenu::separator { height: 1px; background: #c0c0c0; margin: 4px 8px; }"
-                    );
+                menu->setStyleSheet(QStringLiteral("QMenu::item { padding: 6px 26px; }"));
                 const QString selected = terminal->textCursor().selectedText().trimmed();
                 if (!selected.isEmpty()) {
                     menu->addSeparator();
@@ -3419,11 +3414,10 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
 
     QTextCursor cursor(terminal->document());
     QTextCharFormat normal;
-    // Cockpit terminals have a black background; resetting the document to
-    // nearly-black made CW/BPSK/RTTY receive text unreadable after the callsign
-    // highlighter ran.  Keep ordinary RX text amber and only override detected
-    // callsigns with green/red formats below.
-    normal.setForeground(QColor("#ffb347"));
+    // Character formats live inside QTextDocument and therefore bypass QSS.
+    // Resolve them from the active theme instead of baking Avionica amber into
+    // terminals that may later become Qt Classic white.
+    normal.setForeground(terminal->palette().color(QPalette::Text));
     normal.setFontUnderline(false);
     normal.setFontStrikeOut(false);
     normal.setUnderlineStyle(QTextCharFormat::NoUnderline);
@@ -3442,9 +3436,12 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
 
         QTextCharFormat fmt;
         const bool worked = m_logbook.containsCallsign(call);
-        fmt.setForeground(worked ? QColor("#b00020") : QColor("#118a2a"));
+        const QColor callColor = MadModemUi::themeColor(worked
+            ? MadModemUi::ThemeColorRole::Negative
+            : MadModemUi::ThemeColorRole::Positive);
+        fmt.setForeground(callColor);
         fmt.setFontUnderline(true);
-        fmt.setUnderlineColor(worked ? QColor("#b00020") : QColor("#118a2a"));
+        fmt.setUnderlineColor(callColor);
         fmt.setUnderlineStyle(QTextCharFormat::SingleUnderline);
         if (worked && m_settings.logbookStrikeWorkedCalls) {
             fmt.setFontStrikeOut(true);
@@ -3481,14 +3478,14 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
         };
         highlightPattern(QRegularExpression(QStringLiteral("\\b[A-R]{2}\\d{2}(?:[A-X]{2})?\\b"),
                                             QRegularExpression::CaseInsensitiveOption),
-                         QColor(QStringLiteral("#25b7e8")));
+                         MadModemUi::themeColor(MadModemUi::ThemeColorRole::RxSecondary));
         for (auto fieldIt = m_rttyContestReceivedFieldEdits.cbegin(); fieldIt != m_rttyContestReceivedFieldEdits.cend(); ++fieldIt) {
             if (fieldIt.value() == nullptr) continue;
             const QString value = fieldIt.value()->text().trimmed();
             if (value.isEmpty()) continue;
             highlightPattern(QRegularExpression(QStringLiteral("\\b%1\\b").arg(QRegularExpression::escape(value)),
                                                 QRegularExpression::CaseInsensitiveOption),
-                             QColor(QStringLiteral("#d98cff")));
+                             MadModemUi::themeColor(MadModemUi::ThemeColorRole::Warning));
         }
     }
 
@@ -5916,11 +5913,14 @@ void MainWindow::setupCwPage()
     m_lblCwTrackedWpmB->setMinimumWidth(42);
     m_lblCwTrackedWpmA->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     m_lblCwTrackedWpmB->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
-    m_lblCwTrackedWpmA->setStyleSheet(QStringLiteral("color:#50ff78; font-weight:600;"));
-    m_lblCwTrackedWpmB->setStyleSheet(QStringLiteral("color:#3aa8ff; font-weight:600;"));
+    m_lblCwTrackedWpmA->setStyleSheet(QStringLiteral("font-weight:600;"));
+    m_lblCwTrackedWpmB->setStyleSheet(QStringLiteral("font-weight:600;"));
+    MadModemUi::setSemanticRole(m_lblCwTrackedWpmA, QStringLiteral("rxPrimary"));
+    MadModemUi::setSemanticRole(m_lblCwTrackedWpmB, QStringLiteral("rxSecondary"));
     m_lblCwDualRx = new QLabel(uiText("cw_dual_rx_status", "RX A: left click · RX B: right click on waterfall"), settingsGroup);
     m_lblCwDualRx->setWordWrap(true);
-    m_lblCwDualRx->setStyleSheet(QStringLiteral("color: #3aa8ff; font-weight: 500;"));
+    m_lblCwDualRx->setStyleSheet(QStringLiteral("font-weight: 500;"));
+    MadModemUi::setSemanticRole(m_lblCwDualRx, QStringLiteral("rxSecondary"));
 
     m_btnCwDisableSecondary = new QPushButton(uiText("cw_disable_rx_b", "Disable RX B"), settingsGroup);
     m_btnCwDisableSecondary->setToolTip(uiText("cw_disable_rx_b_tooltip", "Remove the blue secondary CW marker. RX A keeps running."));
@@ -5944,8 +5944,10 @@ void MainWindow::setupCwPage()
     QLabel *rxALabel = new QLabel(uiText("cw_rx_a_short", "RX A"), settingsGroup);
     QLabel *rxBLabel = new QLabel(uiText("cw_rx_b_short", "RX B"), settingsGroup);
     QLabel *txLabel = new QLabel(uiText("cw_tx_short", "TX"), settingsGroup);
-    rxALabel->setStyleSheet(QStringLiteral("color:#50ff78; font-weight:600;"));
-    rxBLabel->setStyleSheet(QStringLiteral("color:#3aa8ff; font-weight:600;"));
+    rxALabel->setStyleSheet(QStringLiteral("font-weight:600;"));
+    rxBLabel->setStyleSheet(QStringLiteral("font-weight:600;"));
+    MadModemUi::setSemanticRole(rxALabel, QStringLiteral("rxPrimary"));
+    MadModemUi::setSemanticRole(rxBLabel, QStringLiteral("rxSecondary"));
     txLabel->setStyleSheet(QStringLiteral("font-weight:600;"));
 
     grid->addWidget(new QLabel(uiText("cw_rx_a_tone", "RX A tone"), settingsGroup), 0, 0);
@@ -7425,7 +7427,8 @@ void MainWindow::setupMsk144Page()
     }
     m_lblMsk144Status = new QLabel(uiText("msk144_status_idle", "MSK144: idle"), rxGroup);
     m_lblMsk144Status->setWordWrap(true);
-    m_lblMsk144Status->setStyleSheet(QStringLiteral("font-weight: 500; color: #3aa8ff;"));
+    m_lblMsk144Status->setStyleSheet(QStringLiteral("font-weight: 500;"));
+    MadModemUi::setSemanticRole(m_lblMsk144Status, QStringLiteral("rxSecondary"));
     m_lblMsk144PeriodStatus = new QLabel(rxGroup);
     m_lblMsk144PeriodStatus->setWordWrap(true);
 
@@ -7686,7 +7689,8 @@ void MainWindow::setupQ65Page()
     }
     m_lblQ65Status = new QLabel(uiText("q65_status_idle", "Q65: idle"), rxGroup);
     m_lblQ65Status->setWordWrap(true);
-    m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 500; color: #3aa8ff;"));
+    m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 500;"));
+    MadModemUi::setSemanticRole(m_lblQ65Status, QStringLiteral("rxSecondary"));
     m_lblQ65AverageStatus = new QLabel(QStringLiteral("AVG: 0 | 0"), rxGroup);
     m_lblQ65AverageStatus->setWordWrap(true);
 
@@ -7845,7 +7849,8 @@ void MainWindow::setupQ65Page()
         const QString unavailable = QStringLiteral("Q65 RX unavailable: this build does not include the FFTW-backed MSHV decoder. Q65 TX remains available.");
         if (m_lblQ65Status != nullptr) {
             m_lblQ65Status->setText(unavailable);
-            m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 600; color: #ff8c42;"));
+            m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 600;"));
+            MadModemUi::setSemanticRole(m_lblQ65Status, QStringLiteral("warning"));
         }
         if (m_btnQ65Rx != nullptr) {
             m_btnQ65Rx->setEnabled(false);
@@ -8011,12 +8016,14 @@ void MainWindow::setupFt8Page()
         "Keeps stations that call you directly while another FT QSO is active in a FIFO queue. MM still transmits only one QSO at a time and automatically serves the next caller after completion."));
     m_lblFt8SessionQueue = new QLabel(controlGroup);
     m_lblFt8SessionQueue->setAlignment(Qt::AlignCenter);
-    m_lblFt8SessionQueue->setStyleSheet(QStringLiteral("QLabel { font-weight: 600; color: #d7c28a; }"));
+    m_lblFt8SessionQueue->setStyleSheet(QStringLiteral("QLabel { font-weight: 600; }"));
+    MadModemUi::setSemanticRole(m_lblFt8SessionQueue, QStringLiteral("muted"));
     m_lblFt8SessionQueue->setToolTip(uiText("ft8_session_stats_tooltip",
         "Counts completed FT4/FT8 QSOs since MadModem was started and shows callers waiting in the passive FIFO."));
     m_chkFt8FullAutoQso = new QCheckBox(uiText("ft8_auto_qso", "Auto QSO"), controlGroup);
     m_chkFt8FullAutoQso->setToolTip(uiText("ft8_auto_qso_tooltip", "WSJT-Z-style gated automation. Decoded CQs are buffered and prioritized by new country, new grid square, new band, new mode, distance and SNR before answering. Visible only after Evil Mode is explicitly unlocked."));
-    m_chkFt8FullAutoQso->setStyleSheet(QStringLiteral("QCheckBox { font-weight: 500; color: #ffb347; }"));
+    m_chkFt8FullAutoQso->setStyleSheet(QStringLiteral("QCheckBox { font-weight: 500; }"));
+    MadModemUi::setSemanticRole(m_chkFt8FullAutoQso, QStringLiteral("accent"));
     m_chkFt8HoldTxFreq = new QCheckBox(uiText("hold_tx_frequency", "Hold TX frequency"), controlGroup);
     m_chkFt8HoldTxFreq->setToolTip(uiText("hold_tx_frequency_tooltip", "Legacy shortcut: force the red TX marker to stay fixed. The TX strategy selector in the FT settings page is the primary control."));
     m_cmbFt8TxStrategy = new QComboBox(controlGroup);
@@ -8066,7 +8073,7 @@ void MainWindow::setupFt8Page()
     m_lblFt8TxBanner->setMinimumWidth(260);
     m_lblFt8TxBanner->setMaximumWidth(420);
     m_lblFt8TxBanner->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_lblFt8TxBanner->setStyleSheet(QStringLiteral("QLabel { border: 2px solid #33414d; border-radius: 6px; padding: 6px; background: #17202a; color: #d7e0e7; font-weight: 500; font-size: 10pt; }"));
+    m_lblFt8TxBanner->setProperty("ftBannerState", QStringLiteral("idle"));
     m_lblFt8TxBanner->setText(uiText("ft_tx_banner_rx", "RX monitor — no FT TX armed"));
     // Keep the live TX banner beside the operator controls, WSJT-X style, so
     // the next/current message is visible without pushing controls downward.
@@ -8172,7 +8179,8 @@ void MainWindow::setupFt8Page()
     m_btnFt8AnalyzeWav = nullptr;
     m_chkFt8EvilMode = new QCheckBox(uiText("ft8_evil_mode", "Evil mode"), settingsGroup);
     m_chkFt8EvilMode->setToolTip(uiText("ft8_evil_mode_tooltip", "Shows WSJT-Z-style Auto CQ / Auto QSO controls only after an explicit typed confirmation. This unlock is deliberately session-only."));
-    m_chkFt8EvilMode->setStyleSheet(QStringLiteral("QCheckBox { font-weight: 500; color: #ffb347; }"));
+    m_chkFt8EvilMode->setStyleSheet(QStringLiteral("QCheckBox { font-weight: 500; }"));
+    MadModemUi::setSemanticRole(m_chkFt8EvilMode, QStringLiteral("accent"));
     const QList<QSpinBox *> ft8FrequencySpins = {m_spinFt8RxFreq, m_spinFt8TxFreq};
     for (QSpinBox *spin : ft8FrequencySpins) {
         spin->setRange(100, 3000);
@@ -9016,9 +9024,13 @@ void MainWindow::setupProcessingConnections()
     connect(m_cwDecoder, &CwDecoder::priorityTextReceived,
             this, [this](int rank, const QString &text) {
                 if (rank <= 0) {
-                    appendCwDecoderText(QStringLiteral("A"), text, QColor("#118a2a"), &m_cwPrimaryLineOpen);
+                    appendCwDecoderText(QStringLiteral("A"), text,
+                                        MadModemUi::themeColor(MadModemUi::ThemeColorRole::RxPrimary),
+                                        &m_cwPrimaryLineOpen);
                 } else if (rank == 1) {
-                    appendCwDecoderText(QStringLiteral("B"), text, QColor("#0069d9"), &m_cwSecondaryLineOpen);
+                    appendCwDecoderText(QStringLiteral("B"), text,
+                                        MadModemUi::themeColor(MadModemUi::ThemeColorRole::RxSecondary),
+                                        &m_cwSecondaryLineOpen);
                 }
             },
             Qt::QueuedConnection);
@@ -10835,7 +10847,11 @@ void MainWindow::applyUiAppearanceSettings()
             return f;
         }
         QFont f = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
-        if (f.pointSize() <= 0) f.setPointSize(theme == QStringLiteral("high_contrast") ? 12 : 10);
+        if (theme == QStringLiteral("avionica")) {
+            f.setPointSize(9);
+        } else if (f.pointSize() <= 0) {
+            f.setPointSize(theme == QStringLiteral("high_contrast") ? 12 : 10);
+        }
         if (theme == QStringLiteral("high_contrast") && f.pointSize() < 12) f.setPointSize(12);
         return f;
     };
@@ -10848,83 +10864,15 @@ void MainWindow::applyUiAppearanceSettings()
         }
         font.setPointSize(qBound(8, m_settings.uiFontPointSize, 24));
     }
+    MadModemUi::applyUiTheme(*app, theme);
     app->setFont(font);
-
-    if (theme == QStringLiteral("qt_default")) {
-        app->setPalette(app->style() != nullptr ? app->style()->standardPalette() : QPalette());
-        app->setStyleSheet(QString());
-        return;
+    MadModemUi::polishCockpitWidgetTree(this);
+    for (QPlainTextEdit *terminal : {m_txtRttyRx, m_txtBpsk31Rx, m_txtMfskRx,
+                                     m_txtCwRx, m_txtCwRxB}) {
+        if (terminal != nullptr && !terminal->toPlainText().isEmpty()) {
+            highlightCallsignsInTerminal(terminal);
+        }
     }
-
-    if (theme == QStringLiteral("avionica")) {
-        MadModemUi::applyCockpitTheme(*app);
-        app->setFont(font);
-        return;
-    }
-
-    QPalette pal;
-    if (theme == QStringLiteral("hacker_green")) {
-        pal.setColor(QPalette::Window, QColor(0, 8, 0));
-        pal.setColor(QPalette::WindowText, QColor(80, 255, 80));
-        pal.setColor(QPalette::Base, QColor(0, 0, 0));
-        pal.setColor(QPalette::AlternateBase, QColor(0, 20, 0));
-        pal.setColor(QPalette::Text, QColor(96, 255, 96));
-        pal.setColor(QPalette::Button, QColor(0, 24, 0));
-        pal.setColor(QPalette::ButtonText, QColor(96, 255, 96));
-        pal.setColor(QPalette::Highlight, QColor(40, 180, 40));
-        pal.setColor(QPalette::HighlightedText, QColor(0, 0, 0));
-        app->setPalette(pal);
-        app->setStyleSheet(QStringLiteral(R"QSS(
-QWidget { background-color: #000800; color: #60ff60; }
-QMainWindow, QDialog { background-color: #000800; }
-QGroupBox { border: 1px solid #1b8f1b; border-radius: 6px; margin-top: 8px; padding: 6px; }
-QGroupBox::title { color: #7cff7c; subcontrol-origin: margin; left: 8px; padding: 0 4px; }
-QPushButton, QToolButton { background-color: #001800; color: #7cff7c; border: 1px solid #2ad62a; border-radius: 5px; padding: 4px 8px; min-height: 24px; }
-QPushButton:hover, QToolButton:hover { background-color: #003000; }
-QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox, QDoubleSpinBox { background-color: #000000; color: #60ff60; border: 1px solid #1b8f1b; selection-background-color: #2ad62a; selection-color: #000000; }
-QTabBar::tab { background: #001000; color: #60ff60; border: 1px solid #1b8f1b; padding: 5px 6px; min-width: 72px; }
-QTabBar::tab:selected { background: #002800; color: #a0ffa0; }
-QHeaderView::section { background: #001000; color: #7cff7c; border: 1px solid #1b8f1b; }
-QTableWidget, QTreeWidget, QListWidget { background-color: #000000; alternate-background-color: #001400; color: #60ff60; gridline-color: #1b8f1b; }
-QScrollBar { background: #000800; }
-QScrollBar::handle { background: #136d13; border-radius: 4px; }
-QToolTip { background-color: #001000; color: #a0ffa0; border: 1px solid #2ad62a; }
-)QSS"));
-        return;
-    }
-
-    const bool high = (theme == QStringLiteral("high_contrast"));
-    pal.setColor(QPalette::Window, high ? QColor(0, 0, 0) : QColor(32, 34, 38));
-    pal.setColor(QPalette::WindowText, high ? QColor(255, 255, 255) : QColor(230, 232, 235));
-    pal.setColor(QPalette::Base, high ? QColor(0, 0, 0) : QColor(22, 24, 28));
-    pal.setColor(QPalette::AlternateBase, high ? QColor(28, 28, 28) : QColor(42, 44, 48));
-    pal.setColor(QPalette::Text, high ? QColor(255, 255, 255) : QColor(230, 232, 235));
-    pal.setColor(QPalette::Button, high ? QColor(20, 20, 20) : QColor(44, 47, 53));
-    pal.setColor(QPalette::ButtonText, high ? QColor(255, 255, 255) : QColor(235, 238, 242));
-    pal.setColor(QPalette::Highlight, high ? QColor(255, 214, 0) : QColor(86, 132, 214));
-    pal.setColor(QPalette::HighlightedText, high ? QColor(0, 0, 0) : QColor(255, 255, 255));
-    app->setPalette(pal);
-    app->setStyleSheet(high ? QStringLiteral(R"QSS(
-QWidget { background-color: #000000; color: #ffffff; }
-QGroupBox, QFrame { border-color: #ffffff; }
-QPushButton, QToolButton { background-color: #101010; color: #ffffff; border: 2px solid #ffffff; border-radius: 5px; padding: 5px 10px; min-height: 28px; }
-QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox, QDoubleSpinBox, QTableWidget, QListWidget, QTreeWidget { background-color: #000000; color: #ffffff; border: 2px solid #ffffff; selection-background-color: #ffd600; selection-color: #000000; }
-QHeaderView::section { background: #000000; color: #ffffff; border: 1px solid #ffffff; padding: 4px; }
-QTabBar::tab { background: #000000; color: #ffffff; border: 2px solid #ffffff; padding: 6px 7px; min-width: 72px; }
-QTabBar::tab:selected { background: #ffd600; color: #000000; }
-)QSS") : QStringLiteral(R"QSS(
-QWidget { background-color: #202226; color: #e6e8eb; }
-QGroupBox { border: 1px solid #555b66; border-radius: 6px; margin-top: 8px; padding: 6px; }
-QGroupBox::title { color: #d8dee9; subcontrol-origin: margin; left: 8px; padding: 0 4px; }
-QPushButton, QToolButton { background-color: #2c2f35; color: #eceff4; border: 1px solid #666d78; border-radius: 5px; padding: 4px 8px; min-height: 24px; }
-QPushButton:hover, QToolButton:hover { background-color: #3a3f48; }
-QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QSpinBox, QDoubleSpinBox { background-color: #16181c; color: #e6e8eb; border: 1px solid #555b66; selection-background-color: #5684d6; }
-QHeaderView::section { background: #2c2f35; color: #e6e8eb; border: 1px solid #555b66; padding: 3px; }
-QTableWidget, QTreeWidget, QListWidget { background-color: #16181c; alternate-background-color: #22252b; color: #e6e8eb; gridline-color: #555b66; }
-QTabBar::tab { background: #2c2f35; color: #e6e8eb; border: 1px solid #555b66; padding: 5px 6px; min-width: 72px; }
-QTabBar::tab:selected { background: #3a3f48; color: #ffffff; }
-QToolTip { background-color: #202226; color: #ffffff; border: 1px solid #666d78; }
-)QSS"));
 }
 
 void MainWindow::applyDecodeTableVisualSettings(QTableWidget *table)
@@ -11140,9 +11088,10 @@ void MainWindow::updateRigControlStatusUi()
                       (m_lastRigPttOn ? uiText("on", "ON") : uiText("off", "OFF"));
         }
         m_lblRigPttStatus->setText(pttText);
-        m_lblRigPttStatus->setStyleSheet(m_lastRigPttOn
-            ? QStringLiteral("font-weight: 500; color: #c82020;")
-            : QStringLiteral("font-weight: 500; color: #15803d;"));
+        m_lblRigPttStatus->setStyleSheet(QStringLiteral("font-weight: 500;"));
+        MadModemUi::setSemanticRole(m_lblRigPttStatus,
+                                    m_lastRigPttOn ? QStringLiteral("negative")
+                                                   : QStringLiteral("positive"));
     }
 }
 
@@ -11371,11 +11320,14 @@ void MainWindow::updateFtBandFrequencyUi()
             }
         }
         m_lblFt8BandStatus->setText(text);
-        m_lblFt8BandStatus->setStyleSheet(onSlot || !haveCat
-            ? QStringLiteral("font-weight: 500; color: #15803d;")
-            : QStringLiteral("font-weight: 500; color: #b00020;"));
+        m_lblFt8BandStatus->setStyleSheet(QStringLiteral("font-weight: 500;"));
+        MadModemUi::setSemanticRole(m_lblFt8BandStatus,
+                                    onSlot || !haveCat ? QStringLiteral("positive")
+                                                      : QStringLiteral("negative"));
     }
-    m_cmbFt8Band->setStyleSheet(haveCat && !onSlot ? QStringLiteral("color: #b00020; font-weight: 500;") : QString());
+    m_cmbFt8Band->setStyleSheet(haveCat && !onSlot ? QStringLiteral("font-weight: 500;") : QString());
+    MadModemUi::setSemanticRole(m_cmbFt8Band,
+                                haveCat && !onSlot ? QStringLiteral("negative") : QString());
 }
 
 void MainWindow::qsyRigToSelectedFtBand()
@@ -14981,9 +14933,10 @@ void MainWindow::updateFt8SlotStatus()
                   .arg(QString::number(static_cast<double>(millisecondsToNextFt8TxPeriod()) / 1000.0, 'f', 1));
         m_lblFt8WindowStatus->setText(QStringLiteral("%1 — %2 — %3")
                                          .arg(currentPeriod, window, timingDetail));
-        m_lblFt8WindowStatus->setStyleSheet(txWindow
-            ? QStringLiteral("font-weight: 500; font-size: 9pt; color: #c82020;")
-            : QStringLiteral("font-weight: 500; font-size: 9pt; color: #15803d;"));
+        m_lblFt8WindowStatus->setStyleSheet(QStringLiteral("font-weight: 500; font-size: 9pt;"));
+        MadModemUi::setSemanticRole(m_lblFt8WindowStatus,
+                                    txWindow ? QStringLiteral("negative")
+                                             : QStringLiteral("positive"));
     }
     if (m_lblFt8SlotStatus != nullptr) {
         const int nextTxSeconds = (millisecondsToNextFt8TxPeriod() + 999) / 1000;
@@ -15054,9 +15007,10 @@ void MainWindow::handleFtSlotUpdated(const QString &modeLabel,
                   .arg(QString::number(static_cast<double>(millisecondsToNextFt8TxPeriod()) / 1000.0, 'f', 1));
         m_lblFt8WindowStatus->setText(QStringLiteral("%1 — %2 — %3")
                                          .arg(currentPeriod, window, timingDetail));
-        m_lblFt8WindowStatus->setStyleSheet(txWindow
-            ? QStringLiteral("font-weight: 500; font-size: 9pt; color: #c82020;")
-            : QStringLiteral("font-weight: 500; font-size: 9pt; color: #15803d;"));
+        m_lblFt8WindowStatus->setStyleSheet(QStringLiteral("font-weight: 500; font-size: 9pt;"));
+        MadModemUi::setSemanticRole(m_lblFt8WindowStatus,
+                                    txWindow ? QStringLiteral("negative")
+                                             : QStringLiteral("positive"));
     }
     if (m_lblFt8SlotStatus != nullptr) {
         const int nextTxSeconds = (millisecondsToNextFt8TxPeriod() + 999) / 1000;
@@ -15348,7 +15302,7 @@ void MainWindow::updateFt8TxBannerUi()
         (bannerCyclePosMs - bannerSelectedStartMs) > bannerSafeImmediateMs;
 
     QString text;
-    QString style;
+    QString bannerState;
     QString toolTip;
 
     if (onAir) {
@@ -15359,7 +15313,7 @@ void MainWindow::updateFt8TxBannerUi()
                         htmlEscaped(tag),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(m_ftSession.lastTxMessage));
-        style = QStringLiteral("QLabel { border: 2px solid #8a1f1f; border-radius: 6px; padding: 6px; background: #3b1010; color: #ffe5e5; font-weight: 500; font-size: 10pt; }");
+        bannerState = QStringLiteral("tx");
         toolTip = uiText("ft_tx_banner_on_air_tip", "The FT transmitter is on air now. This is the exact message currently being sent.");
     } else if (schedulerArmed) {
         const QString row = rowLabelForMessage(m_pendingFt8TxMessage);
@@ -15377,7 +15331,7 @@ void MainWindow::updateFt8TxBannerUi()
                                                "The immediate TX period has already started; next valid TX in %1 s.")
                                              .arg(QString::number(static_cast<double>(schedulerWaitMs) / 1000.0, 'f', 1))));
         }
-        style = QStringLiteral("QLabel { border: 2px solid #a06400; border-radius: 6px; padding: 6px; background: #332100; color: #fff0cc; font-weight: 500; font-size: 10pt; }");
+        bannerState = QStringLiteral("armed");
         toolTip = uiText("ft_tx_banner_armed_tip", "The TX scheduler is armed: PTT/audio will become mutex with RX only at the selected UTC transmit boundary.");
     } else if (sequencerReady) {
         const QString row = rowLabelForMessage(m_pendingFt8TxMessage);
@@ -15389,7 +15343,7 @@ void MainWindow::updateFt8TxBannerUi()
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(when),
                         htmlEscaped(m_pendingFt8TxMessage));
-        style = QStringLiteral("QLabel { border: 2px solid #1f6b4a; border-radius: 6px; padding: 6px; background: #10251b; color: #d9ffe9; font-weight: 500; font-size: 10pt; }");
+        bannerState = QStringLiteral("ready");
         toolTip = uiText("ft_tx_banner_seq_ready_tip", "The QSO sequencer has selected the next message, but the TX scheduler is intentionally not armed yet; RX continues to collect and decode the current slot.");
     } else if (!m_ftSession.lastTxMessage.trimmed().isEmpty() && !m_ftSession.lastTxWasTune) {
         const QString row = rowLabelForMessage(m_ftSession.lastTxMessage);
@@ -15398,16 +15352,23 @@ void MainWindow::updateFt8TxBannerUi()
                         htmlEscaped(uiText("ft_tx_banner_last_tx", "last TX")),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(m_ftSession.lastTxMessage));
-        style = QStringLiteral("QLabel { border: 2px solid #245a36; border-radius: 6px; padding: 6px; background: #102218; color: #d8ffe2; font-weight: 500; font-size: 10pt; }");
+        bannerState = QStringLiteral("monitor");
         toolTip = uiText("ft_tx_banner_rx_last_tip", "Receiver is active. The banner shows the last completed FT transmission.");
     } else {
         text = QStringLiteral("<b>%1</b>").arg(htmlEscaped(uiText("ft_tx_banner_rx", "RX monitor — no FT TX armed")));
-        style = QStringLiteral("QLabel { border: 2px solid #33414d; border-radius: 6px; padding: 6px; background: #17202a; color: #d7e0e7; font-weight: 500; font-size: 10pt; }");
+        bannerState = QStringLiteral("idle");
         toolTip = uiText("ft_tx_banner_idle_tip", "FT receiver monitor is active and no TX message is currently armed.");
     }
 
     m_lblFt8TxBanner->setText(text);
-    m_lblFt8TxBanner->setStyleSheet(style);
+    if (m_lblFt8TxBanner->property("ftBannerState").toString() != bannerState) {
+        m_lblFt8TxBanner->setProperty("ftBannerState", bannerState);
+        if (m_lblFt8TxBanner->style() != nullptr) {
+            m_lblFt8TxBanner->style()->unpolish(m_lblFt8TxBanner);
+            m_lblFt8TxBanner->style()->polish(m_lblFt8TxBanner);
+        }
+        m_lblFt8TxBanner->update();
+    }
     m_lblFt8TxBanner->setToolTip(toolTip);
 }
 
@@ -15736,9 +15697,10 @@ void MainWindow::updateFt8DecodePerformanceUi()
     const QString latencyText = m_haveFt8PerfStats
         ? QStringLiteral("%1 ms").arg(m_lastFt8PerfStats.totalMs, 0, 'f', 0)
         : QStringLiteral("--");
+    const QString accentColour = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Accent).name();
     const QString latencyColour = (m_haveFt8PerfStats && m_lastFt8PerfStats.totalMs > 3000.0)
-        ? QStringLiteral("#d84a4a")
-        : QStringLiteral("#2f80ed");
+        ? MadModemUi::themeColor(MadModemUi::ThemeColorRole::Negative).name()
+        : accentColour;
 
     double liveAvgMs = 0.0;
     double liveMaxMs = 0.0;
@@ -15770,7 +15732,7 @@ void MainWindow::updateFt8DecodePerformanceUi()
 
     out << "<tr><td colspan='2'><b>" << htmlEscaped(uiText("ft8_diag_decode_timing", "Decode timing")) << "</b></td></tr>";
     row(uiText("ft8_diag_avg_dt", "Avg DT"),
-        QStringLiteral("<span style='color:#2f80ed;'>%1 s</span>").arg(avgDt, 0, 'f', 3));
+        QStringLiteral("<span style='color:%1;'>%2 s</span>").arg(accentColour).arg(avgDt, 0, 'f', 3));
     row(uiText("ft8_diag_dt_correction", "DT correction"),
         htmlEscaped(QStringLiteral("%1 ms").arg(dtCorrectionMs, 0, 'f', 1)));
     row(uiText("ft8_decode_perf_decodes", "Decodes used"),
@@ -15786,7 +15748,7 @@ void MainWindow::updateFt8DecodePerformanceUi()
     row(uiText("ft8_diag_last_dts", "Last DTs"),
         htmlEscaped(lastDt.isEmpty() ? QStringLiteral("--") : lastDt.join(QStringLiteral(", "))));
     row(uiText("ft8_diag_convergence", "Convergence"),
-        QStringLiteral("<span style='color:#2f80ed; font-weight:bold;'>%1</span>").arg(htmlEscaped(convergence)));
+        QStringLiteral("<span style='color:%1; font-weight:bold;'>%2</span>").arg(accentColour, htmlEscaped(convergence)));
     row(uiText("ft8_diag_sc_drift_comp", "SC drift comp"),
         htmlEscaped(QStringLiteral("%1 ppm").arg(rxPpm, 0, 'f', 1)));
 
@@ -17803,8 +17765,8 @@ void MainWindow::appendFt8LocalTxRow(const QString &message, int frequencyHz, co
         for (int col = 0; col < m_tableFt8Rx->columnCount(); ++col) {
             QTableWidgetItem *sep = new QTableWidgetItem(col == 0 ? QStringLiteral("──── %1 ────").arg(utc) : QString());
             sep->setFlags(sep->flags() & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
-            sep->setBackground(QBrush(QColor(230, 230, 230)));
-            sep->setForeground(QBrush(QColor(90, 90, 90)));
+            sep->setBackground(QBrush(m_tableFt8Rx->palette().color(QPalette::AlternateBase)));
+            sep->setForeground(QBrush(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MutedText)));
             QFont f = sep->font();
             f.setBold(true);
             sep->setFont(f);
@@ -18506,10 +18468,11 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             item->setBackground(QBrush(bg));
         }
     } else {
-        // Non-CQ traffic between other stations is useful context, but it must not compete visually
-        // with CQ calls.  Keep it as a calm grey row in the cockpit theme.
-        const QColor bg(18, 20, 20);
-        const QColor fg(190, 174, 128);
+        // Non-CQ traffic between other stations is useful context, but it must
+        // not compete with CQ calls. Use the active theme's quiet table row;
+        // the old fixed dark/amber row became a black stripe in Qt Classic.
+        const QColor bg = m_tableFt8Rx->palette().color(QPalette::AlternateBase);
+        const QColor fg = MadModemUi::themeColor(MadModemUi::ThemeColorRole::MutedText);
         for (QTableWidgetItem *item : items) {
             item->setForeground(QBrush(fg));
             item->setBackground(QBrush(bg));
@@ -19340,7 +19303,7 @@ void MainWindow::beginTextTxHighlight(QPlainTextEdit *editor)
  * @brief Clears character formatting in one text TX editor.
  *
  * Purpose:
- * - Restore normal black, non-underlined input text before a new TX.
+ * - Restore the active theme's normal, non-underlined input text before TX.
  * - Use bounded document positions to avoid QTextCursor range warnings.
  */
 void MainWindow::resetTextTxHighlight(QPlainTextEdit *editor)
@@ -19357,7 +19320,7 @@ void MainWindow::resetTextTxHighlight(QPlainTextEdit *editor)
     QSignalBlocker block(editor);
 
     QTextCharFormat normalFormat;
-    normalFormat.setForeground(QColor("#111111"));
+    normalFormat.setForeground(editor->palette().color(QPalette::Text));
     normalFormat.setFontUnderline(false);
     normalFormat.setUnderlineStyle(QTextCharFormat::NoUnderline);
 
@@ -19398,19 +19361,20 @@ void MainWindow::updateTextTxHighlight(double progress)
     QSignalBlocker block(m_activeTextTxEditor);
 
     QTextCharFormat pendingFormat;
-    pendingFormat.setForeground(QColor("#111111"));
+    pendingFormat.setForeground(m_activeTextTxEditor->palette().color(QPalette::Text));
     pendingFormat.setFontUnderline(false);
     pendingFormat.setUnderlineStyle(QTextCharFormat::NoUnderline);
 
     QTextCharFormat sentFormat;
-    sentFormat.setForeground(QColor("#118a2a"));
+    sentFormat.setForeground(MadModemUi::themeColor(MadModemUi::ThemeColorRole::Positive));
     sentFormat.setFontUnderline(false);
     sentFormat.setUnderlineStyle(QTextCharFormat::NoUnderline);
 
     QTextCharFormat currentFormat;
-    currentFormat.setForeground(QColor("#003f9e"));
+    const QColor currentColor = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Accent);
+    currentFormat.setForeground(currentColor);
     currentFormat.setFontUnderline(true);
-    currentFormat.setUnderlineColor(QColor("#003f9e"));
+    currentFormat.setUnderlineColor(currentColor);
     currentFormat.setUnderlineStyle(QTextCharFormat::SingleUnderline);
 
     QTextCursor cursor(m_activeTextTxEditor->document());
@@ -21336,7 +21300,7 @@ void MainWindow::showAboutMadModem()
         "<p><b>Includes:</b> CAT/PTT via Hamlib/HRD, rotator control, "
         "Radio Telescope, ADIF logbook, QSO map and bundled third-party "
         "open-source components.</p>"
-        "<p style='color:#666;'>See <tt>LICENSE</tt> and "
+        "<p>See <tt>LICENSE</tt> and "
         "<tt>THIRD_PARTY_NOTICES.md</tt> for full legal notices.</p>"));
     outer->addWidget(body, 1);
 

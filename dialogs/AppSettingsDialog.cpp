@@ -1,5 +1,6 @@
 #include "AppSettingsDialog.h"
 #include "../utils/RuntimeI18n.h"
+#include "../utils/CockpitTheme.h"
 
 #include "AudioSettingsDialog.h"
 #include "LogbookSettingsDialog.h"
@@ -476,29 +477,20 @@ void compactEmbeddedSettingsWidgets(QWidget *root)
                 vp->setAttribute(Qt::WA_StyledBackground, true);
                 vp->setAutoFillBackground(true);
             }
-            QPalette pal = view->palette();
-            pal.setColor(QPalette::Window, QColor(18, 18, 18));
-            pal.setColor(QPalette::Base, QColor(18, 18, 18));
-            pal.setColor(QPalette::AlternateBase, QColor(28, 28, 28));
-            pal.setColor(QPalette::Text, QColor(255, 179, 71));
-            pal.setColor(QPalette::WindowText, QColor(255, 179, 71));
-            pal.setColor(QPalette::ButtonText, QColor(255, 179, 71));
-            pal.setColor(QPalette::Highlight, QColor(255, 154, 32));
-            pal.setColor(QPalette::HighlightedText, QColor(5, 5, 5));
             // Keep the item view inside QComboBox's private popup container.
             // Turning the view itself into a top-level popup makes the dropdown
             // fail to appear on Windows even though wheel selection still works.
-            // The popup background stays in the cockpit family but slightly
-            // lighter than the main background to separate it visually.
+            // Use palette roles so a settings page created under Avionica can
+            // switch cleanly to Qt Classic (and vice versa).
             view->setStyleSheet(QStringLiteral(
-                "QListView, QAbstractItemView { background:#121212; color:#ffb347; border:1px solid #d88631; "
-                "selection-background-color:#ff9a20; selection-color:#050505; outline:0; }"
-                "QListView::item, QAbstractItemView::item { color:#ffb347; background:#141414; min-height:24px; padding:4px 10px; }"
+                "QListView, QAbstractItemView { background:palette(base); color:palette(text); border:1px solid palette(mid); "
+                "selection-background-color:palette(highlight); selection-color:palette(highlighted-text); outline:0; }"
+                "QListView::item, QAbstractItemView::item { color:palette(text); background:transparent; min-height:24px; padding:4px 10px; }"
                 "QListView::item:selected, QAbstractItemView::item:selected, "
-                "QListView::item:hover, QAbstractItemView::item:hover { background:#ff9a20; color:#050505; }"));
-            view->setPalette(pal);
+                "QListView::item:hover, QAbstractItemView::item:hover { background:palette(highlight); color:palette(highlighted-text); }"));
+            view->setPalette(qApp != nullptr ? qApp->palette() : combo->palette());
             if (QWidget *vp = view->viewport()) {
-                vp->setPalette(pal);
+                vp->setPalette(view->palette());
             }
         }
     }
@@ -875,7 +867,7 @@ QWidget *AppSettingsDialog::makeUserQthMacrosPage()
         label->setMinimumWidth(74);
         label->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         label->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        label->setStyleSheet(QStringLiteral("color: #555555;"));
+        label->setProperty("mmRole", QStringLiteral("muted"));
         return label;
     };
 
@@ -2002,7 +1994,8 @@ QWidget *AppSettingsDialog::makeRotatorPage()
 
     m_lblRotatorEndpointWarning = new QLabel(page);
     m_lblRotatorEndpointWarning->setWordWrap(true);
-    m_lblRotatorEndpointWarning->setStyleSheet(QStringLiteral("QLabel { color: #b00020; font-weight: 500; }"));
+    m_lblRotatorEndpointWarning->setStyleSheet(QStringLiteral("QLabel { font-weight: 500; }"));
+    MadModemUi::setSemanticRole(m_lblRotatorEndpointWarning, QStringLiteral("negative"));
     m_lblRotatorEndpointWarning->setVisible(false);
     outer->addWidget(m_lblRotatorEndpointWarning);
 

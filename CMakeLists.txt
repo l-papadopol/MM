@@ -976,12 +976,16 @@ if(BUILD_TESTING)
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_rtty_contest_layout.py")
         add_test(NAME madmodem_rtty_runtime_guard
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_rtty_live_contest_runtime.py")
+        add_test(NAME madmodem_ui_theme_integrity_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ui_theme_integrity.py")
         add_test(NAME madmodem_ft_atomic_lifecycle_guard
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_atomic_tx_lifecycle.py")
         add_test(NAME madmodem_ft_caller_queue_guard
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_caller_queue_waterfall_restore.py")
         add_test(NAME madmodem_ft_linear_sequencer_guard
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_linear_sequencer.py")
+        add_test(NAME madmodem_ft_qso_deadline_priority_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_qso_deadline_priority.py")
         add_test(NAME madmodem_localization_audit
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_localization.py")
         add_test(NAME madmodem_documentation_audit
