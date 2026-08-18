@@ -48,6 +48,27 @@ std::string normalize(std::string text) {
   return out;
 }
 
+double editSimilarity(const std::string& left, const std::string& right) {
+  if (left.empty() && right.empty()) return 1.0;
+  std::vector<std::size_t> previous(right.size() + 1U);
+  std::vector<std::size_t> current(right.size() + 1U);
+  for (std::size_t j = 0U; j <= right.size(); ++j) previous[j] = j;
+  for (std::size_t i = 1U; i <= left.size(); ++i) {
+    current[0U] = i;
+    for (std::size_t j = 1U; j <= right.size(); ++j) {
+      const std::size_t substitution = previous[j - 1U] +
+          (left[i - 1U] == right[j - 1U] ? 0U : 1U);
+      current[j] = std::min({previous[j] + 1U, current[j - 1U] + 1U,
+                             substitution});
+    }
+    previous.swap(current);
+  }
+  const double scale = static_cast<double>(
+      std::max(left.size(), right.size()));
+  return 1.0 - static_cast<double>(previous.back()) /
+                   std::max(1.0, scale);
+}
+
 struct SignalOptions {
   double frequencyHz = 900.0;
   double wpm = 20.0;
@@ -558,10 +579,30 @@ void testAudioCase(const std::string& name, const SignalOptions& options,
                                     options.frequencyHz, hintWpm, &logs);
   if (actual != expected) {
     std::cerr << "Last logs for " << name << ":\n";
-    const std::size_t begin = logs.size() > 24U ? logs.size() - 24U : 0U;
+    const std::size_t begin = logs.size() > 50U ? logs.size() - 50U : 0U;
     for (std::size_t i = begin; i < logs.size(); ++i) std::cerr << logs[i] << '\n';
   }
   requireEqual(name, actual, expected);
+}
+
+void testWeakCoherentAudio(const SignalOptions& options,
+                           const std::string& expected,
+                           double hintWpm) {
+  std::vector<std::string> logs;
+  const std::string actual = decode(synthesize(expected, options),
+                                    options.frequencyHz, hintWpm, &logs);
+  const double similarity = editSimilarity(actual, expected);
+  const bool retainedCore = actual.find("CQ DE") != std::string::npos &&
+                            actual.find("NNH") != std::string::npos;
+  if (similarity < 0.68 || !retainedCore) {
+    const std::size_t begin = logs.size() > 60U ? logs.size() - 60U : 0U;
+    for (std::size_t i = begin; i < logs.size(); ++i)
+      std::cerr << logs[i] << '\n';
+  }
+  requireTrue("weak-coherent-structure", retainedCore);
+  requireTrue("weak-coherent-edit-similarity", similarity >= 0.68);
+  std::cout << "PASS weak-coherent-awgn: " << actual
+            << " similarity=" << similarity << '\n';
 }
 
 
@@ -687,7 +728,9 @@ void testDiscriminatorResetUsesLiveTimestamp() {
 
   std::optional<CwLogicRun> completed;
   double timestamp = 10.0;  // reset in the middle of an already-running stream
-  for (int i = 0; i < 80 && !completed.has_value(); ++i) {
+  // The segmental discriminator intentionally resolves an edge only after its
+  // bounded fixed lag has seen whether the apparent transition persists.
+  for (int i = 0; i < 260 && !completed.has_value(); ++i) {
     timestamp += 0.001;
     CwCarrierObservation observation;
     observation.timestampSec = timestamp;
@@ -710,6 +753,73 @@ void testDiscriminatorResetUsesLiveTimestamp() {
               completed->qsbProbability <= 1.0 &&
               completed->noiseProbability >= 0.0 &&
               completed->noiseProbability <= 1.0);
+}
+
+void testSegmentalFixedLagIsCausalAndBounded() {
+  using namespace madmodem::cwskimmer;
+  CwCarrierDiscriminatorConfig cfg;
+  cfg.minSnrDb = 0.0;
+  cfg.minimumFixedLagMs = 36;
+  cfg.maximumFixedLagMs = 80;
+  cfg.segmentBeamWidth = 24U;
+  CwCarrierDiscriminator discriminator(cfg);
+
+  std::vector<CwLogicRun> runs;
+  bool sawBoundedLag = false;
+  double timestamp = 20.0;
+  const auto feed = [&](bool nominalMark, int milliseconds,
+                        int notchStart = -1, int notchEnd = -1) {
+    for (int index = 0; index < milliseconds; ++index) {
+      timestamp += 0.001;
+      const bool notch = nominalMark && index >= notchStart &&
+                         index < notchEnd;
+      CwCarrierObservation observation;
+      observation.timestampSec = timestamp;
+      observation.envelope = nominalMark
+          ? (notch ? 0.11 : 1.0) : 0.010;
+      observation.acquisitionEnvelope = observation.envelope;
+      observation.snrDb = nominalMark
+          ? (notch ? 2.5 : 18.0) : -2.0;
+      observation.coherence = nominalMark
+          ? (notch ? 0.52 : 0.90) : 0.18;
+      observation.carrierCentered = nominalMark;
+      observation.timingDitMs = 42.0;
+      observation.timingConfidence = 0.82;
+      observation.carrierSessionProbability = nominalMark ? 0.92 : 0.75;
+      const auto result = discriminator.process(observation);
+      const double observedLagMs = 1000.0 *
+          (observation.timestampSec - result.resolvedTimestampSec);
+      if (result.resolvedTimestampSec > 0.0 &&
+          result.fixedLagMs >= cfg.minimumFixedLagMs &&
+          result.fixedLagMs <= cfg.maximumFixedLagMs &&
+          observedLagMs >= cfg.minimumFixedLagMs - 2.0 &&
+          observedLagMs <= cfg.maximumFixedLagMs + 2.0) {
+        sawBoundedLag = true;
+      }
+      if (result.completedRun.has_value())
+        runs.push_back(*result.completedRun);
+    }
+  };
+
+  feed(false, 160);
+  // An eight-millisecond in-element fade is deliberately ambiguous.  The
+  // fixed-lag beam must retain the continuous-MARK hypothesis until the tone
+  // recovers instead of emitting two separate elements.
+  feed(true, 126, 48, 56);
+  feed(false, 180);
+  const std::vector<CwLogicRun> tail = discriminator.flush(timestamp);
+  runs.insert(runs.end(), tail.begin(), tail.end());
+
+  std::vector<CwLogicRun> meaningfulMarks;
+  for (const CwLogicRun& run : runs) {
+    if (run.mark && run.durationMs >= 15.0)
+      meaningfulMarks.push_back(run);
+  }
+  requireTrue("segmental-fixed-lag-single-mark",
+              meaningfulMarks.size() == 1U);
+  requireTrue("segmental-fixed-lag-mark-duration",
+              meaningfulMarks.front().durationMs >= 108.0);
+  requireTrue("segmental-fixed-lag-causal-delay", sawBoundedLag);
 }
 
 void testFirstSampleRateDoesNotRestartAgain() {
@@ -862,6 +972,7 @@ int main() {
     testTimingRejectsMicroRunStorm();
     testWpmCeilingAndDuplicateToneUpdate();
     testDiscriminatorResetUsesLiveTimestamp();
+    testSegmentalFixedLagIsCausalAndBounded();
     testFirstSampleRateDoesNotRestartAgain();
     testCommittedPatternSnapshot();
 
@@ -902,6 +1013,14 @@ int main() {
     noisy.frequencyHz = 1514.0;
     noisy.noiseAmplitude = 0.055;
     testAudioCase("awgn", noisy, "CQ CQ DE IZ6NNH", 20.0);
+
+    SignalOptions weak = clean;
+    weak.frequencyHz = 1471.0;
+    weak.amplitude = 0.040;
+    weak.noiseAmplitude = 0.090;
+    weak.portableRandom = true;
+    weak.seed = 0x5745414bU;
+    testWeakCoherentAudio(weak, "CQ CQ DE IZ6NNH", 27.0);
 
     SignalOptions qsb = noisy;
     qsb.frequencyHz = 1293.0;

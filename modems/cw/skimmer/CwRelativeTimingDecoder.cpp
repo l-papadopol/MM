@@ -829,9 +829,16 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
         (run.confidence >= 0.86 && run.coherence >= 0.50);
     const bool durationPlausible =
         (fitsShort || fitsLong) && currentMarginalSupported;
+    // A strict centred short/long pair already installed this local epoch.
+    // Requiring three additional pair updates before session-qualified text
+    // could drop the first dash while the 512 ms PSD window is recovering.
+    // This authorises text only; it never trains dit/dah timing.
+    const bool localModelAvailable = m_pairEvidence >= 1 &&
+                                     m_confidence >= 0.40;
     const bool textTrusted = timingTrusted ||
-        (established && run.carrierSessionQualified && durationPlausible &&
-         run.confidence >= 0.76 && run.coherence >= 0.20);
+        (localModelAvailable && run.carrierSessionQualified &&
+         durationPlausible && run.confidence >= 0.76 &&
+         run.coherence >= 0.20);
 
     if (pairEndpointTrusted) {
       m_previousMarkMs = run.durationMs;
@@ -930,8 +937,15 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
       // 7-dit "CQ CQ" separation.
       const double canonicalWordThresholdMs =
           std::sqrt(21.0) * std::max(1.0, m_shortMeanMs);
-      const double adaptiveWordThresholdMs =
-          std::max(m_wordThresholdMs, canonicalWordThresholdMs);
+      // A leading/off-air SPACE can be much longer than the operator's real
+      // seven-unit word gaps.  Letting that one observation raise the decision
+      // threshold without a bound turned later 6-7-unit gaps into character
+      // gaps (CQCQ, DXDX).  Keep adaptation, but never above the midpoint
+      // between the canonical character and word families by more than one
+      // local unit.
+      const double adaptiveWordThresholdMs = std::min(
+          std::max(m_wordThresholdMs, canonicalWordThresholdMs),
+          5.60 * std::max(1.0, m_shortMeanMs));
       const bool forceWordBoundary =
           effectiveSpaceMs >= adaptiveWordThresholdMs;
       const CwMorseBeamResult beamResult = m_beamDecoder.observeSpace(
@@ -1035,8 +1049,9 @@ CwRelativeTimingResult CwRelativeTimingDecoder::advance(
     // beam likelihood model below.
     const double canonicalWordThresholdMs =
         std::sqrt(21.0) * std::max(1.0, m_shortMeanMs);
-    const double adaptiveWordThresholdMs =
-        std::max(m_wordThresholdMs, canonicalWordThresholdMs);
+    const double adaptiveWordThresholdMs = std::min(
+        std::max(m_wordThresholdMs, canonicalWordThresholdMs),
+        5.60 * std::max(1.0, m_shortMeanMs));
     if (openSpaceMs >= adaptiveWordThresholdMs) {
       maybeCommitWordSpace(aggregate);
     }

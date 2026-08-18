@@ -452,7 +452,6 @@ public:
     sidePlusControlSum = {};
     sideMinusControlSum = {};
     rawControlSum = {};
-    controlPower = 0.0;
     controlCount = 0;
     controlAccumulator = 0.0;
     slowCarrier = {};
@@ -563,7 +562,6 @@ public:
       contrastCenterControlSum += contrastCenter;
       sidePlusControlSum += sidePlus;
       sideMinusControlSum += sideMinus;
-      controlPower += std::norm(filtered);
       ++controlCount;
       controlAccumulator += 1.0;
       ++processedSamples;
@@ -677,9 +675,6 @@ public:
     const std::complex<double> sidePlus = sidePlusControlSum / static_cast<double>(controlCount);
     const std::complex<double> sideMinus = sideMinusControlSum / static_cast<double>(controlCount);
     const std::complex<double> rawCoherent = rawControlSum / static_cast<double>(controlCount);
-    const double totalPower = controlPower / static_cast<double>(controlCount);
-    const double coherentPower = std::norm(coherent);
-    const double residualPower = std::max(kEpsilon, totalPower - coherentPower);
     const double edgeEnvelope = std::abs(edgeCoherent);
     const double sideEnvelope = std::max(std::abs(sidePlus), std::abs(sideMinus));
     const double centerContrastEnvelope = std::abs(contrastCenter);
@@ -692,9 +687,9 @@ public:
     slowCarrierPower += carrierAlpha * (std::norm(carrierCoherent) - slowCarrierPower);
     const double coherence = clampd(std::norm(slowCarrier) /
                                     std::max(kEpsilon, slowCarrierPower), 0.0, 1.0);
-    const double snrDb = 10.0 * std::log10((coherentPower + kEpsilon) /
-                                          (residualPower + kEpsilon));
-    publicSnr = snrDb;
+    // Do not derive SNR from total-minus-mean power inside this one-millisecond
+    // bucket: the filtered samples are strongly correlated, so that old ratio
+    // exaggerated live SNR by 20-35 dB and admitted narrow-band noise crests.
 
     const bool separatedKnownNeighbour =
         std::isfinite(nearestKnownLaneSeparationHz) &&
@@ -718,10 +713,23 @@ public:
     // to tag its own run so acquisition does not lose the leading dash.  It
     // does not enable the temporal decoder by itself: the later stableCarrier
     // gate still requires a narrow, prominent PSD lane.
-    const double instantCenterToSideDb = 20.0 * std::log10(
-        (centerContrastEnvelope + kEpsilon) / (sideEnvelope + kEpsilon));
+    // Non-coherent quadrature detection at the selected tone, normalised by
+    // simultaneous equal-aperture side probes.  The geometric side estimate
+    // is robust when one side is occupied by a known adjacent CW lane; a small
+    // fraction of the larger side prevents an anomalously quiet bin from
+    // manufacturing infinite evidence.
+    const double sidePlusEnvelope = std::abs(sidePlus);
+    const double sideMinusEnvelope = std::abs(sideMinus);
+    const double robustSideEnvelope = std::max(
+        std::sqrt((sidePlusEnvelope + kEpsilon) *
+                  (sideMinusEnvelope + kEpsilon)),
+        0.18 * std::max(sidePlusEnvelope, sideMinusEnvelope));
+    const double instantCenterToSideDb = clampd(20.0 * std::log10(
+        (centerContrastEnvelope + kEpsilon) /
+        (robustSideEnvelope + kEpsilon)), -40.0, 60.0);
+    publicSnr = instantCenterToSideDb;
     const bool acquisitionCentered = lastCarrierPeakWidthHz <= 0.0 &&
-        coherence > 0.58 && snrDb > config.minSnrDb + 1.5 &&
+        coherence > 0.58 && instantCenterToSideDb > config.minSnrDb + 1.5 &&
         instantCenterToSideDb > 3.0;
     // Session continuity is a probability, not an N-dit timeout.  A proven
     // lane attacks quickly; in an OFF interval it decays with a time constant
@@ -771,7 +779,7 @@ public:
     observation.timestampSec = timestamp;
     observation.envelope = envelope;
     observation.acquisitionEnvelope = edgeEnvelope;
-    observation.snrDb = snrDb;
+    observation.snrDb = instantCenterToSideDb;
     observation.coherence = coherence;
     // Per-run carrier evidence must describe the current measured lane, not
     // the session hold timer.  The hold keeps a valid decoder session alive
@@ -779,6 +787,9 @@ public:
     // MARK.
     observation.carrierCentered = spectrumTimingCentered ||
         (!timingFeedEnabled && acquisitionCentered);
+    observation.timingDitMs = clampd(lastTiming.ditMs, 24.0, 260.0);
+    observation.timingConfidence = clampd(lastTiming.confidence, 0.0, 1.0);
+    observation.carrierSessionProbability = carrierSessionProbability;
 
     const CwCarrierDiscriminatorResult carrier = discriminator.process(observation);
     publicConfidence = carrier.confidence;
@@ -862,9 +873,11 @@ public:
         const double priorDitMs = 1200.0 / std::max(5.0, config.initialWpm);
         const double minimumShortMs = std::max(8.0, 0.45 * priorDitMs);
         std::size_t pairStart = runPreRoll.size();
+        std::size_t acquisitionPairIndex = runPreRoll.size();
         double acquisitionShortMs = 0.0;
         double acquisitionLongMs = 0.0;
         double acquisitionGapMs = 0.0;
+        double acquisitionPairFloorSnrDb = -99.0;
         for (std::size_t i = 0; i + 2U < runPreRoll.size(); ++i) {
           const CwLogicRun& first = runPreRoll[i];
           const CwLogicRun& gap = runPreRoll[i + 1U];
@@ -884,13 +897,16 @@ public:
               gap.durationMs > 2.10 * shortMs || meanCoherence < 0.48 ||
               meanConfidence < 0.72)
             continue;
-          // Start at the first trustworthy relative pair.  Carrier evidence
+          // Start at the first trustworthy relative pair. Carrier evidence
           // gathered later in the same pre-roll validates these two marks,
           // while the strict PSD gate above prevents noise-only acquisition.
           acquisitionShortMs = shortMs;
           acquisitionLongMs = longMs;
           acquisitionGapMs = gap.durationMs;
+          acquisitionPairFloorSnrDb = std::min(first.meanSnrDb,
+                                               second.meanSnrDb);
           pairStart = i;
+          acquisitionPairIndex = i;
           // Recover the complete contiguous pre-lock sequence, not a fixed
           // number of dits. A C at 38 WPM already spans about eleven units, so
           // the previous 6.5-dit walk-back could begin at its third element and
@@ -942,15 +958,22 @@ public:
           for (std::size_t i = pairStart; i < runPreRoll.size(); ++i) {
             CwLogicRun replay = runPreRoll[i];
             if (replay.mark) {
-              const bool centred = replay.carrierCentered ||
-                  replay.carrierCenteredFraction >= 0.55;
               const bool pairFamily = acquisitionShortMs > 0.0 &&
                   ((replay.durationMs >= 0.62 * acquisitionShortMs &&
                     replay.durationMs <= 1.48 * acquisitionShortMs) ||
                    (replay.durationMs >= 0.62 * acquisitionLongMs &&
                     replay.durationMs <= 1.48 * acquisitionLongMs));
+              const bool centred = replay.carrierCentered ||
+                  replay.carrierCenteredFraction >= 0.55;
+              const bool predatesAcquisitionPair =
+                  i < acquisitionPairIndex;
+              if (predatesAcquisitionPair &&
+                  replay.meanSnrDb < acquisitionPairFloorSnrDb - 8.0) {
+                continue;
+              }
               const bool leadingSameCharacter = !centred && pairFamily &&
-                  replay.confidence >= 0.90 && replay.coherence >= 0.45;
+                  replay.confidence >= 0.90 && replay.coherence >= 0.45 &&
+                  replay.meanSnrDb >= acquisitionPairFloorSnrDb - 8.0;
               if (!centred && !leadingSameCharacter) continue;
               if (leadingSameCharacter) {
                 replay.carrierCentered = true;
@@ -990,10 +1013,18 @@ public:
         const bool boundaryRescue = maintainedCarrierSession &&
             followsCharacterOrWordGap && plausiblePriorMark &&
             run.confidence >= 0.84 && run.coherence >= 0.40;
+        // A noisy OFF interval can be split by rejected micro-runs and appear
+        // shorter than a character gap. Preserve an exceptionally coherent,
+        // family-consistent element while the proven carrier session is alive;
+        // this is text-only evidence and cannot move the temporal clock.
+        const bool strongSessionRescue = maintainedCarrierSession &&
+            plausiblePriorMark && run.confidence >= 0.92 &&
+            run.coherence >= 0.65 && run.meanSnrDb >= 5.0 &&
+            run.noiseProbability <= 0.28;
         const bool qsbRescue = stableCarrier && run.mark && run.qsbErasure &&
             plausiblePriorMark && run.confidence >= 0.80 && run.coherence >= 0.38;
         accepted.carrierSessionQualified = stableCarrier || boundaryRescue ||
-            qsbRescue || separatedKnownNeighbour;
+            strongSessionRescue || qsbRescue || separatedKnownNeighbour;
         timingTask.submitRun(accepted);
         temporalAwaitingSpace = run.mark;
         if (!run.mark) lastCompletedSpaceMs = run.durationMs;
@@ -1002,10 +1033,13 @@ public:
       }
     }
     if (timingFeedEnabled) {
-      const bool qualifiedKeyDown = carrier.keyDown &&
-          (observation.carrierCentered || currentStableCarrier ||
-           (separatedKnownNeighbour && timingFeedEnabled));
-      timingTask.submitAdvance(timestamp, qualifiedKeyDown);
+      const bool qualifiedKeyDown = carrier.resolvedKeyDown &&
+          (currentStableCarrier || carrierSessionProbability >= 0.22 ||
+           separatedKnownNeighbour);
+      if (carrier.resolvedTimestampSec > 0.0) {
+        timingTask.submitAdvance(carrier.resolvedTimestampSec,
+                                 qualifiedKeyDown);
+      }
     }
     drainTimingResults(timestamp);
 
@@ -1022,6 +1056,10 @@ public:
         // not reset its pair evidence: reset(true) used to preserve the means
         // but clear the trust counter, allowing the next noise pair to install
         // a 50 WPM clock.
+        for (const CwLogicRun& tail : discriminator.flush(timestamp)) {
+          logLogicRun(tail);
+          timingTask.submitRun(tail);
+        }
         timingTask.flush(timestamp);
         drainTimingResults(timestamp);
         timingFeedEnabled = false;
@@ -1073,7 +1111,8 @@ public:
     ++diagnosticCounter;
     if (diagnosticCounter >= kDiagnosticPeriodMs) {
       diagnosticCounter = 0;
-      emitDiagnostic(timestamp, edgeEnvelope, envelope, carrier, snrDb, coherence);
+      emitDiagnostic(timestamp, edgeEnvelope, envelope, carrier,
+                     instantCenterToSideDb, coherence);
     }
 
     controlSum = {};
@@ -1083,7 +1122,6 @@ public:
     sidePlusControlSum = {};
     sideMinusControlSum = {};
     rawControlSum = {};
-    controlPower = 0.0;
     controlCount = 0;
   }
 
@@ -1243,9 +1281,8 @@ public:
   void flush() {
     const double timestamp = sampleRate > 0.0
         ? static_cast<double>(processedSamples) / sampleRate : 0.0;
-    if (const auto run = discriminator.flush(timestamp); run.has_value()) {
-      timingTask.submitRun(*run);
-    }
+    for (const CwLogicRun& run : discriminator.flush(timestamp))
+      timingTask.submitRun(run);
     timingTask.flush(timestamp);
     drainTimingResults(timestamp, true);
   }
@@ -1282,7 +1319,6 @@ public:
   std::complex<double> sidePlusControlSum{};
   std::complex<double> sideMinusControlSum{};
   std::complex<double> rawControlSum{};
-  double controlPower = 0.0;
   int controlCount = 0;
   double controlAccumulator = 0.0;
   std::uint64_t processedSamples = 0;
