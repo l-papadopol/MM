@@ -1,0 +1,9 @@
+<!DOCTYPE html><html lang='en'><head><meta charset='utf-8'><title>Troubleshooting</title><link rel='stylesheet' href='../style.css'></head><body>
+<div class='nav'><strong>Contents:</strong> <a href='index.html'>MM Help</a> <a href='quickstart.html'>Quick start</a> <a href='audio_cat_ptt.html'>Audio, CAT and PTT</a> <a href='waterfall.html'>Waterfall and markers</a> <a href='text_modes.html'>Text modes</a> <a href='cw.html'>CW / Morse</a> <a href='ft8_ft4.html'>FT4 / FT8</a> <a href='rotator.html'>Rotator</a> <a href='radio_telescope.html'>Radio Telescope</a> <a href='scheduler.html'>Scheduler</a> <a href='logbook_map.html'>Logbook and map</a> <a href='troubleshooting.html'>Troubleshooting</a></div>
+<h1>Troubleshooting</h1>
+<h2>No receive decodes</h2><p>Confirm that RX is running, the correct audio input is selected and the level is above the noise floor without clipping. Place the mode marker on the signal. FT4/FT8 also require an accurate UTC clock.</p>
+<h2>CAT or band change does not work</h2><p>Check the Hamlib model, port or network address and use the CAT read test. Selecting an FT band tunes the standard dial frequency only while CAT is connected.</p>
+<h2>TX does not start</h2><p>Configure a valid callsign and locator under Settings → User/QTH. Then verify the TX audio device, PTT method and radio data-mode routing. The Runtime log records the reason for a blocked FT transmission.</p>
+<h2>Rotator does not move</h2><p>Use a rotator connection separate from radio CAT, confirm its mechanical limits and check the MOV/RDY indicators. Never bypass a reported limit or emergency stop.</p>
+<div class='footer'>MadModem 0.5.8 — Qt Help — English</div>
+</body></html>
