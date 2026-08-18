@@ -3531,12 +3531,17 @@ int q65subs::q65_decode(q65_codec_ds *pCodec, int* pDecodedCodeword, int *pDecod
 
 ///////////////////////////////// subs //////////////////////////////////////////////
 static q65_codec_ds codec;
+// TX encoding and RX intrinsics use the same process-global QRA workspace.
+// The original port kept one function-local "first" flag in each entry point,
+// so the second direction to run initialized the same workspace again and
+// leaked/overwrote its first allocation. WeakSignalCodecLock serializes callers;
+// this shared flag makes initialization single-owner as well.
+static bool codec_initialized = false;
 //#include <QtGui>
 
 void q65subs::q65_enc(int x[], int y[])
 {
-    static int first=1;
-    if (first)
+    if (!codec_initialized)
     {
         // Set the QRA code, allocate memory, and initialize
         int rc = q65_init(&codec,&qra15_65_64_irr_e23);
@@ -3545,7 +3550,7 @@ void q65subs::q65_enc(int x[], int y[])
             printf("error in q65_init()\n");
             exit(0);
         }
-        first=0;
+        codec_initialized=true;
     }
     // Encode message x[13], producing codeword y[63]
     q65_encode(&codec,y,x);
@@ -3562,9 +3567,7 @@ void q65subs::q65_intrinsics_ff(float s3[], int submode, float B90Ts,
      */
 
     int rc;
-    static int first=1;
-
-    if (first)
+    if (!codec_initialized)
     {
         // Set the QRA code, allocate memory, and initialize
         int rc = q65_init(&codec,&qra15_65_64_irr_e23);
@@ -3573,7 +3576,7 @@ void q65subs::q65_intrinsics_ff(float s3[], int submode, float B90Ts,
             printf("error in q65_init()\n");
             exit(0);
         }
-        first=0;
+        codec_initialized=true;
     }
     rc = q65_intrinsics_fastfading(&codec,s3prob,s3,submode,B90Ts,fadingModel);
     if (rc<0)
@@ -3653,4 +3656,3 @@ void q65subs::q65_dec_fullaplist(float s3[], float s3prob[], int codewords[],
     }
     esnodb0 = esnodb;
 }
-

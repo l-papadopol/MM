@@ -27,8 +27,10 @@ public:
 
  	void genq65itone(QString msg0,int *itone,bool);
     int genq65(QString,int *t_iwave,double samp_rate,double f0,int mq65,int period_t);//,int i3b ,int &ntxslot 
-    QString GetUnpackMsg(){return s_unpack_msg;}; 
-    QString unpack77(bool *c77,bool &unpk77_success);  
+	QString GetUnpackMsg(){return s_unpack_msg;};
+	void resetGeneratorHashState(){TPackUnpackMsg77.reset_save_hash_calls_gen();}
+	void save_hash_call_my_his_r1_r2(QString call,int pos){TPackUnpackMsg77.save_hash_call_my_his_r1_r2(call,pos);}
+	QString unpack77(bool *c77,bool &unpk77_success);  
     void pack77(QString msgs,int &i3,int n3,bool *c77);          
     	
 private:   

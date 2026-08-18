@@ -7,7 +7,6 @@ BUILD_TYPE="${BUILD_TYPE:-Release}"
 ARCHS="${MADMODEM_OSX_ARCHITECTURES:-$(uname -m)}"
 BUILD_DIR="${MADMODEM_MACOS_BUILD_DIR:-$ROOT_DIR/build-macos-$ARCHS}"
 DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
-Q65_FULL="${MADMODEM_Q65_FULL:-OFF}"
 
 # macOS runners use a case-insensitive filesystem.  A stale root VERSION/version
 # file shadows the C++17 standard <version> header when any target has the
@@ -61,7 +60,6 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
     -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
     -DMADMODEM_REQUIRE_HAMLIB=ON \
     -DMADMODEM_MACOS_BUNDLE=ON \
-    -DMADMODEM_ENABLE_Q65_FULL_MSHV_DECODER="$Q65_FULL" \
     "$@"
 
 cmake --build "$BUILD_DIR" --config "$BUILD_TYPE" --parallel "${JOBS:-$(sysctl -n hw.ncpu)}"

@@ -97,7 +97,7 @@ The CI scripts default to:
 
 ```text
 Retired MIND build options are not part of 0.5.8; distribution builds do not pass MADMODEM_MIND_OPENMP.
-MADMODEM_Q65_FULL=OFF       conservative CI default; can be flipped after runner validation
+Q65A/B/C/D RX and TX are built unconditionally and require no external FFT library.
 ```
 
 The main modem/DSP/CAT source code is not changed by these scripts.

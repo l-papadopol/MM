@@ -44,6 +44,9 @@ public:
     void setContestModeEnabled(bool enabled);
     void setMyCall(const QString &call);
     void setDxCall(const QString &call);
+    /** Deterministic offline entry point used by WAV analysis and regressions. */
+    QVector<Msk144Decode> decodeRecordedPeriod(const QVector<float> &samples12k,
+                                               const QDateTime &periodStartUtc);
 public slots:
     void reset();
     void processAudioBlock(const AudioBlock &block);
@@ -63,9 +66,17 @@ private:
     void tryPeriodDecode(bool force);
     void tryPeriodDecodeSync(bool force);
     bool tryDecodeFrameAt(int startSample, double frequencyHz, Msk144Decode &decode) const;
+    bool tryDecodeShortAt(int startSample, double frequencyHz, Msk144Decode &decode) const;
     bool tryDecodeCoherentAt(int startSample, double frequencyHz, Msk144Decode &decode) const;
     bool decodeMsk144Frame(const QVector<std::complex<double>> &frame, QString &message, double &qualityMetric) const;
+    bool decodeMsk40Frame(const QVector<std::complex<double>> &frame, QString &message, double &qualityMetric) const;
+    double frameSyncMetricAt(int startSample, int frameSamples,
+                             double frequencyHz, bool shortFrame) const;
     void makeBasebandFrame(int startSample, double frequencyHz, QVector<std::complex<double>> &frame) const;
+    void makeMixedBaseband(int startSample, int sampleCount, double frequencyHz,
+                           QVector<std::complex<double>> &frame) const;
+    void makeBaseband(int startSample, int sampleCount, double frequencyHz,
+                      QVector<std::complex<double>> &frame) const;
     double estimateFrameSnrDb(int startSample, int frameSamples) const;
     double bandEnergyGoertzel(const QVector<float> &samples, int start, int count, double frequencyHz) const;
     QString backendStatusText() const;

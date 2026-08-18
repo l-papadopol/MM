@@ -17,6 +17,7 @@ audio = read("audio/AudioEngine.cpp")
 tx_audio = read("audio/TxAudioEngine.cpp")
 cat = read("rig/HamlibController.cpp")
 q65 = read("modems/q65/Q65Decoder.cpp")
+q65_engine = read("modems/q65/Q65NativeEngine.cpp")
 cmake = read("CMakeLists.txt")
 logbook = read("logbook/AdifLogbook.cpp")
 map_source = read("widgets/QsoMapWidget.cpp")
@@ -76,10 +77,14 @@ checks = {
         and "emit pttChanged(false)" not in cat_disconnect
         and "if (pttOffConfirmed)" in cat_disconnect
     ),
-    "Q65 RX feature is truthful": (
-        "bool Q65Decoder::fullRxAvailable()" in q65
-        and "Q65 RX start blocked" in main
-        and "Q65 RX will be unavailable" in cmake
+    "Q65 RX has one always-built native path": (
+        "Q65NativeEngine.cpp" in cmake
+        and "MADMODEM_ENABLE_Q65" not in cmake
+        and "FFTW" not in cmake
+        and "Q65 RX start blocked" not in main
+        and "findSyncCandidates" in q65_engine
+        and "q65_intrinsics_ff" in q65_engine
+        and "q65_dec(" in q65_engine
     ),
     "ADIF persistence is atomic": (
         "QSaveFile" in logbook

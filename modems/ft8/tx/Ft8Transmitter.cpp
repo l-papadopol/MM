@@ -1,6 +1,7 @@
 #include "Ft8Transmitter.h"
 
 #include "../Ft8Mode.h"
+#include "../../weak_signal/WeakSignalCodecLock.h"
 #include "../../../third_party/mshv_gpl/port/HvGenFt8/gen_ft8.h"
 #include "../../../third_party/mshv_gpl/port/HvGenFt4/gen_ft4.h"
 
@@ -12,6 +13,7 @@
 #include <algorithm>
 #include <cmath>
 #include <memory>
+#include <mutex>
 
 namespace {
 
@@ -247,24 +249,26 @@ void Ft8Transmitter::buildFt8MessageWaveform(const QString &message, double freq
     std::unique_ptr<int[]> iwave(new int[kMaxMshvSamples]);
     std::fill(iwave.get(), iwave.get() + kMaxMshvSamples, 0);
 
-    GenFt8 generator(false); // f_dec_gen=false: generator-side hash tables.
-
     const QString neutralOptions = QStringLiteral("0#0#0#0#0#0#0");
     const QString neutralOtp = QStringLiteral("0#0");
-
-    const int generated = generator.genft8(message,
-                                           iwave.get(),
-                                           static_cast<double>(m_sampleRate),
-                                           frequencyHz,
-                                           neutralOptions,
-                                           neutralOtp);
+    int generated = 0;
+    {
+        std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+        GenFt8 generator(false); // f_dec_gen=false: generator-side hash tables.
+        generated = generator.genft8(message,
+                                     iwave.get(),
+                                     static_cast<double>(m_sampleRate),
+                                     frequencyHz,
+                                     neutralOptions,
+                                     neutralOtp);
+        m_unpackedMessage = cleanFtMessage(generator.GetUnpackMsg());
+    }
 
     if (generated <= 0 || generated > kMaxMshvSamples) {
         m_error = QStringLiteral("MSHV FT8 generator returned an invalid sample count.");
         return;
     }
 
-    m_unpackedMessage = cleanFtMessage(generator.GetUnpackMsg());
     if (m_unpackedMessage.isEmpty()) {
         m_unpackedMessage = message;
     }
@@ -325,18 +329,22 @@ void Ft8Transmitter::buildFt4MessageWaveform(const QString &message, double freq
     // reimplementation.  This keeps FT4 packing, 174/91 encoding, tone mapping,
     // GFSK pulse shaping, ramping and multi-message slot handling aligned with
     // the MSHV source tree just as FT8 already uses GenFt8.
-    GenFt4 generator(false); // f_dec_gen=false: generator-side hash tables.
-    const int generated = generator.genft4(message,
-                                           iwave.get(),
-                                           static_cast<double>(m_sampleRate),
-                                           frequencyHz);
+    int generated = 0;
+    {
+        std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+        GenFt4 generator(false); // f_dec_gen=false: generator-side hash tables.
+        generated = generator.genft4(message,
+                                     iwave.get(),
+                                     static_cast<double>(m_sampleRate),
+                                     frequencyHz);
+        m_unpackedMessage = cleanFtMessage(generator.GetUnpackMsg());
+    }
 
     if (generated <= 0 || generated > kMaxMshvSamples) {
         m_error = QStringLiteral("MSHV FT4 generator returned an invalid sample count.");
         return;
     }
 
-    m_unpackedMessage = cleanFtMessage(generator.GetUnpackMsg());
     if (m_unpackedMessage.isEmpty()) {
         m_unpackedMessage = message;
     }

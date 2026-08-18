@@ -19,6 +19,25 @@ the operating area.
 - Slot, sequencer and TX state use short labels; complete explanations remain in
   tooltips and the Runtime log.
 
+## MSK144 and Q65
+
+- MSK144 searches energetic windows across the complete UTC period instead of
+  exhausting its candidate budget near the beginning. Full frames and MSK40
+  hashed short messages share one RX/TX codec path.
+- Q65A/B/C/D receive and transmit are included in every build. The native RX
+  path performs synchronization, time/frequency/drift refinement, soft 65-ary
+  demodulation, QRA decoding, CRC validation and 77-bit message unpacking.
+- Q65 averaging is kept separately for the two period parities. AP candidate
+  lists use the configured local and DX calls without creating another decoder.
+- Both modes share one UTC first/second-period scheduler. Reception continues
+  while a frame is armed, and a missed boundary is deferred rather than sent
+  as a shortened, undecodable frame.
+- CTest round-trips generated Q65 audio in all four submodes and both MSK144
+  frame families.
+- The common 77-bit message/hash codec is compiled once and serialized across
+  FT4/FT8, MSK144 and Q65, including mode changes with an older decode still
+  completing.
+
 ## CW and text modes
 
 - CW keeps two independent RX lanes with exact-tone filtering, AFC, adaptive

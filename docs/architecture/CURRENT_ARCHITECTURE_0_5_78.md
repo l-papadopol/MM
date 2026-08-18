@@ -14,9 +14,11 @@ AudioEngine-to-decoder queued path.
 - CW contains one native implementation under `modems/cw/skimmer/`: a
   full-passband carrier scanner plus independent exact-tone RX A/RX B receivers
   and one soft-decision Bayesian timing decoder. Diagnostics are passive.
-- MSK144 uses the self-contained implementation under `modems/msk144/`.
-- Q65 TX is always available. Q65 RX is exposed only when the optional
-  MSHV-derived FFTW3 bridge is compiled; there is no fake buffered fallback.
+- MSK144 uses one self-contained RX/TX implementation under `modems/msk144/`,
+  including full frames and MSK40 hashed short messages.
+- Q65A/B/C/D use one always-built implementation under `modems/q65/`. The
+  in-tree FFT/demodulator feeds the bundled QRA/CRC codec; no external FFT
+  runtime or alternate receiver exists.
 
 ## Other subsystems
 
@@ -34,3 +36,5 @@ AudioEngine-to-decoder queued path.
 - native CW pure-C++ regression: `MADMODEM_BUILD_CW_TESTS=ON` or
   `scripts/run_cw_native_regression.sh`;
 - waterfall-level regression: `scripts/run_waterfall_leveler_regression.sh`.
+- generated modem round-trips: `madmodem_q65_native_regression` and
+  `madmodem_msk144_native_regression` in CTest.

@@ -11,7 +11,6 @@ MXE_BIN="$MXE_ROOT/usr/bin"
 MXE_CMAKE="$MXE_BIN/${MXE_TARGET}-cmake"
 MXE_PKG_CONFIG="$MXE_BIN/${MXE_TARGET}-pkg-config"
 HAMLIB_PREFIX="${HAMLIB_WIN_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-win64-static}"
-Q65_FULL="${MADMODEM_Q65_FULL:-OFF}"
 BUILD_LEGACY="${MADMODEM_WINDOWS_BUILD_LEGACY:-on}"
 BUILD_AVX2="${MADMODEM_WINDOWS_BUILD_AVX2:-on}"
 
@@ -67,7 +66,6 @@ build_variant() {
         -DPKG_CONFIG_EXECUTABLE="$MXE_PKG_CONFIG" \
         -DMADMODEM_REQUIRE_HAMLIB=ON \
         -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
-        -DMADMODEM_ENABLE_Q65_FULL_MSHV_DECODER="$Q65_FULL" \
         -DMADMODEM_AVX2_BUILD="$avx2"
 
     cmake --build "$build_dir" --config "$BUILD_TYPE" --parallel "$JOBS"

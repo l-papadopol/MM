@@ -14,13 +14,8 @@ It builds two unsigned artifacts:
 - `MadModem-<version>-macOS-arm64-unsigned.zip/.dmg` on `macos-15`
 - `MadModem-<version>-macOS-x86_64-unsigned.zip/.dmg` on `macos-15-intel`
 
-The first pass intentionally disables optional OpenMP acceleration and the full
-FFTW-backed Q65 bridge on macOS CI:
-
-- `MADMODEM_Q65_FULL=OFF`
-
-This is deliberate. The goal is to make the first `.app` package green before
-adding extra compiler/runtime dependencies such as `libomp` or `fftw`.
+Q65A/B/C/D RX and TX use the same bundled implementation as Linux and Windows;
+there is no macOS-specific backend switch or external FFT runtime.
 
 ## Dependencies installed by CI
 

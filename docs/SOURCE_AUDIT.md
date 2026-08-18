@@ -48,6 +48,6 @@ Test media and MM Flow Studio are not included in the production source package.
 `utils/SystemResourceManager.*`, `audio/WavFileReader.*`,
 `audio/BoundedAudioDispatcher.*`, the persistent FT coordinator and the circular
 OpenGL waterfall renderer are native MadModem C++ code. They introduce no new
-third-party runtime library. The FT8 FFT backend remains the existing in-tree
-radix-2 implementation; bundled FFTW headers remain part of MSHV/Q65 reference
-or optional support and are not newly linked into FT8.
+third-party runtime library. The FT8 and Q65 spectral front ends use in-tree
+radix-2 implementations. Bundled FFTW headers remain reference material only
+and are not linked into the application.

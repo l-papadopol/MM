@@ -4,6 +4,7 @@
 #include "../../audio/AudioBlock.h"
 #include "../../dsp/text/LinearResampler.h"
 #include "Q65Mode.h"
+#include "Q65NativeEngine.h"
 
 #include <QObject>
 #include <QDateTime>
@@ -23,8 +24,6 @@ struct Q65Decode
 };
 Q_DECLARE_METATYPE(Q65Decode)
 
-class DecoderQ65;
-
 class Q65Decoder : public QObject
 {
     Q_OBJECT
@@ -32,8 +31,8 @@ public:
     explicit Q65Decoder(QObject *parent = nullptr);
     ~Q65Decoder() override;
 
-    /** Returns true only when the real FFTW-backed MSHV RX decoder is linked. */
-    static bool fullRxAvailable();
+    /** Q65 RX is part of every normal MadModem build. */
+    static constexpr bool fullRxAvailable() { return true; }
 
     void setPeriodSeconds(int seconds);
     void setDecodeDepth(int depth); // 1 fast, 2 normal, 3 deep; MSHV menu semantics
@@ -67,9 +66,6 @@ private:
     void beginUtcPeriod(qint64 periodId, qint64 firstSampleUtcNs);
     void finishUtcPeriod(bool force);
     void tryPeriodDecode(bool force);
-    void ensureMshvBackend();
-    void configureMshvBackend();
-    void handleMshvDecodeList(const QStringList &list);
     QString backendStatusText() const;
     QString depthName() const;
     QString submodeName() const;
@@ -102,7 +98,7 @@ private:
     QString m_lastStatus;
     int m_avgUsable = 0;
     int m_avgAll = 0;
-    DecoderQ65 *m_mshv = nullptr;
+    Q65NativeEngine m_engine;
 };
 
 #endif // Q65DECODER_H

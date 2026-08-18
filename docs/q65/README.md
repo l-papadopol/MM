@@ -1,28 +1,50 @@
-# Q65 implementation target
+# Q65 engine — 0.5.8
 
-Q65 is not a public MadModem feature until the complete engine described below
-is implemented and validated. A TX-only mode or an RX path hidden behind an
-optional build switch does not meet the release requirement.
+Q65A, Q65B, Q65C and Q65D use one MadModem receive/transmit path under
+`modems/q65/`. It is compiled in every normal Linux, Windows and macOS build;
+there is no FFTW dependency, optional decoder switch or runtime fallback.
 
-## Definition of done
+## Receive path
 
-- Q65A, Q65B, Q65C and Q65D provide complete interoperable RX and TX.
-- The engine is included in every normal MadModem build; no user-selectable
-  CMake option may produce a crippled Q65 mode.
-- One owned realtime decoder path handles UTC period assembly, candidate search,
-  synchronization, demodulation, FEC decoding, message unpacking and averaging.
-- The transmitter generates complete protocol-compliant frames for every
-  supported submode and period.
-- UI controls, standard messages, sequencing, CAT/PTT timing, logging and
-  diagnostics operate consistently with the other weak-signal modes.
-- Linux, Windows and macOS builds run the same implementation. A missing
-  required dependency is a build error, not a runtime RX-unavailable state.
-- Recorded reference signals and live-radio tests cover all four submodes,
-  multiple signal levels, frequency offsets, drift, QRM and averaging.
+`Q65Decoder` owns UTC-period assembly and runs on the existing Q65 decoder
+thread. `Q65NativeEngine` then performs:
 
-## Current source status
+1. a whole-search-window scan of the 22 Q65 synchronization symbols;
+2. time, carrier-frequency and optional linear-drift refinement;
+3. oversampled spectra for the 63 data symbols;
+4. soft 64-value intrinsic probabilities for the selected A/B/C/D spacing;
+5. QRA message passing, CRC validation and 77-bit message unpacking;
+6. optional configured-call candidate assistance through the same codec;
+7. bounded averaging in separate even/odd period banks.
 
-`modems/q65/` currently contains useful protocol/TX work and a conditional
-receive bridge, but it does not yet satisfy the definition above. The future
-implementation must consolidate that work into the single mandatory engine;
-it must not add another fallback decoder or preserve competing runtime paths.
+The mode supports 15, 30, 60 and 120 second periods. Fast, Normal and Deep
+change only bounded search/refinement budgets; they do not select another
+decoder. The accepted audio-frequency range is recalculated for each period and
+submode so the complete soft-metric fading window remains between DC and
+Nyquist, including Q65D at 15 seconds.
+
+## Transmit path
+
+`Q65Transmitter` packs the 77-bit message, applies the Q65 QRA code, inserts the
+22 synchronization symbols and produces the complete 85-symbol continuous-
+phase waveform. Q65 QRA work and every FT4/FT8, MSK144 and Q65 message/hash
+entry serialize access to process-global protocol state with
+`WeakSignalCodecLock`. The common 77-bit packer and callsign hash are compiled
+once in the shared codec target, rather than being duplicated in modem
+libraries. Waveform synthesis runs directly at the selected
+audio-device sample rate; there is no fixed-rate intermediate or resampling
+backend.
+
+The shared weak-signal UTC scheduler honours the selected first/second period
+for 15, 30, 60 and 120 second operation. RX remains active while TX is armed.
+A late timer never starts a shortened Q65 frame: it advances to the next
+matching UTC period. Message coding and waveform synthesis are completed while
+arming, so the boundary path cannot block behind the previous period's QRA
+decode.
+
+## Regression
+
+`madmodem_q65_native_regression` generates real TX audio at 12 kHz and requires
+the native receiver to recover the exact packed message in Q65A, Q65B, Q65C
+and Q65D. It also verifies the symbol geometry for all four supported periods.
+The test is part of normal CTest and package CI.

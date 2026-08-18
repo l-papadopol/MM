@@ -648,6 +648,14 @@ private slots:
     void updateQ65SequencerFromDecode(const QString &message, int snrDb);
     Q65Mode::Submode currentQ65Submode() const;
 
+    /**
+     * @brief Arms/cancels the single UTC-period TX scheduler shared by MSK144
+     * and Q65. RX remains active until the selected first/second period starts.
+     */
+    void scheduleNativeWeakSignalPeriodTx();
+    void cancelNativeWeakSignalPeriodTx(const QString &reason = QString());
+    void handleNativeWeakSignalPeriodTxDue();
+
     QString ft8TxFrequencyStrategyKey() const;
     int chooseFt8AutoFreeTxFrequency(int wantedHz = 0, QString *reason = nullptr) const;
     int resolveFt8TxFrequencyForStrategy(int correspondentHz, QString *reason = nullptr) const;
@@ -1897,6 +1905,7 @@ private:
     QCheckBox *m_chkQ65ApDecode = nullptr;
     QCheckBox *m_chkQ65MaxDrift = nullptr;
     QCheckBox *m_chkQ65EmeDelay = nullptr;
+    QCheckBox *m_chkQ65TxFirst = nullptr;
     QLineEdit *m_editQ65DxCall = nullptr;
     QLineEdit *m_editQ65DxGrid = nullptr;
     QsoFormWidgets *m_q65QsoForm = nullptr;
@@ -2112,6 +2121,12 @@ private:
     bool m_txFinishedNaturally = false;
     bool m_currentTxIsTextMode = false;
     bool m_preserveTextTerminalOnNextRx = false;
+    QTimer m_nativeWeakSignalTxTimer;
+    bool m_nativeWeakSignalTxPending = false;
+    bool m_nativeWeakSignalTxBoundaryStart = false;
+    QString m_nativeWeakSignalTxMode;
+    qint64 m_nativeWeakSignalTxBoundaryUtcMs = 0;
+    std::unique_ptr<TxModulator> m_nativeWeakSignalPreparedModulator;
     QPlainTextEdit *m_activeTextTxEditor = nullptr;
     int m_activeTextTxLength = 0;
     int m_textTxHighlightedChars = -1;

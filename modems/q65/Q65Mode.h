@@ -3,7 +3,9 @@
 
 #include <QString>
 #include <QStringList>
-#include <Qt>
+#include <QtGlobal>
+
+#include <cmath>
 
 class Q65Mode
 {
@@ -46,6 +48,39 @@ public:
     static int defaultPeriodSeconds() { return 60; }
     static int defaultRxFrequencyHz() { return 1500; }
     static int defaultTxFrequencyHz() { return 1500; }
+    static double baud(int periodSeconds)
+    {
+        switch (periodSeconds) {
+        case 15: return 12000.0 / 1800.0;
+        case 30: return 12000.0 / 3600.0;
+        case 120: return 12000.0 / 16000.0;
+        case 60:
+        default: return 12000.0 / 7200.0;
+        }
+    }
+    static int minimumBaseToneHz(Submode submode, int periodSeconds, int sampleRate = 12000)
+    {
+        const int multiplier = mshvToneSpacingMultiplier(submode);
+        // q65_intrinsics_fastfading consumes 64 guard bins below data tone 0.
+        // Preserve two percent of the sample rate above DC for the real-input
+        // resampler/filter transition as well.
+        const double lowestOffset = (64.0 - multiplier) * baud(periodSeconds);
+        return qMax(100, static_cast<int>(std::ceil(0.02 * sampleRate + lowestOffset)));
+    }
+    static int maximumBaseToneHz(Submode submode, int periodSeconds, int sampleRate = 12000)
+    {
+        const int multiplier = mshvToneSpacingMultiplier(submode);
+        // The soft QRA metric uses 64*(2+multiplier) bins per data symbol, not
+        // only the 65 transmitted tones. Keep the complete upper fading window
+        // below 0.48*Fs; accepting only the actual tone would silently clip the
+        // metric in the widest/fastest submodes.
+        const double highestMetricOffset = (63.0 + 65.0 * multiplier) *
+                                           baud(periodSeconds);
+        const int completeWindowLimit = static_cast<int>(
+            std::floor(0.48 * sampleRate - highestMetricOffset));
+        return qMax(minimumBaseToneHz(submode, periodSeconds, sampleRate),
+                    qMin(2700, completeWindowLimit));
+    }
 };
 
 #endif // Q65MODE_H

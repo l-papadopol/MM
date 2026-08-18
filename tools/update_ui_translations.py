@@ -1062,13 +1062,6 @@ OPERATOR_ERROR_TRANSLATIONS: dict[str, dict[str, str]] = {
         "de": "Kein Audioausgang gefunden", "no": "Ingen lydutgang funnet",
         "cs": "Nebyl nalezen žádný zvukový výstup",
     },
-    "text.q65_rx_unavailable_build_without_the_fftw_backed_mshv_decoder_tx_is_available": {
-        "it": "RX Q65 non disponibile: il decoder MSHV con FFTW non è incluso in questa build; TX è disponibile.",
-        "fr": "RX Q65 indisponible : le décodeur MSHV avec FFTW n’est pas inclus dans cette version ; TX reste disponible.",
-        "de": "Q65-RX nicht verfügbar: Diese Version enthält den FFTW-gestützten MSHV-Decoder nicht; TX ist verfügbar.",
-        "no": "Q65 RX er utilgjengelig: denne byggingen mangler MSHV-dekoderen med FFTW; TX er tilgjengelig.",
-        "cs": "RX Q65 není k dispozici: sestavení neobsahuje dekodér MSHV s FFTW; TX je dostupné.",
-    },
 }
 
 for _key, _translations in OPERATOR_ERROR_TRANSLATIONS.items():

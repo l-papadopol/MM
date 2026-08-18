@@ -15,6 +15,11 @@ separate utilities.
 
 - Work **FT8 and FT4** with live wideband decoding, standard messages, UTC slot
   timing, QSO sequencing, caller queue and automatic logbook entry.
+- Use **MSK144** for meteor-scatter work, including 15/30 s periods, coherent
+  frame averaging, hashed short messages and first/second-period TX selection.
+- Operate **Q65A, Q65B, Q65C and Q65D** with native receive/transmit processing,
+  15/30/60/120 s periods, averaging, drift search, assisted QSO decoding and
+  UTC-aligned first/second-period transmission.
 - Receive and transmit **RTTY, BPSK/QPSK, MFSK and Feld Hell**, with macros and
   a data-driven RTTY contest workspace.
 - Follow two signals at once in **CW**, using independent RX A/RX B markers,
@@ -35,6 +40,7 @@ separate utilities.
 | Area | Highlights |
 | --- | --- |
 | FT4 / FT8 | Wideband decode table, QSO timeline, standard messages, slot clock, focused QSO priority |
+| MSK144 / Q65 | Native UTC-period RX/TX, first/second-period selection, frequency search, standard messages, averaging and weak-signal diagnostics |
 | CW | Two independent receivers, Auto-WPM, AFC, selectable bandwidth, soft-decision timing diagnostics |
 | RTTY | Live terminal, Mark/Space tuning scope, optional waterfall text, contest profiles and macros |
 | Image modes | SSTV and WEFAX receive/transmit, image preview, WAV analysis and PNG export |
@@ -47,6 +53,10 @@ During a QSO, received messages, the selected reply, UTC timing, CAT frequency
 and waterfall remain in the same view. FT4/FT8 sequencing follows the selected
 transmit period and gives the active correspondent priority, helping the next
 reply remain inside the correct slot.
+
+MSK144 and Q65 use one UTC scheduler for complete protocol frames. RX remains
+active while TX is armed; if a boundary is missed, MadModem waits for the next
+selected period instead of emitting a shortened frame.
 
 The full-band waterfall keeps weak and strong signals readable across the
 passband. Five complete themes provide consistent controls, tables, dialogs and

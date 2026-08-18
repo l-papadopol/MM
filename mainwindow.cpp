@@ -1694,6 +1694,10 @@ MainWindow::MainWindow(QWidget *parent)
             highlightCallsignsInTerminal(terminal);
         }
     });
+    m_nativeWeakSignalTxTimer.setSingleShot(true);
+    m_nativeWeakSignalTxTimer.setTimerType(Qt::PreciseTimer);
+    connect(&m_nativeWeakSignalTxTimer, &QTimer::timeout,
+            this, &MainWindow::handleNativeWeakSignalPeriodTxDue);
     m_ft8FullAutoCqSelectionTimer.setSingleShot(true);
     connect(&m_ft8FullAutoCqSelectionTimer, &QTimer::timeout,
             this, &MainWindow::processFt8FullAutoCqCandidates);
@@ -7420,11 +7424,11 @@ void MainWindow::setupMsk144Page()
     m_cmbMsk144DecodeDepth->hide();
 
     m_spinMsk144RxFreq = new QSpinBox(rxGroup);
-    m_spinMsk144RxFreq->setRange(300, 2700);
+    m_spinMsk144RxFreq->setRange(600, 2700);
     m_spinMsk144RxFreq->setValue(1500);
     m_spinMsk144RxFreq->setSuffix(QStringLiteral(" Hz"));
     m_spinMsk144TxFreq = new QSpinBox(rxGroup);
-    m_spinMsk144TxFreq->setRange(300, 2700);
+    m_spinMsk144TxFreq->setRange(600, 2700);
     m_spinMsk144TxFreq->setValue(1500);
     m_spinMsk144TxFreq->setSuffix(QStringLiteral(" Hz"));
     m_cmbMsk144FrequencyTolerance = new QComboBox(rxGroup);
@@ -7441,6 +7445,9 @@ void MainWindow::setupMsk144Page()
     m_chkMsk144Swl = new QCheckBox(uiText("msk144_swl", "SWL"), rxGroup);
     m_chkMsk144Contest = new QCheckBox(uiText("msk144_contest", "Contest"), rxGroup);
     m_chkMsk144TxFirst = new QCheckBox(uiText("msk144_tx_first", "TX first period"), rxGroup);
+    m_chkMsk144TxFirst->setChecked(
+        QSettings(AppSettings::settingsFilePath(), QSettings::IniFormat)
+            .value(QStringLiteral("MSK144/txFirstPeriod"), true).toBool());
 
     m_editMsk144DxCall = new QLineEdit(rxGroup);
     m_editMsk144DxCall->setPlaceholderText(uiText("dx_callsign", "DX callsign"));
@@ -7536,6 +7543,13 @@ void MainWindow::setupMsk144Page()
     connect(m_chkMsk144ShortMessages, &QCheckBox::toggled, this, apply);
     connect(m_chkMsk144Swl, &QCheckBox::toggled, this, apply);
     connect(m_chkMsk144Contest, &QCheckBox::toggled, this, apply);
+    connect(m_chkMsk144TxFirst, &QCheckBox::toggled, this, [this](bool checked) {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("MSK144/txFirstPeriod"), checked);
+        if (m_nativeWeakSignalTxPending) {
+            cancelNativeWeakSignalPeriodTx(QStringLiteral("MSK144 TX period changed"));
+        }
+    });
     connect(m_editMsk144DxCall, &QLineEdit::textChanged, this, [this, apply]() { apply(); refreshMsk144StandardMessages(); });
     connect(m_editMsk144DxGrid, &QLineEdit::textChanged, this, &MainWindow::refreshMsk144StandardMessages);
     connect(m_btnMsk144GenerateStd, &QPushButton::clicked, this, &MainWindow::refreshMsk144StandardMessages);
@@ -7705,6 +7719,10 @@ void MainWindow::setupQ65Page()
     m_chkQ65ApDecode->setChecked(true);
     m_chkQ65MaxDrift = new QCheckBox(uiText("q65_max_drift", "Max drift"), rxGroup);
     m_chkQ65EmeDelay = new QCheckBox(uiText("q65_eme_delay", "EME delay"), rxGroup);
+    m_chkQ65TxFirst = new QCheckBox(uiText("q65_tx_first", "TX first period"), rxGroup);
+    m_chkQ65TxFirst->setChecked(
+        QSettings(AppSettings::settingsFilePath(), QSettings::IniFormat)
+            .value(QStringLiteral("Q65/txFirstPeriod"), true).toBool());
 
     m_editQ65DxCall = new QLineEdit(rxGroup);
     m_editQ65DxCall->setPlaceholderText(uiText("dx_callsign", "DX callsign"));
@@ -7716,9 +7734,10 @@ void MainWindow::setupQ65Page()
     m_btnQ65Tx = new QPushButton(uiText("tx", "TX"), rxGroup);
     m_btnQ65Stop = new QPushButton(uiText("button.stop", "STOP"), rxGroup);
     m_btnQ65ClearAvg = new QPushButton(uiText("q65_clear_avg", "Clear AVG"), rxGroup);
-    for (QPushButton *btn : {m_btnQ65GenerateStd, m_btnQ65Rx, m_btnQ65Tx, m_btnQ65Stop, m_btnQ65ClearAvg}) {
+    for (QPushButton *btn : {m_btnQ65GenerateStd, m_btnQ65Rx, m_btnQ65Tx, m_btnQ65Stop}) {
         if (btn != nullptr) btn->hide();
     }
+    m_btnQ65ClearAvg->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     m_lblQ65Status = new QLabel(uiText("q65_status_idle", "Q65: idle"), rxGroup);
     m_lblQ65Status->setWordWrap(true);
     m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 500;"));
@@ -7776,11 +7795,14 @@ void MainWindow::setupQ65Page()
     grid->addWidget(m_chkQ65MaxDrift, row, 0, 1, 2);
     grid->addWidget(m_chkQ65EmeDelay, row, 2, 1, 2);
     ++row;
+    grid->addWidget(m_chkQ65TxFirst, row, 0, 1, 4);
+    ++row;
     grid->addWidget(compactLabel(uiText("dx_callsign", "DX")), row, 0);
     grid->addWidget(m_editQ65DxCall, row, 1);
     grid->addWidget(compactLabel(uiText("dx_grid", "Grid")), row, 2);
     grid->addWidget(m_editQ65DxGrid, row, 3);
     ++row;
+    grid->addWidget(m_btnQ65ClearAvg, row++, 0, 1, 2);
     grid->addWidget(m_lblQ65Status, row++, 0, 1, 4);
     grid->addWidget(m_lblQ65AverageStatus, row++, 0, 1, 4);
     grid->setColumnStretch(1, 1);
@@ -7842,6 +7864,13 @@ void MainWindow::setupQ65Page()
     connect(m_chkQ65ApDecode, &QCheckBox::toggled, this, apply);
     connect(m_chkQ65MaxDrift, &QCheckBox::toggled, this, apply);
     connect(m_chkQ65EmeDelay, &QCheckBox::toggled, this, apply);
+    connect(m_chkQ65TxFirst, &QCheckBox::toggled, this, [this](bool checked) {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("Q65/txFirstPeriod"), checked);
+        if (m_nativeWeakSignalTxPending) {
+            cancelNativeWeakSignalPeriodTx(QStringLiteral("Q65 TX period changed"));
+        }
+    });
     connect(m_editQ65DxCall, &QLineEdit::textChanged, this, [this, apply]() { apply(); refreshQ65StandardMessages(); });
     connect(m_editQ65DxGrid, &QLineEdit::textChanged, this, &MainWindow::refreshQ65StandardMessages);
     connect(m_btnQ65GenerateStd, &QPushButton::clicked, this, &MainWindow::refreshQ65StandardMessages);
@@ -7878,19 +7907,6 @@ void MainWindow::setupQ65Page()
             }
         }, Qt::QueuedConnection);
         m_q65Thread->start();
-    }
-
-    if (!Q65Decoder::fullRxAvailable()) {
-        const QString unavailable = QStringLiteral("Q65 RX unavailable: this build does not include the FFTW-backed MSHV decoder. Q65 TX remains available.");
-        if (m_lblQ65Status != nullptr) {
-            m_lblQ65Status->setText(unavailable);
-            m_lblQ65Status->setStyleSheet(QStringLiteral("font-weight: 600;"));
-            MadModemUi::setSemanticRole(m_lblQ65Status, QStringLiteral("warning"));
-        }
-        if (m_btnQ65Rx != nullptr) {
-            m_btnQ65Rx->setEnabled(false);
-            m_btnQ65Rx->setToolTip(unavailable);
-        }
     }
 
     refreshQ65StandardMessages();
@@ -12335,6 +12351,14 @@ void MainWindow::finishPendingModeChange()
 
 void MainWindow::handleModeChanged(const QString &modeName)
 {
+    if (m_nativeWeakSignalTxPending) {
+        const bool sameFamily =
+            (Msk144Mode::isMode(modeName) && Msk144Mode::isMode(m_nativeWeakSignalTxMode)) ||
+            (Q65Mode::isFamilyMode(modeName) && Q65Mode::isFamilyMode(m_nativeWeakSignalTxMode));
+        if (!sameFamily) {
+            cancelNativeWeakSignalPeriodTx(QStringLiteral("mode changed"));
+        }
+    }
     const auto setDecoderReady = [this](const QString &label) {
         if (ui != nullptr && ui->lblDecoderState != nullptr) {
             ui->lblDecoderState->setText(uiText("decoder_ready_short", "%1 ready").arg(label));
@@ -12650,7 +12674,7 @@ void MainWindow::updateWaterfallMarkers()
         rx.dashed = false;
         markers.append(rx);
         FrequencyMarker tx;
-        tx.frequencyHz = 1500.0;
+        tx.frequencyHz = (m_spinMsk144TxFreq != nullptr) ? m_spinMsk144TxFreq->value() : 1500.0;
         tx.label = QStringLiteral("TX");
         tx.color = QColor(255, 80, 80);
         tx.width = 2;
@@ -13197,6 +13221,7 @@ void MainWindow::applyMsk144Settings()
     const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
     const int depth = (m_cmbMsk144DecodeDepth != nullptr) ? m_cmbMsk144DecodeDepth->currentData().toInt() : 2;
     const int rxHz = (m_spinMsk144RxFreq != nullptr) ? m_spinMsk144RxFreq->value() : 1500;
+    const int txHz = (m_spinMsk144TxFreq != nullptr) ? m_spinMsk144TxFreq->value() : 1500;
     const int fTol = (m_cmbMsk144FrequencyTolerance != nullptr) ? m_cmbMsk144FrequencyTolerance->currentData().toInt() : 200;
     m_msk144Decoder->setPeriodSeconds(period);
     m_msk144Decoder->setDecodeDepth(depth);
@@ -13208,11 +13233,12 @@ void MainWindow::applyMsk144Settings()
     m_msk144Decoder->setMyCall(stationCallsign());
     m_msk144Decoder->setDxCall(m_editMsk144DxCall != nullptr ? m_editMsk144DxCall->text() : QString());
     if (m_lblMsk144Status != nullptr) {
-        m_lblMsk144Status->setText(MadModemI18n::text(QStringLiteral("MSK144 RX: %1 s, %2, RX %3 Hz, F Tol ±%4 Hz; TX center 1500 Hz"))
+        m_lblMsk144Status->setText(MadModemI18n::text(QStringLiteral("MSK144 RX: %1 s, %2, RX %3 Hz, F Tol ±%4 Hz; TX %5 Hz"))
                                        .arg(period)
                                        .arg(depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep")))
                                        .arg(rxHz)
-                                       .arg(fTol));
+                                       .arg(fTol)
+                                       .arg(txHz));
     }
     updateWaterfallMarkers();
 }
@@ -13288,6 +13314,10 @@ void MainWindow::startMsk144TxShell()
 
 void MainWindow::stopMsk144Shell()
 {
+    if (m_nativeWeakSignalTxPending) {
+        cancelNativeWeakSignalPeriodTx(QStringLiteral("operator STOP"));
+        return;
+    }
     if (m_txRunning) {
         stopImageTx();
         return;
@@ -13421,9 +13451,19 @@ void MainWindow::applyQ65Settings()
     if (m_q65Decoder == nullptr) return;
     const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
     const int depth = (m_cmbQ65DecodeDepth != nullptr) ? m_cmbQ65DecodeDepth->currentData().toInt() : 2;
+    const Q65Mode::Submode submode = currentQ65Submode();
+    const int minimumBaseToneHz = Q65Mode::minimumBaseToneHz(submode, period);
+    const int maximumBaseToneHz = Q65Mode::maximumBaseToneHz(submode, period);
+    if (m_spinQ65RxFreq != nullptr) {
+        m_spinQ65RxFreq->setMinimum(minimumBaseToneHz);
+        m_spinQ65RxFreq->setMaximum(maximumBaseToneHz);
+    }
+    if (m_spinQ65TxFreq != nullptr) {
+        m_spinQ65TxFreq->setMinimum(minimumBaseToneHz);
+        m_spinQ65TxFreq->setMaximum(maximumBaseToneHz);
+    }
     const int rxHz = (m_spinQ65RxFreq != nullptr) ? m_spinQ65RxFreq->value() : 1500;
     const int dfTol = (m_spinQ65DfTolerance != nullptr) ? m_spinQ65DfTolerance->value() : 100;
-    const Q65Mode::Submode submode = currentQ65Submode();
     const bool averaging = m_chkQ65AverageDecode != nullptr && m_chkQ65AverageDecode->isChecked();
     const bool autoClear = m_chkQ65AutoClearAvg != nullptr && m_chkQ65AutoClearAvg->isChecked();
     const bool singleDecode = m_chkQ65SingleDecode != nullptr && m_chkQ65SingleDecode->isChecked();
@@ -13456,18 +13496,13 @@ void MainWindow::applyQ65Settings()
                               Qt::QueuedConnection);
 
     if (m_lblQ65Status != nullptr) {
-        if (Q65Decoder::fullRxAvailable()) {
-            m_lblQ65Status->setText(MadModemI18n::text(QStringLiteral("%1 RX: %2 s, %3, RX %4 Hz, DF ±%5 Hz; TX %6 Hz"))
-                                        .arg(Q65Mode::modeName(submode))
-                                        .arg(period)
-                                        .arg(depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep")))
-                                        .arg(rxHz)
-                                        .arg(dfTol)
-                                        .arg(m_spinQ65TxFreq != nullptr ? m_spinQ65TxFreq->value() : 1500));
-        } else {
-            m_lblQ65Status->setText(MadModemI18n::text(
-                QStringLiteral("Q65 RX unavailable: build without the FFTW-backed MSHV decoder; TX is available.")));
-        }
+        m_lblQ65Status->setText(MadModemI18n::text(QStringLiteral("%1 RX: %2 s, %3, RX %4 Hz, DF ±%5 Hz; TX %6 Hz"))
+                                    .arg(Q65Mode::modeName(submode))
+                                    .arg(period)
+                                    .arg(depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep")))
+                                    .arg(rxHz)
+                                    .arg(dfTol)
+                                    .arg(m_spinQ65TxFreq != nullptr ? m_spinQ65TxFreq->value() : 1500));
     }
     updateWaterfallMarkers();
 }
@@ -13529,11 +13564,155 @@ void MainWindow::startQ65TxShell()
 
 void MainWindow::stopQ65Shell()
 {
+    if (m_nativeWeakSignalTxPending) {
+        cancelNativeWeakSignalPeriodTx(QStringLiteral("operator STOP"));
+        return;
+    }
     if (m_txRunning) { stopImageTx(); return; }
     if (m_rxRunning) stopRx();
     if (m_q65Decoder != nullptr) {
         QMetaObject::invokeMethod(m_q65Decoder, "flushPeriod", Qt::QueuedConnection);
     }
+}
+
+void MainWindow::scheduleNativeWeakSignalPeriodTx()
+{
+    if (m_nativeWeakSignalTxPending) {
+        cancelNativeWeakSignalPeriodTx(QStringLiteral("operator TX toggle"));
+        return;
+    }
+    if (ui == nullptr || ui->cmbMode == nullptr) return;
+
+    const QString modeName = ui->cmbMode->currentText();
+    const bool msk144 = Msk144Mode::isMode(modeName);
+    const bool q65 = Q65Mode::isFamilyMode(modeName);
+    if (!msk144 && !q65) return;
+
+    // Encode and synthesize before the UTC boundary. In particular, Q65 RX may
+    // still be validating the preceding period on its decoder thread at the
+    // boundary and owns the same serialized QRA workspace. Preparing here
+    // removes that codec lock and all waveform allocation from the timed path.
+    if (!m_nativeWeakSignalPreparedModulator) {
+        m_nativeWeakSignalPreparedModulator = buildCurrentTxModulator();
+        if (!m_nativeWeakSignalPreparedModulator) {
+            appendLog(MadModemI18n::text(
+                QStringLiteral("Unable to create a transmitter for the active mode.")));
+            QMessageBox::warning(
+                this,
+                QStringLiteral("TX"),
+                MadModemI18n::text(QStringLiteral("Unable to create a transmitter for the active mode.")));
+            return;
+        }
+        m_txPreparedImage = m_nativeWeakSignalPreparedModulator->previewImage();
+    }
+
+    const int periodSeconds = msk144
+        ? ((m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15)
+        : ((m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60);
+    const bool txFirst = msk144
+        ? (m_chkMsk144TxFirst == nullptr || m_chkMsk144TxFirst->isChecked())
+        : (m_chkQ65TxFirst == nullptr || m_chkQ65TxFirst->isChecked());
+    const qint64 periodMs = static_cast<qint64>(qMax(1, periodSeconds)) * 1000LL;
+    const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+    const qint64 currentPeriod = nowMs / periodMs;
+    const int requestedParity = txFirst ? 0 : 1;
+
+    // An operator action cannot retroactively own the boundary at the start of
+    // the current period. Always arm a future period with the selected parity;
+    // this is the single rule for both Q65 and MSK144 and guarantees that TX
+    // never begins with a protocol frame already shortened at its front edge.
+    qint64 targetPeriod = currentPeriod + 1;
+    if ((targetPeriod & 1LL) != requestedParity) ++targetPeriod;
+
+    m_nativeWeakSignalTxMode = modeName;
+    m_nativeWeakSignalTxBoundaryUtcMs = targetPeriod * periodMs;
+    m_nativeWeakSignalTxPending = true;
+    const qint64 delayMs = qBound<qint64>(
+        1LL,
+        m_nativeWeakSignalTxBoundaryUtcMs - nowMs,
+        static_cast<qint64>(std::numeric_limits<int>::max()));
+    m_nativeWeakSignalTxTimer.start(static_cast<int>(delayMs));
+
+    const QString label = msk144 ? QStringLiteral("MSK144")
+                                 : Q65Mode::modeName(currentQ65Submode());
+    const QString boundary = QDateTime::fromMSecsSinceEpoch(
+                                 m_nativeWeakSignalTxBoundaryUtcMs, Qt::UTC)
+                                 .time().toString(QStringLiteral("HH:mm:ss.zzz"));
+    const QString armed = MadModemI18n::text(
+        QStringLiteral("%1 TX armed: UTC %2, period %3"))
+        .arg(label, boundary)
+        .arg(txFirst ? 1 : 2);
+    appendLog(armed);
+    if (msk144 && m_lblMsk144PeriodStatus != nullptr) {
+        m_lblMsk144PeriodStatus->setText(armed);
+    } else if (q65 && m_lblQ65Status != nullptr) {
+        m_lblQ65Status->setText(armed);
+    }
+    updateTxControlState();
+}
+
+void MainWindow::cancelNativeWeakSignalPeriodTx(const QString &reason)
+{
+    Q_UNUSED(reason)
+    const bool wasPending = m_nativeWeakSignalTxPending;
+    const QString mode = m_nativeWeakSignalTxMode;
+    m_nativeWeakSignalTxTimer.stop();
+    m_nativeWeakSignalTxPending = false;
+    m_nativeWeakSignalTxMode.clear();
+    m_nativeWeakSignalTxBoundaryUtcMs = 0;
+    m_nativeWeakSignalPreparedModulator.reset();
+    if (wasPending) {
+        appendLog(MadModemI18n::text(QStringLiteral("%1 TX schedule cancelled."))
+                      .arg(mode.isEmpty() ? QStringLiteral("Weak-signal") : mode));
+    }
+    updateTxControlState();
+}
+
+void MainWindow::handleNativeWeakSignalPeriodTxDue()
+{
+    if (!m_nativeWeakSignalTxPending || ui == nullptr || ui->cmbMode == nullptr) return;
+
+    const QString activeMode = ui->cmbMode->currentText();
+    const bool sameFamily =
+        (Msk144Mode::isMode(activeMode) && Msk144Mode::isMode(m_nativeWeakSignalTxMode)) ||
+        (Q65Mode::isFamilyMode(activeMode) && Q65Mode::isFamilyMode(m_nativeWeakSignalTxMode));
+    if (!sameFamily || m_txRunning || m_offlineAnalysisActive) {
+        cancelNativeWeakSignalPeriodTx(QStringLiteral("mode or runtime state changed"));
+        return;
+    }
+
+    const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+    const qint64 remainingMs = m_nativeWeakSignalTxBoundaryUtcMs - nowMs;
+    if (remainingMs > 2) {
+        m_nativeWeakSignalTxTimer.start(static_cast<int>(qMin<qint64>(
+            remainingMs, static_cast<qint64>(std::numeric_limits<int>::max()))));
+        return;
+    }
+
+    // Normal precise-timer jitter is accepted, while a genuinely late wakeup
+    // is moved to the next selected period. The transmitters retain a larger
+    // end guard for CAT/PTT and audio-stream startup latency.
+    constexpr qint64 kMaximumBoundaryLatenessMs = 100;
+    if (-remainingMs > kMaximumBoundaryLatenessMs) {
+        appendLog(MadModemI18n::text(
+            QStringLiteral("Weak-signal TX boundary missed by %1 ms; complete frame deferred."))
+                      .arg(-remainingMs));
+        m_nativeWeakSignalTxPending = false;
+        m_nativeWeakSignalTxMode.clear();
+        m_nativeWeakSignalTxBoundaryUtcMs = 0;
+        scheduleNativeWeakSignalPeriodTx();
+        return;
+    }
+
+    m_nativeWeakSignalTxPending = false;
+    m_nativeWeakSignalTxMode.clear();
+    m_nativeWeakSignalTxBoundaryUtcMs = 0;
+    m_nativeWeakSignalTxBoundaryStart = true;
+    updateTxControlState();
+    startImageTx();
+    m_nativeWeakSignalTxBoundaryStart = false;
+    // A pre-boundary validation failure must not leave a stale waveform armed.
+    m_nativeWeakSignalPreparedModulator.reset();
 }
 
 void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
@@ -21609,16 +21788,6 @@ void MainWindow::startRx()
 
     const QString modeName = ui->cmbMode->currentText();
 
-    if (Q65Mode::isFamilyMode(modeName) && !Q65Decoder::fullRxAvailable()) {
-        const QString reason = QStringLiteral("Q65 RX start blocked: this build does not include the FFTW-backed MSHV decoder. Q65 TX remains available.");
-        appendLog(reason);
-        if (m_lblQ65Status != nullptr) {
-            m_lblQ65Status->setText(reason);
-        }
-        statusBar()->showMessage(reason, 8000);
-        return;
-    }
-
     if (m_ft8RxDecoder != nullptr) {
         const bool enableFtLive = Ft8Mode::isFamilyMode(modeName) &&
                                   Ft8Mode::profileForMode(modeName).interoperableCoreAvailable;
@@ -21840,8 +22009,9 @@ void MainWindow::startRx()
         const int fTol = (m_cmbMsk144FrequencyTolerance != nullptr) ? m_cmbMsk144FrequencyTolerance->currentData().toInt() : 200;
         const int depth = (m_cmbMsk144DecodeDepth != nullptr) ? m_cmbMsk144DecodeDepth->currentData().toInt() : 2;
         const QString depthName = depth <= 1 ? QStringLiteral("Fast") : (depth == 2 ? QStringLiteral("Normal") : QStringLiteral("Deep"));
-        appendLog(QStringLiteral("MSK144 settings: RX %1 Hz, F Tol ±%2 Hz, period %3 s, decode %4, TX center 1500 Hz.")
-                      .arg(rx).arg(fTol).arg(period).arg(depthName));
+        const int tx = (m_spinMsk144TxFreq != nullptr) ? m_spinMsk144TxFreq->value() : 1500;
+        appendLog(QStringLiteral("MSK144 settings: RX %1 Hz, TX %2 Hz, F Tol ±%3 Hz, period %4 s, decode %5.")
+                      .arg(rx).arg(tx).arg(fTol).arg(period).arg(depthName));
     } else if (Q65Mode::isFamilyMode(modeName)) {
         const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
         const int rx = (m_spinQ65RxFreq != nullptr) ? m_spinQ65RxFreq->value() : 1500;
@@ -22350,7 +22520,12 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
             msg = QStringLiteral("CQ %1 %2").arg(stationCallsign(), stationLocator().left(4)).trimmed();
         }
         const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
-        Msk144Transmitter *msk = new Msk144Transmitter(msg, txSampleRate, period, false, 1500.0);
+        const bool shortMessages = m_chkMsk144ShortMessages != nullptr &&
+                                   m_chkMsk144ShortMessages->isChecked();
+        const double txHz = (m_spinMsk144TxFreq != nullptr)
+                                ? static_cast<double>(m_spinMsk144TxFreq->value()) : 1500.0;
+        Msk144Transmitter *msk = new Msk144Transmitter(msg, txSampleRate, period,
+                                                       shortMessages, txHz);
         if (!msk->generationSucceeded()) {
             appendLog(QStringLiteral("MSK144 TX generator failed: %1").arg(msk->generationError()));
             delete msk;
@@ -22541,9 +22716,10 @@ void MainWindow::updateTxPreview()
     } else if (Msk144Mode::isMode(modeName)) {
         const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
         const int rx = (m_spinMsk144RxFreq != nullptr) ? m_spinMsk144RxFreq->value() : 1500;
+        const int tx = (m_spinMsk144TxFreq != nullptr) ? m_spinMsk144TxFreq->value() : 1500;
         m_lblTxMode->setText(
-            MadModemI18n::text(QStringLiteral("MSK144: RX %1 Hz, TX center 1500 Hz, %2 s"))
-                .arg(rx).arg(period));
+            MadModemI18n::text(QStringLiteral("MSK144: RX %1 Hz, TX %2 Hz, %3 s"))
+                .arg(rx).arg(tx).arg(period));
         m_txPreparedImage = QImage();
     } else if (Q65Mode::isFamilyMode(modeName)) {
         const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
@@ -22664,7 +22840,7 @@ void MainWindow::updateTxControlState()
     const bool hasSource = textMode ? (hasRttyText || hasBpskText || hasMfskText || hasCwText || hasHellText || hasMskMessage || hasQ65Message) : hasImage;
     const bool rxBusy = m_rxRunning || (m_audioEngine != nullptr && m_audioEngine->isRunning());
     const bool canStartTx = textMode
-                                ? (hasSource && !m_txRunning && !m_offlineAnalysisActive)
+                                ? (hasSource && !m_txRunning && !m_nativeWeakSignalTxPending && !m_offlineAnalysisActive)
                                 : (hasSource && !m_txRunning && !rxBusy && !m_offlineAnalysisActive);
 
     if (m_grpTxImage != nullptr) {
@@ -22705,9 +22881,44 @@ void MainWindow::updateTxControlState()
     m_btnStopImageTx->setVisible(!textMode && !rxOnlyTextMode);
     m_btnStopImageTx->setEnabled(!textMode && !rxOnlyTextMode && m_txRunning);
     if (ui->btnTxTone != nullptr) {
-        ui->btnTxTone->setText(m_txRunning ? uiText("button.transport_tx_stop", "■ TX")
-                                           : uiText("button.transport_tx", "● TX"));
-        ui->btnTxTone->setEnabled(!rxOnlyTextMode && (m_txRunning || canStartTx));
+        ui->btnTxTone->setText((m_txRunning || m_nativeWeakSignalTxPending)
+                                   ? uiText("button.transport_tx_stop", "■ TX")
+                                   : uiText("button.transport_tx", "● TX"));
+        ui->btnTxTone->setEnabled(!rxOnlyTextMode &&
+                                  (m_txRunning || m_nativeWeakSignalTxPending || canStartTx));
+    }
+
+    const bool nativeWeakSignalConfigurable =
+        !m_txRunning && !m_nativeWeakSignalTxPending && !m_offlineAnalysisActive;
+    for (QWidget *control : {
+             static_cast<QWidget *>(m_cmbMsk144Period),
+             static_cast<QWidget *>(m_spinMsk144RxFreq),
+             static_cast<QWidget *>(m_spinMsk144TxFreq),
+             static_cast<QWidget *>(m_cmbMsk144FrequencyTolerance),
+             static_cast<QWidget *>(m_chkMsk144ShortMessages),
+             static_cast<QWidget *>(m_chkMsk144Swl),
+             static_cast<QWidget *>(m_chkMsk144Contest),
+             static_cast<QWidget *>(m_chkMsk144TxFirst),
+             static_cast<QWidget *>(m_editMsk144DxCall),
+             static_cast<QWidget *>(m_editMsk144DxGrid),
+             static_cast<QWidget *>(m_cmbQ65Submode),
+             static_cast<QWidget *>(m_cmbQ65Period),
+             static_cast<QWidget *>(m_cmbQ65DecodeDepth),
+             static_cast<QWidget *>(m_spinQ65RxFreq),
+             static_cast<QWidget *>(m_spinQ65TxFreq),
+             static_cast<QWidget *>(m_spinQ65DfTolerance),
+             static_cast<QWidget *>(m_chkQ65AverageDecode),
+             static_cast<QWidget *>(m_chkQ65AutoClearAvg),
+             static_cast<QWidget *>(m_chkQ65SingleDecode),
+             static_cast<QWidget *>(m_chkQ65ApDecode),
+             static_cast<QWidget *>(m_chkQ65MaxDrift),
+             static_cast<QWidget *>(m_chkQ65EmeDelay),
+             static_cast<QWidget *>(m_chkQ65TxFirst),
+             static_cast<QWidget *>(m_editQ65DxCall),
+             static_cast<QWidget *>(m_editQ65DxGrid),
+             static_cast<QWidget *>(m_tableMsk144TxMessages),
+             static_cast<QWidget *>(m_tableQ65TxMessages)}) {
+        if (control != nullptr) control->setEnabled(nativeWeakSignalConfigurable);
     }
 
     if (m_btnRttySend != nullptr) {
@@ -23105,6 +23316,11 @@ void MainWindow::startImageTx()
         }
     }
 
+    if ((msk144Mode || q65Mode) && !m_nativeWeakSignalTxBoundaryStart) {
+        scheduleNativeWeakSignalPeriodTx();
+        return;
+    }
+
     m_currentTxIsTextMode = textMode;
     m_returnToRxAfterTx = textMode;
     m_txFinishedNaturally = false;
@@ -23137,7 +23353,16 @@ void MainWindow::startImageTx()
         applyQ65Settings();
     }
 
-    std::unique_ptr<TxModulator> modulator = buildCurrentTxModulator();
+    std::unique_ptr<TxModulator> modulator;
+    if ((msk144Mode || q65Mode) && m_nativeWeakSignalTxBoundaryStart) {
+        modulator = std::move(m_nativeWeakSignalPreparedModulator);
+        if (!modulator) {
+            appendLog(MadModemI18n::text(
+                QStringLiteral("Unable to create a transmitter for the active mode.")));
+        }
+    } else {
+        modulator = buildCurrentTxModulator();
+    }
 
     if (!modulator) {
         QMessageBox::warning(this,
@@ -23485,6 +23710,10 @@ void MainWindow::startFtPreparedSlotTransmit()
 
 void MainWindow::stopImageTx()
 {
+    if (m_nativeWeakSignalTxPending) {
+        cancelNativeWeakSignalPeriodTx(QStringLiteral("operator STOP"));
+        return;
+    }
     if (!m_txRunning &&
         !m_ftTxWorkerRunning &&
         (m_txAudioEngine == nullptr || !m_txAudioEngine->isRunning())) {
@@ -23795,6 +24024,10 @@ void MainWindow::finishPttTest()
 
 void MainWindow::txToneTest()
 {
+    if (m_nativeWeakSignalTxPending) {
+        cancelNativeWeakSignalPeriodTx(QStringLiteral("operator TX toggle"));
+        return;
+    }
     if (m_pttTestTimer.isActive()) {
         m_pttTestTimer.stop();
         finishPttTest();

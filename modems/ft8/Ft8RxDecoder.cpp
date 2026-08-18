@@ -3,6 +3,7 @@
 #include "../../dsp/cpu/CpuFeatures.h"
 #include "../../utils/SystemResourceManager.h"
 #include "../../audio/WavFileReader.h"
+#include "../weak_signal/WeakSignalCodecLock.h"
 
 #define MN_NM_NRW_FT_174_91
 #include "../../third_party/mshv_gpl/port/HvGenFt8/bpdecode_ft8_174_91.h"
@@ -1350,6 +1351,7 @@ void Ft8RxDecoder::setMyCall(const QString &call)
 {
     std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_myCall = call.trimmed().toUpper();
+    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_myCall, 0);
 }
@@ -1358,6 +1360,7 @@ void Ft8RxDecoder::setDxCall(const QString &call)
 {
     std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_dxCall = call.trimmed().toUpper();
+    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_dxCall, 1);
 }
@@ -4864,6 +4867,7 @@ void Ft8RxDecoder::subtractDecodedSignal(QVector<double> &samples, const Candida
     int reconstructedTones[100];
     std::fill(reconstructedTones, reconstructedTones + 100, 0);
     {
+        std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
         GenFt8 toneGenerator(false);
         toneGenerator.pack77_make_c77_i4tone(decode.message.trimmed().toUpper(), reconstructedTones);
     }
@@ -6367,6 +6371,7 @@ std::array<double, 4> Ft8RxDecoder::ft4SymbolToneEnergies4(const QVector<double>
 
 QString Ft8RxDecoder::unpackFt4Message77(const std::array<int, 174> &bits)
 {
+    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     bool c77[100];
     for (bool &b : c77) {
@@ -7021,6 +7026,7 @@ bool Ft8RxDecoder::crc14Ok(const std::array<int, 174> &bits) const
 
 QString Ft8RxDecoder::unpackMessage77(const std::array<int, 174> &bits)
 {
+    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     bool c77[100];
     for (bool &b : c77) {

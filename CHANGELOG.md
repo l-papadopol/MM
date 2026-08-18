@@ -2,9 +2,38 @@
 
 ## 0.5.8 — integral source hardening — 2026-08-17
 
-- Recast the GitHub README as a product presentation. Unfinished Q65/MSK144
-  work, backend conditions and internal validation language are deliberately
-  absent until those modes are complete user features.
+- Completed the always-built Q65A/B/C/D RX/TX path: an in-tree radix-2 spectral
+  front end now performs sync, time/frequency/drift refinement and 65-ary soft
+  demodulation before the bundled QRA/CRC/unpack codec. Removed the optional
+  FFTW/MSHV runtime bridge and every RX-unavailable branch.
+- Replaced MSK144's prefix-biased brute-force cap with whole-period energetic
+  candidate selection and local refinement. Added MSK40 short-message decode,
+  configured-call hash resolution and an actual short-message TX selection.
+- Seeded the full-frame Q65/MSK144 unpacker with the configured local and DX
+  calls, so compressed/hashed callsigns resolve in the native receive path.
+- Added generated-audio RX/TX regressions for Q65A/B/C/D, MSK144 full frames and
+  MSK40 short frames, plus a single-path architecture guard.
+- Compiled the shared 77-bit packer and callsign hash exactly once. FT4/FT8,
+  MSK144 and Q65 now serialize access to that process-global state through one
+  codec lock, eliminating duplicate archive members and cross-mode hash races.
+- Added one UTC first/second-period TX scheduler shared by MSK144 and Q65. It
+  keeps RX active while armed and defers a complete frame if its boundary is
+  missed; neither mode emits a shortened substitute.
+- TX waveforms are encoded and synthesized when the period is armed. The UTC
+  boundary path no longer waits for Q65's preceding-period QRA work or allocates
+  a multi-second waveform before starting audio.
+- Added 5 ms raised-cosine amplitude edges to native MSK144/Q65 TX while
+  retaining continuous carrier phase and every complete protocol symbol.
+- Quantized the MSK144/MSK40 period burst to complete repeated frames, so the
+  300 ms UTC tail guard never stops halfway through the final repeat.
+- Bound Q65 audio-frequency controls by submode and period using the complete
+  QRA fading-metric window, preventing edge configurations whose transmitted
+  tones fit but whose soft-decision guard bins would cross DC or Nyquist.
+- Unified Q65 RX and TX initialization of their process-global QRA workspace;
+  switching direction no longer initializes and overwrites that allocation a
+  second time.
+- Recast the GitHub README as a product presentation. Q65 and MSK144 are listed
+  now that their mandatory RX/TX paths and round-trip tests are present.
 - Removed internal screenshot-capture instructions from the public README.
   Historical one-off validation dumps were removed from the package root; the
   current evidence remains consolidated in `docs/RELEASE_VALIDATION_0_5_8.md`
@@ -17,7 +46,7 @@
   detailed explanations in tooltips and What's This help. Added a source guard
   that rejects new oversized runtime copy and untranslated operator messages.
 - Replaced hybrid word-by-word UI translation with reviewed whole sentences.
-  All six dictionaries now contain the same 1821 canonical keys with preserved
+  All six dictionaries now contain the same 1824 canonical keys with preserved
   placeholders and audited operator-critical translations.
 - Rewrote the GitHub README, release notes and the most error-prone localized
   help pages as concise public user documentation.
@@ -34,7 +63,8 @@
 - Made CAT audio routing, mode selection, PTT transitions and shutdown fail closed.
 - Consolidated strict WAV parsing and fixed streaming resampling/period assembly.
 - Replaced detached MSK144 work with owned, joined, generation-guarded jobs.
-- Gated Q65 RX on the real FFTW/MSHV backend and moved it to a decoder thread.
+- Kept Q65 decoding on its owned decoder thread while replacing its former
+  conditional backend with the mandatory native engine.
 - Made ADIF writes atomic and corrected contest STX/SRX import mapping.
 - Bounded runtime logs, terminals, decode tables and online map tile payloads.
 - Kept normal TLS certificate verification for OpenStreetMap requests.

@@ -6,7 +6,6 @@ APP_NAME="MadModem"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 HAMLIB_PREFIX="${HAMLIB_WIN_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-msys2-mingw64}"
-Q65_FULL="${MADMODEM_Q65_FULL:-OFF}"
 BUILD_LEGACY="${MADMODEM_WINDOWS_BUILD_LEGACY:-on}"
 BUILD_AVX2="${MADMODEM_WINDOWS_BUILD_AVX2:-on}"
 
@@ -77,7 +76,6 @@ build_variant() {
         -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
         -DMADMODEM_REQUIRE_HAMLIB=ON \
         -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
-        -DMADMODEM_ENABLE_Q65_FULL_MSHV_DECODER="$Q65_FULL" \
         -DMADMODEM_AVX2_BUILD="$avx2"
 
     cmake --build "$build_dir" --config "$BUILD_TYPE" --parallel "$JOBS"

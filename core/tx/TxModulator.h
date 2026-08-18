@@ -57,9 +57,10 @@ public:
     /**
      * @brief True for strictly time-slotted transmitters that must minimize backend latency.
      *
-     * FT4/FT8 cannot afford generic post-audio padding or large output buffers:
-     * the receiver must return to RX as soon as the slot waveform ends.
-     * Other text/image modes keep the conservative default to avoid truncated symbols.
+     * UTC-slotted weak-signal modes cannot afford generic post-audio padding or
+     * large output buffers: the receiver must return to RX as soon as the slot
+     * waveform ends. Other text/image modes keep the conservative default to
+     * avoid truncated symbols.
      */
     virtual bool lowLatencyTx() const
     {
@@ -69,7 +70,8 @@ public:
     /**
      * @brief Optional explicit amount of trailing silence after generated audio.
      *
-     * Negative means use the audio backend default.  FT4/FT8 returns zero.
+     * Negative means use the audio backend default. UTC-slotted modes return
+     * zero because their waveform already owns its end guard.
      */
     virtual int trailingSilenceSamples() const
     {

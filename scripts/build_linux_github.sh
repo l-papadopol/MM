@@ -8,7 +8,6 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 BUILD_DIR="${MADMODEM_LINUX_BUILD_DIR:-$ROOT_DIR/build-linux-github}"
 INSTALL_DIR="${MADMODEM_LINUX_INSTALL_DIR:-$ROOT_DIR/dist/linux}"
 HAMLIB_PREFIX="${HAMLIB_LINUX_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-linux-x86_64}"
-Q65_FULL="${MADMODEM_Q65_FULL:-OFF}"
 
 if [[ "$(uname -s)" != "Linux" ]]; then
     echo "ERROR: Linux build script must run on Linux, for example GitHub Actions ubuntu-24.04." >&2
@@ -38,7 +37,6 @@ cmake -S "$ROOT_DIR" -B "$BUILD_DIR" -G Ninja \
     -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
     -DMADMODEM_REQUIRE_HAMLIB=ON \
     -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
-    -DMADMODEM_ENABLE_Q65_FULL_MSHV_DECODER="$Q65_FULL" \
     "$@"
 
 cmake --build "$BUILD_DIR" --config "$BUILD_TYPE" --parallel "$JOBS"

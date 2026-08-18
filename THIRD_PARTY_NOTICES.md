@@ -121,15 +121,18 @@ and modifications are attributed to Hrisimir Hristov, LZ2HV, where present in th
 source headers. MadModem remains GPLv3-compatible.
 
 
-## MSHV Q65 source assimilation
+## MSHV Q65 protocol-codec source assimilation
 
-Portions of the Q65 generator/decoder reference code are derived from MSHV and WSJT-derived GPL work, including `HvGenQ65`, `q65_subs`, `pack_unpack_msg77`, and the staged `DecoderQ65`/`decoderpom` reference files. The original source headers and GPL notices are preserved in the imported files under `third_party/mshv_gpl/`.
+Q65 message packing, QRA coding/decoding and waveform-symbol generation use the
+GPL-derived `HvGenQ65`, `q65_subs` and `pack_unpack_msg77` components. MadModem's
+active synchronization, spectral analysis, candidate search, drift refinement
+and averaging code is under `modems/q65/`.
 
+The GPL-derived 77-bit packer and `nhash` implementation are compiled once in
+MadModem's shared weak-signal codec target and used by FT4/FT8, MSK144 and Q65.
+This changes target ownership and synchronization only; it does not relicense or
+claim original authorship of those protocol primitives.
 
-## MSHV Q65 DecoderQ65 / FFTW-backed bridge
-
-MadModem 0.5.76 promotes the Q65 RX bridge from staged reference to active code
-when FFTW3 is available.  The integrated GPL-derived files are under
-`third_party/mshv_gpl/port/HvDecoderMs/` and use the MSHV Q65 generator,
-`q65_subs`, message packing, and FFTW-backed `decoderpom` path.  Original source
-headers and licensing notices are preserved in the imported files.
+The imported `DecoderQ65`/`decoderpom` and FFTW header remain under
+`third_party/mshv_gpl/` as attributed reference material. They are not compiled
+or linked into the active Q65 target.

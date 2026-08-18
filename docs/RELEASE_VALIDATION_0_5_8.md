@@ -28,11 +28,31 @@ to fix synchronization, streaming resampling and FT4 active-QSO scheduling. Its
 R10 source hash is
 `4bfc4f48a0438f1ce2e724152c1fe13477264f0e77a6bc916628a6c2ae27c3ca`.
 
+## R13 native MSK144 and Q65 completion
+
+- Q65A/B/C/D RX/TX is mandatory in every normal build. Its in-tree radix-2
+  spectral front end performs synchronization, time/frequency/drift refinement,
+  65-ary soft metrics, QRA/CRC validation, unpacking and parity-separated
+  averaging without an optional FFT/backend branch.
+- MSK144 searches the complete UTC period, refines time and centre frequency,
+  decodes full LDPC/CRC frames and MSK40 hashed short frames, and synthesizes a
+  continuous-phase waveform at the selected audio centre.
+- MSK144 and Q65 share one first/second-period UTC TX scheduler. RX remains
+  active while armed; a missed boundary advances to the next matching period
+  rather than truncating a protocol frame. Coding and waveform synthesis occur
+  at arm time, outside the UTC boundary path.
+- Generated-audio native regressions cover Q65A/B/C/D and both MSK144 frame
+  families. A source guard rejects optional, unavailable or competing runtime
+  paths.
+- `pack_unpack_msg77.cpp` and `nhash.cpp` are compiled once in the common
+  weak-signal codec target. FT4/FT8, MSK144 and Q65 use the same process-wide
+  lock for its mutable hash state.
+
 ## R12 public product README
 
 - The GitHub homepage describes only complete, usable operator features.
-- Q65/MSK144 development state, backend conditions and test instructions remain
-  in developer documentation and do not appear in the public presentation.
+- Implementation and regression details remain in developer documentation and
+  do not interrupt the public presentation.
 - The documentation audit rejects unfinished-feature and internal validation
   wording if it is reintroduced into `README.md`.
 
@@ -53,7 +73,7 @@ R10 source hash is
 - Runtime operator messages and dialogs use stable translation keys. A new
   guard rejects untranslated dynamic labels and oversized FT copy.
 - The word-by-word translation fallback was removed. Six dictionaries contain
-  1821 canonical keys in the same order, preserve every Qt placeholder and pass
+  1824 canonical keys in the same order, preserve every Qt placeholder and pass
   semantic-mixing checks.
 - The project README is a concise public feature overview. Release notes, the
   documentation index and 36 high-risk localized help pages were rewritten and
@@ -133,8 +153,9 @@ with waterfall time while multidecoder callsign callouts remain static.
 | MM-010 | RTTY multidecoder now accumulates a real 4096/8192-sample window and does not scan a 1024-sample fragment as though it were complete. |
 | MM-011 | Text terminals are bounded to 2500 blocks, highlighting is debounced and callsign scanning uses a bounded tail. |
 | MM-012 | Main/runtime logs and FT/MSK144/Q65 receive tables have explicit retention limits. |
-| MM-013 | Q65 RX is enabled only when the full decoder backend exists; builds without it report RX unavailable while retaining TX. |
-| MM-014 | MSK144 work is owned and joined, with a generation guard that rejects stale results. |
+| MM-013 | Q65A/B/C/D RX/TX is always built. One native path owns sync, demodulation, QRA/CRC/unpack and parity-separated averaging; there is no optional backend or RX-unavailable state. |
+| MM-014 | MSK144 work is owned and joined, with a generation guard that rejects stale results. Candidate selection covers the whole period and the native regression includes full and MSK40 frames. |
+| MM-014A | MSK144 and Q65 share one UTC first/second-period TX scheduler. It keeps RX active while armed and defers complete frames after a missed boundary. |
 | MM-015 | HRD v4 waits for complete CR/LF framing and caps the reply buffer at 1 MiB. |
 | MM-016 | Audio conversion computes gain once per block and removes consumed input bytes in batches instead of on every frame. |
 | MM-017 | ADIF record scanning is length-aware, so an `<EOR>`-like sequence inside a length-delimited field is not treated as a record boundary. |
@@ -171,7 +192,9 @@ with waterfall time while multidecoder callsign callouts remain static.
 | FT atomic lifecycle, caller queue/waterfall restore and linear sequencer | PASS |
 | FT4 runtime topology and FT8/FT4 wideband/sensitivity invariants | PASS |
 | UI themes: five complete palettes, semantic/map contrast and border ownership | PASS |
-| Localization: 1821 keys in each of six languages | PASS |
+| Localization: 1824 keys in each of six languages | PASS |
+| Native Q65 A/B/C/D generated-audio round trips | REGISTERED FOR QT CTEST |
+| Native MSK144 full/MSK40 generated-audio round trips | REGISTERED FOR QT CTEST |
 | Operator UI copy: compact state, translated runtime text and RTTY overlay control | PASS |
 | Documentation: version 0.5.8, 72 HTML pages, six Qt Help projects | PASS |
 | RTTY rules: 30 profiles, 29 active | PASS |

@@ -28,10 +28,10 @@ public:
     bool generationSucceeded() const;
     QString generationError() const;
     QString normalizedMessage() const;
+    bool generatedShortMessage() const;
 
 private:
     void buildWaveform();
-    void buildFallbackMskLikeWaveform();
     QImage makePreviewImage() const;
 
 private:
@@ -41,6 +41,7 @@ private:
     int m_sampleRate = 48000;
     int m_periodSeconds = 15;
     bool m_shortMessage = false;
+    bool m_generatedShortMessage = false;
     double m_txFrequencyHz = 1500.0;
     QVector<float> m_samples;
     int m_position = 0;

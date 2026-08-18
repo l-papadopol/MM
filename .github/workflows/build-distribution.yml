@@ -29,8 +29,6 @@ jobs:
             libqt5serialport5-dev libqt5opengl5-dev libgl1-mesa-dev
 
       - name: Build Linux package tree
-        env:
-          MADMODEM_Q65_FULL: OFF
         run: |
           bash scripts/build_linux_github.sh
 
@@ -94,7 +92,6 @@ jobs:
             mingw-w64-x86_64-qt5-imageformats
             mingw-w64-x86_64-qt5-translations
             mingw-w64-x86_64-angleproject
-            mingw-w64-x86_64-fftw
 
       - name: Verify MSYS2 Qt deploy tools
         run: |
@@ -107,7 +104,6 @@ jobs:
 
       - name: Build Windows standalone variants
         env:
-          MADMODEM_Q65_FULL: OFF
           MADMODEM_WINDOWS_BUILD_LEGACY: on
           MADMODEM_WINDOWS_BUILD_AVX2: on
         run: |
@@ -165,7 +161,6 @@ jobs:
       - name: Build MadModem.app
         env:
           MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
-          MADMODEM_Q65_FULL: OFF
           MACOSX_DEPLOYMENT_TARGET: "13.0"
         run: |
           bash scripts/build_macos.sh

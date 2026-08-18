@@ -47,8 +47,6 @@ def main() -> int:
             errors.append(f"README.md: missing public overview section/text {required!r}")
 
     public_readme_forbidden = (
-        "Q65",
-        "MSK144",
         "optional backend",
         "development areas",
         "under active development",

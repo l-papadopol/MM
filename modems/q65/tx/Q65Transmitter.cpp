@@ -1,5 +1,6 @@
 #include "Q65Transmitter.h"
 
+#include "../../weak_signal/WeakSignalCodecLock.h"
 #include "../../../third_party/mshv_gpl/port/HvGenQ65/gen_q65.h"
 
 #include <QColor>
@@ -8,12 +9,14 @@
 #include <QtMath>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
-#include <memory>
+#include <mutex>
 
 namespace {
-constexpr int kMshvRate = 48000;
-constexpr double kMshvFullScale = 8380000.0;
+constexpr int kProtocolRate = 12000;
+constexpr int kSymbols = 85;
+constexpr double kTwoPi = 6.283185307179586476925286766559;
 
 QString cleanMessage(QString msg)
 {
@@ -21,6 +24,28 @@ QString cleanMessage(QString msg)
     msg.replace('\t', ' ');
     while (msg.contains(QStringLiteral("  "))) msg.replace(QStringLiteral("  "), QStringLiteral(" "));
     return msg.left(37);
+}
+
+int protocolSymbolSamples(int periodSeconds)
+{
+    switch (periodSeconds) {
+    case 15: return 1800;
+    case 30: return 3600;
+    case 120: return 16000;
+    case 60:
+    default: return 7200;
+    }
+}
+
+double raisedCosineEdgeGain(int sample, int activeSamples, int rampSamples)
+{
+    if (rampSamples <= 0 || activeSamples <= 1) return 1.0;
+    const int fromStart = sample + 1;
+    const int fromEnd = activeSamples - sample;
+    const int edge = qMin(fromStart, fromEnd);
+    if (edge >= rampSamples) return 1.0;
+    return 0.5 - 0.5 * std::cos((0.5 * kTwoPi) * static_cast<double>(edge) /
+                                static_cast<double>(rampSamples));
 }
 }
 
@@ -68,7 +93,7 @@ QString Q65Transmitter::description() const
         .arg(m_periodSeconds);
 }
 
-bool Q65Transmitter::lowLatencyTx() const { return false; }
+bool Q65Transmitter::lowLatencyTx() const { return true; }
 int Q65Transmitter::trailingSilenceSamples() const { return 0; }
 bool Q65Transmitter::generationSucceeded() const { return m_ok; }
 QString Q65Transmitter::generationError() const { return m_error; }
@@ -86,37 +111,49 @@ void Q65Transmitter::buildWaveform()
         return;
     }
 
-    const int internalSamples = qMax(1, m_periodSeconds * kMshvRate);
-    std::unique_ptr<int[]> wave(new int[internalSamples + kMshvRate]);
-    std::fill(wave.get(), wave.get() + internalSamples + kMshvRate, 0);
+    std::array<int, kSymbols> tones{};
+    {
+        std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
+        GenQ65 generator(false);
+        generator.resetGeneratorHashState();
+        generator.genq65itone(m_message, tones.data(), true);
+        m_unpackedMessage = cleanMessage(generator.GetUnpackMsg());
+    }
+    if (m_unpackedMessage.isEmpty()) m_unpackedMessage = m_message;
 
-    GenQ65 generator(false);
-    const int produced = generator.genq65(m_message,
-                                          wave.get(),
-                                          static_cast<double>(kMshvRate),
-                                          m_txFrequencyHz,
-                                          Q65Mode::mshvToneSpacingMultiplier(m_submode),
-                                          m_periodSeconds);
-    if (produced <= 0 || produced > internalSamples + kMshvRate) {
-        m_error = QStringLiteral("MSHV Q65 generator returned an invalid waveform length; TX was inhibited.");
+    const int nsps = protocolSymbolSamples(m_periodSeconds);
+    const double baud = static_cast<double>(kProtocolRate) / nsps;
+    const int spacing = Q65Mode::mshvToneSpacingMultiplier(m_submode);
+    const double highestTone = m_txFrequencyHz + 64.0 * spacing * baud;
+    const int minimumBase = Q65Mode::minimumBaseToneHz(m_submode, m_periodSeconds,
+                                                       kProtocolRate);
+    const int maximumBase = Q65Mode::maximumBaseToneHz(m_submode, m_periodSeconds,
+                                                       kProtocolRate);
+    if (m_txFrequencyHz < minimumBase || m_txFrequencyHz > maximumBase ||
+        highestTone >= 0.48 * m_sampleRate) {
+        m_error = QStringLiteral("Q65 base frequency falls outside the complete native RX/TX spectral window; TX was inhibited.");
         return;
     }
 
-    m_unpackedMessage = cleanMessage(generator.GetUnpackMsg());
-    if (m_unpackedMessage.isEmpty()) m_unpackedMessage = m_message;
-
-    const int outSamples = qMax(1, m_periodSeconds * m_sampleRate);
-    m_samples.resize(outSamples);
-    const double internalPerOutput = static_cast<double>(kMshvRate) / static_cast<double>(m_sampleRate);
-    for (int i = 0; i < outSamples; ++i) {
-        const double src = qMin(static_cast<double>(produced - 1), static_cast<double>(i) * internalPerOutput);
-        const int i0 = qBound(0, static_cast<int>(std::floor(src)), produced - 1);
-        const int i1 = qBound(0, i0 + 1, produced - 1);
-        const double frac = src - static_cast<double>(i0);
-        const double v0 = static_cast<double>(wave[i0]) / kMshvFullScale;
-        const double v1 = static_cast<double>(wave[i1]) / kMshvFullScale;
-        const double v = (1.0 - frac) * v0 + frac * v1;
-        m_samples[i] = static_cast<float>(qBound(-0.92, 0.58 * v, 0.92));
+    // End before the following UTC period even if the precise timer, CAT/PTT
+    // and platform audio stream add bounded startup latency. The useful
+    // 85-symbol Q65 waveform already leaves at least 2.25 s at the end of every
+    // supported period, so this 300 ms guard removes silence only and never
+    // truncates a symbol.
+    const int outSamples = qMax(1, m_periodSeconds * m_sampleRate - 3 * m_sampleRate / 10);
+    m_samples.fill(0.0f, outSamples);
+    const double samplesPerSymbol = static_cast<double>(nsps) * m_sampleRate / kProtocolRate;
+    const int transmittedSamples = qMin(outSamples,
+        static_cast<int>(std::llround(kSymbols * samplesPerSymbol)));
+    const int rampSamples = qMax(1, m_sampleRate / 200); // 5 ms cosine edge.
+    double phase = 0.0;
+    for (int i = 0; i < transmittedSamples; ++i) {
+        const int symbol = qBound(0, static_cast<int>(i / samplesPerSymbol), kSymbols - 1);
+        const double frequency = m_txFrequencyHz + spacing * baud * tones[static_cast<std::size_t>(symbol)];
+        phase += kTwoPi * frequency / static_cast<double>(m_sampleRate);
+        if (phase >= kTwoPi) phase -= kTwoPi;
+        const double gain = raisedCosineEdgeGain(i, transmittedSamples, rampSamples);
+        m_samples[i] = static_cast<float>(0.58 * gain * std::sin(phase));
     }
     m_ok = !m_samples.isEmpty();
 }
@@ -135,6 +172,6 @@ QImage Q65Transmitter::makePreviewImage() const
                m_unpackedMessage.isEmpty() ? m_message : m_unpackedMessage);
     p.setPen(QColor(90, 160, 255));
     p.drawText(QRect(12, 78, image.width() - 24, 26), Qt::AlignLeft | Qt::AlignVCenter,
-               QStringLiteral("MSHV GenQ65: 85 symbols, Q65A/B/C/D spacing, repeated period waveform"));
+               QStringLiteral("85 symbols · Q65A/B/C/D · native RX/TX codec"));
     return image;
 }

@@ -1,5 +1,6 @@
 #include "Msk144Transmitter.h"
 
+#include "../../weak_signal/WeakSignalCodecLock.h"
 #include "../../../third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.h"
 
 #include <QColor>
@@ -9,14 +10,13 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <memory>
+#include <mutex>
 
 namespace {
 constexpr int kInternalRate = 12000;
-constexpr double kMshvFullScale = 8380000.0;
-constexpr double kTwoPi = 6.28318530717958647692;
 constexpr int kMaxFrameSamples = 4096;
+constexpr double kTwoPi = 6.283185307179586476925286766559;
 
 QString cleanMessage(QString msg)
 {
@@ -24,6 +24,17 @@ QString cleanMessage(QString msg)
     msg.replace('\t', ' ');
     while (msg.contains("  ")) msg.replace("  ", " ");
     return msg.left(37);
+}
+
+double raisedCosineEdgeGain(int sample, int activeSamples, int rampSamples)
+{
+    if (rampSamples <= 0 || activeSamples <= 1) return 1.0;
+    const int fromStart = sample + 1;
+    const int fromEnd = activeSamples - sample;
+    const int edge = qMin(fromStart, fromEnd);
+    if (edge >= rampSamples) return 1.0;
+    return 0.5 - 0.5 * std::cos((0.5 * kTwoPi) * static_cast<double>(edge) /
+                                static_cast<double>(rampSamples));
 }
 }
 
@@ -36,7 +47,7 @@ Msk144Transmitter::Msk144Transmitter(const QString &message,
       m_sampleRate(qBound(8000, sampleRate, 96000)),
       m_periodSeconds(periodSeconds == 30 ? 30 : 15),
       m_shortMessage(shortMessage),
-      m_txFrequencyHz(qBound(300.0, txFrequencyHz, 2700.0))
+      m_txFrequencyHz(qBound(600.0, txFrequencyHz, 2700.0))
 {
     buildWaveform();
 }
@@ -69,7 +80,7 @@ QString Msk144Transmitter::description() const
     return QStringLiteral("MSK144 TX: %1, %2 s%3")
         .arg(m_unpackedMessage.isEmpty() ? m_message : m_unpackedMessage)
         .arg(m_periodSeconds)
-        .arg(m_shortMessage ? QStringLiteral(", short-message enabled") : QString());
+        .arg(m_generatedShortMessage ? QStringLiteral(", MSK40 short frame") : QString());
 }
 
 bool Msk144Transmitter::lowLatencyTx() const { return true; }
@@ -77,12 +88,14 @@ int Msk144Transmitter::trailingSilenceSamples() const { return 0; }
 bool Msk144Transmitter::generationSucceeded() const { return m_ok; }
 QString Msk144Transmitter::generationError() const { return m_error; }
 QString Msk144Transmitter::normalizedMessage() const { return m_unpackedMessage.isEmpty() ? m_message : m_unpackedMessage; }
+bool Msk144Transmitter::generatedShortMessage() const { return m_generatedShortMessage; }
 
 void Msk144Transmitter::buildWaveform()
 {
     m_samples.clear();
     m_position = 0;
     m_ok = false;
+    m_generatedShortMessage = false;
     m_error.clear();
 
     if (m_message.isEmpty()) {
@@ -96,60 +109,80 @@ void Msk144Transmitter::buildWaveform()
     std::fill(tones.get(), tones.get() + 256, 0);
 
     QByteArray msgBytes = m_message.leftJustified(50, ' ', true).toLatin1();
-    GenMsk generator(false);
-    const int frameSamples = generator.genmsk(msgBytes.data(),
-                                              1.0,
-                                              tones.get(),
-                                              true,
-                                              frame.get(),
-                                              static_cast<double>(kInternalRate),
-                                              1.0,
-                                              0,
-                                              0,
-                                              false);
+    int frameSamples = 0;
+    {
+        std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
+        GenMsk generator(false);
+        frameSamples = generator.genmsk(msgBytes.data(),
+                                        1.0,
+                                        tones.get(),
+                                        true,
+                                        frame.get(),
+                                        static_cast<double>(kInternalRate),
+                                        1.0,
+                                        0,
+                                        0,
+                                        false);
+        m_unpackedMessage = cleanMessage(generator.GetUnpackMsg());
+    }
     if (frameSamples <= 0 || frameSamples > kMaxFrameSamples) {
-        m_error = QStringLiteral("MSHV MSK144 generator returned an invalid frame length; TX was inhibited.");
+        m_error = QStringLiteral("MSK144 codec returned an invalid frame length; TX was inhibited.");
         return;
     }
-
-    m_unpackedMessage = cleanMessage(generator.GetUnpackMsg());
+    const int symbolCount = frameSamples / 6;
+    if (frameSamples % 6 != 0 || (symbolCount != 144 && symbolCount != 40)) {
+        m_error = QStringLiteral("MSK144 codec returned invalid symbol geometry; TX was inhibited.");
+        return;
+    }
+    m_generatedShortMessage = symbolCount == 40;
+    if (m_generatedShortMessage && !m_shortMessage) {
+        m_error = QStringLiteral("MSK40 message selected while short messages are disabled; TX was inhibited.");
+        return;
+    }
     if (m_unpackedMessage.isEmpty()) m_unpackedMessage = m_message;
 
-    const int totalSamples = qMax(1, m_periodSeconds * m_sampleRate - m_sampleRate / 20); // leave 50 ms guard
+    // The protocol generator supplies the exact 144/40 coded tone sequence.
+    // MadModem owns waveform synthesis so the selected audio centre is real:
+    // the two tones are always centre +/-500 Hz.  Synthesize the whole period
+    // at the actual output rate instead of looping a sampled frame.  Looping a
+    // frame reset the carrier phase whenever centre*72 ms was not an integer
+    // number of cycles, producing clicks and breaking coherent averaging.
+    const double lowToneHz = m_txFrequencyHz - 500.0;
+    const double highToneHz = m_txFrequencyHz + 500.0;
+    if (lowToneHz <= 0.0 || highToneHz >= 0.48 * m_sampleRate) {
+        m_error = QStringLiteral("MSK144 TX tones fall outside the selected audio passband; TX was inhibited.");
+        return;
+    }
+    // Leave at least 300 ms at the period tail for the bounded scheduler wakeup
+    // plus CAT/PTT and audio-device startup latency. Quantize the active time to
+    // a whole number of 72 ms (or 20 ms) protocol frames: the last repeat must
+    // not be cut halfway through merely because the output rate is not 12 kHz.
+    const int maximumOutputSamples = qMax(1,
+        m_periodSeconds * m_sampleRate - 3 * m_sampleRate / 10);
+    const qint64 maximumProtocolSamples =
+        (static_cast<qint64>(maximumOutputSamples) * kInternalRate) / m_sampleRate;
+    const qint64 completeProtocolSamples =
+        qMax<qint64>(frameSamples,
+                     (maximumProtocolSamples / frameSamples) * frameSamples);
+    const int totalSamples = static_cast<int>(
+        (completeProtocolSamples * m_sampleRate) / kInternalRate);
     m_samples.resize(totalSamples);
-    const double internalPerOutput = static_cast<double>(kInternalRate) / static_cast<double>(m_sampleRate);
+    const double protocolSamplesPerOutputSample =
+        static_cast<double>(kInternalRate) / static_cast<double>(m_sampleRate);
+    const int rampSamples = qMax(1, m_sampleRate / 200); // 5 ms cosine edge.
+    double phase = 0.0;
     for (int i = 0; i < totalSamples; ++i) {
-        const double src = std::fmod(static_cast<double>(i) * internalPerOutput, static_cast<double>(frameSamples));
-        const int i0 = qBound(0, static_cast<int>(std::floor(src)), frameSamples - 1);
-        const int i1 = (i0 + 1) % frameSamples;
-        const double frac = src - static_cast<double>(i0);
-        const double v0 = static_cast<double>(frame[i0]) / kMshvFullScale;
-        const double v1 = static_cast<double>(frame[i1]) / kMshvFullScale;
-        const double v = (1.0 - frac) * v0 + frac * v1;
-        m_samples[i] = static_cast<float>(qBound(-0.92, 0.62 * v, 0.92));
+        const double framePosition = std::fmod(
+            static_cast<double>(i) * protocolSamplesPerOutputSample,
+            static_cast<double>(frameSamples));
+        const int symbol = qBound(0, static_cast<int>(framePosition / 6.0), symbolCount - 1);
+        const double frequency = tones[symbol] != 0 ? highToneHz : lowToneHz;
+        phase += kTwoPi * frequency / static_cast<double>(m_sampleRate);
+        if (phase >= kTwoPi) phase -= kTwoPi;
+        const double gain = raisedCosineEdgeGain(i, totalSamples, rampSamples);
+        m_samples[i] = static_cast<float>(0.62 * gain * std::sin(phase));
     }
     m_ok = !m_samples.isEmpty();
-}
-
-void Msk144Transmitter::buildFallbackMskLikeWaveform()
-{
-    const int totalSamples = qMax(1, m_periodSeconds * m_sampleRate - m_sampleRate / 20);
-    m_samples.resize(totalSamples);
-    double phase = 0.0;
-    const QByteArray bits = m_message.toLatin1();
-    const int symbolSamples = qMax(1, m_sampleRate / 2000);
-    for (int i = 0; i < totalSamples; ++i) {
-        const int symbol = (i / symbolSamples) % qMax(1, bits.size() * 8);
-        const int byteIndex = symbol / 8;
-        const int bitIndex = symbol % 8;
-        const bool bit = byteIndex < bits.size() ? ((bits.at(byteIndex) >> bitIndex) & 0x01) : false;
-        const double f = bit ? 2000.0 : 1000.0;
-        phase += kTwoPi * f / static_cast<double>(m_sampleRate);
-        if (phase > kTwoPi) phase -= kTwoPi;
-        m_samples[i] = static_cast<float>(0.25 * std::sin(phase));
-    }
-    m_unpackedMessage = m_message;
-    m_ok = true;
 }
 
 QImage Msk144Transmitter::makePreviewImage() const
@@ -166,6 +199,8 @@ QImage Msk144Transmitter::makePreviewImage() const
                m_unpackedMessage.isEmpty() ? m_message : m_unpackedMessage);
     p.setPen(QColor(90, 160, 255));
     p.drawText(QRect(12, 78, image.width() - 24, 26), Qt::AlignLeft | Qt::AlignVCenter,
-               QStringLiteral("144-bit frames, repeated across the selected T/R period"));
+               m_generatedShortMessage
+                   ? QStringLiteral("40-symbol hashed short frames at the selected audio centre")
+                   : QStringLiteral("144-symbol frames at the selected audio centre"));
     return image;
 }
