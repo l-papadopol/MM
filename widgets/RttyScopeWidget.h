@@ -15,9 +15,9 @@
  * phosphor persistence and beam intensity; it does not invent a perfect trace
  * when RX is stopped or squelch is closed.
  *
- * The center overlay is deliberately display-only: it mirrors the most recent
- * decoder text and the resolved RTTY polarity so tuning, decoding and CAT mode
- * can be checked in one place without moving focus away from the scope.
+ * The scope contains tuning and resolved-polarity information only. Live
+ * decoded text is rendered in the waterfall at the Mark/Space midpoint, where
+ * it remains aligned with the received signal instead of covering this trace.
  */
 class RttyScopeWidget : public QWidget
 {
@@ -34,7 +34,6 @@ public slots:
     void setTrace(const QVector<QPointF> &tracePoints,
                   double snrLike,
                   bool locked);
-    void setLiveText(const QString &text);
     void setPolarityInfo(bool reverse,
                          const QString &source,
                          const QString &catMode);
@@ -53,7 +52,6 @@ private:
     QVector<QPointF> m_tracePoints;
     int m_framesSinceTraceUpdate = 1000;
     QTimer m_animTimer;
-    QString m_liveText;
     QString m_polaritySource;
     QString m_catMode;
     bool m_reverse = false;

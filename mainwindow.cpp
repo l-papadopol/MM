@@ -240,6 +240,31 @@ private:
 
 namespace {
 
+// FT TX timing ownership. CAT/PTT is deliberately armed during the quiet tail
+// of the preceding RX slot, while a manual request made just after a selected
+// boundary gets a fresh backend-preparation interval. Automatic plans require
+// the full waveform plus the final guard to fit; an explicit operator action
+// may instead emit a bounded frame prefix that ends before the slot changes.
+constexpr int kFtPttPrearmLeadMs = 650;
+constexpr int kFtLateStartPreparationMs = 700;
+constexpr int kFtGeneratedSignalAllowanceMs = 120;
+constexpr int kFtSlotEndGuardMs = 200;
+constexpr int kFtMinimumLatePartialToneMs = 600;
+
+int latestFtFullFrameArmMs(const Ft8Mode::Profile &profile)
+{
+    return qMax(0,
+                profile.slotMs - profile.signalMs - kFtGeneratedSignalAllowanceMs
+                    - kFtLateStartPreparationMs - kFtSlotEndGuardMs);
+}
+
+int latestFtManualPartialArmMs(const Ft8Mode::Profile &profile)
+{
+    return qMax(0,
+                profile.slotMs - kFtLateStartPreparationMs
+                    - kFtSlotEndGuardMs - kFtMinimumLatePartialToneMs);
+}
+
 QString rttyContestAdifKey(const QString &direction, const QString &fieldId)
 {
     return QStringLiteral("APP_MADMODEM_RTTY_%1_%2")
@@ -8866,9 +8891,11 @@ void MainWindow::setupProcessingConnections()
 
     connect(m_rttyDecoder, &RttyDecoder::textUpdated,
             this, [this](const QString &text) {
-                if (m_rttyScopeWidget != nullptr) {
-                    m_rttyScopeWidget->setLiveText(text);
-                }
+                // Keep only a bounded rolling tail. WaterfallWidget extracts
+                // the newly appended suffix and stamps those characters into
+                // the time/frequency history at the Mark/Space midpoint.
+                m_rttyWaterfallLiveText = text.right(256);
+                updateRttyWaterfallOverlays();
             },
             Qt::QueuedConnection);
 
@@ -8948,20 +8975,7 @@ void MainWindow::setupProcessingConnections()
         connect(m_rttyMultiDecoder, &RttyMultiDecoder::calloutsChanged,
                 this, [this](const QVector<RttyMultiDecoder::Callout> &callouts) {
                     m_rttyWaterfallCallouts = callouts;
-                    if (m_waterfallWidget == nullptr || ui == nullptr || ui->cmbMode == nullptr ||
-                        ui->cmbMode->currentText() != RttyDecoder::modeName()) {
-                        return;
-                    }
-                    QVector<WaterfallTextOverlay> overlays;
-                    for (const RttyMultiDecoder::Callout &callout : callouts) {
-                        WaterfallTextOverlay overlay;
-                        overlay.frequencyHz = static_cast<double>(callout.markHz);
-                        overlay.label = callout.label;
-                        overlay.textColor = callout.cq ? QColor(255, 255, 180) : QColor(180, 230, 255);
-                        overlay.backgroundColor = callout.cq ? QColor(0, 95, 0, 210) : QColor(0, 0, 0, 190);
-                        overlays.append(overlay);
-                    }
-                    m_waterfallWidget->setTextOverlays(overlays);
+                    updateRttyWaterfallOverlays();
                 });
         connect(m_rttyMultiDecoder, &RttyMultiDecoder::statusChanged,
                 this, &MainWindow::handleWeatherFaxStatus);
@@ -12444,6 +12458,45 @@ void MainWindow::handleModeChanged(const QString &modeName)
 }
 
 
+void MainWindow::updateRttyWaterfallOverlays()
+{
+    if (m_waterfallWidget == nullptr || ui == nullptr || ui->cmbMode == nullptr ||
+        ui->cmbMode->currentText() != RttyDecoder::modeName()) {
+        return;
+    }
+
+    QVector<WaterfallTextOverlay> overlays;
+    if (m_settings.rttyOverlayCallsignsEnabled) {
+        for (const RttyMultiDecoder::Callout &callout : std::as_const(m_rttyWaterfallCallouts)) {
+            WaterfallTextOverlay overlay;
+            overlay.frequencyHz = static_cast<double>(callout.markHz);
+            overlay.label = callout.label;
+            overlay.textColor = callout.cq ? QColor(255, 255, 180) : QColor(180, 230, 255);
+            overlay.backgroundColor = callout.cq ? QColor(0, 95, 0, 210) : QColor(0, 0, 0, 190);
+            overlays.append(overlay);
+        }
+    }
+
+    if (!m_rttyWaterfallLiveText.trimmed().isEmpty()) {
+        const double markHz = (m_spinRttyMarkHz != nullptr)
+                                  ? m_spinRttyMarkHz->value()
+                                  : 2125.0;
+        const double shiftHz = (m_spinRttyShiftHz != nullptr)
+                                   ? m_spinRttyShiftHz->value()
+                                   : 170.0;
+        WaterfallTextOverlay live;
+        live.frequencyHz = markHz + (shiftHz * 0.5);
+        live.label = m_rttyWaterfallLiveText;
+        live.textColor = QColor(215, 255, 220);
+        live.backgroundColor = QColor(0, 0, 0, 205);
+        live.verticalTrail = true;
+        live.streamId = QStringLiteral("rtty-live");
+        overlays.append(live);
+    }
+
+    m_waterfallWidget->setTextOverlays(overlays);
+}
+
 void MainWindow::updateWaterfallMarkers()
 {
     if (m_waterfallWidget == nullptr) {
@@ -12452,6 +12505,10 @@ void MainWindow::updateWaterfallMarkers()
 
     const QString mode = ui->cmbMode->currentText();
     const bool cwMode = (mode == CwDecoder::modeName());
+
+    if (mode != RttyDecoder::modeName()) {
+        m_waterfallWidget->clearTextOverlayStream(QStringLiteral("rtty-live"));
+    }
 
     // CW keeps operator markers simple: A green, optional B blue.  The skimmer
     // runs underneath but its internal FFT channels are never drawn as markers.
@@ -12497,18 +12554,7 @@ void MainWindow::updateWaterfallMarkers()
         const double shift = (m_spinRttyShiftHz != nullptr) ? m_spinRttyShiftHz->value() : 170.0;
         const bool reverse = (m_chkRttyReverse != nullptr) ? m_chkRttyReverse->isChecked() : false;
         m_waterfallWidget->setMarkers(RttyDecoder::frequencyMarkers(mark, mark + shift, reverse));
-        QVector<WaterfallTextOverlay> overlays;
-        if (m_settings.rttyOverlayCallsignsEnabled) {
-            for (const RttyMultiDecoder::Callout &callout : std::as_const(m_rttyWaterfallCallouts)) {
-                WaterfallTextOverlay overlay;
-                overlay.frequencyHz = static_cast<double>(callout.markHz);
-                overlay.label = callout.label;
-                overlay.textColor = callout.cq ? QColor(255, 255, 180) : QColor(180, 230, 255);
-                overlay.backgroundColor = callout.cq ? QColor(0, 95, 0, 210) : QColor(0, 0, 0, 190);
-                overlays.append(overlay);
-            }
-        }
-        m_waterfallWidget->setTextOverlays(overlays);
+        updateRttyWaterfallOverlays();
         return;
     }
 
@@ -13743,10 +13789,11 @@ void MainWindow::clearRttyRxText()
         m_rttyMultiDecoder->reset();
     }
     m_rttyWaterfallCallouts.clear();
-    if (m_waterfallWidget != nullptr && ui != nullptr && ui->cmbMode != nullptr &&
-        ui->cmbMode->currentText() == RttyDecoder::modeName()) {
-        m_waterfallWidget->setTextOverlays({});
+    m_rttyWaterfallLiveText.clear();
+    if (m_waterfallWidget != nullptr) {
+        m_waterfallWidget->clearTextOverlayStream(QStringLiteral("rtty-live"));
     }
+    updateRttyWaterfallOverlays();
 
     m_lastRttyDecodedText.clear();
     m_rttyPendingRxLineBreak = false;
@@ -15769,7 +15816,9 @@ QString MainWindow::selectFt8TxRow(int row)
 }
 
 
-void MainWindow::scheduleFt8SequencerMessage(const QString &message, const QString &tag)
+void MainWindow::scheduleFt8SequencerMessage(const QString &message,
+                                             const QString &tag,
+                                             bool allowManualLatePartial)
 {
     const QString txMessage = message.trimmed().toUpper();
     const QString txTag = tag.trimmed().isEmpty() ? QStringLiteral("TX") : tag.trimmed().toUpper();
@@ -15847,6 +15896,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message, const QStri
     m_pendingFt8PttKeyed = false;
 
     m_pendingFt8Tune = false;
+    m_pendingFt8LatePartial = false;
     m_pendingFt8PreSilenceMs = 0;
     m_pendingFt8TxMessage = txMessage;
     m_pendingFt8TxTag = txTag;
@@ -15889,22 +15939,33 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message, const QStri
     // Select the boundary once and derive every timer from that immutable arm
     // target. Calling the selector twice near the safe-window threshold could
     // otherwise produce a delay for one slot and a token for the next one.
-    m_pendingFt8SlotBoundaryUtcMs = selectedFt8TxSlotBoundaryUtcMs();
+    m_pendingFt8SlotBoundaryUtcMs = selectedFt8TxSlotBoundaryUtcMs(allowManualLatePartial);
     const qint64 armNowUtcMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
     const int delayMs = static_cast<int>(qBound<qint64>(
         qint64{0}, m_pendingFt8SlotBoundaryUtcMs - armNowUtcMs, qint64{60000}));
     m_pendingFt8TxPlan.slotBoundaryUtcMs = m_pendingFt8SlotBoundaryUtcMs;
-    // Keep PTT/audio backend armed for the selected UTC slot. If the request
-    // arrives during the still-silent protocol lead-in, prepend only the
-    // remaining silence. Once useful tones would already have begun, select a
-    // future slot; no FT protocol sample is skipped.
+    // Keep one immutable boundary, but give an operator request made after that
+    // boundary a new audio target in the same slot. Automatic plans are admitted
+    // only while a complete frame fits. An explicit TX/double-click may instead
+    // send a visible partial burst that is hard-stopped before the period flips.
     const bool ft4Timing = (profile.shortLabel.compare(QStringLiteral("FT4"), Qt::CaseInsensitive) == 0);
-    m_pendingFt8AudioTargetDelayMs = ft4Timing ? 300 : 500;
-    // Do not key PTT before the RX slot has fully closed.  The FT waveform
-    // already carries WSJT-X-style leading silence (FT8 500 ms, FT4 300 ms),
-    // so PTT can be asserted at the UTC boundary without losing the last
-    // second of RX audio/decode gating.
-    m_pendingFt8PttLeadMs = 0;
+    const int normalAudioTargetDelayMs = ft4Timing ? 300 : 500;
+    const qint64 elapsedAfterBoundaryMs = qMax<qint64>(
+        0, armNowUtcMs - m_pendingFt8SlotBoundaryUtcMs);
+    m_pendingFt8LatePartial = allowManualLatePartial &&
+                              elapsedAfterBoundaryMs > latestFtFullFrameArmMs(profile) &&
+                              elapsedAfterBoundaryMs <= latestFtManualPartialArmMs(profile);
+    m_pendingFt8AudioTargetDelayMs = normalAudioTargetDelayMs;
+    if (elapsedAfterBoundaryMs > 0) {
+        m_pendingFt8AudioTargetDelayMs = static_cast<int>(qMin<qint64>(
+            profile.slotMs,
+            elapsedAfterBoundaryMs + kFtLateStartPreparationMs));
+    }
+    // CAT calls are synchronous and can take several hundred milliseconds.
+    // Assert PTT in the protocol's quiet RX tail so the audio path reaches the
+    // selected boundary without waiting for CAT. Capture itself remains alive
+    // until the boundary and is stopped by the single audio-start owner.
+    m_pendingFt8PttLeadMs = kFtPttPrearmLeadMs;
     m_pendingFt8TxPlan.audioTargetDelayMs = m_pendingFt8AudioTargetDelayMs;
     m_pendingFt8TxPlan.pttLeadMs = m_pendingFt8PttLeadMs;
 
@@ -17516,6 +17577,7 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
                 m_pendingFt8TxMessage.clear();
                 m_pendingFt8TxTag.clear();
                 m_pendingFt8Tune = false;
+                m_pendingFt8LatePartial = false;
                 m_pendingFt8PreSilenceMs = 0;
                 m_pendingFt8SlotBoundaryUtcMs = 0;
                 m_pendingFt8AudioTargetDelayMs = 0;
@@ -17627,7 +17689,7 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
         if (!m_rxRunning && !m_txRunning && m_audioEngine != nullptr && !m_audioEngine->isRunning()) {
             startFt8RxShell();
         }
-        scheduleFt8SequencerMessage(autoTxMessage, QStringLiteral("SEQ"));
+        scheduleFt8SequencerMessage(autoTxMessage, QStringLiteral("SEQ"), true);
     }
 }
 
@@ -17681,7 +17743,7 @@ int MainWindow::millisecondsToNextFt8TxPeriod() const
     return static_cast<int>(qBound<qint64>(qint64{0}, boundaryMs - nowMs, qint64{60000}));
 }
 
-qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs() const
+qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs(bool allowManualLatePartial) const
 {
     const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
     const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
@@ -17700,22 +17762,23 @@ qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs() const
     int deltaToBoundaryMs = 0;
     if (insideSelectedWindow) {
         const int elapsedInSelectedMs = cyclePosMs - selectedStartMs;
-        const bool ft4Timing = (profile.shortLabel.compare(QStringLiteral("FT4"), Qt::CaseInsensitive) == 0);
-        const int usefulToneDelayMs = ft4Timing ? 300 : 500;
-        constexpr int kBackendStartMarginMs = 120;
-        const int latestSafeImmediateArmMs = qMax(0, usefulToneDelayMs - kBackendStartMarginMs);
+        const int latestSafeImmediateArmMs = latestFtFullFrameArmMs(profile);
+        const int latestManualPartialArmMs = latestFtManualPartialArmMs(profile);
 
         if (elapsedInSelectedMs <= latestSafeImmediateArmMs) {
-            // A complete frame can still start because the useful FT tones have
-            // not begun yet. The modulator inserts only the remaining leading
-            // silence; no protocol symbol is skipped.
+            // Start in the selected period without amputating the frame. The
+            // scheduler assigns a fresh target after backend preparation and
+            // the complete generated waveform still ends before the slot guard.
+            deltaToBoundaryMs = -elapsedInSelectedMs;
+        } else if (allowManualLatePartial && elapsedInSelectedMs <= latestManualPartialArmMs) {
+            // A direct operator action owns a bounded late visual burst. It
+            // begins with the real frame prefix and is truncated at the end of
+            // this selected period; automatic retries never take this branch.
             deltaToBoundaryMs = -elapsedInSelectedMs;
         } else {
-            // The old 0.5.78 code kept returning the already-expired boundary
-            // for 75% of the slot, even after waveform truncation had been
-            // forbidden. A missed-deadline retry therefore re-armed the same
-            // dead slot indefinitely. Once the safe pre-tone window is gone,
-            // select the next future TX period.
+            // Starting now would run past the selected slot. Defer the intact
+            // frame instead of producing the two-second/truncated transmission
+            // that the deadline guard is specifically designed to prevent.
             deltaToBoundaryMs = cycleMs - cyclePosMs + selectedStartMs;
         }
     } else if (cyclePosMs < selectedStartMs) {
@@ -18722,7 +18785,7 @@ void MainWindow::startFt8TxShell()
             }
         }
     }
-    scheduleFt8SequencerMessage(message, QStringLiteral("TX"));
+    scheduleFt8SequencerMessage(message, QStringLiteral("TX"), true);
 }
 
 void MainWindow::beginScheduledFt8Transmit()
@@ -18732,6 +18795,7 @@ void MainWindow::beginScheduledFt8Transmit()
         m_pendingFt8TxMessage.clear();
         m_pendingFt8TxTag.clear();
         m_pendingFt8Tune = false;
+        m_pendingFt8LatePartial = false;
         m_pendingFt8PreSilenceMs = 0;
         m_pendingFt8SlotBoundaryUtcMs = 0;
         m_pendingFt8AudioTargetDelayMs = 0;
@@ -18750,6 +18814,7 @@ void MainWindow::beginScheduledFt8Transmit()
         m_pendingFt8TxMessage.clear();
         m_pendingFt8TxTag.clear();
         m_pendingFt8Tune = false;
+        m_pendingFt8LatePartial = false;
         m_pendingFt8PreSilenceMs = 0;
         m_pendingFt8SlotBoundaryUtcMs = 0;
         m_pendingFt8AudioTargetDelayMs = 0;
@@ -18772,6 +18837,7 @@ void MainWindow::beginScheduledFt8Transmit()
         m_pendingFt8TxMessage.clear();
         m_pendingFt8TxTag.clear();
         m_pendingFt8Tune = false;
+        m_pendingFt8LatePartial = false;
         m_ftSession.cqRepeatActive = false;
         m_ftSession.state = Ft8SequencerState::Idle;
         m_ft8PendingTxArmed = false;
@@ -18864,6 +18930,7 @@ void MainWindow::stopFt8Shell()
     m_pendingFt8TxMessage.clear();
     m_pendingFt8TxTag.clear();
     m_pendingFt8Tune = false;
+    m_pendingFt8LatePartial = false;
     m_pendingFt8PreSilenceMs = 0;
     m_pendingFt8SlotBoundaryUtcMs = 0;
     m_pendingFt8AudioTargetDelayMs = 0;
@@ -18999,6 +19066,7 @@ void MainWindow::tuneFt8Shell()
     m_pendingFt8TxPlan.pttLeadMs = 0;
 
     m_pendingFt8TxTag = QStringLiteral("TUNE");
+    m_pendingFt8LatePartial = false;
     m_pendingFt8Tune = true;
     m_pendingFt8TxMessage = QStringLiteral("TUNE");
 
@@ -22356,10 +22424,20 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
 
         Ft8Transmitter *ft8 = dynamic_cast<Ft8Transmitter *>(modulator.get());
         if (ft8 != nullptr) {
-            // skipMs is guaranteed to be zero: late FT frames are deferred,
-            // never transmitted without their initial Costas sequence.
+            // skipMs is always zero: a manual late burst starts with the real
+            // Costas/frame prefix and shortens only its tail at the slot guard.
             if (leadingSilenceMs > 0) {
                 ft8->prependLeadingSilenceMilliseconds(leadingSilenceMs);
+            }
+            if (m_pendingFt8LatePartial) {
+                const qint64 stopUtcMs = m_pendingFt8SlotBoundaryUtcMs
+                    + static_cast<qint64>(profile.slotMs - kFtSlotEndGuardMs);
+                const int remainingOutputMs = static_cast<int>(qMax<qint64>(
+                    0, stopUtcMs - QDateTime::currentDateTimeUtc().toMSecsSinceEpoch()));
+                if (remainingOutputMs <= 0) {
+                    return nullptr;
+                }
+                ft8->truncateTotalMilliseconds(remainingOutputMs);
             }
             appendLog(QString("FT timing: target=%1 ms, lead-in silence=%2 ms, skipped=%3 ms.")
                           .arg(m_pendingFt8AudioTargetDelayMs)
@@ -23234,9 +23312,10 @@ void MainWindow::startFtPreparedSlotTransmit()
         return;
     }
 
-    // A valid FT frame must start from its beginning.  Never amputate Costas
-    // symbols to catch a slot that has already been missed.  Keep RX running
-    // and re-arm the unchanged message for the next selected period.
+    // Never repair backend lateness by skipping the beginning of a frame. A
+    // manual late visual burst is chosen explicitly upstream and keeps the real
+    // Costas/frame prefix; this deadline guard still defers any start that misses
+    // its newly assigned target.
     if (!m_pendingFt8Tune && m_pendingFt8SlotBoundaryUtcMs > 0) {
         const qint64 targetMs = m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs;
         const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
@@ -23276,23 +23355,23 @@ void MainWindow::startFtPreparedSlotTransmit()
     const bool liveRxRunning = m_rxRunning ||
                                (m_audioEngine != nullptr && m_audioEngine->isRunning());
     if (liveRxRunning) {
-        if (m_ft8RxDecoder != nullptr) {
-            QMetaObject::invokeMethod(m_ft8RxDecoder,
-                                      "setLiveInputEnabled",
-                                      Qt::BlockingQueuedConnection,
-                                      Q_ARG(bool, false));
-            const Qt::ConnectionType finishConnection =
-                (m_ft8RxDecoder->thread() == QThread::currentThread())
-                    ? Qt::DirectConnection
-                    : Qt::BlockingQueuedConnection;
-            QMetaObject::invokeMethod(m_ft8RxDecoder,
-                                      "noteTransmitStarting",
-                                      finishConnection,
-                                      Q_ARG(qint64, m_pendingFt8SlotBoundaryUtcMs));
-        }
         if (m_audioEngine != nullptr) {
             appendLog("FT timing: RX audio stop requested at UTC boundary for FT TX.");
             stopAudioInputBlocking();
+        }
+        if (m_ft8RxDecoder != nullptr) {
+            // Never wait for an in-flight boundary/deep decode on the GUI/TX
+            // thread. Audio capture is already stopped, so this queued marker
+            // follows all previously queued RX blocks, closes the old RX slot
+            // in order and disables live input before any later block can run.
+            QMetaObject::invokeMethod(m_ft8RxDecoder,
+                                      "setLiveInputEnabled",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(bool, false));
+            QMetaObject::invokeMethod(m_ft8RxDecoder,
+                                      "noteTransmitStarting",
+                                      Qt::QueuedConnection,
+                                      Q_ARG(qint64, m_pendingFt8SlotBoundaryUtcMs));
         }
     }
 
@@ -23465,6 +23544,7 @@ void MainWindow::handleTxStopped()
         m_pendingFt8TxMessage.clear();
         m_pendingFt8TxTag.clear();
         m_pendingFt8Tune = false;
+        m_pendingFt8LatePartial = false;
         m_pendingFt8PreSilenceMs = 0;
         m_pendingFt8SlotBoundaryUtcMs = 0;
         m_pendingFt8AudioTargetDelayMs = 0;
@@ -23554,6 +23634,7 @@ void MainWindow::handleTxError(const QString &message)
         m_pendingFt8TxMessage.clear();
         m_pendingFt8TxTag.clear();
         m_pendingFt8Tune = false;
+        m_pendingFt8LatePartial = false;
         m_pendingFt8PreSilenceMs = 0;
         m_pendingFt8SlotBoundaryUtcMs = 0;
         m_pendingFt8AudioTargetDelayMs = 0;

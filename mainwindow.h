@@ -354,6 +354,11 @@ private slots:
     void applyRttySettings();
 
     /**
+     * @brief Renders RTTY callouts and the live vertical text stream in the waterfall.
+     */
+    void updateRttyWaterfallOverlays();
+
+    /**
      * @brief Clears the received RTTY text buffer.
      */
     void clearRttyRxText();
@@ -810,7 +815,9 @@ private slots:
     /**
      * @brief Schedules one FT8 message for the next selected TX period.
      */
-    void scheduleFt8SequencerMessage(const QString &message, const QString &tag);
+    void scheduleFt8SequencerMessage(const QString &message,
+                                     const QString &tag,
+                                     bool allowManualLatePartial = false);
 
     /**
      * @brief Handles state transitions after a locally generated FT8 slot finished.
@@ -1093,7 +1100,7 @@ private:
      * late, the beginning of the waveform is skipped rather than delaying the
      * whole over-the-air frame.
      */
-    qint64 selectedFt8TxSlotBoundaryUtcMs() const;
+    qint64 selectedFt8TxSlotBoundaryUtcMs(bool allowManualLatePartial = false) const;
 
     /**
      * @brief Updates FT8 table/status after a local transmission has been requested.
@@ -2050,6 +2057,7 @@ private:
     QString m_pendingFt8TxMessage;
     QString m_pendingFt8TxTag;
     bool m_pendingFt8Tune = false;
+    bool m_pendingFt8LatePartial = false;
     int m_pendingFt8PreSilenceMs = 0;
     qint64 m_pendingFt8SlotBoundaryUtcMs = 0;
     int m_pendingFt8AudioTargetDelayMs = 0;
@@ -2093,6 +2101,7 @@ private:
     };
     QVector<Ft8WaterfallCallout> m_ft8WaterfallCallouts;
     QVector<RttyMultiDecoder::Callout> m_rttyWaterfallCallouts;
+    QString m_rttyWaterfallLiveText;
 
     QImage m_txSourceImage;
     QImage m_txPreparedImage;

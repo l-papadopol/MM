@@ -1,6 +1,5 @@
 #include "RttyScopeWidget.h"
 
-#include <QFontMetrics>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QPainterPath>
@@ -60,23 +59,6 @@ void RttyScopeWidget::setTrace(const QVector<QPointF> &tracePoints,
         m_framesSinceTraceUpdate = 1000;
     }
 
-    update();
-}
-
-void RttyScopeWidget::setLiveText(const QString &text)
-{
-    QString compact = text;
-    compact.replace(QLatin1Char('\r'), QLatin1Char(' '));
-    compact.replace(QLatin1Char('\n'), QLatin1Char(' '));
-    compact = compact.simplified();
-    constexpr int kMaxVisibleChars = 34;
-    if (compact.size() > kMaxVisibleChars) {
-        compact = compact.right(kMaxVisibleChars);
-    }
-    if (m_liveText == compact) {
-        return;
-    }
-    m_liveText = compact;
     update();
 }
 
@@ -212,24 +194,6 @@ void RttyScopeWidget::paintEvent(QPaintEvent *event)
     const QRectF labelRect = screenRect.adjusted(11.0, 10.0, -11.0, -10.0);
     painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignTop, leftLabel);
     painter.drawText(labelRect, Qt::AlignRight | Qt::AlignTop, rightLabel);
-
-    // Live decoder tape: compact, monospaced and centered between Mark/Space.
-    const QRectF tapeRect(screenRect.left() + screenRadius * 0.12,
-                          center.y() - 14.0,
-                          screenRect.width() - screenRadius * 0.24,
-                          28.0);
-    painter.setPen(Qt::NoPen);
-    painter.setBrush(QColor(0, 0, 0, 178));
-    painter.drawRoundedRect(tapeRect, 4.0, 4.0);
-    QFont tapeFont(QStringLiteral("Monospace"));
-    tapeFont.setStyleHint(QFont::TypeWriter);
-    tapeFont.setPointSizeF(8.2);
-    tapeFont.setBold(true);
-    painter.setFont(tapeFont);
-    painter.setPen(QColor(215, 255, 220, 235));
-    painter.drawText(tapeRect.adjusted(4.0, 0.0, -4.0, 0.0),
-                     Qt::AlignCenter,
-                     m_liveText.isEmpty() ? QStringLiteral("···") : m_liveText);
 
     QString polarityLine = m_reverse ? QStringLiteral("REV") : QStringLiteral("NOR");
     if (!m_polaritySource.isEmpty()) {

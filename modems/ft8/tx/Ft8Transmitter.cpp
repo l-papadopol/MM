@@ -190,6 +190,16 @@ void Ft8Transmitter::prependLeadingSilenceMilliseconds(int milliseconds)
     prependSilence(milliseconds);
 }
 
+void Ft8Transmitter::truncateTotalMilliseconds(int milliseconds)
+{
+    const int maximumSamples = qMax(0, (milliseconds * m_sampleRate) / 1000);
+    if (maximumSamples >= m_samples.size()) {
+        return;
+    }
+    m_samples.resize(maximumSamples);
+    m_position = qBound(0, m_position, m_samples.size());
+}
+
 void Ft8Transmitter::skipInitialSamples(int samples)
 {
     if (samples <= 0 || m_samples.isEmpty()) {

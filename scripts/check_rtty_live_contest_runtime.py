@@ -10,10 +10,15 @@ def must(path, needles):
             errors.append(f'{path}: missing {n!r}')
     return text
 
-scope=must(Path('widgets/RttyScopeWidget.cpp'), ['setLiveText(', 'setPolarityInfo(', 'm_liveText', 'MARK', 'SPACE'])
+scope=must(Path('widgets/RttyScopeWidget.cpp'), ['setPolarityInfo(', 'MARK', 'SPACE'])
+if 'setLiveText(' in scope or 'm_liveText' in scope or 'Live decoder tape' in scope:
+    errors.append('widgets/RttyScopeWidget.cpp: decoded text still covers the tuning scope')
 dec=must(Path('modems/rtty/RttyDecoder.cpp'), ['setCatModeHint(', 'advancePolarityProbe(m_normalProbe', 'advancePolarityProbe(m_reverseProbe'])
 must(Path('rig/HamlibController.cpp'), ['rig_get_mode(', 'rig_strrmode(', 'emit modeChanged(modeName)'])
-main=must(Path('mainwindow.cpp'), ['m_tabRttyContest', 'insertTab(insertIndex, m_tabRttyContest', 'setLiveText(text)', 'setPolarityInfo(reverse, source, catMode)', 'addQsoToLogFromForm(m_rttyQsoForm)'])
+main=must(Path('mainwindow.cpp'), ['m_tabRttyContest', 'insertTab(insertIndex, m_tabRttyContest', 'updateRttyWaterfallOverlays()', 'live.verticalTrail = true', 'live.streamId = QStringLiteral("rtty-live")', 'markHz + (shiftHz * 0.5)', 'setPolarityInfo(reverse, source, catMode)', 'addQsoToLogFromForm(m_rttyQsoForm)'])
+waterfall=must(Path('widgets/WaterfallWidget.cpp'), ['appendVerticalTextTrail(overlay)', 'drawVerticalTextTrails(painter)', 'centerOnFrequency'])
+if 'discardedVerticalTrail' in waterfall:
+    errors.append('widgets/WaterfallWidget.cpp: live vertical trails are still discarded')
 cmake=must(Path('CMakeLists.txt'), ['install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" DESTINATION "${CMAKE_INSTALL_BINDIR}")'])
 must(Path('scripts/build_linux_github.sh'), ['$INSTALL_DIR/bin/rtty_rules'])
 must(Path('scripts/package_linux_github.sh'), ['$PACKAGE_DIR/bin/rtty_rules'])

@@ -24,6 +24,35 @@ The complete `Ft8RxDecoder.cpp` necessarily changed around the protected core
 to fix synchronization and streaming resampling. Its 0.5.8 source hash is
 `87253a921e4475fc79fef70ed86a8606db2dc915bdc47426cffb2e4936697c7d`.
 
+## R4 FT TX and RTTY waterfall correction
+
+The captured live log showed that the FT waveform was not intrinsically two
+seconds long. CAT asserted PTT, then `startFtPreparedSlotTransmit()` waited more
+than one second for a blocking call into the busy FT decoder thread. By the time
+control returned, the audio target had expired and the complete-frame guard
+cancelled TX. R4 closes that failure as follows:
+
+- CAT/PTT pre-arms 650 ms before the selected boundary, inside the quiet tail
+  after the useful FT signal from the preceding RX slot;
+- the audio owner stops capture at the boundary, then queues the live-input gate
+  and previous-slot finalization behind already-delivered RX blocks without
+  waiting for a boundary/deep decode;
+- operator requests up to the mode-specific full-frame-fit limit use the current
+  selected period and receive a fresh 700 ms backend-preparation target;
+- a later explicit TX/double-click may emit a bounded visual reply burst: it
+  starts with the genuine Costas/frame prefix, never skips the beginning, keeps
+  at least 600 ms of useful tone and stops 200 ms before the period changes;
+- automatic sequencer, CQ and retry plans never use the partial path and defer
+  an intact frame whenever the complete frame no longer fits.
+
+The entire protected `Ft8RxDecoder.cpp` remains byte-identical to the R3
+checkpoint and retains the SHA-256 recorded above.
+
+RTTY live text no longer covers the crossed-ellipse scope. The existing
+time-locked waterfall glyph engine is now active for a single `rtty-live`
+stream centered at `(Mark + Space) / 2`; each new character moves vertically
+with waterfall time while multidecoder callsign callouts remain static.
+
 ## Review findings closed or contained
 
 | ID | 0.5.8 resolution |

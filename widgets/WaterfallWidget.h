@@ -28,8 +28,8 @@
  * @brief Short text annotation drawn directly over the waterfall.
  *
  * These overlays are intentionally separate from the permanent frequency
- * markers.  FT8 uses them to show recently decoded CQ calls and direct replies
- * at the decoded audio frequency without moving the operator's RX/TX markers.
+ * markers. FT8 uses static callouts; live text modes can use a vertical trail
+ * whose characters remain aligned with their audio-frequency stream.
  */
 struct WaterfallTextOverlay
 {
@@ -42,7 +42,8 @@ struct WaterfallTextOverlay
      * When true the label is not drawn as a static callout.  Instead only new
      * characters are appended to a time-locked vertical trail beside the signal.
      * The trail then moves upward with the waterfall until it naturally leaves
-     * the top edge.  This is intended for live CW skimmer text.
+     * the top edge. This is intended for live text such as RTTY between its
+     * Mark and Space markers.
      */
     bool verticalTrail = false;
 

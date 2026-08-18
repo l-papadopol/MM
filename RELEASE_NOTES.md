@@ -2,6 +2,19 @@
 
 ## 0.5.8 release focus
 
+- Fixed the FT8/FT4 TX boundary regression that keyed PTT and then cancelled
+  audio after roughly two seconds. CAT/PTT now pre-arms 650 ms before the UTC
+  boundary, while boundary/deep RX decoding is finalized asynchronously and
+  can no longer block the time-critical TX start path.
+- A double click in an already-started selected TX period now keys immediately.
+  When the complete FT8/FT4 frame still fits it is sent intact; later manual
+  requests emit the real frame prefix as a visual reply burst and stop 200 ms
+  before the period changes. Automatic sequencer/retry plans still require a
+  complete frame and defer when it cannot fit. Every late start receives a
+  bounded 700 ms backend-preparation target.
+- Removed live decoded RTTY text from the tuning CRT. New characters now form a
+  vertical, time-locked waterfall trail centered exactly between the Mark and
+  Space markers; static multidecoder callouts remain independent.
 - Preserved the restored, high-sensitivity FT8/FT4 candidate search, gate,
   boundary, LDPC and sequencer path without speculative decoder changes.
 - Moved audio capture to its own thread and added bounded, drop-oldest UI/DSP
@@ -36,7 +49,12 @@
 ## Retained 0.5.79 feature baseline
 
 - Added a dedicated RTTY `Contest mode` side tab between Mode and Rotator. It owns the contest operating surface (rules/profile, exchange fields, transactional serial, live score and contest macros) and mirrors the normal RTTY QSO form bidirectionally while logging through the same single QSO owner.
-- Added live decoded RTTY text inside the Mark/Space CRT scope. Auto polarity now uses the CAT demodulation mode (USB/LSB/RTTY/RTTYR when Hamlib reports it) as a prior and continuously compares normal/reverse ITA2 framing evidence; manual Reverse remains authoritative when Auto polarity is disabled.
+- Added live decoded RTTY text tied to the Mark/Space tuning display. In the
+  current 0.5.8 layout it is rendered vertically in the waterfall between both
+  tone markers, leaving the CRT trace unobstructed. Auto polarity uses the CAT
+  demodulation mode (USB/LSB/RTTY/RTTYR when Hamlib reports it) as a prior and
+  continuously compares normal/reverse ITA2 framing evidence; manual Reverse
+  remains authoritative when Auto polarity is disabled.
 - Fixed deployment of external `rtty_rules`: the runtime still loads exactly one file from `applicationDirPath()`, and Linux/Windows/macOS packaging now verifies that the file is installed beside the executable (`bin/rtty_rules` or `MadModem.app/Contents/MacOS/rtty_rules`).
 - Added the external, reloadable `rtty_rules` contest engine and bundled 2026 RTTY contest catalog. Contest exchange fields, macros, serial policy, duplicate scope, multipliers and scoring are data-driven rather than hard-coded per contest.
 - Added RTTY contest click-to-fill fields, CAT-derived band handling, transactional serial numbering and live session/contest score display.

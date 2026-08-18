@@ -10,8 +10,10 @@
 /**
  * @brief Generates FT-family transmit audio for FT8 and FT4.
  *
- * FT8 and FT4 both use the MSHV GPL generator ports.  MM only trims the
- * generator's post-frame silence for exact slot-timed PTT/audio return.
+ * FT8 and FT4 both use the MSHV GPL generator ports. MM trims the generator's
+ * post-frame silence for exact slot-timed PTT/audio return. An explicit late
+ * operator response may also cap the waveform at the slot guard while keeping
+ * the genuine frame prefix; automatic transmissions always use the full frame.
  */
 class Ft8Transmitter final : public TxModulator
 {
@@ -52,6 +54,7 @@ public:
     QString modeName() const;
     void skipInitialMilliseconds(int milliseconds);
     void prependLeadingSilenceMilliseconds(int milliseconds);
+    void truncateTotalMilliseconds(int milliseconds);
 
 private:
     void buildMessageWaveform(const QString &message, double frequencyHz);

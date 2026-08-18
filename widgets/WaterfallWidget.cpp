@@ -244,20 +244,12 @@ void WaterfallWidget::setTextOverlays(const QVector<WaterfallTextOverlay> &overl
     QVector<WaterfallTextOverlay> staticOverlays;
     staticOverlays.reserve(overlays.size());
 
-    bool discardedVerticalTrail = false;
     for (const WaterfallTextOverlay &overlay : overlays) {
         if (overlay.verticalTrail) {
-            // CW text belongs in persistent receiver/skimmer lanes, not as
-            // isolated glyphs stamped onto the waterfall.  Ignore legacy
-            // vertical trails and remove any already queued CW glyphs.
-            discardedVerticalTrail = true;
+            appendVerticalTextTrail(overlay);
         } else {
             staticOverlays.append(overlay);
         }
-    }
-    if (discardedVerticalTrail) {
-        m_verticalTextGlyphs.clear();
-        m_verticalTrailLastLabelByStream.clear();
     }
 
     m_textOverlays = staticOverlays;
@@ -994,7 +986,11 @@ void WaterfallWidget::drawVerticalTextTrails(QPainter &painter)
 #endif
         const int labelWidth = textWidth + (paddingX * 2);
 
-        int left = x + 9;
+        // RTTY's single live stream belongs exactly between its Mark and Space
+        // markers. Other possible streams remain offset beside their tone so
+        // they do not cover the carrier trace itself.
+        const bool centerOnFrequency = (glyph.streamId == QStringLiteral("rtty-live"));
+        int left = centerOnFrequency ? (x - (labelWidth / 2)) : (x + 9);
         if (left + labelWidth + 2 > width()) {
             left = x - labelWidth - 9;
         }
@@ -1007,9 +1003,9 @@ void WaterfallWidget::drawVerticalTextTrails(QPainter &painter)
 
         QRect rect(left, top, labelWidth, labelHeight);
 
-        // Keep the glyph beside the tone, but step it sideways by a few pixels if
-        // two CW streams collide.  There is no flashing/toggling: once a glyph is
-        // born it simply rides upward with the waterfall pixels.
+        // Keep the glyph beside its stream frequency, but step it sideways by a
+        // few pixels if two streams collide. There is no flashing/toggling:
+        // once a glyph is born it simply rides upward with the waterfall pixels.
         int guard = 0;
         while (guard < 5) {
             bool overlaps = false;
@@ -1036,8 +1032,8 @@ void WaterfallWidget::drawVerticalTextTrails(QPainter &painter)
 
         const QRect textRect = rect.adjusted(paddingX, paddingY, -paddingX, -paddingY);
         // High-contrast cockpit OSD: draw a tiny black halo first, then the
-        // bright glyph.  This keeps CW characters readable on both blue/green
-        // traces and the black waterfall background without blinking.
+        // bright glyph. This keeps live decoder characters readable on both
+        // blue/green traces and the black waterfall background without blinking.
         painter.setPen(QColor(0, 0, 0, 230));
         painter.drawText(textRect.translated(1, 1), Qt::AlignCenter, glyph.text);
         painter.setPen(glyph.textColor.isValid() ? glyph.textColor : QColor(255, 244, 170));
