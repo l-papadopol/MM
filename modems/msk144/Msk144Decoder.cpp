@@ -669,10 +669,10 @@ void Msk144Decoder::tryPeriodDecodeSync(bool force)
     for (const Candidate &c : candidates) {
         ++attempts;
         d = Msk144Decode{};
-        const bool decoded = c.shortFrame
+        const bool decodeSucceeded = c.shortFrame
             ? tryDecodeShortAt(c.start, static_cast<double>(c.frequencyHz), d)
             : tryDecodeCoherentAt(c.start, static_cast<double>(c.frequencyHz), d);
-        if (!decoded) continue;
+        if (!decodeSucceeded) continue;
         const QString key = d.message + QStringLiteral("@") +
                             QString::number(qRound(d.frequencyHz / 5.0));
         if (seen.insert(key).second) {
