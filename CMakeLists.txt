@@ -281,6 +281,23 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # -------------------------------------------------------------------------
+# Shared streaming resampler used by the native weak-signal engines and by
+# the application text-mode decoders. Keep the implementation in one target
+# so standalone regression executables link the exact same DSP code as MM.
+# -------------------------------------------------------------------------
+add_library(madmodem_linear_resampler STATIC
+    dsp/text/LinearResampler.h
+    dsp/text/LinearResampler.cpp
+)
+target_include_directories(madmodem_linear_resampler PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/dsp/text"
+)
+target_link_libraries(madmodem_linear_resampler PUBLIC ${QT}::Core)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(madmodem_linear_resampler PRIVATE -Wall -Wextra)
+endif()
+
+# -------------------------------------------------------------------------
 # MSK144 native RX/TX engine, including full 144-bit frames and MSK40 hashed
 # short messages. Mode-specific coding is bundled here; shared 77-bit
 # message/hash code belongs to madmodem_weak_signal_codec.
@@ -301,6 +318,7 @@ target_include_directories(madmodem_msk144 PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port"
 )
 target_link_libraries(madmodem_msk144 PUBLIC madmodem_weak_signal_codec ${QT}::Core ${QT}::Widgets Threads::Threads)
+target_link_libraries(madmodem_msk144 PUBLIC madmodem_linear_resampler)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(madmodem_msk144 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
 endif()
@@ -329,6 +347,7 @@ target_include_directories(madmodem_q65 PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port"
 )
 target_link_libraries(madmodem_q65 PUBLIC madmodem_weak_signal_codec ${QT}::Core ${QT}::Widgets Threads::Threads)
+target_link_libraries(madmodem_q65 PUBLIC madmodem_linear_resampler)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(madmodem_q65 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
 endif()
@@ -383,8 +402,6 @@ add_executable(MadModem
     dsp/text/Nco.cpp
     dsp/text/BaudAwareFilter.h
     dsp/text/BaudAwareFilter.cpp
-    dsp/text/LinearResampler.h
-    dsp/text/LinearResampler.cpp
     dsp/text/AtcDetector.h
     dsp/text/AtcDetector.cpp
     dsp/text/SymbolClockDpll.h
@@ -617,6 +634,7 @@ target_link_libraries(MadModem PRIVATE
     madmodem_msk144
     madmodem_q65
     madmodem_weak_signal_codec
+    madmodem_linear_resampler
     ${QT}::Widgets
     ${QT}::SerialPort
     ${QT}::Multimedia
