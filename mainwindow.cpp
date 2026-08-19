@@ -4491,7 +4491,7 @@ void MainWindow::updateRttyContestTabVisibility(const QString &modeName)
         if (m_lblRttyContestRuleStatus != nullptr) {
             const RttyContestRules *rules = activeContestRules();
             const QString file = contestContextIsCw() ? QStringLiteral("cw_rules") : QStringLiteral("rtty_rules");
-            m_lblRttyContestRuleStatus->setText(QStringLiteral("%1 · %2 profiles · rules %3")
+            m_lblRttyContestRuleStatus->setText(uiText("contest_rules_status", "%1 · %2 profiles · rules %3")
                                                     .arg(file)
                                                     .arg(activeContestProfileCount(*rules))
                                                     .arg(rules->updatedUtc().left(10)));
