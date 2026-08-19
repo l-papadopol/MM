@@ -288,13 +288,23 @@ Q65NativeEngine::SyncCandidate Q65NativeEngine::refineSyncCandidate(
     const int nsps = symbolSamples(configuration.periodSeconds);
     const double baud = static_cast<double>(kSampleRate) / nsps;
     const int timeStep = qMax(1, nsps / (configuration.decodeDepth >= 3 ? 32 : 16));
-    const double frequencyStep = baud / (configuration.decodeDepth >= 3 ? 4.0 : 2.0);
+
+    // The sync tone itself is only one baud wide.  A half-baud frequency grid
+    // is too coarse for Q65A/B: the subsequent data-tone metric may then be
+    // evaluated a significant fraction of one tone spacing away from the
+    // transmitted grid.  Keep the same single refinement path, but resolve the
+    // sync frequency to <= 1/8 baud in Normal and <= 1/16 baud in Deep.
+    const int frequencyDivisor = configuration.decodeDepth <= 1 ? 4 :
+                                 (configuration.decodeDepth == 2 ? 8 : 16);
+    const int frequencyHalfSteps = configuration.decodeDepth <= 1 ? 2 :
+                                   (configuration.decodeDepth == 2 ? 4 : 8);
+    const double frequencyStep = baud / static_cast<double>(frequencyDivisor);
     const std::array<double, 5> driftValues{{-30.0, -15.0, 0.0, 15.0, 30.0}};
 
     SyncCandidate best = coarse;
     best.score = -std::numeric_limits<double>::infinity();
     for (int dt = -2 * timeStep; dt <= 2 * timeStep; dt += timeStep) {
-        for (int dfIndex = -3; dfIndex <= 3; ++dfIndex) {
+        for (int dfIndex = -frequencyHalfSteps; dfIndex <= frequencyHalfSteps; ++dfIndex) {
             const double frequency = coarse.frequencyHz + dfIndex * frequencyStep;
             const int driftCount = configuration.maxDrift ? static_cast<int>(driftValues.size()) : 1;
             for (int driftIndex = 0; driftIndex < driftCount; ++driftIndex) {
@@ -351,8 +361,11 @@ QVector<float> Q65NativeEngine::extractSymbolEnergies(
     const int multiplier = Q65Mode::mshvToneSpacingMultiplier(configuration.submode);
     const int binsPerSymbol = kAlphabet * (2 + multiplier);
     const double baud = static_cast<double>(kSampleRate) / nsps;
-    // Two-times zero padding resolves the Q65 baud grid while keeping the
-    // 60/120 s modes bounded enough for live use on ordinary CPUs.
+
+    // Keep one bounded spectral path for live RX.  Two-times zero padding plus
+    // interpolation is sufficient once the reference-style row AGC below
+    // preserves the actual peak/noise contrast instead of clipping many
+    // neighboring bins to the same value.
     const int fftSize = nextPowerOfTwo(2 * nsps);
     QVector<float> energies;
     energies.reserve(kDataSymbols * binsPerSymbol);
@@ -376,9 +389,20 @@ QVector<float> Q65NativeEngine::extractSymbolEnergies(
             const double frequency = center + (bin - 64 + multiplier) * baud;
             row.append(spectrumEnergy(power, fftSize, frequency));
         }
-        const double base = percentile(row, 0.40);
+        // Match the reference Q65 AGC semantics: normalize by the local
+        // passband baseline, then scale the complete spectrum if its peak is
+        // above 20.  Clamping only the individual peaks (the old native path)
+        // artificially raised the relative noise floor to about 1 and erased
+        // much of the symbol contrast, with Q65A/B affected first.
+        const double base = percentile(row, 0.45);
+        double rowMaximum = 0.0;
+        for (double &value : row) {
+            value = qMax(0.0, value / base);
+            rowMaximum = qMax(rowMaximum, value);
+        }
+        const double agcScale = rowMaximum > 20.0 ? 20.0 / rowMaximum : 1.0;
         for (double value : std::as_const(row)) {
-            energies.append(static_cast<float>(qBound(0.0, value / base, 20.0)));
+            energies.append(static_cast<float>(value * agcScale));
         }
     }
 

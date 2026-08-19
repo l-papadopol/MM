@@ -59,6 +59,10 @@ while IFS= read -r asset; do
             echo "ERROR: Windows standalone ZIP missing rtty_rules beside MadModem.exe: $base" >&2
             bad=1
         fi
+        if ! unzip -l "$asset" | grep -Eq '(^|[[:space:]])[^[:space:]]*/?bin/cw_rules$|(^|[[:space:]])cw_rules$'; then
+            echo "ERROR: Windows standalone ZIP missing cw_rules beside MadModem.exe: $base" >&2
+            bad=1
+        fi
     fi
 
     if [[ "$base" == *Linux*x86_64.tar.gz ]]; then
@@ -68,6 +72,10 @@ while IFS= read -r asset; do
         fi
         if ! tar -tzf "$asset" | grep -E '/bin/rtty_rules$' >/dev/null; then
             echo "ERROR: Linux tarball missing bin/rtty_rules: $base" >&2
+            bad=1
+        fi
+        if ! tar -tzf "$asset" | grep -E '/bin/cw_rules$' >/dev/null; then
+            echo "ERROR: Linux tarball missing bin/cw_rules: $base" >&2
             bad=1
         fi
     fi
@@ -84,6 +92,10 @@ while IFS= read -r asset; do
         fi
         if ! unzip -l "$asset" | grep -q 'MadModem.app/Contents/MacOS/rtty_rules'; then
             echo "ERROR: macOS ZIP missing rtty_rules beside MadModem: $base" >&2
+            bad=1
+        fi
+        if ! unzip -l "$asset" | grep -q 'MadModem.app/Contents/MacOS/cw_rules'; then
+            echo "ERROR: macOS ZIP missing cw_rules beside MadModem: $base" >&2
             bad=1
         fi
     fi

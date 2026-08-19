@@ -610,8 +610,8 @@ target_compile_definitions(MadModem PRIVATE MADMODEM_SOURCE_DIR="${CMAKE_CURRENT
 # -------------------------------------------------------------------------
 
 
-# Copy the external, data-driven RTTY contest rule database next to the executable.
-# Contest rules are intentionally not compiled into MadModem: replacing this file
+# Copy the external, data-driven RTTY/CW contest rule databases next to the executable.
+# Contest rules are intentionally not compiled into MadModem: replacing these files
 # updates exchanges/macros/scoring without rebuilding the application.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" "${CMAKE_CURRENT_BINARY_DIR}/rtty_rules" COPYONLY)
@@ -620,6 +620,16 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules")
             "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules"
             "$<TARGET_FILE_DIR:MadModem>/rtty_rules"
         COMMENT "Copying external rtty_rules next to MadModem"
+        VERBATIM)
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cw_rules")
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cw_rules" "${CMAKE_CURRENT_BINARY_DIR}/cw_rules" COPYONLY)
+    add_custom_command(TARGET MadModem POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "${CMAKE_CURRENT_SOURCE_DIR}/cw_rules"
+            "$<TARGET_FILE_DIR:MadModem>/cw_rules"
+        COMMENT "Copying external cw_rules next to MadModem"
         VERBATIM)
 endif()
 
@@ -1007,6 +1017,8 @@ if(BUILD_TESTING)
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_documentation.py")
         add_test(NAME madmodem_rtty_rules_audit
             COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_rtty_rules.py")
+        add_test(NAME madmodem_cw_rules_audit
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_rtty_rules.py" cw_rules)
     endif()
 
     if(UNIX)
@@ -1035,6 +1047,14 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules")
         install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" DESTINATION "MadModem.app/Contents/MacOS")
     else()
         install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" DESTINATION "${CMAKE_INSTALL_BINDIR}")
+    endif()
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cw_rules")
+    if(APPLE)
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cw_rules" DESTINATION "MadModem.app/Contents/MacOS")
+    else()
+        install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cw_rules" DESTINATION "${CMAKE_INSTALL_BINDIR}")
     endif()
 endif()
 

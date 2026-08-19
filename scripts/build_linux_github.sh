@@ -51,4 +51,8 @@ if [[ ! -f "$INSTALL_DIR/bin/rtty_rules" ]]; then
     exit 1
 fi
 
-printf '\nLinux build complete:\n  %s\n  %s\n' "$INSTALL_DIR/bin/$APP_NAME" "$INSTALL_DIR/bin/rtty_rules"
+if [[ ! -f "$INSTALL_DIR/bin/cw_rules" ]]; then
+    echo "ERROR: cw_rules was not installed beside MadModem: $INSTALL_DIR/bin/cw_rules" >&2
+    exit 1
+fi
+printf '\nLinux build complete:\n  %s\n  %s\n  %s\n' "$INSTALL_DIR/bin/$APP_NAME" "$INSTALL_DIR/bin/rtty_rules" "$INSTALL_DIR/bin/cw_rules"

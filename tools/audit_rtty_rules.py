@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Static validator for MadModem's external rtty_rules file.
+"""Static validator for MadModem's external contest rules files.
 
-The binary deliberately contains no contest-name branches. This audit checks that a
-future edited rules file only uses schema features supported by the generic engine.
+With no argument it validates rtty_rules for backward compatibility. Pass cw_rules
+to validate the CW database with exactly the same generic-engine schema.
 """
 from __future__ import annotations
 import json
@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
-RULES = ROOT / "rtty_rules"
+RULES = ROOT / (sys.argv[1] if len(sys.argv) > 1 else "rtty_rules")
 
 ALLOWED_STATUS = {"active", "cancelled", "inactive"}
 ALLOWED_DUPE_SCOPE = {"overall", "band", "period", "band_period"}
@@ -244,7 +244,7 @@ for idx, profile in enumerate(profiles):
     if not profile.get("cabrillo_id"):
         warn(where, "missing cabrillo_id")
 
-print(f"rtty_rules: {len(profiles)} profiles, {active} active, schema={root.get('schema')}, updated={root.get('updated_utc')}")
+print(f"{RULES.name}: {len(profiles)} profiles, {active} active, schema={root.get('schema')}, updated={root.get('updated_utc')}")
 for item in warnings:
     print("WARNING:", item)
 for item in errors:

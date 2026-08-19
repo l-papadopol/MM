@@ -62,6 +62,7 @@ copy_common_payload() {
     done
     [[ -f "$ROOT_DIR/cty.csv" ]] && cp -f "$ROOT_DIR/cty.csv" "$app_dir/"
     [[ -f "$ROOT_DIR/rtty_rules" ]] && cp -f "$ROOT_DIR/rtty_rules" "$app_dir/"
+    [[ -f "$ROOT_DIR/cw_rules" ]] && cp -f "$ROOT_DIR/cw_rules" "$app_dir/"
 
     if [[ -d "$ROOT_DIR/docs/images" ]]; then
         mkdir -p "$package_dir/docs/images"

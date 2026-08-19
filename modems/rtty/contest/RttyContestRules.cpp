@@ -4,6 +4,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QFileInfo>
 
 namespace {
 QString normalizedId(const QString &value)
@@ -117,7 +118,8 @@ bool RttyContestRules::load(const QString &path, QString *errorMessage)
     const QJsonDocument document = QJsonDocument::fromJson(file.readAll(), &parseError);
     if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
         if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Invalid rtty_rules JSON at offset %1: %2")
+            *errorMessage = QStringLiteral("Invalid contest rules JSON in %1 at offset %2: %3")
+                                .arg(QFileInfo(path).fileName())
                                 .arg(parseError.offset)
                                 .arg(parseError.errorString());
         }
@@ -128,7 +130,9 @@ bool RttyContestRules::load(const QString &path, QString *errorMessage)
     m_schemaVersion = root.value(QStringLiteral("schema")).toInt();
     if (m_schemaVersion != 1) {
         if (errorMessage != nullptr) {
-            *errorMessage = QStringLiteral("Unsupported rtty_rules schema %1 (expected 1)").arg(m_schemaVersion);
+            *errorMessage = QStringLiteral("Unsupported contest rules schema %1 in %2 (expected 1)")
+                                .arg(m_schemaVersion)
+                                .arg(QFileInfo(path).fileName());
         }
         return false;
     }

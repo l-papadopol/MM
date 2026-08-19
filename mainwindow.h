@@ -1218,11 +1218,23 @@ private:
     /** Coalesces high-frequency character updates before recolouring a terminal. */
     void scheduleTerminalHighlight(QPlainTextEdit *terminal);
 
-    // Data-driven RTTY contest mode.  Contest-specific exchange, macros and
-    // scoring rules are loaded from the external rtty_rules file; no contest
-    // identity is hard-coded into the runtime sequencer/UI path.
+    // Data-driven contest mode shared by RTTY and CW. Contest-specific exchange,
+    // macros and scoring stay in external runtime files (rtty_rules / cw_rules).
     QString rttyContestRulesPath() const;
+    QString cwContestRulesPath() const;
     bool loadRttyContestRules(bool userRequested = false);
+    bool loadCwContestRules(bool userRequested = false);
+    bool contestContextIsCw() const;
+    QString contestSettingsRoot() const;
+    QString contestAdifRuleKey() const;
+    QString contestAdifSessionKey() const;
+    QString contestFieldAdifKey(const QString &direction, const QString &fieldId) const;
+    QString contestModeForLog() const;
+    QsoFormWidgets *contestQsoForm() const;
+    RttyContestRules *activeContestRules();
+    const RttyContestRules *activeContestRules() const;
+    void populateActiveContestProfiles();
+    void syncContestQsoMirrorFromActiveForm();
     const RttyContestProfile *currentRttyContestProfile() const;
     void refreshRttyContestUi();
     void updateRttyContestTabVisibility(const QString &modeName);
@@ -1681,9 +1693,10 @@ private:
     QList<QPushButton *> m_rttyContestMacroButtons;
     QsoFormWidgets *m_rttyQsoForm = nullptr;
 
-    // RTTY Contest Engine UI/state.  The rules file is authoritative for the
-    // selected contest; these widgets only expose generic rule fields.
+    // Shared RTTY/CW Contest Engine UI/state. Each mode has its own authoritative
+    // runtime rules file while the UI and scoring path have one active owner.
     RttyContestRules m_rttyContestRules;
+    RttyContestRules m_cwContestRules;
     QWidget *m_tabRttyContest = nullptr;
     QCheckBox *m_chkRttyContestMode = nullptr;
     QComboBox *m_cmbRttyContest = nullptr;
@@ -1705,6 +1718,8 @@ private:
     QHash<QString, QLineEdit *> m_rttyContestSentFieldEdits;
     QHash<QString, QLineEdit *> m_rttyContestReceivedFieldEdits;
     QString m_rttyContestLastRxLine;
+    QString m_cwContestLastRxLineA;
+    QString m_cwContestLastRxLineB;
     QString m_rttyContestActiveSessionId;
     QDateTime m_rttyContestActiveSessionStartedUtc;
     int m_rttyContestSessionQsoCount = 0;

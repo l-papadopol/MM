@@ -265,12 +265,6 @@ int latestFtManualPartialArmMs(const Ft8Mode::Profile &profile)
                     - kFtSlotEndGuardMs - kFtMinimumLatePartialToneMs);
 }
 
-QString rttyContestAdifKey(const QString &direction, const QString &fieldId)
-{
-    return QStringLiteral("APP_MADMODEM_RTTY_%1_%2")
-        .arg(direction.trimmed().toUpper(), fieldId.trimmed().toUpper());
-}
-
 void hardenPopupMenuForFullscreen(QMenu *menu)
 {
     if (menu == nullptr) {
@@ -3169,7 +3163,8 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
         return false;
     }
 
-    const RttyContestProfile *contestProfile = (form == m_rttyQsoForm && m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked())
+    const bool contestForm = (form == m_rttyQsoForm || form == m_cwQsoForm);
+    const RttyContestProfile *contestProfile = (contestForm && m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked())
                                                    ? currentRttyContestProfile()
                                                    : nullptr;
     if (contestProfile != nullptr) {
@@ -3205,21 +3200,21 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
     if (contestProfile != nullptr) {
         entry.adifFields.insert(QStringLiteral("CONTEST_ID"), contestProfile->cabrilloId);
         ensureRttyContestSession(false);
-        entry.adifFields.insert(QStringLiteral("APP_MADMODEM_RTTY_RULE"), contestProfile->id);
-        entry.adifFields.insert(QStringLiteral("APP_MADMODEM_RTTY_SESSION"), m_rttyContestActiveSessionId);
+        entry.adifFields.insert(contestAdifRuleKey(), contestProfile->id);
+        entry.adifFields.insert(contestAdifSessionKey(), m_rttyContestActiveSessionId);
         entry.adifFields.insert(QStringLiteral("STX_STRING"), rttyContestExchange(true));
         entry.adifFields.insert(QStringLiteral("SRX_STRING"), rttyContestExchange(false));
         for (const RttyContestFieldRule &field : contestProfile->sentFields) {
             const QString value = rttyContestFieldValue(field, true);
             if (!value.isEmpty()) {
-                entry.adifFields.insert(rttyContestAdifKey(QStringLiteral("TX"), field.id), value);
+                entry.adifFields.insert(contestFieldAdifKey(QStringLiteral("TX"), field.id), value);
                 if (field.id == QStringLiteral("SERIAL")) entry.adifFields.insert(QStringLiteral("STX"), value);
             }
         }
         for (const RttyContestFieldRule &field : contestProfile->receivedFields) {
             const QString value = rttyContestFieldValue(field, false);
             if (!value.isEmpty()) {
-                entry.adifFields.insert(rttyContestAdifKey(QStringLiteral("RX"), field.id), value);
+                entry.adifFields.insert(contestFieldAdifKey(QStringLiteral("RX"), field.id), value);
                 if (field.id == QStringLiteral("SERIAL")) entry.adifFields.insert(QStringLiteral("SRX"), value);
                 if (field.type == QStringLiteral("locator") && entry.grid.isEmpty()) entry.grid = value;
             }
@@ -3263,7 +3258,7 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
                 m_spinRttyContestSerial->setValue(nextSerial);
             }
             QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-            settings.setValue(QStringLiteral("RTTYContest/serial/%1").arg(contestProfile->id), nextSerial);
+            settings.setValue(contestSettingsRoot() + QStringLiteral("/serial/%1").arg(contestProfile->id), nextSerial);
         }
         refreshRttyContestScore();
         refreshTextMacroButtons();
@@ -3314,7 +3309,8 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                 const QTextCursor clickedCursor = terminal->cursorForPosition(pos);
                 const int clickPos = clickedCursor.position();
                 const QString text = terminal->toPlainText().toUpper();
-                if (terminal == m_txtRttyRx && fillRttyContestFieldFromClick(terminal, clickPos, text)) {
+                if ((terminal == m_txtRttyRx || terminal == m_txtCwRx || terminal == m_txtCwRxB) &&
+                    fillRttyContestFieldFromClick(terminal, clickPos, text)) {
                     event->accept();
                     return true;
                 }
@@ -4387,6 +4383,90 @@ private:
 };
 }
 
+bool MainWindow::contestContextIsCw() const
+{
+    return ui != nullptr && ui->cmbMode != nullptr && ui->cmbMode->currentText() == CwDecoder::modeName();
+}
+
+QString MainWindow::contestSettingsRoot() const
+{
+    return contestContextIsCw() ? QStringLiteral("CWContest") : QStringLiteral("RTTYContest");
+}
+
+QString MainWindow::contestAdifRuleKey() const
+{
+    return contestContextIsCw() ? QStringLiteral("APP_MADMODEM_CW_RULE") : QStringLiteral("APP_MADMODEM_RTTY_RULE");
+}
+
+QString MainWindow::contestAdifSessionKey() const
+{
+    return contestContextIsCw() ? QStringLiteral("APP_MADMODEM_CW_SESSION") : QStringLiteral("APP_MADMODEM_RTTY_SESSION");
+}
+
+QString MainWindow::contestFieldAdifKey(const QString &direction, const QString &fieldId) const
+{
+    const QString family = contestContextIsCw() ? QStringLiteral("CW") : QStringLiteral("RTTY");
+    return QStringLiteral("APP_MADMODEM_%1_%2_%3")
+        .arg(family, direction.trimmed().toUpper(), fieldId.trimmed().toUpper());
+}
+
+QString MainWindow::contestModeForLog() const
+{
+    return contestContextIsCw() ? QStringLiteral("CW") : QStringLiteral("RTTY");
+}
+
+MainWindow::QsoFormWidgets *MainWindow::contestQsoForm() const
+{
+    return contestContextIsCw() ? m_cwQsoForm : m_rttyQsoForm;
+}
+
+RttyContestRules *MainWindow::activeContestRules()
+{
+    return contestContextIsCw() ? &m_cwContestRules : &m_rttyContestRules;
+}
+
+const RttyContestRules *MainWindow::activeContestRules() const
+{
+    return contestContextIsCw() ? &m_cwContestRules : &m_rttyContestRules;
+}
+
+void MainWindow::populateActiveContestProfiles()
+{
+    if (m_cmbRttyContest == nullptr) return;
+    const RttyContestRules *rules = activeContestRules();
+    const QString root = contestSettingsRoot();
+    QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+    const QString requestedId = settings.value(root + QStringLiteral("/profileId")).toString();
+    const QSignalBlocker blocker(m_cmbRttyContest);
+    m_cmbRttyContest->clear();
+    for (const RttyContestProfile &profile : rules->profiles()) {
+        if (profile.status == QStringLiteral("active")) m_cmbRttyContest->addItem(profile.name, profile.id);
+    }
+    int index = m_cmbRttyContest->findData(requestedId);
+    if (index < 0 && m_cmbRttyContest->count() > 0) index = 0;
+    if (index >= 0) m_cmbRttyContest->setCurrentIndex(index);
+}
+
+void MainWindow::syncContestQsoMirrorFromActiveForm()
+{
+    QsoFormWidgets *form = contestQsoForm();
+    if (form == nullptr) return;
+    auto sync = [](QLineEdit *src, QLineEdit *dst) {
+        if (src == nullptr || dst == nullptr || src->text() == dst->text()) return;
+        const QSignalBlocker blocker(dst);
+        dst->setText(src->text());
+    };
+    sync(form->callsign, m_editRttyContestQsoCall);
+    sync(form->band, m_editRttyContestQsoBand);
+    sync(form->rstSent, m_editRttyContestQsoRstSent);
+    sync(form->rstReceived, m_editRttyContestQsoRstReceived);
+    sync(form->mode, m_editRttyContestQsoMode);
+    sync(form->grid, m_editRttyContestQsoGrid);
+    sync(form->utc, m_editRttyContestQsoUtc);
+}
+
+static int activeContestProfileCount(const RttyContestRules &rules);
+
 void MainWindow::updateRttyContestTabVisibility(const QString &modeName)
 {
     if (ui == nullptr || ui->sideTabWidget == nullptr || m_tabRttyContest == nullptr ||
@@ -4394,12 +4474,32 @@ void MainWindow::updateRttyContestTabVisibility(const QString &modeName)
         return;
     }
 
-    const bool show = modeName == RttyDecoder::modeName();
+    const bool show = modeName == RttyDecoder::modeName() || modeName == CwDecoder::modeName();
     const int contestIndex = ui->sideTabWidget->indexOf(m_tabRttyContest);
     if (contestIndex < 0) {
         return;
     }
     ui->sideTabWidget->tabBar()->setTabVisible(contestIndex, show);
+    if (show) {
+        populateActiveContestProfiles();
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        if (m_chkRttyContestMode != nullptr) {
+            const QSignalBlocker blocker(m_chkRttyContestMode);
+            m_chkRttyContestMode->setChecked(settings.value(contestSettingsRoot() + QStringLiteral("/enabled"), false).toBool());
+            m_chkRttyContestMode->setEnabled(!activeContestRules()->profiles().isEmpty());
+        }
+        if (m_lblRttyContestRuleStatus != nullptr) {
+            const RttyContestRules *rules = activeContestRules();
+            const QString file = contestContextIsCw() ? QStringLiteral("cw_rules") : QStringLiteral("rtty_rules");
+            m_lblRttyContestRuleStatus->setText(QStringLiteral("%1 · %2 profiles · rules %3")
+                                                    .arg(file)
+                                                    .arg(activeContestProfileCount(*rules))
+                                                    .arg(rules->updatedUtc().left(10)));
+            m_lblRttyContestRuleStatus->setToolTip(contestContextIsCw() ? cwContestRulesPath() : rttyContestRulesPath());
+        }
+        syncContestQsoMirrorFromActiveForm();
+        refreshRttyContestUi();
+    }
     if (!show && ui->sideTabWidget->currentIndex() == contestIndex) {
         const int modeIndex = ui->tabModeSettings != nullptr
                                   ? ui->sideTabWidget->indexOf(ui->tabModeSettings)
@@ -4411,9 +4511,21 @@ void MainWindow::updateRttyContestTabVisibility(const QString &modeName)
 
 QString MainWindow::rttyContestRulesPath() const
 {
-    // Deliberately no embedded/source-tree fallback: the deployed rules file is
-    // the single source of truth and can be replaced without rebuilding MM.
     return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("rtty_rules"));
+}
+
+QString MainWindow::cwContestRulesPath() const
+{
+    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("cw_rules"));
+}
+
+static int activeContestProfileCount(const RttyContestRules &rules)
+{
+    int count = 0;
+    for (const RttyContestProfile &profile : rules.profiles()) {
+        if (profile.status == QStringLiteral("active")) ++count;
+    }
+    return count;
 }
 
 bool MainWindow::loadRttyContestRules(bool userRequested)
@@ -4421,77 +4533,43 @@ bool MainWindow::loadRttyContestRules(bool userRequested)
     QString error;
     const QString path = rttyContestRulesPath();
     const bool ok = m_rttyContestRules.load(path, &error);
-
-    if (m_cmbRttyContest != nullptr) {
-        const QSignalBlocker blocker(m_cmbRttyContest);
-        const QString previousId = m_cmbRttyContest->currentData().toString();
-        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-        const QString requestedId = previousId.isEmpty()
-                                        ? settings.value(QStringLiteral("RTTYContest/profileId")).toString()
-                                        : previousId;
-        m_cmbRttyContest->clear();
-        if (ok) {
-            for (const RttyContestProfile &profile : m_rttyContestRules.profiles()) {
-                if (profile.status == QStringLiteral("active")) {
-                    m_cmbRttyContest->addItem(profile.name, profile.id);
-                }
-            }
-            int index = m_cmbRttyContest->findData(requestedId);
-            if (index < 0 && m_cmbRttyContest->count() > 0) {
-                index = 0;
-            }
-            if (index >= 0) {
-                m_cmbRttyContest->setCurrentIndex(index);
-            }
-        }
-    }
-
     if (!ok) {
-        if (m_chkRttyContestMode != nullptr) {
-            const QSignalBlocker blocker(m_chkRttyContestMode);
-            m_chkRttyContestMode->setChecked(false);
-            m_chkRttyContestMode->setEnabled(false);
-        }
-        if (m_lblRttyContestRuleStatus != nullptr) {
-            m_lblRttyContestRuleStatus->setText(uiText("rtty_rules_missing", "rtty_rules unavailable: %1").arg(error));
-            m_lblRttyContestRuleStatus->setToolTip(path);
-        }
-        if (userRequested) {
-            QMessageBox::warning(this,
-                                 uiText("rtty_contest_mode", "Contest mode"),
+        appendLog(QStringLiteral("RTTY contest rules load failed: %1").arg(error));
+        if (!contestContextIsCw() && userRequested) {
+            QMessageBox::warning(this, uiText("rtty_contest_mode", "Contest mode"),
                                  uiText("rtty_rules_missing", "rtty_rules unavailable: %1").arg(error));
         }
-        appendLog(QStringLiteral("RTTY contest rules load failed: %1").arg(error));
+    } else {
+        appendLog(QStringLiteral("RTTY contest rules loaded: %1 active profile(s), %2")
+                      .arg(activeContestProfileCount(m_rttyContestRules)).arg(path));
+    }
+    if (!contestContextIsCw()) {
+        populateActiveContestProfiles();
         refreshRttyContestUi();
-        return false;
     }
+    return ok;
+}
 
-    if (m_chkRttyContestMode != nullptr) {
-        m_chkRttyContestMode->setEnabled(true);
-        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-        const bool enabled = settings.value(QStringLiteral("RTTYContest/enabled"), false).toBool();
-        const QSignalBlocker blocker(m_chkRttyContestMode);
-        m_chkRttyContestMode->setChecked(enabled);
-    }
-
-    int activeCount = 0;
-    for (const RttyContestProfile &profile : m_rttyContestRules.profiles()) {
-        if (profile.status == QStringLiteral("active")) {
-            ++activeCount;
+bool MainWindow::loadCwContestRules(bool userRequested)
+{
+    QString error;
+    const QString path = cwContestRulesPath();
+    const bool ok = m_cwContestRules.load(path, &error);
+    if (!ok) {
+        appendLog(QStringLiteral("CW contest rules load failed: %1").arg(error));
+        if (contestContextIsCw() && userRequested) {
+            QMessageBox::warning(this, uiText("rtty_contest_mode", "Contest mode"),
+                                 QStringLiteral("cw_rules unavailable: %1").arg(error));
         }
+    } else {
+        appendLog(QStringLiteral("CW contest rules loaded: %1 active profile(s), %2")
+                      .arg(activeContestProfileCount(m_cwContestRules)).arg(path));
     }
-    if (m_lblRttyContestRuleStatus != nullptr) {
-        m_lblRttyContestRuleStatus->setText(uiText("rtty_rules_loaded", "%1 profiles · rules %2")
-                                                .arg(activeCount)
-                                                .arg(m_rttyContestRules.updatedUtc().left(10)));
-        m_lblRttyContestRuleStatus->setToolTip(path);
+    if (contestContextIsCw()) {
+        populateActiveContestProfiles();
+        refreshRttyContestUi();
     }
-
-    appendLog(QStringLiteral("RTTY contest rules loaded: %1 active profile(s), %2")
-                  .arg(activeCount)
-                  .arg(path));
-    refreshRttyContestUi();
-    return true;
+    return ok;
 }
 
 const RttyContestProfile *MainWindow::currentRttyContestProfile() const
@@ -4499,7 +4577,7 @@ const RttyContestProfile *MainWindow::currentRttyContestProfile() const
     if (m_cmbRttyContest == nullptr || m_cmbRttyContest->currentIndex() < 0) {
         return nullptr;
     }
-    return m_rttyContestRules.profileById(m_cmbRttyContest->currentData().toString());
+    return activeContestRules()->profileById(m_cmbRttyContest->currentData().toString());
 }
 
 void MainWindow::refreshRttyContestUi()
@@ -4511,7 +4589,7 @@ void MainWindow::refreshRttyContestUi()
     }
 
     if (m_cmbRttyContest != nullptr) {
-        m_cmbRttyContest->setEnabled(m_rttyContestRules.profiles().size() > 0);
+        m_cmbRttyContest->setEnabled(activeContestRules()->profiles().size() > 0);
     }
     if (m_lblRttyContestSerial != nullptr) {
         m_lblRttyContestSerial->setVisible(profile != nullptr && profile->serialEnabled);
@@ -4521,7 +4599,7 @@ void MainWindow::refreshRttyContestUi()
         m_spinRttyContestSerial->setEnabled(contestEnabled && profile != nullptr && profile->serialEnabled);
         if (profile != nullptr && profile->serialEnabled) {
             QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-            const QString key = QStringLiteral("RTTYContest/serial/%1").arg(profile->id);
+            const QString key = contestSettingsRoot() + QStringLiteral("/serial/%1").arg(profile->id);
             int serial = settings.value(key, 0).toInt();
             if (serial <= 0) {
                 serial = nextRttyContestSerialFromLog(*profile);
@@ -4585,8 +4663,8 @@ void MainWindow::rebuildRttyContestFieldEditors()
                      field.source.compare(QStringLiteral("dx_call"), Qt::CaseInsensitive) == 0)) {
             return;
         }
-        if (sent && !rttyContestConditionMatches(field.when, nullptr, m_rttyQsoForm != nullptr && m_rttyQsoForm->callsign != nullptr
-                                                                       ? m_rttyQsoForm->callsign->text()
+        if (sent && !rttyContestConditionMatches(field.when, nullptr, contestQsoForm() != nullptr && contestQsoForm()->callsign != nullptr
+                                                                       ? contestQsoForm()->callsign->text()
                                                                        : QString())) {
             return;
         }
@@ -4598,13 +4676,13 @@ void MainWindow::rebuildRttyContestFieldEditors()
         edit->setMinimumWidth(0);
         edit->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
         edit->setMaxLength(32);
-        const QString settingPrefix = QStringLiteral("RTTYContest/station/%1/").arg(profile->id);
+        const QString settingPrefix = contestSettingsRoot() + QStringLiteral("/station/%1/").arg(profile->id);
         if (sent && field.source.startsWith(QStringLiteral("station_setting:"), Qt::CaseInsensitive)) {
             const QString settingName = field.source.section(QLatin1Char(':'), 1).trimmed().toUpper();
             edit->setText(settings.value(settingPrefix + settingName).toString().trimmed().toUpper());
             connect(edit, &QLineEdit::textChanged, this, [this, profileId = profile->id, settingName](const QString &value) {
                 QSettings s(AppSettings::settingsFilePath(), QSettings::IniFormat);
-                s.setValue(QStringLiteral("RTTYContest/station/%1/%2").arg(profileId, settingName), value.trimmed().toUpper());
+                s.setValue(contestSettingsRoot() + QStringLiteral("/station/%1/%2").arg(profileId, settingName), value.trimmed().toUpper());
                 if (m_lblRttyContestExchange != nullptr) {
                     m_lblRttyContestExchange->setText(uiText("rtty_contest_exchange_value", "Exchange: %1").arg(rttyContestExchange(true)));
                 }
@@ -4637,21 +4715,21 @@ void MainWindow::rebuildRttyContestFieldEditors()
 
 void MainWindow::updateRttyContestBandFromCat()
 {
-    if (m_rttyQsoForm == nullptr || m_rttyQsoForm->band == nullptr) {
+    if (contestQsoForm() == nullptr || contestQsoForm()->band == nullptr) {
         return;
     }
     const bool haveCat = m_rigController != nullptr && m_rigController->isConnected() && m_lastRigFrequencyHz > 0.0;
     const QString catBand = haveCat ? bandFromFrequencyHz(m_lastRigFrequencyHz) : QString();
     if (!catBand.isEmpty()) {
-        m_rttyQsoForm->band->setText(catBand);
-        m_rttyQsoForm->band->setReadOnly(true);
+        contestQsoForm()->band->setText(catBand);
+        contestQsoForm()->band->setReadOnly(true);
         if (m_lblRttyContestBandSource != nullptr) {
             m_lblRttyContestBandSource->setText(uiText("rtty_band_source_cat", "Band: %1 · CAT").arg(catBand));
         }
     } else {
-        m_rttyQsoForm->band->setReadOnly(false);
+        contestQsoForm()->band->setReadOnly(false);
         if (m_lblRttyContestBandSource != nullptr) {
-            const QString manualBand = m_rttyQsoForm->band->text().trimmed();
+            const QString manualBand = contestQsoForm()->band->text().trimmed();
             m_lblRttyContestBandSource->setText(uiText("rtty_band_source_manual", "Band: %1 · Manual")
                                                     .arg(manualBand.isEmpty() ? QStringLiteral("—") : manualBand));
         }
@@ -4669,15 +4747,15 @@ bool MainWindow::rttyContestConditionMatches(const QJsonObject &condition,
     const QString call = !dxCall.trimmed().isEmpty()
                              ? AdifLogbook::normalizeCallsign(dxCall)
                              : (entry != nullptr ? AdifLogbook::normalizeCallsign(entry->callsign)
-                                                 : (m_rttyQsoForm != nullptr && m_rttyQsoForm->callsign != nullptr
-                                                        ? AdifLogbook::normalizeCallsign(m_rttyQsoForm->callsign->text())
+                                                 : (contestQsoForm() != nullptr && contestQsoForm()->callsign != nullptr
+                                                        ? AdifLogbook::normalizeCallsign(contestQsoForm()->callsign->text())
                                                         : QString()));
     const auto own = CtyCountryFile::instance().lookupCallsign(stationCallsign());
     const auto dx = CtyCountryFile::instance().lookupCallsign(call);
     const QString band = entry != nullptr
                              ? entry->band.trimmed().toLower()
-                             : (m_rttyQsoForm != nullptr && m_rttyQsoForm->band != nullptr
-                                    ? m_rttyQsoForm->band->text().trimmed().toLower()
+                             : (contestQsoForm() != nullptr && contestQsoForm()->band != nullptr
+                                    ? contestQsoForm()->band->text().trimmed().toLower()
                                     : QString());
 
     auto jsonList = [](const QJsonValue &value) {
@@ -4800,10 +4878,10 @@ bool MainWindow::rttyContestConditionMatches(const QJsonObject &condition,
             if (profile == nullptr) return false;
             const QString fieldId = value.toString().trimmed().toUpper();
             QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-            const QString ownValue = settings.value(QStringLiteral("RTTYContest/station/%1/%2").arg(profile->id, fieldId)).toString().trimmed().toUpper();
+            const QString ownValue = settings.value(contestSettingsRoot() + QStringLiteral("/station/%1/%2").arg(profile->id, fieldId)).toString().trimmed().toUpper();
             QString dxValue;
             if (entry != nullptr) {
-                dxValue = entry->adifFields.value(rttyContestAdifKey(QStringLiteral("RX"), fieldId)).trimmed().toUpper();
+                dxValue = entry->adifFields.value(contestFieldAdifKey(QStringLiteral("RX"), fieldId)).trimmed().toUpper();
             } else if (m_rttyContestReceivedFieldEdits.contains(fieldId) && m_rttyContestReceivedFieldEdits.value(fieldId) != nullptr) {
                 dxValue = m_rttyContestReceivedFieldEdits.value(fieldId)->text().trimmed().toUpper();
             }
@@ -4824,13 +4902,13 @@ bool MainWindow::rttyContestConditionMatches(const QJsonObject &condition,
                 // provides a generic predicate so future contest rule changes can
                 // be reloaded without rebuilding MadModem.
                 QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-                fieldValue = settings.value(QStringLiteral("RTTYContest/station/%1/%2")
+                fieldValue = settings.value(contestSettingsRoot() + QStringLiteral("/station/%1/%2")
                                                  .arg(profile->id, fieldId))
                                  .toString()
                                  .trimmed()
                                  .toUpper();
             } else if (entry != nullptr) {
-                fieldValue = entry->adifFields.value(rttyContestAdifKey(QStringLiteral("RX"), fieldId))
+                fieldValue = entry->adifFields.value(contestFieldAdifKey(QStringLiteral("RX"), fieldId))
                                  .trimmed()
                                  .toUpper();
                 if (fieldValue.isEmpty() && fieldId == QStringLiteral("SERIAL")) {
@@ -4847,7 +4925,7 @@ bool MainWindow::rttyContestConditionMatches(const QJsonObject &condition,
             continue;
         }
         // Unknown condition keys invalidate the rule rather than silently
-        // broadening it. A future rtty_rules update therefore fails safe.
+        // broadening it. A future contest-rules update therefore fails safe.
         return false;
     }
     return true;
@@ -4857,9 +4935,9 @@ int MainWindow::nextRttyContestSerialFromLog(const RttyContestProfile &profile) 
 {
     int maxSerial = profile.serialStart - 1;
     for (const LogbookEntry &entry : m_logbook.records()) {
-        const QString ruleId = entry.adifFields.value(QStringLiteral("APP_MADMODEM_RTTY_RULE")).trimmed().toLower();
+        const QString ruleId = entry.adifFields.value(contestAdifRuleKey()).trimmed().toLower();
         const QString contestId = entry.adifFields.value(QStringLiteral("CONTEST_ID")).trimmed().toUpper();
-        const QString sessionId = entry.adifFields.value(QStringLiteral("APP_MADMODEM_RTTY_SESSION")).trimmed();
+        const QString sessionId = entry.adifFields.value(contestAdifSessionKey()).trimmed();
         if (ruleId != profile.id && (profile.cabrilloId.isEmpty() || contestId != profile.cabrilloId)) {
             continue;
         }
@@ -4869,14 +4947,14 @@ int MainWindow::nextRttyContestSerialFromLog(const RttyContestProfile &profile) 
         bool ok = false;
         int serial = entry.adifFields.value(QStringLiteral("STX")).toInt(&ok);
         if (!ok) {
-            serial = entry.adifFields.value(rttyContestAdifKey(QStringLiteral("TX"), QStringLiteral("SERIAL"))).toInt(&ok);
+            serial = entry.adifFields.value(contestFieldAdifKey(QStringLiteral("TX"), QStringLiteral("SERIAL"))).toInt(&ok);
         }
         if (ok) {
             maxSerial = qMax(maxSerial, serial);
         }
     }
     QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-    const int persisted = settings.value(QStringLiteral("RTTYContest/serial/%1").arg(profile.id), 0).toInt();
+    const int persisted = settings.value(contestSettingsRoot() + QStringLiteral("/serial/%1").arg(profile.id), 0).toInt();
     return qMax(qMax(profile.serialStart, maxSerial + 1), persisted);
 }
 
@@ -4886,8 +4964,8 @@ QString MainWindow::rttyContestFieldValue(const RttyContestFieldRule &field, boo
     if (profile == nullptr) {
         return QString();
     }
-    const QString dxCall = m_rttyQsoForm != nullptr && m_rttyQsoForm->callsign != nullptr
-                               ? m_rttyQsoForm->callsign->text().trimmed().toUpper()
+    const QString dxCall = contestQsoForm() != nullptr && contestQsoForm()->callsign != nullptr
+                               ? contestQsoForm()->callsign->text().trimmed().toUpper()
                                : QString();
     if (!rttyContestConditionMatches(field.when, nullptr, dxCall)) {
         return QString();
@@ -4896,7 +4974,7 @@ QString MainWindow::rttyContestFieldValue(const RttyContestFieldRule &field, boo
     const QString source = field.source.trimmed();
     if (sent) {
         if (source.compare(QStringLiteral("rst_sent"), Qt::CaseInsensitive) == 0) {
-            return (m_rttyQsoForm != nullptr && m_rttyQsoForm->rstSent != nullptr) ? m_rttyQsoForm->rstSent->text().trimmed().toUpper() : QStringLiteral("599");
+            return (contestQsoForm() != nullptr && contestQsoForm()->rstSent != nullptr) ? contestQsoForm()->rstSent->text().trimmed().toUpper() : QStringLiteral("599");
         }
         if (source.compare(QStringLiteral("serial"), Qt::CaseInsensitive) == 0) {
             const int value = m_spinRttyContestSerial != nullptr ? m_spinRttyContestSerial->value() : profile->serialStart;
@@ -4914,7 +4992,7 @@ QString MainWindow::rttyContestFieldValue(const RttyContestFieldRule &field, boo
         if (source.startsWith(QStringLiteral("station_setting:"), Qt::CaseInsensitive)) {
             const QString key = source.section(QLatin1Char(':'), 1).trimmed().toUpper();
             QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-            return settings.value(QStringLiteral("RTTYContest/station/%1/%2").arg(profile->id, key)).toString().trimmed().toUpper();
+            return settings.value(contestSettingsRoot() + QStringLiteral("/station/%1/%2").arg(profile->id, key)).toString().trimmed().toUpper();
         }
         if (m_rttyContestSentFieldEdits.contains(field.id) && m_rttyContestSentFieldEdits.value(field.id) != nullptr) {
             return m_rttyContestSentFieldEdits.value(field.id)->text().trimmed().toUpper();
@@ -4923,8 +5001,8 @@ QString MainWindow::rttyContestFieldValue(const RttyContestFieldRule &field, boo
     }
 
     if (field.type == QStringLiteral("call")) return dxCall;
-    if (field.type == QStringLiteral("rst")) return (m_rttyQsoForm != nullptr && m_rttyQsoForm->rstReceived != nullptr) ? m_rttyQsoForm->rstReceived->text().trimmed().toUpper() : QString();
-    if (field.type == QStringLiteral("locator")) return (m_rttyQsoForm != nullptr && m_rttyQsoForm->grid != nullptr) ? m_rttyQsoForm->grid->text().trimmed().toUpper() : QString();
+    if (field.type == QStringLiteral("rst")) return (contestQsoForm() != nullptr && contestQsoForm()->rstReceived != nullptr) ? contestQsoForm()->rstReceived->text().trimmed().toUpper() : QString();
+    if (field.type == QStringLiteral("locator")) return (contestQsoForm() != nullptr && contestQsoForm()->grid != nullptr) ? contestQsoForm()->grid->text().trimmed().toUpper() : QString();
     if (m_rttyContestReceivedFieldEdits.contains(field.id) && m_rttyContestReceivedFieldEdits.value(field.id) != nullptr) {
         return m_rttyContestReceivedFieldEdits.value(field.id)->text().trimmed().toUpper();
     }
@@ -4962,7 +5040,7 @@ QString MainWindow::expandRttyContestTemplate(const QString &source) const
     replace(QStringLiteral("EXCHANGE_RX"), rttyContestExchange(false));
     replace(QStringLiteral("SERIAL"), profile->serialEnabled ? rttyContestFieldValue(RttyContestFieldRule{QStringLiteral("SERIAL"), QString(), QString(), QStringLiteral("serial"), QString(), true, QJsonObject()}, true) : QString());
     replace(QStringLiteral("SERIAL_RX"), m_rttyContestReceivedFieldEdits.contains(QStringLiteral("SERIAL")) ? m_rttyContestReceivedFieldEdits.value(QStringLiteral("SERIAL"))->text().trimmed().toUpper() : QString());
-    replace(QStringLiteral("GRID"), m_rttyQsoForm != nullptr && m_rttyQsoForm->grid != nullptr ? m_rttyQsoForm->grid->text().trimmed().toUpper() : QString());
+    replace(QStringLiteral("GRID"), contestQsoForm() != nullptr && contestQsoForm()->grid != nullptr ? contestQsoForm()->grid->text().trimmed().toUpper() : QString());
     for (const RttyContestFieldRule &field : profile->sentFields) {
         replace(field.id, rttyContestFieldValue(field, true));
     }
@@ -4975,7 +5053,7 @@ QString MainWindow::expandRttyContestTemplate(const QString &source) const
 void MainWindow::processRttyContestRxLine(const QString &line)
 {
     const RttyContestProfile *profile = currentRttyContestProfile();
-    if (profile == nullptr || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked() || m_rttyQsoForm == nullptr) {
+    if (profile == nullptr || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked() || contestQsoForm() == nullptr) {
         return;
     }
     const QString upper = line.simplified().toUpper();
@@ -4994,8 +5072,8 @@ void MainWindow::processRttyContestRxLine(const QString &line)
             break;
         }
     }
-    if (!dxCall.isEmpty() && m_rttyQsoForm->callsign != nullptr) {
-        m_rttyQsoForm->callsign->setText(dxCall);
+    if (!dxCall.isEmpty() && contestQsoForm()->callsign != nullptr) {
+        contestQsoForm()->callsign->setText(dxCall);
     }
 
     QStringList tokens;
@@ -5042,10 +5120,10 @@ void MainWindow::processRttyContestRxLine(const QString &line)
         if (field.type == QStringLiteral("call")) continue;
         const QString value = findToken(field);
         if (value.isEmpty()) continue;
-        if (field.type == QStringLiteral("rst") && m_rttyQsoForm->rstReceived != nullptr) {
-            m_rttyQsoForm->rstReceived->setText(value);
-        } else if (field.type == QStringLiteral("locator") && m_rttyQsoForm->grid != nullptr) {
-            m_rttyQsoForm->grid->setText(value);
+        if (field.type == QStringLiteral("rst") && contestQsoForm()->rstReceived != nullptr) {
+            contestQsoForm()->rstReceived->setText(value);
+        } else if (field.type == QStringLiteral("locator") && contestQsoForm()->grid != nullptr) {
+            contestQsoForm()->grid->setText(value);
         } else if (m_rttyContestReceivedFieldEdits.contains(field.id) && m_rttyContestReceivedFieldEdits.value(field.id) != nullptr) {
             m_rttyContestReceivedFieldEdits.value(field.id)->setText(value);
         }
@@ -5053,13 +5131,21 @@ void MainWindow::processRttyContestRxLine(const QString &line)
     if (m_lblRttyContestExchange != nullptr) {
         m_lblRttyContestExchange->setText(uiText("rtty_contest_exchange_value", "Exchange: %1").arg(rttyContestExchange(true)));
     }
-    highlightCallsignsInTerminal(m_txtRttyRx);
+    if (contestContextIsCw()) {
+        highlightCallsignsInTerminal(m_txtCwRx);
+        highlightCallsignsInTerminal(m_txtCwRxB);
+    } else {
+        highlightCallsignsInTerminal(m_txtRttyRx);
+    }
 }
 
 bool MainWindow::fillRttyContestFieldFromClick(QPlainTextEdit *terminal, int clickPos, const QString &text)
 {
     const RttyContestProfile *profile = currentRttyContestProfile();
-    if (terminal != m_txtRttyRx || profile == nullptr || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked()) {
+    const bool validTerminal = contestContextIsCw()
+                                   ? (terminal == m_txtCwRx || terminal == m_txtCwRxB)
+                                   : (terminal == m_txtRttyRx);
+    if (!validTerminal || profile == nullptr || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked()) {
         return false;
     }
     const QRegularExpression tokenRe(QStringLiteral("[A-Z0-9+\\-]{1,16}"), QRegularExpression::CaseInsensitiveOption);
@@ -5089,16 +5175,16 @@ bool MainWindow::fillRttyContestFieldFromClick(QPlainTextEdit *terminal, int cli
 
     for (const RttyContestFieldRule &field : profile->receivedFields) {
         if (!matchesField(field)) continue;
-        if (field.type == QStringLiteral("rst") && m_rttyQsoForm->rstReceived != nullptr) {
-            m_rttyQsoForm->rstReceived->setText(token);
-        } else if (field.type == QStringLiteral("locator") && m_rttyQsoForm->grid != nullptr) {
-            m_rttyQsoForm->grid->setText(token);
+        if (field.type == QStringLiteral("rst") && contestQsoForm()->rstReceived != nullptr) {
+            contestQsoForm()->rstReceived->setText(token);
+        } else if (field.type == QStringLiteral("locator") && contestQsoForm()->grid != nullptr) {
+            contestQsoForm()->grid->setText(token);
         } else if (m_rttyContestReceivedFieldEdits.contains(field.id) && m_rttyContestReceivedFieldEdits.value(field.id) != nullptr) {
             m_rttyContestReceivedFieldEdits.value(field.id)->setText(token);
         } else {
             continue;
         }
-        appendLog(QStringLiteral("RTTY contest field autofill: %1=%2").arg(field.id, token));
+        appendLog(QStringLiteral("%1 contest field autofill: %2=%3").arg(contestModeForLog(), field.id, token));
         return true;
     }
     return false;
@@ -5114,7 +5200,7 @@ void MainWindow::ensureRttyContestSession(bool forceNew)
         return;
     }
     QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-    const QString base = QStringLiteral("RTTYContest/session/%1/").arg(profile->id);
+    const QString base = contestSettingsRoot() + QStringLiteral("/session/%1/").arg(profile->id);
     QString id = settings.value(base + QStringLiteral("id")).toString().trimmed();
     QDateTime started = QDateTime::fromString(settings.value(base + QStringLiteral("startedUtc")).toString(), Qt::ISODate);
     if (forceNew || id.isEmpty() || !started.isValid()) {
@@ -5122,12 +5208,12 @@ void MainWindow::ensureRttyContestSession(bool forceNew)
         started = QDateTime::currentDateTimeUtc();
         settings.setValue(base + QStringLiteral("id"), id);
         settings.setValue(base + QStringLiteral("startedUtc"), started.toUTC().toString(Qt::ISODate));
-        settings.setValue(QStringLiteral("RTTYContest/serial/%1").arg(profile->id), profile->serialStart);
+        settings.setValue(contestSettingsRoot() + QStringLiteral("/serial/%1").arg(profile->id), profile->serialStart);
         if (m_spinRttyContestSerial != nullptr && profile->serialEnabled) {
             const QSignalBlocker blocker(m_spinRttyContestSerial);
             m_spinRttyContestSerial->setValue(profile->serialStart);
         }
-        appendLog(QStringLiteral("RTTY contest session started: %1 (%2)").arg(profile->id, id.left(8)));
+        appendLog(QStringLiteral("%1 contest session started: %2 (%3)").arg(contestModeForLog(), profile->id, id.left(8)));
     }
     m_rttyContestActiveSessionId = id;
     m_rttyContestActiveSessionStartedUtc = started.toUTC();
@@ -5143,7 +5229,6 @@ void MainWindow::refreshRttyContestScore()
         m_lblRttyContestPoints == nullptr || m_lblRttyContestTotal == nullptr) {
         return;
     }
-    m_lblRttyContestSessionQsoCount->setText(QString::number(m_rttyContestSessionQsoCount));
     const RttyContestProfile *profile = currentRttyContestProfile();
     if (profile == nullptr) {
         m_lblRttyContestQsoCount->setText(QStringLiteral("0"));
@@ -5155,16 +5240,18 @@ void MainWindow::refreshRttyContestScore()
 
     QVector<LogbookEntry> entries;
     for (const LogbookEntry &entry : m_logbook.records()) {
-        if (entry.mode.compare(QStringLiteral("RTTY"), Qt::CaseInsensitive) != 0) continue;
-        const QString ruleId = entry.adifFields.value(QStringLiteral("APP_MADMODEM_RTTY_RULE")).trimmed().toLower();
+        if (entry.mode.compare(contestModeForLog(), Qt::CaseInsensitive) != 0) continue;
+        const QString ruleId = entry.adifFields.value(contestAdifRuleKey()).trimmed().toLower();
         const QString contestId = entry.adifFields.value(QStringLiteral("CONTEST_ID")).trimmed().toUpper();
-        const QString sessionId = entry.adifFields.value(QStringLiteral("APP_MADMODEM_RTTY_SESSION")).trimmed();
+        const QString sessionId = entry.adifFields.value(contestAdifSessionKey()).trimmed();
         const bool sameProfile = ruleId == profile->id || (!profile->cabrilloId.isEmpty() && contestId == profile->cabrilloId);
         if (sameProfile && !m_rttyContestActiveSessionId.isEmpty() && sessionId == m_rttyContestActiveSessionId) {
             entries.push_back(entry);
         }
     }
     std::sort(entries.begin(), entries.end(), [](const LogbookEntry &a, const LogbookEntry &b) { return a.utc < b.utc; });
+    m_rttyContestSessionQsoCount = entries.size();
+    m_lblRttyContestSessionQsoCount->setText(QString::number(m_rttyContestSessionQsoCount));
 
     QSet<QString> dupes;
     QSet<QString> multKeys;
@@ -5200,7 +5287,7 @@ void MainWindow::refreshRttyContestScore()
             if (!rttyContestConditionMatches(rule.value(QStringLiteral("when")).toObject(), &entry, entry.callsign)) continue;
             if (rule.value(QStringLiteral("method")).toString() == QStringLiteral("distance_km")) {
                 const QString homeGrid = stationLocator();
-                const QString dxGrid = !entry.grid.isEmpty() ? entry.grid : entry.adifFields.value(rttyContestAdifKey(QStringLiteral("RX"), QStringLiteral("GRID")));
+                const QString dxGrid = !entry.grid.isEmpty() ? entry.grid : entry.adifFields.value(contestFieldAdifKey(QStringLiteral("RX"), QStringLiteral("GRID")));
                 const int sameGridPoints = rule.value(QStringLiteral("same_grid_points")).toInt(100);
                 if (homeGrid.left(4).compare(dxGrid.left(4), Qt::CaseInsensitive) == 0 && !homeGrid.isEmpty() && !dxGrid.isEmpty()) {
                     qsoPoints = sameGridPoints;
@@ -5239,7 +5326,7 @@ void MainWindow::refreshRttyContestScore()
             }
             else if (mult.source.startsWith(QStringLiteral("field:"))) {
                 const QString fieldId = mult.source.section(QLatin1Char(':'), 1).trimmed().toUpper();
-                value = entry.adifFields.value(rttyContestAdifKey(QStringLiteral("RX"), fieldId)).trimmed().toUpper();
+                value = entry.adifFields.value(contestFieldAdifKey(QStringLiteral("RX"), fieldId)).trimmed().toUpper();
                 if (value.isEmpty() && fieldId == QStringLiteral("SERIAL")) value = entry.adifFields.value(QStringLiteral("SRX")).trimmed().toUpper();
             } else if (mult.source == QStringLiteral("dxcc_or_call_area") && dx.valid) {
                 QStringList callAreaPrefixes;
@@ -5549,33 +5636,40 @@ void MainWindow::setupRttyPage()
     contestQsoLayout->setColumnStretch(1, 1);
     contestPageLayout->addWidget(contestQsoBox);
 
-    auto bindContestQsoMirror = [this](QLineEdit *master, QLineEdit *mirror, bool mirrorWritable = true) {
-        if (master == nullptr || mirror == nullptr) return;
-        mirror->setText(master->text());
-        connect(master, &QLineEdit::textChanged, mirror, [mirror](const QString &text) {
-            if (mirror->text() == text) return;
-            const QSignalBlocker blocker(mirror);
-            mirror->setText(text);
+    auto connectContestMaster = [this](QsoFormWidgets *form, QLineEdit *field) {
+        if (form == nullptr || field == nullptr) return;
+        connect(field, &QLineEdit::textChanged, this, [this, form]() {
+            if (contestQsoForm() == form) syncContestQsoMirrorFromActiveForm();
         });
-        if (mirrorWritable) {
-            connect(mirror, &QLineEdit::textChanged, master, [master](const QString &text) {
-                if (master->text() == text) return;
-                master->setText(text);
-            });
-        }
     };
-    if (m_rttyQsoForm != nullptr) {
-        bindContestQsoMirror(m_rttyQsoForm->callsign, m_editRttyContestQsoCall);
-        bindContestQsoMirror(m_rttyQsoForm->band, m_editRttyContestQsoBand);
-        bindContestQsoMirror(m_rttyQsoForm->rstSent, m_editRttyContestQsoRstSent);
-        bindContestQsoMirror(m_rttyQsoForm->rstReceived, m_editRttyContestQsoRstReceived);
-        bindContestQsoMirror(m_rttyQsoForm->mode, m_editRttyContestQsoMode);
-        bindContestQsoMirror(m_rttyQsoForm->grid, m_editRttyContestQsoGrid);
-        bindContestQsoMirror(m_rttyQsoForm->utc, m_editRttyContestQsoUtc, false);
+    for (QsoFormWidgets *form : {m_rttyQsoForm, m_cwQsoForm}) {
+        if (form == nullptr) continue;
+        connectContestMaster(form, form->callsign);
+        connectContestMaster(form, form->band);
+        connectContestMaster(form, form->rstSent);
+        connectContestMaster(form, form->rstReceived);
+        connectContestMaster(form, form->mode);
+        connectContestMaster(form, form->grid);
+        connectContestMaster(form, form->utc);
     }
+    auto mirrorToActive = [this](QLineEdit *mirror, QLineEdit *QsoFormWidgets::*member) {
+        if (mirror == nullptr) return;
+        connect(mirror, &QLineEdit::textChanged, this, [this, mirror, member](const QString &text) {
+            QsoFormWidgets *form = contestQsoForm();
+            QLineEdit *target = form != nullptr ? form->*member : nullptr;
+            if (target != nullptr && target->text() != text) target->setText(text);
+        });
+    };
+    mirrorToActive(m_editRttyContestQsoCall, &QsoFormWidgets::callsign);
+    mirrorToActive(m_editRttyContestQsoBand, &QsoFormWidgets::band);
+    mirrorToActive(m_editRttyContestQsoRstSent, &QsoFormWidgets::rstSent);
+    mirrorToActive(m_editRttyContestQsoRstReceived, &QsoFormWidgets::rstReceived);
+    mirrorToActive(m_editRttyContestQsoMode, &QsoFormWidgets::mode);
+    mirrorToActive(m_editRttyContestQsoGrid, &QsoFormWidgets::grid);
     connect(m_btnRttyContestAddQso, &QPushButton::clicked, this, [this]() {
-        addQsoToLogFromForm(m_rttyQsoForm);
+        addQsoToLogFromForm(contestQsoForm());
     });
+    syncContestQsoMirrorFromActiveForm();
 
     QGroupBox *contestMacroBox = new QGroupBox(uiText("rtty_contest_macros", "Contest macros"), contestContent);
     QGridLayout *contestMacroLayout = new QGridLayout(contestMacroBox);
@@ -5608,14 +5702,14 @@ void MainWindow::setupRttyPage()
 
     connect(m_chkRttyContestMode, &QCheckBox::toggled, this, [this](bool enabled) {
         QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-        settings.setValue(QStringLiteral("RTTYContest/enabled"), enabled);
+        settings.setValue(contestSettingsRoot() + QStringLiteral("/enabled"), enabled);
         refreshRttyContestUi();
     });
     connect(m_cmbRttyContest, QOverload<int>::of(&QComboBox::currentIndexChanged), this, [this](int) {
         const RttyContestProfile *profile = currentRttyContestProfile();
         if (profile != nullptr) {
             QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-            settings.setValue(QStringLiteral("RTTYContest/profileId"), profile->id);
+            settings.setValue(contestSettingsRoot() + QStringLiteral("/profileId"), profile->id);
         }
         refreshRttyContestUi();
     });
@@ -5623,12 +5717,15 @@ void MainWindow::setupRttyPage()
         const RttyContestProfile *profile = currentRttyContestProfile();
         if (profile == nullptr) return;
         QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-        settings.setValue(QStringLiteral("RTTYContest/serial/%1").arg(profile->id), value);
+        settings.setValue(contestSettingsRoot() + QStringLiteral("/serial/%1").arg(profile->id), value);
         if (m_lblRttyContestExchange != nullptr) {
             m_lblRttyContestExchange->setText(uiText("rtty_contest_exchange_value", "Exchange: %1").arg(rttyContestExchange(true)));
         }
     });
-    connect(m_btnRttyContestReloadRules, &QPushButton::clicked, this, [this]() { loadRttyContestRules(true); });
+    connect(m_btnRttyContestReloadRules, &QPushButton::clicked, this, [this]() {
+        if (contestContextIsCw()) loadCwContestRules(true);
+        else loadRttyContestRules(true);
+    });
     connect(m_btnRttyContestNewSession, &QPushButton::clicked, this, [this]() {
         ensureRttyContestSession(true);
         refreshRttyContestScore();
@@ -5662,6 +5759,7 @@ void MainWindow::setupRttyPage()
     populateRttyPresets();
     loadRttySettingsToUi();
     loadRttyContestRules(false);
+    loadCwContestRules(false);
     refreshTextMacroButtons();
     updateRttyContestTabVisibility(ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString());
 }
@@ -6006,6 +6104,21 @@ void MainWindow::setupCwPage()
 
     outerLayout->addWidget(settingsGroup);
     placeQsoFormInModePanel(outerLayout, m_cwQsoForm);
+    if (m_cwQsoForm != nullptr) {
+        const QList<QLineEdit *> contestEdits = {m_cwQsoForm->callsign, m_cwQsoForm->band, m_cwQsoForm->rstSent, m_cwQsoForm->rstReceived, m_cwQsoForm->grid};
+        for (QLineEdit *edit : contestEdits) {
+            if (edit == nullptr) continue;
+            connect(edit, &QLineEdit::textChanged, this, [this]() {
+                if (contestContextIsCw()) {
+                    syncContestQsoMirrorFromActiveForm();
+                    if (m_lblRttyContestExchange != nullptr && m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked())
+                        m_lblRttyContestExchange->setText(uiText("rtty_contest_exchange_value", "Exchange: %1").arg(rttyContestExchange(true)));
+                    refreshTextMacroButtons();
+                }
+            });
+        }
+        if (m_cwQsoForm->band != nullptr) connect(m_cwQsoForm->band, &QLineEdit::textChanged, this, [this]() { if (contestContextIsCw()) { updateRttyContestBandFromCat(); refreshRttyContestScore(); } });
+    }
     outerLayout->addStretch(1);
 
     ui->stkModeSettings->addWidget(m_pageCwSettings);
@@ -14515,6 +14628,21 @@ void MainWindow::appendCwDecoderText(const QString &channel, const QString &text
     if (lineOpen != nullptr) {
         *lineOpen = !normalized.endsWith(QLatin1Char('\n'));
     }
+    if (contestContextIsCw() && m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked()) {
+        QString &buffer = channel == QLatin1String("B") ? m_cwContestLastRxLineB : m_cwContestLastRxLineA;
+        for (const QChar ch : normalized) {
+            if (ch == QLatin1Char('\r') || ch == QLatin1Char('\n')) {
+                if (!buffer.trimmed().isEmpty()) processRttyContestRxLine(buffer);
+                buffer.clear();
+            } else if (ch.isPrint()) {
+                buffer.append(ch);
+                if (buffer.size() > 256) buffer = buffer.right(256);
+            }
+        }
+        // CW decoders often emit continuous text without CR/LF. The parser is
+        // conservative (requires our callsign), so incremental evaluation is safe.
+        if (!buffer.trimmed().isEmpty()) processRttyContestRxLine(buffer);
+    }
     scheduleTerminalHighlight(terminal);
 }
 
@@ -19285,7 +19413,9 @@ void MainWindow::refreshTextMacroButtons()
     };
 
     const RttyContestProfile *contestProfile = currentRttyContestProfile();
-    const bool rttyContestActive = m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked() && contestProfile != nullptr;
+    const bool contestActive = m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked() && contestProfile != nullptr;
+    const bool rttyContestActive = contestActive && !contestContextIsCw();
+    const bool cwContestActive = contestActive && contestContextIsCw();
     auto applyRttyContestLabels = [this, contestProfile](const QList<QPushButton *> &buttons) {
         for (int i = 0; i < buttons.size(); ++i) {
             QPushButton *button = buttons.at(i);
@@ -19317,11 +19447,14 @@ void MainWindow::refreshTextMacroButtons()
 
     applyRttyContestLabels(m_rttyContestMacroButtons);
     for (QPushButton *button : m_rttyContestMacroButtons) {
-        if (button != nullptr) button->setEnabled(rttyContestActive && button->isEnabled());
+        if (button != nullptr) button->setEnabled(contestActive && button->isEnabled());
     }
     applyLabels(m_bpsk31MacroButtons);
     applyLabels(m_mfskMacroButtons);
     applyLabels(m_cwMacroButtons);
+    for (QPushButton *button : m_cwMacroButtons) {
+        if (button != nullptr) button->setEnabled(!cwContestActive);
+    }
     applyLabels(m_hellMacroButtons);
 }
 
@@ -19802,14 +19935,13 @@ void MainWindow::sendTextMacro(int index)
 
 void MainWindow::sendRttyContestMacro(int index)
 {
-    const bool rttyMode = ui != nullptr && ui->cmbMode != nullptr && ui->cmbMode->currentText() == RttyDecoder::modeName();
+    const QString mode = ui != nullptr && ui->cmbMode != nullptr ? ui->cmbMode->currentText() : QString();
+    const bool contestTextMode = mode == RttyDecoder::modeName() || mode == CwDecoder::modeName();
     const RttyContestProfile *profile = currentRttyContestProfile();
-    if (!rttyMode || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked() || profile == nullptr) {
+    if (!contestTextMode || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked() || profile == nullptr) {
         return;
     }
-    if (index < 0 || index >= profile->macros.size()) {
-        return;
-    }
+    if (index < 0 || index >= profile->macros.size()) return;
     startTextModeTx(expandRttyContestTemplate(profile->macros.at(index).text));
 }
 

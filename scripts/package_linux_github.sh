@@ -33,8 +33,17 @@ if [[ ! -f "$ROOT_DIR/rtty_rules" ]]; then
     exit 1
 fi
 cp -f "$ROOT_DIR/rtty_rules" "$PACKAGE_DIR/bin/rtty_rules"
+if [[ ! -f "$ROOT_DIR/cw_rules" ]]; then
+    echo "ERROR: CW contest rules not found in source tree: $ROOT_DIR/cw_rules" >&2
+    exit 1
+fi
+cp -f "$ROOT_DIR/cw_rules" "$PACKAGE_DIR/bin/cw_rules"
 if [[ ! -f "$PACKAGE_DIR/bin/rtty_rules" ]]; then
     echo "ERROR: Linux package is missing bin/rtty_rules" >&2
+    exit 1
+fi
+if [[ ! -f "$PACKAGE_DIR/bin/cw_rules" ]]; then
+    echo "ERROR: Linux package is missing bin/cw_rules" >&2
     exit 1
 fi
 
