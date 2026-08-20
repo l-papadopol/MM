@@ -34,6 +34,7 @@
 #include "dsp/cpu/CpuFeatures.h"
 #include "third_party/decodium_gpl/port/NtpClient.hpp"
 #include "audio/WavFileReader.h"
+#include "network/QsoUdpBroadcaster.h"
 
 #include <QAction>
 #include <QActionGroup>
@@ -3165,6 +3166,30 @@ void MainWindow::populateQsoFormDefaults(QsoFormWidgets *form, const QString &mo
     }
 }
 
+void MainWindow::broadcastLoggedQsoUdp(const LogbookEntry &entry)
+{
+    if (!m_settings.logbookUdpEnabled) {
+        return;
+    }
+
+    const QString server = m_settings.logbookUdpServer.trimmed().isEmpty()
+                               ? QStringLiteral("127.0.0.1")
+                               : m_settings.logbookUdpServer.trimmed();
+    const quint16 port = static_cast<quint16>(qBound(1, m_settings.logbookUdpPort, 65535));
+    const QsoUdpBroadcaster::SendResult result =
+        QsoUdpBroadcaster::sendLoggedAdif(entry, server, port, QCoreApplication::applicationVersion());
+
+    if (result.ok) {
+        appendLog(uiText("qso_udp_sent", "QSO UDP: %1 sent to %2:%3 (%4 bytes).")
+                      .arg(entry.callsign, server, QString::number(port), QString::number(result.bytesWritten)));
+        return;
+    }
+
+    appendLog(uiText("qso_udp_failed", "QSO UDP: %1 was saved locally, but UDP send to %2:%3 failed: %4")
+                  .arg(entry.callsign, server, QString::number(port), result.error));
+}
+
+
 void MainWindow::updateQsoUtcFields()
 {
     const QString utc = QDateTime::currentDateTimeUtc().toString("yyyy-MM-dd HH:mm:ss 'UTC'");
@@ -3249,6 +3274,7 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
                              uiText("cannot_save_logbook", "Cannot save logbook: %1").arg(error));
         return false;
     }
+    broadcastLoggedQsoUdp(entry);
 
     appendLog(QStringLiteral("Logged QSO: %1 %2 %3 %4%5")
                   .arg(entry.callsign,
@@ -17676,6 +17702,7 @@ void MainWindow::autoLogFt8Qso(const QString &reason)
         appendLog("FT8 auto-log failed: " + error);
         return;
     }
+    broadcastLoggedQsoUdp(entry);
 
     m_ftSession.autoLogDone = true;
     refreshLogbookHighlights();

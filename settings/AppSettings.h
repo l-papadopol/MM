@@ -41,6 +41,11 @@ public:
     int audioSampleRate = 48000;
     QString logbookFilePath;
     bool logbookStrikeWorkedCalls = true;
+    // Optional WSJT-X/JTDX-compatible UDP Logged ADIF broadcast.  Local ADIF
+    // persistence remains authoritative; UDP is sent only after a successful append.
+    bool logbookUdpEnabled = false;
+    QString logbookUdpServer = "127.0.0.1";
+    int logbookUdpPort = 2237;
     bool logbookVisibleFieldsConfigured = false;
     QStringList logbookVisibleFields;
     int waterfallColorScalePercent = 80;

@@ -196,7 +196,7 @@ total; Windows runs the applicable seven-entry subset.
 | `madmodem_msk144_native_regression` | MSK144 full/MSK40 generated-audio round trips | REGISTERED FOR QT CTEST |
 | `madmodem_cw_native_regression` | Production CW decoder regression | PASS |
 | `madmodem_waterfall_native_regression` | Native waterfall leveler regression | PASS |
-| `madmodem_architecture_guard` | Runtime hardening, CAT/FT synchronization, MSK144/Q65 single-path ownership | PASS |
+| `madmodem_architecture_guard` | Runtime hardening, CAT/FT synchronization, MSK144/Q65 single-path ownership, QSO UDP logging ownership | PASS |
 | `madmodem_ui_contest_guard` | RTTY Contest layout/runtime, CW macro UI, five-theme integrity/contrast | PASS |
 | `madmodem_ft_runtime_guard` | Atomic lifecycle, caller queue, linear sequencer, QSO deadline priority, FT4 runtime and wideband sensitivity | PASS |
 | `madmodem_release_audit` | Operator UI copy, six-language localization, documentation, RTTY/CW rules and release version | PASS |
@@ -230,6 +230,14 @@ The native CW suite includes clean messages, wrong WPM hints, the repeated
 `CQ CQ OG50YL` live case, AWGN, QSB, adjacent carrier, noise tail and noise-only
 scenarios. The waterfall suite covers quiet edges, AGC steps, receiver slope,
 narrow carriers and asymmetric passbands.
+
+
+### R22 — outbound UDP QSO logging
+
+- Added an opt-in Logbook setting for a UDP destination, defaulting to `127.0.0.1:2237`.
+- Every newly logged QSO follows one linear ownership path: the local ADIF append must succeed first; only then is a WSJT-X/JTDX schema-3 `Logged ADIF` (type 12) datagram sent.
+- Manual/text/CW/MSK/Q65 logging and FT auto-log use the same broadcaster. UDP errors are reported in the runtime log and never roll back a valid local ADIF entry.
+- The UDP architecture check is included in the existing consolidated architecture CTest; no new standalone CTest was added.
 
 ## Required external acceptance tests
 

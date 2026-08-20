@@ -1206,6 +1206,11 @@ private:
     bool addQsoToLogFromForm(QsoFormWidgets *form);
 
     /**
+     * @brief Best-effort WSJT-X/JTDX UDP notification after a QSO is saved locally.
+     */
+    void broadcastLoggedQsoUdp(const LogbookEntry &entry);
+
+    /**
      * @brief Installs right-click helpers on one RX text terminal.
      */
     void installRxTextContextMenu(QPlainTextEdit *terminal);

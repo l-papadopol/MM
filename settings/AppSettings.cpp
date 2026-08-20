@@ -188,6 +188,10 @@ void AppSettings::load()
     }
     logbookFilePath = settings.value("Logbook/filePath", logbookFilePath).toString().trimmed();
     logbookStrikeWorkedCalls = settings.value("Logbook/strikeWorkedCalls", logbookStrikeWorkedCalls).toBool();
+    logbookUdpEnabled = settings.value("Logbook/udpEnabled", logbookUdpEnabled).toBool();
+    logbookUdpServer = settings.value("Logbook/udpServer", logbookUdpServer).toString().trimmed();
+    if (logbookUdpServer.isEmpty()) logbookUdpServer = QStringLiteral("127.0.0.1");
+    logbookUdpPort = qBound(1, settings.value("Logbook/udpPort", logbookUdpPort).toInt(), 65535);
     logbookVisibleFieldsConfigured = settings.value("Logbook/visibleFieldsConfigured", logbookVisibleFieldsConfigured).toBool();
     logbookVisibleFields = settings.value("Logbook/visibleFields", logbookVisibleFields).toStringList();
     for (QString &field : logbookVisibleFields) { field = field.trimmed().toUpper(); }
@@ -728,6 +732,9 @@ bool AppSettings::save() const
     settings.setValue("Audio/sampleRate", audioSampleRate);
     settings.setValue("Logbook/filePath", logbookFilePath);
     settings.setValue("Logbook/strikeWorkedCalls", logbookStrikeWorkedCalls);
+    settings.setValue("Logbook/udpEnabled", logbookUdpEnabled);
+    settings.setValue("Logbook/udpServer", logbookUdpServer.trimmed().isEmpty() ? QStringLiteral("127.0.0.1") : logbookUdpServer.trimmed());
+    settings.setValue("Logbook/udpPort", qBound(1, logbookUdpPort, 65535));
     settings.setValue("Logbook/visibleFieldsConfigured", logbookVisibleFieldsConfigured);
     settings.setValue("Logbook/visibleFields", logbookVisibleFields);
     settings.setValue("Display/waterfallColorScalePercent", waterfallColorScalePercent);

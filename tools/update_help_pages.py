@@ -66,6 +66,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {
             "Logbook and map",
             """<h1>Logbook and map</h1>
 <p>The ADIF logbook stores contacts from every QSO-capable mode. Search and filter by callsign, band, mode, locator or UTC interval, then export all results or only the selected records.</p>
+<p><strong>UDP QSO logging:</strong> in Settings → Logbook, enable <em>Send logged QSOs to UDP server</em> and set the destination address and port (default 127.0.0.1:2237). After a QSO is successfully appended to the local ADIF log, MadModem sends a WSJT-X/JTDX-compatible Logged ADIF UDP message. UDP failure never cancels the local log entry.</p>
 <p>The QSO map can show the online or offline background, Maidenhead grid, station markers and paths from your QTH. Use the single Layers button to choose what is visible. A selected locator can also become the active rotator target.</p>""",
         ),
     },
@@ -110,6 +111,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {
             "Registro QSO e mappa",
             """<h1>Registro QSO e mappa</h1>
 <p>Il registro ADIF raccoglie i collegamenti di tutti i modi che gestiscono QSO. Puoi cercare e filtrare per nominativo, banda, modo, locator o intervallo UTC, quindi esportare tutti i risultati o solo le righe selezionate.</p>
+<p><strong>Invio QSO via UDP:</strong> in Impostazioni → Registro QSO abilita <em>Invia i QSO registrati al server UDP</em> e imposta indirizzo e porta di destinazione (predefiniti 127.0.0.1:2237). Dopo che un QSO è stato aggiunto con successo al registro ADIF locale, MadModem invia un messaggio UDP Logged ADIF compatibile con WSJT-X/JTDX. Un errore UDP non annulla mai il QSO salvato localmente.</p>
 <p>La mappa QSO può mostrare sfondo online o locale, griglia Maidenhead, stazioni e percorsi dal tuo QTH. Un unico pulsante Livelli sceglie gli elementi visibili. Il locator selezionato può diventare anche il bersaglio del rotore.</p>""",
         ),
     },
@@ -154,6 +156,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {
             "Journal et carte",
             """<h1>Journal et carte</h1>
 <p>Le journal ADIF regroupe les contacts de tous les modes avec QSO. Recherchez et filtrez par indicatif, bande, mode, locator ou intervalle UTC, puis exportez tous les résultats ou seulement les lignes choisies.</p>
+<p><strong>Envoi des QSO par UDP :</strong> dans Réglages → Journal, activez l’envoi vers le serveur UDP et indiquez l’adresse et le port de destination (127.0.0.1:2237 par défaut). Après l’ajout réussi du QSO au journal ADIF local, MadModem envoie un message UDP ADIF journalisé compatible WSJT-X/JTDX. Un échec UDP n’annule jamais l’entrée locale.</p>
 <p>La carte QSO peut afficher un fond en ligne ou local, la grille Maidenhead, les stations et les trajets depuis votre QTH. Un seul bouton Calques choisit les éléments visibles. Le locator sélectionné peut aussi devenir la cible du rotateur.</p>""",
         ),
     },
@@ -198,6 +201,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {
             "Logbuch und Karte",
             """<h1>Logbuch und Karte</h1>
 <p>Das ADIF-Logbuch sammelt Kontakte aller QSO-fähigen Modi. Nach Rufzeichen, Band, Modus, Locator oder UTC-Zeitraum suchen und filtern; anschließend alle Ergebnisse oder nur ausgewählte Datensätze exportieren.</p>
+<p><strong>QSO-Übertragung per UDP:</strong> unter Einstellungen → Logbuch das Senden an den UDP-Server aktivieren und Zieladresse sowie Port einstellen (Standard 127.0.0.1:2237). Nach dem erfolgreichen Eintrag eines QSO in das lokale ADIF-Logbuch sendet MadModem eine WSJT-X/JTDX-kompatible Logged-ADIF-UDP-Nachricht. Ein UDP-Fehler verwirft den lokalen Logbucheintrag nicht.</p>
 <p>Die QSO-Karte zeigt wahlweise Online- oder Offline-Hintergrund, Maidenhead-Gitter, Stationen und Wege vom eigenen QTH. Eine einzige Schaltfläche Ebenen wählt die sichtbaren Elemente. Ein gewählter Locator kann auch Rotorziel werden.</p>""",
         ),
     },
@@ -242,6 +246,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {
             "Loggbok og kart",
             """<h1>Loggbok og kart</h1>
 <p>ADIF-loggboken samler kontakter fra alle QSO-moduser. Søk og filtrer etter kallesignal, bånd, modus, lokator eller UTC-intervall, og eksporter alle treff eller bare valgte poster.</p>
+<p><strong>QSO-logging via UDP:</strong> under Innstillinger → Loggbok aktiver sending til UDP-server og angi måladresse og port (standard 127.0.0.1:2237). Etter at et QSO er lagt til i den lokale ADIF-loggen, sender MadModem en WSJT-X/JTDX-kompatibel Logged ADIF UDP-melding. En UDP-feil fjerner aldri den lokale loggposten.</p>
 <p>QSO-kartet kan vise nett- eller lokal bakgrunn, Maidenhead-rutenett, stasjoner og linjer fra eget QTH. Én Lag-knapp velger synlige elementer. En valgt lokator kan også brukes som rotormål.</p>""",
         ),
     },
@@ -286,6 +291,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {
             "Deník a mapa",
             """<h1>Deník a mapa</h1>
 <p>Deník ADIF shromažďuje spojení ze všech režimů s QSO. Vyhledávejte a filtrujte podle značky, pásma, režimu, lokátoru nebo intervalu UTC a exportujte všechny výsledky či pouze vybrané záznamy.</p>
+<p><strong>Odesílání QSO přes UDP:</strong> v Nastavení → Deník povolte odesílání na UDP server a nastavte cílovou adresu a port (výchozí 127.0.0.1:2237). Po úspěšném přidání QSO do místního deníku ADIF odešle MadModem UDP zprávu Logged ADIF kompatibilní s WSJT-X/JTDX. Chyba UDP nikdy nezruší místně uložený záznam.</p>
 <p>Mapa QSO může zobrazit online nebo místní podklad, mřížku Maidenhead, stanice a trasy z vašeho QTH. Jediné tlačítko Vrstvy volí viditelné prvky. Vybraný lokátor lze použít i jako cíl rotátoru.</p>""",
         ),
     },

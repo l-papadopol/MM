@@ -1144,6 +1144,48 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     displayLayout->addWidget(m_chkLogbookStrikeWorkedCalls);
     layout->addWidget(displayGroup);
 
+    QGroupBox *udpGroup = new QGroupBox(L(QStringLiteral("UDP QSO logging")), holder);
+    udpGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
+    QGridLayout *udpGrid = new QGridLayout(udpGroup);
+    udpGrid->setContentsMargins(10, 8, 10, 10);
+    udpGrid->setHorizontalSpacing(10);
+    udpGrid->setVerticalSpacing(6);
+
+    m_chkLogbookUdpEnabled = new QCheckBox(L(QStringLiteral("Send logged QSOs to UDP server")), udpGroup);
+    m_chkLogbookUdpEnabled->setChecked(m_initialSettings.logbookUdpEnabled);
+    udpGrid->addWidget(m_chkLogbookUdpEnabled, 0, 0, 1, 4);
+
+    m_editLogbookUdpServer = new QLineEdit(udpGroup);
+    m_editLogbookUdpServer->setText(m_initialSettings.logbookUdpServer.trimmed().isEmpty()
+                                        ? QStringLiteral("127.0.0.1")
+                                        : m_initialSettings.logbookUdpServer.trimmed());
+    m_editLogbookUdpServer->setPlaceholderText(QStringLiteral("127.0.0.1"));
+    m_editLogbookUdpServer->setToolTip(L(QStringLiteral("IP address of the logger application. Use 127.0.0.1 when it runs on this computer.")));
+
+    m_spinLogbookUdpPort = new QSpinBox(udpGroup);
+    m_spinLogbookUdpPort->setRange(1, 65535);
+    m_spinLogbookUdpPort->setValue(qBound(1, m_initialSettings.logbookUdpPort, 65535));
+    m_spinLogbookUdpPort->setToolTip(L(QStringLiteral("UDP destination port. WSJT-X/JTDX commonly use port 2237.")));
+
+    udpGrid->addWidget(new QLabel(L(QStringLiteral("Server address")), udpGroup), 1, 0);
+    udpGrid->addWidget(m_editLogbookUdpServer, 1, 1);
+    udpGrid->addWidget(new QLabel(L(QStringLiteral("UDP port")), udpGroup), 1, 2);
+    udpGrid->addWidget(m_spinLogbookUdpPort, 1, 3);
+    udpGrid->setColumnStretch(1, 1);
+
+    QLabel *udpInfo = new QLabel(L(QStringLiteral("Sends a WSJT-X/JTDX-compatible Logged ADIF message after the QSO has been saved locally.")), udpGroup);
+    udpInfo->setWordWrap(true);
+    udpInfo->setStyleSheet(QStringLiteral("color: palette(mid);"));
+    udpGrid->addWidget(udpInfo, 2, 0, 1, 4);
+
+    auto refreshUdpControls = [this](bool enabled) {
+        if (m_editLogbookUdpServer != nullptr) m_editLogbookUdpServer->setEnabled(enabled);
+        if (m_spinLogbookUdpPort != nullptr) m_spinLogbookUdpPort->setEnabled(enabled);
+    };
+    connect(m_chkLogbookUdpEnabled, &QCheckBox::toggled, this, refreshUdpControls);
+    refreshUdpControls(m_chkLogbookUdpEnabled->isChecked());
+    layout->addWidget(udpGroup);
+
     QGroupBox *decodeTableGroup = new QGroupBox(L(QStringLiteral("Decode table readability")), holder);
     decodeTableGroup->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Maximum);
     QGridLayout *decodeTableGrid = new QGridLayout(decodeTableGroup);
@@ -2326,6 +2368,16 @@ void AppSettingsDialog::collectSettings()
     }
     if (m_chkLogbookStrikeWorkedCalls != nullptr) {
         merged.logbookStrikeWorkedCalls = m_chkLogbookStrikeWorkedCalls->isChecked();
+    }
+    if (m_chkLogbookUdpEnabled != nullptr) {
+        merged.logbookUdpEnabled = m_chkLogbookUdpEnabled->isChecked();
+    }
+    if (m_editLogbookUdpServer != nullptr) {
+        merged.logbookUdpServer = m_editLogbookUdpServer->text().trimmed();
+        if (merged.logbookUdpServer.isEmpty()) merged.logbookUdpServer = QStringLiteral("127.0.0.1");
+    }
+    if (m_spinLogbookUdpPort != nullptr) {
+        merged.logbookUdpPort = m_spinLogbookUdpPort->value();
     }
     if (m_comboUiTheme != nullptr) {
         merged.uiTheme = m_comboUiTheme->currentData().toString().trimmed().toLower();

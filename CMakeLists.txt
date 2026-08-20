@@ -516,6 +516,8 @@ add_executable(MadModem
     dialogs/SstvImageEditorDialog.cpp
     logbook/AdifLogbook.h
     logbook/AdifLogbook.cpp
+    network/QsoUdpBroadcaster.h
+    network/QsoUdpBroadcaster.cpp
     dxcc/CtyCountryFile.h
     dxcc/CtyCountryFile.cpp
 )

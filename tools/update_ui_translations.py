@@ -597,6 +597,57 @@ COMMON_EXACT = {
     },
 }
 
+_QSO_UDP_EXACT: dict[str, dict[str, str]] = {
+    "it": {
+        "UDP QSO logging": "Invio QSO via UDP",
+        "Send logged QSOs to UDP server": "Invia i QSO registrati al server UDP",
+        "Server address": "Indirizzo server",
+        "UDP port": "Porta UDP",
+        "IP address of the logger application. Use 127.0.0.1 when it runs on this computer.": "Indirizzo IP del programma di log. Usa 127.0.0.1 quando gira su questo computer.",
+        "UDP destination port. WSJT-X/JTDX commonly use port 2237.": "Porta UDP di destinazione. WSJT-X/JTDX usano comunemente la porta 2237.",
+        "Sends a WSJT-X/JTDX-compatible Logged ADIF message after the QSO has been saved locally.": "Invia un messaggio Logged ADIF compatibile con WSJT-X/JTDX dopo che il QSO è stato salvato localmente.",
+    },
+    "fr": {
+        "UDP QSO logging": "Envoi des QSO par UDP",
+        "Send logged QSOs to UDP server": "Envoyer les QSO enregistrés au serveur UDP",
+        "Server address": "Adresse du serveur",
+        "UDP port": "Port UDP",
+        "IP address of the logger application. Use 127.0.0.1 when it runs on this computer.": "Adresse IP du logiciel de journal. Utilisez 127.0.0.1 lorsqu’il fonctionne sur cet ordinateur.",
+        "UDP destination port. WSJT-X/JTDX commonly use port 2237.": "Port UDP de destination. WSJT-X/JTDX utilisent couramment le port 2237.",
+        "Sends a WSJT-X/JTDX-compatible Logged ADIF message after the QSO has been saved locally.": "Envoie un message ADIF journalisé compatible WSJT-X/JTDX après l’enregistrement local du QSO.",
+    },
+    "de": {
+        "UDP QSO logging": "QSO-Übertragung per UDP",
+        "Send logged QSOs to UDP server": "Protokollierte QSOs an UDP-Server senden",
+        "Server address": "Serveradresse",
+        "UDP port": "UDP-Port",
+        "IP address of the logger application. Use 127.0.0.1 when it runs on this computer.": "IP-Adresse des Logprogramms. Verwenden Sie 127.0.0.1, wenn es auf diesem Computer läuft.",
+        "UDP destination port. WSJT-X/JTDX commonly use port 2237.": "UDP-Zielport. WSJT-X/JTDX verwenden häufig Port 2237.",
+        "Sends a WSJT-X/JTDX-compatible Logged ADIF message after the QSO has been saved locally.": "Sendet nach dem lokalen Speichern des QSO eine WSJT-X/JTDX-kompatible Logged-ADIF-Nachricht.",
+    },
+    "no": {
+        "UDP QSO logging": "QSO-logging via UDP",
+        "Send logged QSOs to UDP server": "Send loggede QSO-er til UDP-server",
+        "Server address": "Serveradresse",
+        "UDP port": "UDP-port",
+        "IP address of the logger application. Use 127.0.0.1 when it runs on this computer.": "IP-adressen til loggprogrammet. Bruk 127.0.0.1 når det kjører på denne datamaskinen.",
+        "UDP destination port. WSJT-X/JTDX commonly use port 2237.": "UDP-målport. WSJT-X/JTDX bruker vanligvis port 2237.",
+        "Sends a WSJT-X/JTDX-compatible Logged ADIF message after the QSO has been saved locally.": "Sender en WSJT-X/JTDX-kompatibel Logged ADIF-melding etter at QSO-et er lagret lokalt.",
+    },
+    "cs": {
+        "UDP QSO logging": "Odesílání QSO přes UDP",
+        "Send logged QSOs to UDP server": "Odesílat uložená QSO na UDP server",
+        "Server address": "Adresa serveru",
+        "UDP port": "UDP port",
+        "IP address of the logger application. Use 127.0.0.1 when it runs on this computer.": "IP adresa logovací aplikace. Pokud běží na tomto počítači, použijte 127.0.0.1.",
+        "UDP destination port. WSJT-X/JTDX commonly use port 2237.": "Cílový UDP port. WSJT-X/JTDX běžně používají port 2237.",
+        "Sends a WSJT-X/JTDX-compatible Logged ADIF message after the QSO has been saved locally.": "Po místním uložení QSO odešle zprávu Logged ADIF kompatibilní s WSJT-X/JTDX.",
+    },
+}
+for _lang, _phrases in _QSO_UDP_EXACT.items():
+    COMMON_EXACT.setdefault(_lang, {}).update(_phrases)
+
+
 def translate_value(lang: str, english: str) -> str:
     if lang == "en":
         return english
@@ -685,6 +736,29 @@ KEY_EXACT: dict[str, dict[str, str]] = {
         "ft_analyze_wav_tooltip": "Načte zaznamenaný FT8/FT4 WAV soubor a dekóduje jej offline stejným izolovaným FT workerem. Nikdy nespíná PTT ani TX scheduler.",
     },
 }
+
+_QSO_UDP_KEY_EXACT: dict[str, dict[str, str]] = {
+    "qso_udp_sent": {
+        "it": "QSO UDP: %1 inviato a %2:%3 (%4 byte).",
+        "fr": "QSO UDP : %1 envoyé à %2:%3 (%4 octets).",
+        "de": "QSO UDP: %1 an %2:%3 gesendet (%4 Byte).",
+        "no": "QSO UDP: %1 sendt til %2:%3 (%4 byte).",
+        "cs": "QSO UDP: %1 odesláno na %2:%3 (%4 bajtů).",
+    },
+    "qso_udp_failed": {
+        "it": "QSO UDP: %1 è stato salvato localmente, ma l'invio UDP a %2:%3 non è riuscito: %4",
+        "fr": "QSO UDP : %1 a été enregistré localement, mais l’envoi UDP vers %2:%3 a échoué : %4",
+        "de": "QSO UDP: %1 wurde lokal gespeichert, aber das Senden per UDP an %2:%3 ist fehlgeschlagen: %4",
+        "no": "QSO UDP: %1 ble lagret lokalt, men UDP-sending til %2:%3 mislyktes: %4",
+        "cs": "QSO UDP: %1 bylo uloženo místně, ale odeslání UDP na %2:%3 selhalo: %4",
+    },
+}
+for _udp_key, _translations in _QSO_UDP_KEY_EXACT.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_udp_key] = _value
+for _lang, _phrases in _QSO_UDP_EXACT.items():
+    for _english, _value in _phrases.items():
+        KEY_EXACT.setdefault(_lang, {})["text." + norm_key(_english)] = _value
 
 # Release-specific stable-key translations are kept in a small separate
 # module so the generic harvesting logic remains readable.

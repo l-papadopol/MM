@@ -169,6 +169,9 @@ private:
     QCheckBox *m_chkHighlightNewCountry = nullptr;
     QCheckBox *m_chkWatchListIcon = nullptr;
     QCheckBox *m_chkLogbookStrikeWorkedCalls = nullptr;
+    QCheckBox *m_chkLogbookUdpEnabled = nullptr;
+    QLineEdit *m_editLogbookUdpServer = nullptr;
+    QSpinBox *m_spinLogbookUdpPort = nullptr;
     QComboBox *m_comboUiTheme = nullptr;
     QCheckBox *m_chkUiUseThemeFont = nullptr;
     QComboBox *m_comboUiFontFamily = nullptr;
