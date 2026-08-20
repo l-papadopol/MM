@@ -339,6 +339,11 @@ private slots:
     void handleWaterfallFrequencyClicked(double frequencyHz, Qt::MouseButton button);
 
     /**
+     * @brief Applies the CW left+right mouse chord as the dedicated TX tone.
+     */
+    void handleWaterfallFrequencyChordClicked(double frequencyHz);
+
+    /**
      * @brief Applies MeteoFax UI parameters to the decoder and settings file.
      */
     void applyWeatherFaxSettings();
@@ -1763,6 +1768,7 @@ private:
 
     QWidget *m_pageCwSettings = nullptr;
     QSpinBox *m_spinCwToneHz = nullptr;
+    QSpinBox *m_spinCwTxToneHz = nullptr;
     QSpinBox *m_spinCwWpmA = nullptr;
     QSpinBox *m_spinCwWpmB = nullptr;
     QSpinBox *m_spinCwTxWpm = nullptr;

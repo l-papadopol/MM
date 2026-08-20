@@ -424,11 +424,17 @@ void AppSettings::load()
     mfskAgcEnabled = settings.value("MFSK/agcEnabled", mfskAgcEnabled).toBool();
 
     cwToneHz = settings.value("CW/toneHz", cwToneHz).toInt();
-    if (cwToneHz < 250 || cwToneHz > 2500) {
+    if (cwToneHz < 250 || cwToneHz > 3000) {
         cwToneHz = 1000;
     }
+    // Before the dedicated CW TX marker existed, TX used RX A directly.
+    // Preserve that exact initial behaviour once when loading an older settings file.
+    cwTxToneHz = settings.value("CW/txToneHz", cwToneHz).toInt();
+    if (cwTxToneHz < 250 || cwTxToneHz > 3000) {
+        cwTxToneHz = cwToneHz;
+    }
     cwSecondaryToneHz = settings.value("CW/secondaryToneHz", cwSecondaryToneHz).toInt();
-    if (cwSecondaryToneHz < 250 || cwSecondaryToneHz > 2500) {
+    if (cwSecondaryToneHz < 250 || cwSecondaryToneHz > 3000) {
         cwSecondaryToneHz = 1400;
     }
     cwSecondaryEnabled = settings.value("CW/secondaryEnabled", cwSecondaryEnabled).toBool();
@@ -826,6 +832,7 @@ bool AppSettings::save() const
     settings.setValue("MFSK/agcEnabled", mfskAgcEnabled);
 
     settings.setValue("CW/toneHz", cwToneHz);
+    settings.setValue("CW/txToneHz", cwTxToneHz);
     settings.setValue("CW/secondaryToneHz", cwSecondaryToneHz);
     settings.setValue("CW/secondaryEnabled", cwSecondaryEnabled);
     settings.setValue("CW/wpmA", cwWpmA);

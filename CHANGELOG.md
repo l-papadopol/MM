@@ -2,6 +2,11 @@
 
 ## 0.5.8 — integral source hardening — 2026-08-17
 
+- Separated the CW transmit audio tone from RX A. CW now exposes an editable
+  TX-tone field, draws the actual TX tone as a red dashed waterfall marker, and
+  uses a simultaneous left+right waterfall click to retune TX while preserving
+  left-click RX A and right-click RX B. The CW transmitter consumes only the
+  dedicated TX tone, which is persisted independently.
 - Consolidated CTest from one entry per historical source guard into responsibility-based suites. Linux/macOS now expose 10 CTest entries and Windows the applicable seven; the detailed guard scripts remain directly runnable for focused debugging.
 - Added the missing six-button standard macro bank to the dedicated CW terminal,
   matching the RTTY operator layout and shared macro settings. The CW bank is

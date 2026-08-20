@@ -153,6 +153,7 @@ public:
     bool mfskAgcEnabled = true;
 
     int cwToneHz = 1000;
+    int cwTxToneHz = 1000;
     int cwSecondaryToneHz = 1400;
     bool cwSecondaryEnabled = false;
     int cwWpmA = 20;

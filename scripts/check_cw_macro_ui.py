@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Guard the CW six-button macro bank and its single contest ownership path."""
+"""Guard the CW operator UI: macro bank plus explicit RX A/RX B/TX waterfall ownership."""
 from pathlib import Path
 import sys
 
 root = Path(__file__).resolve().parents[1]
 source = (root / "mainwindow.cpp").read_text(encoding="utf-8")
+header = (root / "mainwindow.h").read_text(encoding="utf-8")
+waterfall_h = (root / "widgets" / "WaterfallWidget.h").read_text(encoding="utf-8")
+waterfall_cpp = (root / "widgets" / "WaterfallWidget.cpp").read_text(encoding="utf-8")
+settings_h = (root / "settings" / "AppSettings.h").read_text(encoding="utf-8")
+settings_cpp = (root / "settings" / "AppSettings.cpp").read_text(encoding="utf-8")
 
 errors = []
 
@@ -34,6 +39,14 @@ checks = [
     ("CW macro buttons transmit shared text macros", "for (int i = 0; i < m_cwMacroButtons.size(); ++i)" in connections and "sendTextMacro(i);" in connections),
     ("CW macro labels use shared macro settings", "applyLabels(m_cwMacroButtons);" in refresh),
     ("CW standard bank yields to contest bank", "button->setEnabled(!cwContestActive);" in refresh),
+    ("CW TX tone has a dedicated editable control", "m_spinCwTxToneHz = new QSpinBox" in source and "cw_tx_tone" in source),
+    ("CW TX tone is persisted independently", "int cwTxToneHz = 1000;" in settings_h and "CW/txToneHz" in settings_cpp),
+    ("CW waterfall exposes a red TX marker", 'tx.label = QStringLiteral("TX")' in source and "m_spinCwTxToneHz" in source and "QColor(255, 80, 80)" in source),
+    ("CW transmitter uses the dedicated TX tone", "new CwTransmitter" in source and "m_spinCwTxToneHz != nullptr ? static_cast<double>(m_spinCwTxToneHz->value())" in source),
+    ("CW enables opt-in waterfall chord detection", "setChordClickEnabled(cwMode);" in source and "frequencyChordClicked" in waterfall_h),
+    ("CW TX chord is wired to the dedicated handler", "frequencyChordClicked" in source and "handleWaterfallFrequencyChordClicked" in header),
+    ("waterfall chord requires both left and right buttons", "buttons.testFlag(Qt::LeftButton) && buttons.testFlag(Qt::RightButton)" in waterfall_cpp),
+    ("CW single clicks are delayed only for chord disambiguation", "m_chordClickEnabled" in waterfall_cpp and "m_chordClickTimer.start();" in waterfall_cpp),
 ]
 
 for label, ok in checks:
@@ -48,4 +61,4 @@ if errors:
         print(f"- {error}")
     sys.exit(1)
 
-print("CW macro UI guard passed.")
+print("CW operator UI guard passed.")

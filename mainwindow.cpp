@@ -6045,6 +6045,11 @@ void MainWindow::setupCwPage()
     m_spinCwToneHz->setSingleStep(10);
     m_spinCwToneHz->setSuffix(" Hz");
 
+    m_spinCwTxToneHz = new QSpinBox(settingsGroup);
+    m_spinCwTxToneHz->setRange(250, 3000);
+    m_spinCwTxToneHz->setSingleStep(10);
+    m_spinCwTxToneHz->setSuffix(" Hz");
+
     m_spinCwWpmA = new QSpinBox(settingsGroup);
     m_spinCwWpmB = new QSpinBox(settingsGroup);
     m_spinCwTxWpm = new QSpinBox(settingsGroup);
@@ -6068,7 +6073,7 @@ void MainWindow::setupCwPage()
     m_lblCwTrackedWpmB->setStyleSheet(QStringLiteral("font-weight:600;"));
     MadModemUi::setSemanticRole(m_lblCwTrackedWpmA, QStringLiteral("rxPrimary"));
     MadModemUi::setSemanticRole(m_lblCwTrackedWpmB, QStringLiteral("rxSecondary"));
-    m_lblCwDualRx = new QLabel(uiText("cw_dual_rx_status", "RX A: left click · RX B: right click on waterfall"), settingsGroup);
+    m_lblCwDualRx = new QLabel(uiText("cw_dual_rx_status", "RX A: left click · RX B: right click · TX: left+right click on waterfall"), settingsGroup);
     m_lblCwDualRx->setWordWrap(true);
     m_lblCwDualRx->setStyleSheet(QStringLiteral("font-weight: 500;"));
     MadModemUi::setSemanticRole(m_lblCwDualRx, QStringLiteral("rxSecondary"));
@@ -6094,7 +6099,7 @@ void MainWindow::setupCwPage()
 
     QLabel *rxALabel = new QLabel(uiText("cw_rx_a_short", "RX A"), settingsGroup);
     QLabel *rxBLabel = new QLabel(uiText("cw_rx_b_short", "RX B"), settingsGroup);
-    QLabel *txLabel = new QLabel(uiText("cw_tx_short", "TX"), settingsGroup);
+    QLabel *txLabel = new QLabel(uiText("cw_tx_tone", "TX tone"), settingsGroup);
     rxALabel->setStyleSheet(QStringLiteral("font-weight:600;"));
     rxBLabel->setStyleSheet(QStringLiteral("font-weight:600;"));
     MadModemUi::setSemanticRole(rxALabel, QStringLiteral("rxPrimary"));
@@ -6112,7 +6117,9 @@ void MainWindow::setupCwPage()
     grid->addWidget(m_spinCwWpmB, 2, 2);
     grid->addWidget(m_lblCwTrackedWpmB, 2, 3);
     grid->addWidget(txLabel, 3, 0);
-    grid->addWidget(m_spinCwTxWpm, 3, 1, 1, 2);
+    grid->addWidget(m_spinCwTxToneHz, 3, 1);
+    grid->addWidget(new QLabel(uiText("cw_tx_speed", "TX speed"), settingsGroup), 3, 2);
+    grid->addWidget(m_spinCwTxWpm, 3, 3);
     grid->addWidget(new QLabel(uiText("cw_filter_bandwidth", "CW selectivity"), settingsGroup), 4, 0);
     grid->addWidget(m_chkCwAutoBandwidth, 4, 1);
     grid->addWidget(m_spinCwBandwidthHz, 4, 2, 1, 2);
@@ -6150,6 +6157,7 @@ void MainWindow::setupCwPage()
 void MainWindow::loadCwSettingsToUi()
 {
     if (m_spinCwToneHz == nullptr ||
+        m_spinCwTxToneHz == nullptr ||
         m_spinCwWpmA == nullptr ||
         m_spinCwWpmB == nullptr ||
         m_spinCwTxWpm == nullptr ||
@@ -6163,6 +6171,7 @@ void MainWindow::loadCwSettingsToUi()
     }
 
     const QSignalBlocker blockTone(m_spinCwToneHz);
+    const QSignalBlocker blockTxTone(m_spinCwTxToneHz);
     const QSignalBlocker blockWpmA(m_spinCwWpmA);
     const QSignalBlocker blockWpmB(m_spinCwWpmB);
     const QSignalBlocker blockTxWpm(m_spinCwTxWpm);
@@ -6174,6 +6183,7 @@ void MainWindow::loadCwSettingsToUi()
     const QSignalBlocker blockAfcRange(m_spinCwAfcRangeHz);
 
     m_spinCwToneHz->setValue(qBound(250, m_settings.cwToneHz, 3000));
+    m_spinCwTxToneHz->setValue(qBound(250, m_settings.cwTxToneHz, 3000));
     m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
     m_cwSecondaryToneHz = qBound(250, m_settings.cwSecondaryToneHz, 3000);
     updateCwDualRxStatusLabel();
@@ -8669,7 +8679,7 @@ void MainWindow::setupHelpTooltips()
     setHelpText(ui->btnRefreshDevices, "Refresh visible audio and serial device lists after plugging/unplugging USB sound cards or radio interfaces.");
     if (m_waterfallWidget != nullptr) {
         const QString waterfallHelp = uiText("tooltip.waterfall_widget",
-                                            "Live audio waterfall. Click on a signal to tune the active mode marker. In FT4/FT8 green is RX and red is TX; in CW the marker selects the Morse tone.");
+                                            "Live audio waterfall. Click on a signal to tune the active mode marker. In FT4/FT8 green is RX and red is TX; in CW left click sets RX A, right click sets RX B, and left+right together sets the red TX tone.");
         // Do not use a normal hover tooltip on the GL waterfall: on several
         // Linux/Wayland/X11 themes it becomes a large black rectangle over the
         // spectrum.  Keep the help text available through the status bar and
@@ -8796,6 +8806,7 @@ void MainWindow::setupHelpTooltips()
 
     if (m_spinCwToneHz != nullptr) {
         setHelpText(m_spinCwToneHz, uiText("cw_tone_help", "Green RX A CW marker. Left click the waterfall to move it to the signal you want to decode."));
+        setHelpText(m_spinCwTxToneHz, uiText("cw_tx_tone_help", "Red CW TX audio tone marker. Edit this value or press left+right together on the waterfall to move the actual transmitted tone."));
         setHelpText(m_spinCwWpmA, uiText("cw_wpm_help", "Manual RX WPM hint used when Auto WPM is disabled. The displayed RX range is 5 to 50 WPM."));
         setHelpText(m_spinCwWpmB, uiText("cw_wpm_help", "Manual RX WPM hint used when Auto WPM is disabled. The displayed RX range is 5 to 50 WPM."));
         setHelpText(m_chkCwAutoWpmA, uiText("cw_auto_wpm_help", "Estimate Morse speed continuously. The speed field is used as the acquisition hint until enough timing evidence is available."));
@@ -9005,6 +9016,8 @@ void MainWindow::setupProcessingConnections()
 
     connect(m_waterfallWidget, &WaterfallWidget::frequencyClicked,
             this, &MainWindow::handleWaterfallFrequencyClicked);
+    connect(m_waterfallWidget, &WaterfallWidget::frequencyChordClicked,
+            this, &MainWindow::handleWaterfallFrequencyChordClicked);
     connect(m_waterfallWidget, &WaterfallWidget::runtimeDiagnostic,
             this, [this](const QString &message) { appendLog(message); },
             Qt::QueuedConnection);
@@ -10426,6 +10439,10 @@ void MainWindow::setupUiConnections()
 
     if (m_spinCwToneHz != nullptr) {
         connect(m_spinCwToneHz, QOverload<int>::of(&QSpinBox::valueChanged),
+                this, [this](int) { applyCwSettings(); });
+    }
+    if (m_spinCwTxToneHz != nullptr) {
+        connect(m_spinCwTxToneHz, QOverload<int>::of(&QSpinBox::valueChanged),
                 this, [this](int) { applyCwSettings(); });
     }
 
@@ -12671,12 +12688,14 @@ void MainWindow::updateWaterfallMarkers()
 
     const QString mode = ui->cmbMode->currentText();
     const bool cwMode = (mode == CwDecoder::modeName());
+    m_waterfallWidget->setChordClickEnabled(cwMode);
 
     if (mode != RttyDecoder::modeName()) {
         m_waterfallWidget->clearTextOverlayStream(QStringLiteral("rtty-live"));
     }
 
-    // CW keeps operator markers simple: A green, optional B blue.  The skimmer
+    // CW keeps operator markers explicit: RX A green, optional RX B blue, TX red.
+    // The skimmer
     // runs underneath but its internal FFT channels are never drawn as markers.
     if (ui->frameWaterfall != nullptr) {
         ui->frameWaterfall->setMinimumHeight(cwMode ? 200 : 210);
@@ -12762,6 +12781,14 @@ void MainWindow::updateWaterfallMarkers()
             rxB.dashed = false;
             markers.append(rxB);
         }
+
+        FrequencyMarker tx;
+        tx.frequencyHz = (m_spinCwTxToneHz != nullptr) ? m_spinCwTxToneHz->value() : m_settings.cwTxToneHz;
+        tx.label = QStringLiteral("TX");
+        tx.color = QColor(255, 80, 80);
+        tx.width = 2;
+        tx.dashed = true;
+        markers.append(tx);
 
         m_waterfallWidget->setMarkers(markers);
         return;
@@ -14475,6 +14502,7 @@ void MainWindow::applyCwSettings()
 {
     if (m_cwDecoder == nullptr ||
         m_spinCwToneHz == nullptr ||
+        m_spinCwTxToneHz == nullptr ||
         m_spinCwWpmA == nullptr ||
         m_spinCwWpmB == nullptr ||
         m_spinCwTxWpm == nullptr ||
@@ -14488,6 +14516,7 @@ void MainWindow::applyCwSettings()
     }
 
     const int toneHz = m_spinCwToneHz->value();
+    const int txToneHz = m_spinCwTxToneHz->value();
     const int wpmA = m_spinCwWpmA->value();
     const int wpmB = m_spinCwWpmB->value();
     const int txWpm = m_spinCwTxWpm->value();
@@ -14510,6 +14539,7 @@ void MainWindow::applyCwSettings()
     m_cwDecoder->setAfcEnabled(afc);
     m_cwDecoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
     m_settings.cwToneHz = toneHz;
+    m_settings.cwTxToneHz = txToneHz;
     m_settings.cwSecondaryEnabled = m_cwSecondaryEnabled;
     m_settings.cwSecondaryToneHz = m_cwSecondaryToneHz;
     m_settings.cwWpmA = wpmA;
@@ -14737,6 +14767,12 @@ void MainWindow::updateCwDualRxStatusLabel()
     } else {
         lines << uiText("cw_receiver_status_off", "RX B: off · right-click the waterfall to enable it");
     }
+
+    const int txTone = (m_spinCwTxToneHz != nullptr)
+                           ? m_spinCwTxToneHz->value()
+                           : m_settings.cwTxToneHz;
+    lines << uiText("cw_tx_status_line", "TX: %1 Hz · red marker · left+right click together to retune")
+                 .arg(txTone);
 
     m_lblCwDualRx->setText(lines.join(QLatin1Char('\n')));
 
@@ -22394,6 +22430,23 @@ void MainWindow::handleAudioLevel(int percent, double db, double rms)
     }
 }
 
+void MainWindow::handleWaterfallFrequencyChordClicked(double frequencyHz)
+{
+    if (m_txRunning || m_offlineAnalysisActive || ui == nullptr || ui->cmbMode == nullptr ||
+        ui->cmbMode->currentText() != CwDecoder::modeName() || m_spinCwTxToneHz == nullptr) {
+        return;
+    }
+
+    const int roundedHz = qBound(m_spinCwTxToneHz->minimum(),
+                                 static_cast<int>(qRound(frequencyHz)),
+                                 m_spinCwTxToneHz->maximum());
+    m_spinCwTxToneHz->setValue(roundedHz);
+    // valueChanged owns persistence, marker refresh and TX preview through the
+    // same linear CW settings path used by direct editing.
+    appendLog(uiText("log.cw_tx_from_waterfall", "CW TX tone from waterfall: %1 Hz.").arg(roundedHz));
+}
+
+
 void MainWindow::handleDominantFrequency(double frequencyHz, double levelDb)
 {
     if (frequencyHz <= 0.0) {
@@ -22638,7 +22691,7 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
         return std::unique_ptr<TxModulator>(new CwTransmitter(
             text,
             txSampleRate,
-            m_spinCwToneHz != nullptr ? static_cast<double>(m_spinCwToneHz->value()) : 700.0,
+            m_spinCwTxToneHz != nullptr ? static_cast<double>(m_spinCwTxToneHz->value()) : static_cast<double>(m_settings.cwTxToneHz),
             m_spinCwTxWpm != nullptr ? static_cast<double>(m_spinCwTxWpm->value()) : 20.0
             ));
     }

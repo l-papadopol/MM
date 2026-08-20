@@ -92,6 +92,13 @@ signals:
      * @brief Emits the audio frequency selected by clicking the waterfall.
      */
     void frequencyClicked(double frequencyHz, Qt::MouseButton button);
+
+    /**
+     * @brief Emits the audio frequency selected by a simultaneous left+right chord.
+     *
+     * The chord is opt-in so ordinary modes keep their immediate click semantics.
+     */
+    void frequencyChordClicked(double frequencyHz);
     void runtimeDiagnostic(const QString &message);
 
 public slots:
@@ -135,6 +142,14 @@ public slots:
      * @brief Selects vertical-time/downward or horizontal-time scrolling.
      */
     void setScrollDirection(ScrollDirection direction);
+
+    /**
+     * @brief Enables left+right click-chord detection.
+     *
+     * When enabled, a single left/right click is held briefly so a true chord can
+     * be recognized without first firing one of the single-button actions.
+     */
+    void setChordClickEnabled(bool enabled);
 
 protected:
     /**
@@ -188,6 +203,8 @@ private:
     QString newOverlaySuffix(const QString &key, const QString &currentLabel);
     int bottomScaleBandHeight() const;
     int rightScaleBandWidth() const;
+    double frequencyAtMouseEvent(const QMouseEvent *event) const;
+    void emitPendingSingleClick();
     void requestRepaint();
     void initializeGpuRenderer();
     void destroyGpuRenderer();
@@ -216,6 +233,12 @@ private:
     QPoint m_panStartPos;
     double m_panStartMinHz = 100.0;
     double m_panStartMaxHz = 3000.0;
+
+    bool m_chordClickEnabled = false;
+    bool m_pendingSingleClick = false;
+    double m_pendingClickFrequencyHz = 0.0;
+    Qt::MouseButton m_pendingClickButton = Qt::NoButton;
+    QTimer m_chordClickTimer;
 
     struct VerticalTextGlyph
     {

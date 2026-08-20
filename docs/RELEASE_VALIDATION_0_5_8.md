@@ -162,6 +162,7 @@ with waterfall time while multidecoder callsign callouts remain static.
 | MM-018 | The blast radius is reduced incrementally through the dedicated capture thread, bounded dispatcher and dedicated decoder ownership. `MainWindow` remains large; a total rewrite was deliberately excluded from this stabilization release. |
 | MM-019 | Bundled Hamlib auto-build is OFF by default; configure only detects dependencies unless explicitly requested. |
 | MM-020 | CTest exposes a compact responsibility-based suite: native WAV/Q65/MSK144/CW/waterfall regressions plus consolidated architecture, UI/Contest, FT runtime, release and waterfall-integrity audits. Detailed source checks remain directly runnable but are no longer separate CTest entries. Package jobs run CTest, and a build/test workflow runs on every push and PR. |
+| MM-021 | CW RX A, RX B and TX have independent operator frequencies: left click tunes RX A, right click tunes RX B, simultaneous left+right tunes the persisted TX audio tone, and the red dashed TX marker is the exact tone passed to `CwTransmitter`. |
 | MM-021 | Global native-CPU tuning, AVX2 and LTO remain opt-in; portable packages do not enable them globally. |
 | MM-022 | OpenStreetMap keeps normal TLS verification and enforces a 2 MiB tile-response limit. |
 | MM-023 | Classic RIFF recording fails before the 4 GiB format limit and propagates header-rewrite/flush errors instead of writing a saturated corrupt header. |

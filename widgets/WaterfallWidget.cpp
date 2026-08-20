@@ -20,6 +20,9 @@
 WaterfallWidget::WaterfallWidget(QWidget *parent)
     : QOpenGLWidget(parent)
 {
+    m_chordClickTimer.setSingleShot(true);
+    m_chordClickTimer.setInterval(140);
+    connect(&m_chordClickTimer, &QTimer::timeout, this, &WaterfallWidget::emitPendingSingleClick);
     setMinimumHeight(160);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     // The circular texture and all overlays reconstruct the complete frame.
@@ -337,6 +340,18 @@ void WaterfallWidget::setScrollDirection(ScrollDirection direction)
     updateFrequencyScrollBar();
 }
 
+void WaterfallWidget::setChordClickEnabled(bool enabled)
+{
+    if (m_chordClickEnabled == enabled) {
+        return;
+    }
+
+    m_chordClickEnabled = enabled;
+    m_chordClickTimer.stop();
+    m_pendingSingleClick = false;
+    m_pendingClickButton = Qt::NoButton;
+}
+
 // -----------------------------------------------------------------------------
 // QOpenGLWidget events
 // -----------------------------------------------------------------------------
@@ -456,6 +471,34 @@ void WaterfallWidget::paintGL()
 }
 
 
+double WaterfallWidget::frequencyAtMouseEvent(const QMouseEvent *event) const
+{
+    if (event == nullptr) {
+        return 0.0;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    const QPoint pos = event->position().toPoint();
+#else
+    const QPoint pos = event->pos();
+#endif
+    return (m_scrollDirection == ScrollDirection::Right)
+               ? yToFrequency(pos.y())
+               : xToFrequency(pos.x());
+}
+
+void WaterfallWidget::emitPendingSingleClick()
+{
+    if (!m_pendingSingleClick || m_pendingClickButton == Qt::NoButton) {
+        return;
+    }
+
+    const double frequencyHz = m_pendingClickFrequencyHz;
+    const Qt::MouseButton button = m_pendingClickButton;
+    m_pendingSingleClick = false;
+    m_pendingClickButton = Qt::NoButton;
+    emit frequencyClicked(frequencyHz, button);
+}
+
 void WaterfallWidget::mousePressEvent(QMouseEvent *event)
 {
     if (event == nullptr) return;
@@ -481,22 +524,36 @@ void WaterfallWidget::mousePressEvent(QMouseEvent *event)
         return;
     }
 
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    const int clickX = static_cast<int>(event->position().x());
-#else
-    const int clickX = event->pos().x();
-#endif
+    const double frequencyHz = frequencyAtMouseEvent(event);
 
-    double frequencyHz = 0.0;
-    if (m_scrollDirection == ScrollDirection::Right) {
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-        const int clickY = static_cast<int>(event->position().y());
-#else
-        const int clickY = event->pos().y();
-#endif
-        frequencyHz = yToFrequency(clickY);
-    } else {
-        frequencyHz = xToFrequency(clickX);
+    if (m_chordClickEnabled) {
+        const Qt::MouseButtons buttons = event->buttons();
+        const bool chord = buttons.testFlag(Qt::LeftButton) && buttons.testFlag(Qt::RightButton);
+        if (chord) {
+            m_chordClickTimer.stop();
+            m_pendingSingleClick = false;
+            m_pendingClickButton = Qt::NoButton;
+            emit frequencyChordClicked(frequencyHz);
+            event->accept();
+            return;
+        }
+
+        // If the previous button was already released, this is a fast sequential
+        // click rather than a chord. Deliver the pending action before arming the
+        // new one so quick A/B tuning never loses a click.
+        if (m_pendingSingleClick) {
+            m_chordClickTimer.stop();
+            emitPendingSingleClick();
+        }
+
+        // Delay only while chord detection is enabled.  This avoids changing an
+        // RX marker before a near-simultaneous second button establishes TX.
+        m_pendingClickFrequencyHz = frequencyHz;
+        m_pendingClickButton = button;
+        m_pendingSingleClick = true;
+        m_chordClickTimer.start();
+        event->accept();
+        return;
     }
 
     emit frequencyClicked(frequencyHz, button);
@@ -540,6 +597,9 @@ void WaterfallWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
     if (event != nullptr && m_scrollDirection == ScrollDirection::Down &&
         event->button() == Qt::LeftButton) {
+        m_chordClickTimer.stop();
+        m_pendingSingleClick = false;
+        m_pendingClickButton = Qt::NoButton;
         resetFrequencyZoom();
         event->accept();
         return;
