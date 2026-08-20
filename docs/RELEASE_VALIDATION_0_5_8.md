@@ -101,7 +101,7 @@ state, semantic status colour and map overlay colour.
 - the RF waterfall remains an intentionally dark instrument surface in every
   theme, while its controls follow the active palette.
 
-`madmodem_ui_theme_integrity_guard` verifies all five theme definitions, rejects
+`madmodem_ui_contest_guard` includes the theme-integrity module, which verifies all five theme definitions, rejects
 known local colour/border leaks and enforces a minimum 4.5:1 contrast ratio for
 normal, editor, button, selection, semantic and map text. The lowest measured
 ratio is 4.76:1 (Qt Default warning text). Theme work does not touch any FT DSP
@@ -161,7 +161,7 @@ with waterfall time while multidecoder callsign callouts remain static.
 | MM-017 | ADIF record scanning is length-aware, so an `<EOR>`-like sequence inside a length-delimited field is not treated as a record boundary. |
 | MM-018 | The blast radius is reduced incrementally through the dedicated capture thread, bounded dispatcher and dedicated decoder ownership. `MainWindow` remains large; a total rewrite was deliberately excluded from this stabilization release. |
 | MM-019 | Bundled Hamlib auto-build is OFF by default; configure only detects dependencies unless explicitly requested. |
-| MM-020 | CTest registers the runtime, FT, CAT, RTTY, localization, documentation, CW and waterfall tests. Package jobs run CTest, and a build/test workflow runs on every push and PR. Obsolete MIND workflow options are removed. |
+| MM-020 | CTest exposes a compact responsibility-based suite: native WAV/Q65/MSK144/CW/waterfall regressions plus consolidated architecture, UI/Contest, FT runtime, release and waterfall-integrity audits. Detailed source checks remain directly runnable but are no longer separate CTest entries. Package jobs run CTest, and a build/test workflow runs on every push and PR. |
 | MM-021 | Global native-CPU tuning, AVX2 and LTO remain opt-in; portable packages do not enable them globally. |
 | MM-022 | OpenStreetMap keeps normal TLS verification and enforces a 2 MiB tile-response limit. |
 | MM-023 | Classic RIFF recording fails before the 4 GiB format limit and propagates header-rewrite/flush errors instead of writing a saturated corrupt header. |
@@ -184,25 +184,25 @@ with waterfall time while multidecoder callsign callouts remain static.
 
 ## Tests executed in the review environment
 
-| Test group | Result |
-|---|---:|
-| Runtime hardening source guard | PASS |
-| CAT startup, auto-connect and FT band/QSY synchronization | PASS |
-| RTTY narrow contest layout and live/runtime rules | PASS |
-| FT atomic lifecycle, caller queue/waterfall restore and linear sequencer | PASS |
-| FT4 runtime topology and FT8/FT4 wideband/sensitivity invariants | PASS |
-| UI themes: five complete palettes, semantic/map contrast and border ownership | PASS |
-| Localization: 1824 keys in each of six languages | PASS |
-| Native Q65 A/B/C/D generated-audio round trips | REGISTERED FOR QT CTEST |
-| Native MSK144 full/MSK40 generated-audio round trips | REGISTERED FOR QT CTEST |
-| Operator UI copy: compact state, translated runtime text and RTTY overlay control | PASS |
-| Documentation: version 0.5.8, 72 HTML pages, six Qt Help projects | PASS |
-| RTTY rules: 30 profiles, 29 active | PASS |
-| macOS portability and release-version guards | PASS |
-| Native CW production regression | PASS |
-| Native waterfall leveler regression | PASS |
-| Native CW and waterfall under ASan+UBSan | PASS |
-| Workflow YAML and shell syntax | PASS |
+The detailed guards below are retained, but CTest reports them through five
+stable aggregate audit entries. On Linux/macOS this yields 10 CTest entries in
+total; Windows runs the applicable seven-entry subset.
+
+| CTest group | Coverage | Result |
+|---|---|---:|
+| `madmodem_wav_reader_test` | Strict WAV parsing/conversion | REGISTERED FOR QT CTEST |
+| `madmodem_q65_native_regression` | Q65 A/B/C/D generated-audio round trips | REGISTERED FOR QT CTEST |
+| `madmodem_msk144_native_regression` | MSK144 full/MSK40 generated-audio round trips | REGISTERED FOR QT CTEST |
+| `madmodem_cw_native_regression` | Production CW decoder regression | PASS |
+| `madmodem_waterfall_native_regression` | Native waterfall leveler regression | PASS |
+| `madmodem_architecture_guard` | Runtime hardening, CAT/FT synchronization, MSK144/Q65 single-path ownership | PASS |
+| `madmodem_ui_contest_guard` | RTTY Contest layout/runtime, CW macro UI, five-theme integrity/contrast | PASS |
+| `madmodem_ft_runtime_guard` | Atomic lifecycle, caller queue, linear sequencer, QSO deadline priority, FT4 runtime and wideband sensitivity | PASS |
+| `madmodem_release_audit` | Operator UI copy, six-language localization, documentation, RTTY/CW rules and release version | PASS |
+| `madmodem_waterfall_integrity_guard` | WSJT-X-style waterfall flattening invariant | PASS |
+
+Individual scripts under `scripts/check_*` and `tools/audit_*` remain available
+for focused debugging without multiplying CTest entries.
 
 ### GitHub compile follow-up
 

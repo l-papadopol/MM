@@ -2857,6 +2857,26 @@ QWidget *MainWindow::createCwTerminalPage()
     QWidget *qsoPanel = createQsoFormPanel(page, QStringLiteral("CW"), &m_cwQsoForm);
     qsoPanel->setVisible(false);
 
+    // Keep the CW operator surface aligned with RTTY: six standard text-macro
+    // buttons immediately above the TX editor.  The buttons use the shared
+    // text-macro settings and are connected in setupConnections(), exactly as
+    // the RTTY bank is.  Contest-specific macros remain owned by the single
+    // shared Contest tab and disable this standard bank while a CW contest is
+    // active.
+    QGridLayout *macroLayout = new QGridLayout();
+    macroLayout->setContentsMargins(0, 0, 0, 0);
+    macroLayout->setHorizontalSpacing(4);
+    macroLayout->setVerticalSpacing(4);
+    m_cwMacroButtons.clear();
+    for (int i = 0; i < 6; ++i) {
+        QPushButton *button = new QPushButton(QStringLiteral("Macro %1").arg(i + 1), page);
+        button->setMinimumHeight(26);
+        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        m_cwMacroButtons.append(button);
+        macroLayout->addWidget(button, i / 6, i % 6);
+    }
+    layout->addLayout(macroLayout);
+
     QHBoxLayout *inputLayout = new QHBoxLayout();
     inputLayout->setContentsMargins(0, 0, 0, 0);
     inputLayout->setSpacing(6);
@@ -3644,8 +3664,9 @@ void MainWindow::setupTextTerminalPages()
      * RX A and RX B now have separate terminals and independent clear buttons.
      * The waterfall character trails are sourced from the same exact-tone
      * receivers as these terminals, so the OSD cannot contradict the text panes.
+     * createCwTerminalPage() has already populated the six CW macro buttons;
+     * do not clear that authoritative UI bank here.
      */
-    m_cwMacroButtons.clear();
     if (m_lblCwReceptionTitle != nullptr) m_lblCwReceptionTitle->setText(uiText("cw_reception", "CW reception"));
     if (m_lblCwRxATitle != nullptr) m_lblCwRxATitle->setText(uiText("cw_rx_a_panel", "RX A · green marker"));
     if (m_lblCwRxBTitle != nullptr) m_lblCwRxBTitle->setText(uiText("cw_rx_b_panel", "RX B · blue marker"));

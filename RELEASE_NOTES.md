@@ -46,9 +46,10 @@ the operating area.
 - The RTTY tuning scope contains only the Mark/Space signal trace. Optional
   decoded text is drawn vertically on the waterfall and has its own on/off
   control.
-- The RTTY contest workspace uses external rules, transactional serial numbers,
-  macros, duplicate checks and live scoring without creating a second logbook
-  path.
+- RTTY and CW share one contest workspace with mode-specific external rules,
+  transactional serial numbers, macros, duplicate checks and live scoring
+  without creating a second logbook path. CW also exposes the same six standard
+  text-macro buttons as RTTY directly above its TX editor.
 
 ## Interface and station control
 
@@ -74,10 +75,12 @@ the operating area.
 
 ## Validation
 
-The source package includes localization and documentation audits, FT lifecycle
-and sensitivity guards, CAT/band synchronization checks, RTTY layout/runtime
-checks, plus native CW and waterfall regressions. CI builds and runs the
-applicable suite on Linux, Windows and macOS.
+The source package keeps the detailed subsystem checks, but CTest groups them
+into stable responsibility-based suites instead of exposing one test per
+historical bug. Linux/macOS run 10 CTest entries: WAV, Q65, MSK144, CW and
+waterfall regressions plus architecture, UI/Contest, FT runtime, release and
+waterfall-integrity audits. Windows runs the applicable seven-entry subset. CI
+builds and runs the complete applicable suite before packaging.
 
 See [CHANGELOG.md](CHANGELOG.md) for the chronological engineering history and
 [docs/README.md](docs/README.md) for user and developer documentation.

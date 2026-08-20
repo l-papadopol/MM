@@ -989,36 +989,23 @@ if(BUILD_TESTING)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND)
-        add_test(NAME madmodem_runtime_hardening_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_runtime_hardening.py")
-        add_test(NAME madmodem_cat_ft_band_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_cat_ft_band_sync.py")
-        add_test(NAME madmodem_rtty_contest_layout_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_rtty_contest_layout.py")
-        add_test(NAME madmodem_rtty_runtime_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_rtty_live_contest_runtime.py")
-        add_test(NAME madmodem_ui_theme_integrity_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ui_theme_integrity.py")
-        add_test(NAME madmodem_operator_ui_copy_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_operator_ui_copy.py")
-        add_test(NAME madmodem_ft_atomic_lifecycle_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_atomic_tx_lifecycle.py")
-        add_test(NAME madmodem_ft_caller_queue_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_caller_queue_waterfall_restore.py")
-        add_test(NAME madmodem_ft_linear_sequencer_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_linear_sequencer.py")
-        add_test(NAME madmodem_ft_qso_deadline_priority_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_qso_deadline_priority.py")
-        add_test(NAME madmodem_msk144_q65_single_path_guard
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_msk144_q65_single_path.py")
-        add_test(NAME madmodem_localization_audit
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_localization.py")
-        add_test(NAME madmodem_documentation_audit
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_documentation.py")
-        add_test(NAME madmodem_rtty_rules_audit
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_rtty_rules.py")
-        add_test(NAME madmodem_cw_rules_audit
-            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/audit_rtty_rules.py" cw_rules)
+        set(MADMODEM_GUARD_UNIX_ARGS)
+        if(UNIX)
+            set(MADMODEM_GUARD_UNIX_ARGS --with-unix-checks)
+        endif()
+
+        add_test(NAME madmodem_architecture_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_guard_suite.py"
+                    architecture ${MADMODEM_GUARD_UNIX_ARGS})
+        add_test(NAME madmodem_ui_contest_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_guard_suite.py"
+                    ui ${MADMODEM_GUARD_UNIX_ARGS})
+        add_test(NAME madmodem_ft_runtime_guard
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_guard_suite.py"
+                    ft ${MADMODEM_GUARD_UNIX_ARGS})
+        add_test(NAME madmodem_release_audit
+            COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_guard_suite.py"
+                    release ${MADMODEM_GUARD_UNIX_ARGS})
     endif()
 
     if(UNIX)
@@ -1028,18 +1015,16 @@ if(BUILD_TESTING)
         add_test(NAME madmodem_waterfall_native_regression
             COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_waterfall_leveler_regression.sh"
                          "${CMAKE_CURRENT_BINARY_DIR}/tests-waterfall")
-        add_test(NAME madmodem_ft4_runtime_guard
-            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft4_adaptive_runtime.sh")
-        add_test(NAME madmodem_ft_sensitivity_guard
-            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_ft_wideband_sensitivity.sh")
-        add_test(NAME madmodem_waterfall_flattening_guard
-            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_waterfall_wsjtx_flattening.sh")
-        add_test(NAME madmodem_release_version_guard
-            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/ci_release_version_guard.sh")
+        if(Python3_Interpreter_FOUND)
+            add_test(NAME madmodem_waterfall_integrity_guard
+                COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_guard_suite.py"
+                        waterfall --with-unix-checks)
+        endif()
         set_tests_properties(madmodem_cw_native_regression
                              madmodem_waterfall_native_regression
                              PROPERTIES TIMEOUT 180)
     endif()
+
 endif()
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules")

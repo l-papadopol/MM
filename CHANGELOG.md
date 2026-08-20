@@ -2,6 +2,12 @@
 
 ## 0.5.8 — integral source hardening — 2026-08-17
 
+- Consolidated CTest from one entry per historical source guard into responsibility-based suites. Linux/macOS now expose 10 CTest entries and Windows the applicable seven; the detailed guard scripts remain directly runnable for focused debugging.
+- Added the missing six-button standard macro bank to the dedicated CW terminal,
+  matching the RTTY operator layout and shared macro settings. The CW bank is
+  disabled during CW Contest operation so the single Contest-tab macro bank
+  remains authoritative. Added a source guard against clearing or dropping the
+  CW macro bank during page setup.
 - Completed the always-built Q65A/B/C/D RX/TX path: an in-tree radix-2 spectral
   front end now performs sync, time/frequency/drift refinement and 65-ary soft
   demodulation before the bundled QRA/CRC/unpack codec. Removed the optional
