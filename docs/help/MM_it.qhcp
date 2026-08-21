@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <QHelpCollectionProject version="1.0">
     <assistant>
-        <title>Guida MM - Italiano 0.5.8</title>
-        <startPage>qthelp://org.madmodem.mm.058.it/doc/it/index.html</startPage>
+        <title>Guida MM - Italiano 0.5.9-alpha</title>
+        <startPage>qthelp://org.madmodem.mm.059-alpha.it/doc/it/index.html</startPage>
         <applicationIcon>../../icons/madmodem_32.png</applicationIcon>
     </assistant>
     <docFiles>

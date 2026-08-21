@@ -260,3 +260,24 @@ decodes respectively (88 total); a surplus on one file cannot hide a regression
 on another. A short radio acceptance pass should then confirm audio-device
 fail-closed behavior, CAT band QSY/readback, rear/data PTT routing and confirmed
 PTT OFF at application shutdown.
+
+### R23 — FT4/FT8 Split Operation and always-available CW macros
+
+- Radio/CAT settings now expose FT4/FT8 `Split operation`: `None`, `Rig`, or `Fake It`.
+- The operator TX frequency on the FT waterfall remains the logical RF offset. With `Rig` or `Fake It`, MadModem remaps the generated sound-card tone into 1500..2000 Hz and applies the compensating CAT dial shift in exact 500 Hz steps. For example, 900 Hz becomes AF 1900 Hz with a -1000 Hz dial shift; 2300 Hz becomes AF 1800 Hz with a +500 Hz dial shift.
+- `Rig` snapshots the active RX VFO, existing split state and TX-VFO frequency, tunes an independent TX VFO, enables Hamlib split before PTT, and restores the previous radio state after confirmed PTT OFF. Unsupported/ambiguous VFO control fails closed; it never silently falls back to Fake It.
+- `Fake It` temporarily retunes the active VFO before PTT and restores the exact RX frequency after confirmed PTT OFF. CAT polling suppresses that transient TX frequency so it cannot spuriously change the FT band selector or displayed RX dial.
+- Split preparation is owned by the FT TX pre-arm path and happens before PTT. If split preparation fails, the FT transmission is aborted. If PTT OFF cannot be confirmed, the temporary CAT state is deliberately left untouched for RF safety instead of retuning a possibly keyed transmitter.
+- The six CW macro buttons remain visible and usable during ordinary CW operation. Outside Contest they use the normal configurable text macros; when CW Contest is active, the same central six-button bank switches to the selected `cw_rules` profile rather than requiring the Contest tab as the only way to send macros.
+- Existing consolidated architecture and UI/Contest guards were extended for these invariants; no additional standalone CTest entry was added.
+
+### R24 — WSJT-X/Hamlib-native Rig Split correction
+
+- Corrected the first R23 `Rig` implementation before on-air acceptance: MadModem no longer contains a hand-written physical `A↔B`, `MAIN↔SUB`, `MAIN_A↔MAIN_B` or `SUB_A↔SUB_B` pairing table.
+- The implementation now follows the architecture used by WSJT-X `HamlibTransceiver`: choose only Hamlib's logical split family from `rig->state.vfo_list` (`A/B` when exposed, otherwise `MAIN/SUB`), respect a pre-existing split TX selector when one is reported, and let the Hamlib backend map that logical selector onto the radio's physical VFO/bank/slice topology.
+- Split TX frequency is set through `rig_set_split_freq()` rather than direct `rig_set_freq(txVfo, ...)`. Split TX mode is read/written through `rig_get_split_mode()` / `rig_set_split_mode()` rather than direct mode access to a guessed physical VFO. A short RAII scope mirrors WSJT-X's `hamlib_tx_vfo_fixup` so Hamlib's internal `state.tx_vfo` is correct only while the split API call is made.
+- `rig_get_vfo()` is only a hint. A backend that cannot report the selected VFO is not rejected solely for that reason; the current RX frequency remains `RIG_VFO_CURR` and is never retuned by `Rig` operation.
+- A pre-existing split state is snapshotted when the backend can report it and restored after confirmed PTT OFF. If the state cannot be snapshotted unambiguously, `Rig` fails closed rather than silently changing to `Fake It` or overwriting unknown radio state.
+- `Fake It` remains the WSJT-X/JTDX term and keeps its separate single-current-VFO transaction: temporary dial move before PTT, exact RX restoration after confirmed PTT OFF.
+- Stability invariant: `Hamlib/splitOperation` still defaults to `none`. With `None`, the pre-R23 CAT/PTT/frequency path is unchanged and none of the new split transaction code runs.
+

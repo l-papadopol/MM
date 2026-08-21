@@ -1413,7 +1413,14 @@ private:
     void appendRuntimeLogLine(const QString &line);
     void invokeRigConfigureFromSettings();
     bool invokeRigPttBlocking(bool enabled);
+    bool invokeRigBeginFtSplitBlocking(const QString &operation, int rfShiftHz);
+    bool invokeRigEndFtSplitBlocking();
     void invokeRigSetFrequency(double frequencyHz);
+
+    QString ftSplitOperationKey() const;
+    int ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShiftHz = nullptr) const;
+    bool prepareFtSplitForTx();
+    void restoreFtSplitAfterTx();
 
     /**
      * @brief Applies receiver running/stopped UI state.
@@ -2100,6 +2107,8 @@ private:
     int m_pendingFt8PttLeadMs = 0;
     bool m_pendingFt8PttPrearmed = false;
     bool m_pendingFt8PttKeyed = false;
+    bool m_ftSplitPreparedForTx = false;
+    bool m_ftSplitRestoreFailed = false;
     std::unique_ptr<TxModulator> m_pendingFt8PreparedModulator;
     FtTxPlan m_pendingFt8TxPlan;
     FtTxPlan m_lastFt8TxPlan;

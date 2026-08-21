@@ -1,4 +1,4 @@
-# MadModem 0.5.8
+# MadModem 0.5.9-alpha
 
 **Digital modes, station control and logging in one desktop application.**
 

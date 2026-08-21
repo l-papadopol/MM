@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.5.8
+    VERSION 0.5.9
     LANGUAGES CXX
 )
 

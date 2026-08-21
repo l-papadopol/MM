@@ -77,6 +77,11 @@ public slots:
     void pollNow();
     bool setPtt(bool enabled);
     bool setFrequencyHz(double frequencyHz);
+    // Prepare/restore the temporary CAT frequency transaction used by FT4/FT8
+    // Split Operation. operation is "rig" or "fake_it"; rfShiftHz is the
+    // 500 Hz-quantized dial correction that keeps TX audio in 1500..2000 Hz.
+    bool beginFtSplitTx(const QString &operation, int rfShiftHz);
+    bool endFtSplitTx();
 
 signals:
     void statusChanged(const QString &status);
@@ -128,6 +133,14 @@ private:
     int m_hrdAltPttButton = -1;
     bool m_vendorDataPttActive = false;
 
+    // FT Split Operation is a single bounded transaction owned by the CAT
+    // controller. While active, normal CAT frequency polling/writes are
+    // suppressed so the temporary TX dial never leaks into the RX/band UI.
+    bool m_ftSplitTxActive = false;
+    QString m_ftSplitTxOperation;
+    double m_ftSplitRxFrequencyHz = 0.0;
+    double m_ftSplitTxFrequencyHz = 0.0;
+
 #ifdef MADMODEM_WITH_HAMLIB
     struct RigDeleter;
     void *m_rig = nullptr;
@@ -135,6 +148,14 @@ private:
     bool m_txModeChangedByMadModem = false;
     qint64 m_preTxMode = 0;
     qint64 m_preTxPassband = 0;
+    qint64 m_preTxModeVfo = 0;
+    bool m_preTxModeWasSplit = false;
+
+    qint64 m_ftSplitRxVfo = 0;
+    qint64 m_ftSplitTxVfo = 0;
+    int m_ftSplitPreviousState = 0;
+    qint64 m_ftSplitPreviousTxVfo = 0;
+    double m_ftSplitPreviousTxFrequencyHz = 0.0;
 #endif
 };
 

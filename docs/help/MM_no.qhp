@@ -1,10 +1,10 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <QtHelpProject version="1.0">
-    <namespace>org.madmodem.mm.058.no</namespace>
+    <namespace>org.madmodem.mm.059-alpha.no</namespace>
     <virtualFolder>doc</virtualFolder>
     <filterSection>
         <filterAttribute>MM</filterAttribute>
-        <filterAttribute>0.5.8</filterAttribute>
+        <filterAttribute>0.5.9-alpha</filterAttribute>
         <filterAttribute>no</filterAttribute>
         <toc>
             <section title="MM-hjelp" ref="no/index.html">

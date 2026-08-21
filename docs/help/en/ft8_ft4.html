@@ -5,5 +5,6 @@
 <h2>QSO timing</h2><p>During an active QSO, FT8 and FT4 first decode a bounded group around the correspondent's audio frequency. A reply containing both callsigns can therefore reach the sequencer before the rest of the passband has finished. If that focused group misses, normal wideband decoding continues.</p>
 <h2>Sequence display</h2><p>The clock shows the current period and time to the next TX. The compact banner distinguishes RX, a message waiting for its slot, the next scheduled TX and a transmission currently on air.</p>
 <h2>Station and diagnostics</h2><p>Configure a valid My Call and My Locator in Settings → User/QTH before transmitting. Use Runtime log for slot, decoder, CAT and PTT diagnostics. Analyze WAV decodes a recording without arming PTT or the TX scheduler.</p>
-<div class='footer'>MadModem 0.5.8 — Qt Help — English</div>
+<h2>Split Operation</h2><p>With CAT enabled, Split Operation keeps the sound-card TX tone in the clean 1500–2000 Hz range while preserving the RF frequency selected by the red TX marker. For example, a 900 Hz marker becomes 1900 Hz audio with a −1000 Hz CAT dial shift; 2300 Hz becomes 1800 Hz audio with a +500 Hz shift. <b>Rig</b> uses the transceiver's native split through Hamlib; Hamlib maps the logical TX side onto the radio's actual VFO/bank topology. <b>Fake It</b> retunes the current VFO at each TX/RX transition. If the requested CAT transaction fails, TX is aborted rather than silently falling back.</p>
+<div class='footer'>MadModem 0.5.9-alpha — Qt Help — English</div>
 </body></html>

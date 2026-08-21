@@ -89,6 +89,7 @@ private:
     QLabel *m_lblBaudHint = nullptr;
     QLabel *m_lblPoll = nullptr;
     QLabel *m_lblTxAudioRoute = nullptr;
+    QLabel *m_lblSplitOperation = nullptr;
     QLabel *m_lblTransmitAudioSource = nullptr;
     QLabel *m_lblHint = nullptr;
     QLabel *m_lblTestStatus = nullptr;
@@ -99,6 +100,7 @@ private:
     QLineEdit *m_editModelFilter = nullptr;
     QSpinBox *m_spinRigModel = nullptr;
     QComboBox *m_cmbTxAudioRoute = nullptr;
+    QComboBox *m_cmbSplitOperation = nullptr;
     QComboBox *m_cmbTransmitAudioSource = nullptr;
     QComboBox *m_cmbSerialPort = nullptr;
     QLineEdit *m_editTcpAddress = nullptr;

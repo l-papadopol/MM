@@ -5,5 +5,6 @@
 <h2>Časování QSO</h2><p>Během aktivního QSO dekódují FT8 i FT4 nejprve omezenou skupinu kolem zvukové frekvence protistanice. Odpověď s oběma značkami tak může dorazit do sekvenceru před dokončením zbytku pásma. Při neúspěchu pokračuje běžné širokopásmové dekódování.</p>
 <h2>Stav sekvence</h2><p>Hodiny zobrazují aktuální periodu a čas do další TX. Kompaktní banner rozlišuje RX, čekání na slot, další naplánovanou TX a právě probíhající vysílání.</p>
 <h2>Stanice a diagnostika</h2><p>Před vysíláním nastavte platnou značku a lokátor v Nastavení → Uživatel/QTH. Běhový protokol slouží k diagnostice slotu, dekodéru, CAT a PTT. Analyzovat WAV dekóduje nahrávku bez aktivace PTT nebo plánovače TX.</p>
-<div class='footer'>MadModem 0.5.8 — Qt Help — Čeština</div>
+<h2>Provoz Split</h2><p>Při zapnutém CAT udržuje Split tón TX zvukové karty v čistém rozsahu 1500–2000 Hz a současně zachovává RF frekvenci vybranou červeným značkovačem TX. Například značka 900 Hz se změní na audio 1900 Hz s posunem CAT −1000 Hz; 2300 Hz se změní na 1800 Hz s posunem +500 Hz. <b>Rig</b> používá nativní split transceiveru přes Hamlib, který řeší fyzické mapování VFO/bank; <b>Fake It</b> přelaďuje aktuální VFO při každém přechodu TX/RX. Pokud CAT transakce selže, TX se zruší bez tichého fallbacku.</p>
+<div class='footer'>MadModem 0.5.9-alpha — Qt Help — Čeština</div>
 </body></html>

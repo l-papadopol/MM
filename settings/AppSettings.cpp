@@ -311,6 +311,12 @@ void AppSettings::load()
         hamlibTxAudioRoute != "data_pkt") {
         hamlibTxAudioRoute = "default";
     }
+    hamlibSplitOperation = settings.value("Hamlib/splitOperation", hamlibSplitOperation).toString().trimmed().toLower();
+    if (hamlibSplitOperation != "none" &&
+        hamlibSplitOperation != "rig" &&
+        hamlibSplitOperation != "fake_it") {
+        hamlibSplitOperation = "none";
+    }
     hamlibTransmitAudioSource = settings.value("Hamlib/transmitAudioSource", hamlibTransmitAudioSource).toString().trimmed().toLower();
     if (hamlibTransmitAudioSource == "rear" || hamlibTransmitAudioSource == "data" ||
         hamlibTransmitAudioSource == "rear_data" || hamlibTransmitAudioSource == "back") {
@@ -770,6 +776,7 @@ bool AppSettings::save() const
     settings.setValue("Hamlib/forceRts", hamlibForceRts);
     settings.setValue("Hamlib/pollIntervalMs", hamlibPollIntervalMs);
     settings.setValue("Hamlib/txAudioRoute", hamlibTxAudioRoute);
+    settings.setValue("Hamlib/splitOperation", hamlibSplitOperation);
     settings.setValue("Hamlib/transmitAudioSource", hamlibTransmitAudioSource);
 
     settings.setValue("Scheduler/enabledModes", schedulerQsyEnabledModes);

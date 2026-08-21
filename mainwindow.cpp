@@ -2858,12 +2858,10 @@ QWidget *MainWindow::createCwTerminalPage()
     QWidget *qsoPanel = createQsoFormPanel(page, QStringLiteral("CW"), &m_cwQsoForm);
     qsoPanel->setVisible(false);
 
-    // Keep the CW operator surface aligned with RTTY: six standard text-macro
-    // buttons immediately above the TX editor.  The buttons use the shared
-    // text-macro settings and are connected in setupConnections(), exactly as
-    // the RTTY bank is.  Contest-specific macros remain owned by the single
-    // shared Contest tab and disable this standard bank while a CW contest is
-    // active.
+    // Keep the CW operator surface aligned with RTTY: six macro buttons are
+    // always available immediately above the TX editor. Outside Contest they
+    // use the operator's standard text macros; with CW Contest enabled the
+    // same six buttons mirror the active cw_rules contest macros.
     QGridLayout *macroLayout = new QGridLayout();
     macroLayout->setContentsMargins(0, 0, 0, 0);
     macroLayout->setHorizontalSpacing(4);
@@ -11003,6 +11001,138 @@ bool MainWindow::invokeRigPttBlocking(bool enabled)
     return ok;
 }
 
+bool MainWindow::invokeRigBeginFtSplitBlocking(const QString &operation, int rfShiftHz)
+{
+    if (m_rigController == nullptr) return false;
+    bool ok = false;
+    if (QThread::currentThread() == m_rigController->thread()) {
+        ok = m_rigController->beginFtSplitTx(operation, rfShiftHz);
+    } else {
+        QMetaObject::invokeMethod(m_rigController,
+                                  [controller = m_rigController, operation, rfShiftHz, &ok]() {
+                                      ok = controller->beginFtSplitTx(operation, rfShiftHz);
+                                  },
+                                  Qt::BlockingQueuedConnection);
+    }
+    return ok;
+}
+
+bool MainWindow::invokeRigEndFtSplitBlocking()
+{
+    if (m_rigController == nullptr) return false;
+    bool ok = false;
+    if (QThread::currentThread() == m_rigController->thread()) {
+        ok = m_rigController->endFtSplitTx();
+    } else {
+        QMetaObject::invokeMethod(m_rigController,
+                                  [controller = m_rigController, &ok]() {
+                                      ok = controller->endFtSplitTx();
+                                  },
+                                  Qt::BlockingQueuedConnection);
+    }
+    return ok;
+}
+
+QString MainWindow::ftSplitOperationKey() const
+{
+    QString key = m_settings.hamlibSplitOperation.trimmed().toLower();
+    if (key != QStringLiteral("rig") && key != QStringLiteral("fake_it")) {
+        key = QStringLiteral("none");
+    }
+    return key;
+}
+
+int MainWindow::ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShiftHz) const
+{
+    int shift = 0;
+    int audioHz = qBound(100, logicalFrequencyHz, 3000);
+    if (ftSplitOperationKey() != QStringLiteral("none")) {
+        // WSJT-X/JTDX split policy: preserve the logical RF offset selected on
+        // the waterfall while keeping the sound-card TX tone in 1500..2000 Hz.
+        // CAT moves the dial in exact 500 Hz increments in the opposite sense.
+        while (audioHz < 1500) {
+            audioHz += 500;
+            shift -= 500;
+        }
+        while (audioHz > 2000) {
+            audioHz -= 500;
+            shift += 500;
+        }
+    }
+    if (rfShiftHz != nullptr) *rfShiftHz = shift;
+    return audioHz;
+}
+
+bool MainWindow::prepareFtSplitForTx()
+{
+    if (m_ftSplitPreparedForTx) {
+        if (m_ftSplitRestoreFailed) {
+            appendLog(QStringLiteral("FT split TX blocked: the previous CAT split state could not be restored; resolve the radio/CAT state before another transmission."));
+            return false;
+        }
+        return true;
+    }
+
+    const QString operation = ftSplitOperationKey();
+    if (operation == QStringLiteral("none")) return true;
+
+    if (!m_settings.hamlibCatEnabled || m_rigController == nullptr) {
+        const QString reason = uiText("ft_split_requires_cat",
+                                      "FT Split Operation is enabled, but CAT control is not available. Enable CAT or set Split operation to None.");
+        appendLog(QStringLiteral("FT split TX blocked: ") + reason);
+        showTxBlockedWarning(QStringLiteral("FT4/FT8 Split"),
+                             reason,
+                             AppSettingsDialog::InitialPage::RadioCat,
+                             uiText("open_radio_cat_settings", "Open Radio/CAT settings"));
+        return false;
+    }
+
+    const int logicalHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz;
+    int rfShiftHz = 0;
+    const int actualAudioHz = ftEffectiveTxAudioFrequency(logicalHz, &rfShiftHz);
+    if (!invokeRigBeginFtSplitBlocking(operation, rfShiftHz)) {
+        const QString detail = m_rigController->lastStatus().trimmed();
+        const QString reason = detail.isEmpty()
+            ? uiText("ft_split_prepare_failed",
+                     "The radio did not accept the FT split/frequency preparation command. TX was aborted; no non-split fallback was used.")
+            : uiText("ft_split_prepare_failed_detail",
+                     "The radio did not accept the FT split/frequency preparation command: %1. TX was aborted; no non-split fallback was used.").arg(detail);
+        appendLog(QStringLiteral("FT split TX blocked: ") + reason);
+        showTxBlockedWarning(QStringLiteral("FT4/FT8 Split"),
+                             reason,
+                             AppSettingsDialog::InitialPage::RadioCat,
+                             uiText("open_radio_cat_settings", "Open Radio/CAT settings"));
+        return false;
+    }
+
+    m_ftSplitPreparedForTx = true;
+    m_ftSplitRestoreFailed = false;
+    const QString name = operation == QStringLiteral("rig") ? QStringLiteral("Rig") : QStringLiteral("Fake It");
+    appendLog(QStringLiteral("FT Split %1: waterfall TX %2 Hz -> actual AF %3 Hz; CAT dial shift %4 Hz.")
+                  .arg(name)
+                  .arg(logicalHz)
+                  .arg(actualAudioHz)
+                  .arg(rfShiftHz));
+    return true;
+}
+
+void MainWindow::restoreFtSplitAfterTx()
+{
+    if (!m_ftSplitPreparedForTx) return;
+    const bool ok = invokeRigEndFtSplitBlocking();
+    if (ok) {
+        appendLog(QStringLiteral("FT Split: RX CAT state restored."));
+        m_ftSplitPreparedForTx = false;
+        m_ftSplitRestoreFailed = false;
+    } else {
+        // Keep ownership of the unresolved CAT transaction.  A subsequent
+        // cleanup/unkey may retry it, but a new FT transmission must not reuse
+        // or overwrite an unknown split state.
+        m_ftSplitRestoreFailed = true;
+        appendLog(QStringLiteral("FT Split ERROR: CAT could not fully restore the pre-TX RX/split state; further FT TX is blocked until the CAT state is restored or the rig is reconnected."));
+    }
+}
+
 void MainWindow::invokeRigSetFrequency(double frequencyHz)
 {
     if (m_rigController == nullptr || frequencyHz <= 0.0) {
@@ -16373,9 +16503,8 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
 
     m_pendingFt8PreparedModulator.reset();
     if (!m_pendingFt8Tune) {
-        const double txHz = (m_spinFt8TxFreq != nullptr)
-                                ? static_cast<double>(m_spinFt8TxFreq->value())
-                                : 1500.0;
+        const int logicalTxHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : 1500;
+        const double txHz = static_cast<double>(ftEffectiveTxAudioFrequency(logicalTxHz));
         std::unique_ptr<Ft8Transmitter> prepared(new Ft8Transmitter(
             profile.modeName,
             m_pendingFt8TxMessage,
@@ -19535,9 +19664,13 @@ void MainWindow::refreshTextMacroButtons()
     }
     applyLabels(m_bpsk31MacroButtons);
     applyLabels(m_mfskMacroButtons);
-    applyLabels(m_cwMacroButtons);
-    for (QPushButton *button : m_cwMacroButtons) {
-        if (button != nullptr) button->setEnabled(!cwContestActive);
+    if (cwContestActive) {
+        applyRttyContestLabels(m_cwMacroButtons);
+    } else {
+        applyLabels(m_cwMacroButtons);
+        for (QPushButton *button : m_cwMacroButtons) {
+            if (button != nullptr) button->setEnabled(true);
+        }
     }
     applyLabels(m_hellMacroButtons);
 }
@@ -20011,6 +20144,18 @@ bool MainWindow::startTextModeTx(const QString &text)
 
 void MainWindow::sendTextMacro(int index)
 {
+    const QString mode = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QString();
+    const bool cwContestActive = mode == CwDecoder::modeName() &&
+                                 m_chkRttyContestMode != nullptr &&
+                                 m_chkRttyContestMode->isChecked() &&
+                                 contestContextIsCw() &&
+                                 currentRttyContestProfile() != nullptr;
+    if (cwContestActive) {
+        // The six CW buttons never disappear in Contest mode: they simply
+        // switch from standard macros to the selected cw_rules profile.
+        sendRttyContestMacro(index);
+        return;
+    }
     if (index < 0 || index >= m_settings.textMacroTexts.size()) {
         return;
     }
@@ -22791,9 +22936,8 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
 
     if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
-        const double txHz = (m_spinFt8TxFreq != nullptr)
-                                ? static_cast<double>(m_spinFt8TxFreq->value())
-                                : 1500.0;
+        const int logicalTxHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : 1500;
+        const double txHz = static_cast<double>(ftEffectiveTxAudioFrequency(logicalTxHz));
         if (m_pendingFt8Tune) {
             Ft8Transmitter *tone = new Ft8Transmitter(profile.modeName, 48000, txHz, static_cast<double>(profile.slotMs) / 1000.0, true);
             if (!tone->generationSucceeded()) {
@@ -22966,11 +23110,25 @@ void MainWindow::updateTxPreview()
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
         const int rx = m_spinFt8RxFreq != nullptr ? m_spinFt8RxFreq->value() : 1500;
         const int tx = m_spinFt8TxFreq != nullptr ? m_spinFt8TxFreq->value() : 1500;
-        m_lblTxMode->setText(QString("%1: RX %2 Hz, TX %3 Hz, %4")
-                                 .arg(profile.shortLabel)
-                                 .arg(rx)
-                                 .arg(tx)
-                                 .arg(profile.interoperableCoreAvailable ? QStringLiteral("MSHV TX/RX core") : QStringLiteral("core unavailable")));
+        int rfShiftHz = 0;
+        const int actualAudioHz = ftEffectiveTxAudioFrequency(tx, &rfShiftHz);
+        const QString split = ftSplitOperationKey();
+        if (split == QStringLiteral("none")) {
+            m_lblTxMode->setText(QString("%1: RX %2 Hz, TX %3 Hz, %4")
+                                     .arg(profile.shortLabel)
+                                     .arg(rx)
+                                     .arg(tx)
+                                     .arg(profile.interoperableCoreAvailable ? QStringLiteral("MSHV TX/RX core") : QStringLiteral("core unavailable")));
+        } else {
+            const QString splitName = split == QStringLiteral("rig") ? QStringLiteral("Rig") : QStringLiteral("Fake It");
+            m_lblTxMode->setText(QString("%1: RX %2 Hz, TX %3 Hz -> AF %4 Hz, Split %5 (%6 Hz CAT)")
+                                     .arg(profile.shortLabel)
+                                     .arg(rx)
+                                     .arg(tx)
+                                     .arg(actualAudioHz)
+                                     .arg(splitName)
+                                     .arg(rfShiftHz));
+        }
         m_txPreparedImage = QImage();
     } else {
         m_lblTxMode->setText(MadModemI18n::text(QStringLiteral("TX mode unavailable")));
@@ -23340,22 +23498,32 @@ void MainWindow::unkeyPttAfterTx()
     const bool pttViaRigController = (pttMethod == QStringLiteral("cat_hamlib")) ||
                                      ((pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr")) &&
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
+
+    bool pttOffConfirmed = true;
     if (pttViaRigController && m_rigController != nullptr) {
-        if (invokeRigPttBlocking(false)) {
+        pttOffConfirmed = invokeRigPttBlocking(false);
+        if (pttOffConfirmed) {
             appendLog("Hamlib CAT PTT OFF.");
         } else {
             appendLog("TX PTT ERROR: Hamlib did not confirm PTT OFF; transmitter state is unknown.");
         }
     }
 
-    if (!m_pttSerial.isOpen()) {
-        return;
+    // For a dedicated serial RTS/DTR line, release the physical PTT before
+    // restoring Fake-It/Rig CAT frequencies. Never retune a transmitter that
+    // may still be keyed.
+    if (m_pttSerial.isOpen()) {
+        m_pttSerial.setRequestToSend(false);
+        m_pttSerial.setDataTerminalReady(false);
+        m_pttSerial.close();
+        appendLog("TX serial PTT OFF.");
     }
 
-    m_pttSerial.setRequestToSend(false);
-    m_pttSerial.setDataTerminalReady(false);
-    m_pttSerial.close();
-    appendLog("TX serial PTT OFF.");
+    if (pttOffConfirmed) {
+        restoreFtSplitAfterTx();
+    } else if (m_ftSplitPreparedForTx) {
+        appendLog("FT Split restore deferred: PTT OFF was not confirmed; radio frequency state is left untouched for RF safety.");
+    }
 }
 
 QString MainWindow::selectedAudioOutputName() const
@@ -23734,8 +23902,22 @@ void MainWindow::prearmFtPreparedSlotTransmit()
     // gated live decode from launching when a TX was armed.
 
     if (!m_pendingFt8PttKeyed) {
+        // Split/Fake-It owns the temporary CAT frequency change and must be
+        // prepared before PTT. A failure aborts TX; never fall back silently
+        // to an out-of-range audio tone or a different CAT path.
+        if (!prepareFtSplitForTx()) {
+            appendLog("FT TX aborted: split/CAT preparation failed; no audio TX will be generated.");
+            m_ft8PendingTxArmed = false;
+            m_pendingFt8PttPrearmed = false;
+            m_pendingFt8TxMessage.clear();
+            m_pendingFt8TxTag.clear();
+            updateFt8TxBannerUi();
+            updateTxControlState();
+            return;
+        }
         m_pendingFt8PttKeyed = keyPttForTx();
         if (!m_pendingFt8PttKeyed) {
+            restoreFtSplitAfterTx();
             appendLog("FT TX aborted: PTT/safety gate did not allow transmission; no audio TX will be generated.");
             m_ft8PendingTxArmed = false;
             m_pendingFt8PttPrearmed = false;

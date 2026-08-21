@@ -5,5 +5,6 @@
 <h2>QSO-Zeitsteuerung</h2><p>Während eines aktiven QSOs decodieren FT8 und FT4 zuerst eine begrenzte Gruppe um die Audiofrequenz der Gegenstation. Eine Antwort mit beiden Rufzeichen erreicht so den Sequenzer vor dem restlichen Band. Bei einem Fehlschlag läuft die normale Breitbanddecodierung weiter.</p>
 <h2>Sequenzstatus</h2><p>Die Uhr zeigt die aktuelle Periode und die Zeit bis zur nächsten TX. Das kompakte Banner unterscheidet RX, Warten auf den Zeitschlitz, die nächste geplante TX und die laufende Aussendung.</p>
 <h2>Station und Diagnose</h2><p>Vor dem Senden gültiges Rufzeichen und Locator unter Einstellungen → Benutzer/QTH eintragen. Das Laufzeitprotokoll zeigt Zeitschlitz-, Decoder-, CAT- und PTT-Diagnosen. WAV analysieren decodiert eine Aufnahme, ohne PTT oder TX-Scheduler zu aktivieren.</p>
-<div class='footer'>MadModem 0.5.8 — Qt Help — Deutsch</div>
+<h2>Split-Betrieb</h2><p>Bei aktiviertem CAT hält der Split-Betrieb den Soundkarten-TX-Ton im sauberen Bereich von 1500–2000 Hz und bewahrt gleichzeitig die vom roten TX-Marker gewählte HF-Frequenz. Ein Marker bei 900 Hz wird z. B. zu 1900 Hz Audio mit −1000 Hz CAT-Abstimmverschiebung; 2300 Hz wird zu 1800 Hz Audio mit +500 Hz. <b>Rig</b> verwendet den nativen Split-Betrieb des Transceivers über Hamlib; Hamlib übernimmt die physische VFO/Bank-Zuordnung. <b>Fake It</b> stimmt den aktuellen VFO bei jedem TX/RX-Wechsel um. Schlägt die CAT-Transaktion fehl, wird TX ohne stillen Fallback abgebrochen.</p>
+<div class='footer'>MadModem 0.5.9-alpha — Qt Help — Deutsch</div>
 </body></html>

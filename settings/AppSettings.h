@@ -85,6 +85,8 @@ public:
     int hamlibPollIntervalMs = 1000;
     // WSJT-X-like TX rig mode policy: default, usb, data_pkt.
     QString hamlibTxAudioRoute = "default";
+    // FT4/FT8 split policy: none, rig (real RX/TX VFO split), fake_it (single-VFO CAT retune).
+    QString hamlibSplitOperation = "none";
     // WSJT-X-like transmit audio source hint for CAT PTT: rear_data or front_mic.
     QString hamlibTransmitAudioSource = "rear_data";
 

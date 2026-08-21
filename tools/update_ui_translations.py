@@ -1179,6 +1179,82 @@ for _key, _translations in REVIEWED_OPERATOR_KEYS_058.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
 
+FT_SPLIT_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "text.ft4_ft8_only_keep_tx_audio_between_1500_and_2000_hz_rig_uses_separate_rx_tx_vfos_fake_it_t": {
+        "it": "Solo FT4/FT8: mantiene l'audio TX tra 1500 e 2000 Hz. Rig usa VFO RX/TX separati; Fake It risintonizza temporaneamente un singolo VFO a ogni transizione TX/RX.",
+        "fr": "FT4/FT8 uniquement : maintient l'audio TX entre 1500 et 2000 Hz. Rig utilise des VFO RX/TX séparés ; Fake It réaccorde temporairement un seul VFO à chaque transition TX/RX.",
+        "de": "Nur FT4/FT8: Hält das TX-Audio zwischen 1500 und 2000 Hz. Rig verwendet getrennte RX/TX-VFOs; Fake It stimmt bei jedem TX/RX-Wechsel vorübergehend einen einzelnen VFO um.",
+        "no": "Kun FT4/FT8: holder TX-lyden mellom 1500 og 2000 Hz. Rig bruker separate RX/TX-VFO-er; Fake It stiller midlertidig om én VFO ved hver TX/RX-overgang.",
+        "cs": "Pouze FT4/FT8: udržuje TX audio mezi 1500 a 2000 Hz. Rig používá oddělené RX/TX VFO; Fake It dočasně přelaďuje jeden VFO při každém přechodu TX/RX.",
+    },
+    "text.split_operation": {"it": "Operazione Split", "fr": "Fonctionnement Split", "de": "Split-Betrieb", "no": "Split-operasjon", "cs": "Provoz Split"},
+    "text.fake_it": {"it": "Fake It", "fr": "Fake It", "de": "Fake It", "no": "Fake It", "cs": "Fake It"},
+    "ft_split_requires_cat": {
+        "it": "L'operazione Split FT è abilitata, ma il controllo CAT non è disponibile. Abilita il CAT oppure imposta Operazione Split su Nessuna.",
+        "fr": "Le Split FT est activé, mais le contrôle CAT n'est pas disponible. Activez le CAT ou réglez le Split sur Aucun.",
+        "de": "FT-Split ist aktiviert, aber die CAT-Steuerung ist nicht verfügbar. CAT aktivieren oder Split-Betrieb auf Kein setzen.",
+        "no": "FT Split er aktivert, men CAT-kontroll er ikke tilgjengelig. Aktiver CAT eller sett Split-operasjon til Ingen.",
+        "cs": "FT Split je povolen, ale řízení CAT není dostupné. Povolte CAT nebo nastavte provoz Split na Žádný.",
+    },
+    "open_radio_cat_settings": {"it": "Apri impostazioni Radio/CAT", "fr": "Ouvrir les réglages Radio/CAT", "de": "Radio/CAT-Einstellungen öffnen", "no": "Åpne Radio/CAT-innstillinger", "cs": "Otevřít nastavení Radio/CAT"},
+    "ft_split_prepare_failed": {
+        "it": "La radio non ha accettato il comando di preparazione Split/frequenza FT. La TX è stata annullata; non è stato usato alcun fallback senza Split.",
+        "fr": "La radio n'a pas accepté la commande de préparation Split/fréquence FT. L'émission a été annulée ; aucun repli sans Split n'a été utilisé.",
+        "de": "Das Funkgerät hat den FT-Split/Frequenz-Vorbereitungsbefehl nicht akzeptiert. TX wurde abgebrochen; es wurde kein Fallback ohne Split verwendet.",
+        "no": "Radioen godtok ikke klargjøringskommandoen for FT Split/frekvens. TX ble avbrutt; ingen fallback uten Split ble brukt.",
+        "cs": "Rádio nepřijalo příkaz pro přípravu FT Split/frekvence. TX bylo zrušeno; nebyl použit žádný fallback bez Splitu.",
+    },
+    "ft_split_prepare_failed_detail": {
+        "it": "La radio non ha accettato il comando di preparazione Split/frequenza FT: %1. La TX è stata annullata; non è stato usato alcun fallback senza Split.",
+        "fr": "La radio n'a pas accepté la commande de préparation Split/fréquence FT : %1. L'émission a été annulée ; aucun repli sans Split n'a été utilisé.",
+        "de": "Das Funkgerät hat den FT-Split/Frequenz-Vorbereitungsbefehl nicht akzeptiert: %1. TX wurde abgebrochen; es wurde kein Fallback ohne Split verwendet.",
+        "no": "Radioen godtok ikke klargjøringskommandoen for FT Split/frekvens: %1. TX ble avbrutt; ingen fallback uten Split ble brukt.",
+        "cs": "Rádio nepřijalo příkaz pro přípravu FT Split/frekvence: %1. TX bylo zrušeno; nebyl použit žádný fallback bez Splitu.",
+    },
+    "log.ft_split_restore_deferred_ptt_off_was_not_confirmed_radio_frequency_state_is_left_untouche": {
+        "it": "Ripristino FT Split rinviato: PTT OFF non è stato confermato; lo stato di frequenza della radio resta invariato per sicurezza RF.",
+        "fr": "Restauration du Split FT différée : PTT OFF n'a pas été confirmé ; l'état de fréquence de la radio reste inchangé pour la sécurité RF.",
+        "de": "FT-Split-Wiederherstellung verschoben: PTT OFF wurde nicht bestätigt; der Frequenzzustand des Funkgeräts bleibt aus HF-Sicherheitsgründen unverändert.",
+        "no": "Gjenoppretting av FT Split utsatt: PTT OFF ble ikke bekreftet; radioens frekvenstilstand beholdes uendret av hensyn til RF-sikkerhet.",
+        "cs": "Obnovení FT Split odloženo: PTT OFF nebylo potvrzeno; stav frekvence rádia zůstává kvůli RF bezpečnosti beze změny.",
+    },
+    "log.ft_tx_aborted_split_cat_preparation_failed_no_audio_tx_will_be_generated": {
+        "it": "TX FT annullata: preparazione Split/CAT non riuscita; non verrà generato audio TX.",
+        "fr": "TX FT annulée : échec de la préparation Split/CAT ; aucun audio TX ne sera généré.",
+        "de": "FT-TX abgebrochen: Split/CAT-Vorbereitung fehlgeschlagen; es wird kein TX-Audio erzeugt.",
+        "no": "FT TX avbrutt: klargjøring av Split/CAT mislyktes; ingen TX-lyd blir generert.",
+        "cs": "FT TX zrušeno: příprava Split/CAT selhala; nebude generováno TX audio.",
+    },
+    "log.ft_split_tx_blocked": {"it": "TX FT Split bloccata:", "fr": "TX FT Split bloquée :", "de": "FT-Split-TX blockiert:", "no": "FT Split TX blokkert:", "cs": "FT Split TX blokováno:"},
+    "log.ft_split_1_waterfall_tx_2_hz_actual_af_3_hz_cat_dial_shift_4_hz": {
+        "it": "FT Split %1: TX waterfall %2 Hz -> AF reale %3 Hz; spostamento sintonia CAT %4 Hz.",
+        "fr": "FT Split %1 : TX waterfall %2 Hz -> AF réelle %3 Hz ; décalage d'accord CAT %4 Hz.",
+        "de": "FT Split %1: Waterfall-TX %2 Hz -> tatsächliches AF %3 Hz; CAT-Abstimmverschiebung %4 Hz.",
+        "no": "FT Split %1: waterfall-TX %2 Hz -> faktisk AF %3 Hz; CAT-frekvensforskyvning %4 Hz.",
+        "cs": "FT Split %1: TX ve waterfallu %2 Hz -> skutečné AF %3 Hz; posun ladění CAT %4 Hz.",
+    },
+    "log.ft_split_rx_cat_state_restored": {"it": "FT Split: stato CAT RX ripristinato.", "fr": "FT Split : état CAT RX restauré.", "de": "FT Split: RX-CAT-Zustand wiederhergestellt.", "no": "FT Split: RX CAT-tilstand gjenopprettet.", "cs": "FT Split: stav CAT RX obnoven."},
+    "log.ft_split_tx_blocked_the_previous_cat_split_state_could_not_be_restored_resolve_the_radio_c": {
+        "it": "TX FT Split bloccata: non è stato possibile ripristinare lo stato CAT Split precedente; risolvi lo stato radio/CAT prima di un'altra trasmissione.",
+        "fr": "TX FT Split bloquée : l'état CAT Split précédent n'a pas pu être restauré ; rétablissez l'état radio/CAT avant une nouvelle émission.",
+        "de": "FT-Split-TX blockiert: Der vorherige CAT-Split-Zustand konnte nicht wiederhergestellt werden; vor einer weiteren Übertragung den Radio/CAT-Zustand klären.",
+        "no": "FT Split TX blokkert: forrige CAT Split-tilstand kunne ikke gjenopprettes; avklar radio/CAT-tilstanden før en ny sending.",
+        "cs": "FT Split TX blokováno: předchozí stav CAT Split se nepodařilo obnovit; před dalším vysíláním vyřešte stav rádia/CAT.",
+    },
+    "log.ft_split_error_cat_could_not_fully_restore_the_pre_tx_rx_split_state_further_ft_tx_is_bloc": {
+        "it": "ERRORE FT Split: il CAT non ha potuto ripristinare completamente lo stato RX/Split precedente alla TX; ulteriori TX FT sono bloccate finché lo stato CAT non viene ripristinato o la radio viene riconnessa.",
+        "fr": "ERREUR FT Split : le CAT n'a pas pu restaurer complètement l'état RX/Split antérieur à la TX ; toute nouvelle TX FT est bloquée jusqu'à restauration de l'état CAT ou reconnexion de la radio.",
+        "de": "FT-Split-FEHLER: CAT konnte den RX/Split-Zustand vor TX nicht vollständig wiederherstellen; weitere FT-TX bleiben blockiert, bis der CAT-Zustand wiederhergestellt oder das Funkgerät neu verbunden wurde.",
+        "no": "FT Split-FEIL: CAT kunne ikke gjenopprette RX/Split-tilstanden før TX fullstendig; videre FT TX blokkeres til CAT-tilstanden er gjenopprettet eller radioen kobles til på nytt.",
+        "cs": "CHYBA FT Split: CAT nedokázal plně obnovit stav RX/Split před TX; další FT TX jsou blokovány, dokud nebude stav CAT obnoven nebo rádio znovu připojeno.",
+    },
+}
+
+for _key, _translations in FT_SPLIT_TRANSLATIONS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

@@ -5,5 +5,6 @@
 <h2>QSO-timing</h2><p>Under et aktivt QSO dekoder FT8 og FT4 først en avgrenset gruppe rundt motpartens lydfrekvens. Et svar med begge kallesignalene kan dermed nå sekvenseren før resten av båndet er ferdig. Ved bom fortsetter vanlig bredbåndsdekoding.</p>
 <h2>Sekvensstatus</h2><p>Klokken viser gjeldende periode og tid til neste TX. Det kompakte banneret skiller mellom RX, venting på tidsluke, neste planlagte TX og pågående sending.</p>
 <h2>Stasjon og diagnostikk</h2><p>Angi gyldig kallesignal og lokator under Innstillinger → Bruker/QTH før sending. Bruk kjøretidsloggen for tidsluke-, dekoder-, CAT- og PTT-diagnostikk. Analyser WAV dekoder et opptak uten å aktivere PTT eller TX-planlegger.</p>
-<div class='footer'>MadModem 0.5.8 — Qt Help — Norsk</div>
+<h2>Split-operasjon</h2><p>Med CAT aktivert holder Split-operasjon lydkortets TX-tone i det rene området 1500–2000 Hz samtidig som RF-frekvensen valgt av den røde TX-markøren bevares. En markør på 900 Hz blir for eksempel 1900 Hz lyd med −1000 Hz CAT-forskyvning; 2300 Hz blir 1800 Hz lyd med +500 Hz. <b>Rig</b> bruker radioens native split via Hamlib, som håndterer fysisk VFO/bank-kartlegging; <b>Fake It</b> stiller om gjeldende VFO ved hver TX/RX-overgang. Hvis CAT-transaksjonen feiler, avbrytes TX uten stille fallback.</p>
+<div class='footer'>MadModem 0.5.9-alpha — Qt Help — Norsk</div>
 </body></html>

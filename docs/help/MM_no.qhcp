@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <QHelpCollectionProject version="1.0">
     <assistant>
-        <title>MM-hjelp - Norsk 0.5.8</title>
-        <startPage>qthelp://org.madmodem.mm.058.no/doc/no/index.html</startPage>
+        <title>MM-hjelp - Norsk 0.5.9-alpha</title>
+        <startPage>qthelp://org.madmodem.mm.059-alpha.no/doc/no/index.html</startPage>
         <applicationIcon>../../icons/madmodem_32.png</applicationIcon>
     </assistant>
     <docFiles>

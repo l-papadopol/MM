@@ -2354,6 +2354,7 @@ void AppSettingsDialog::collectSettings()
         merged.hamlibForceRts = rig.hamlibForceRts;
         merged.hamlibPollIntervalMs = rig.hamlibPollIntervalMs;
         merged.hamlibTxAudioRoute = rig.hamlibTxAudioRoute;
+        merged.hamlibSplitOperation = rig.hamlibSplitOperation;
         merged.hamlibTransmitAudioSource = rig.hamlibTransmitAudioSource;
         // Radio/CAT owns the CAT-Hamlib PTT case; Audio/PTT owns serial/none.
         if (rig.pttMethod == QStringLiteral("cat_hamlib") || merged.pttMethod == QStringLiteral("cat_hamlib")) {

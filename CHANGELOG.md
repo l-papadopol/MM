@@ -1,5 +1,12 @@
 # MadModem changelog
 
+## 0.5.9-alpha — FT split-operation validation — 2026-08-21
+
+- Marks the current development line as an explicit alpha so 0.5.8 remains the rollback baseline.
+- Adds FT8/FT4 split-operation controls with Rig and Fake It modes and a 1500–2000 Hz TX-audio target window.
+- Rig split follows the Hamlib/WSJT-X logical VFO abstraction instead of assuming a fixed A/B physical topology.
+- Includes the native Q65 A/B/C/D fixes, native MSK144 work, CW contest support and rules, independent CW TX marker/frequency, and WSJT-X/JTDX-compatible UDP Logged ADIF output developed after 0.5.8.
+
 ## 0.5.8 — integral source hardening — 2026-08-17
 
 - Separated the CW transmit audio tone from RX A. CW now exposes an editable
@@ -8,11 +15,21 @@
   left-click RX A and right-click RX B. The CW transmitter consumes only the
   dedicated TX tone, which is persisted independently.
 - Consolidated CTest from one entry per historical source guard into responsibility-based suites. Linux/macOS now expose 10 CTest entries and Windows the applicable seven; the detailed guard scripts remain directly runnable for focused debugging.
-- Added the missing six-button standard macro bank to the dedicated CW terminal,
-  matching the RTTY operator layout and shared macro settings. The CW bank is
-  disabled during CW Contest operation so the single Contest-tab macro bank
-  remains authoritative. Added a source guard against clearing or dropping the
-  CW macro bank during page setup.
+- Added the missing six-button macro bank to the dedicated CW terminal, matching
+  the RTTY operator layout. The bank is always available: ordinary CW uses the
+  configurable standard macros, while CW Contest switches the same six buttons
+  to the active `cw_rules` profile; the Contest tab mirrors the same contest
+  context instead of becoming the only way to send macros.
+- Added FT4/FT8 Split Operation with `None`, `Rig` and `Fake It`. Split TX keeps
+  the generated AF tone in 1500..2000 Hz and compensates the logical waterfall
+  offset with exact 500 Hz CAT dial shifts. `Rig` now follows the WSJT-X/Hamlib
+  split abstraction: MadModem selects only the backend's logical A/B or MAIN/SUB
+  TX side, while Hamlib maps that selector onto the radio's actual VFO/bank/slice
+  topology and owns split-frequency/mode access. `Fake It` temporarily retunes
+  and restores the current receive VFO. Preparation is before PTT and restoration
+  only after confirmed PTT OFF, with no automatic fallback.
+- Added opt-in WSJT-X/JTDX-compatible Logged ADIF UDP output after successful
+  local QSO logging, with configurable destination and default 127.0.0.1:2237.
 - Completed the always-built Q65A/B/C/D RX/TX path: an in-tree radix-2 spectral
   front end now performs sync, time/frequency/drift refinement and 65-ary soft
   demodulation before the bundled QRA/CRC/unpack codec. Removed the optional

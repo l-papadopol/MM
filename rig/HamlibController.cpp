@@ -155,6 +155,74 @@ bool routeRequestsUsbMode(const HamlibController::Config &cfg)
 
 #ifdef MADMODEM_WITH_HAMLIB
 constexpr pbwidth_t kDigitalWidePassbandHz = 3000;
+
+// WSJT-X does not model the radio as "exactly two physical VFOs".  It asks
+// Hamlib which *logical* split family the backend exposes and uses A/B when
+// available, otherwise MAIN/SUB.  Those selectors may themselves map to a
+// richer physical topology (MAIN_A/MAIN_B/SUB_A/SUB_B, satellite resources,
+// slices, etc.); that mapping remains the Hamlib backend's responsibility.
+//
+// Preserve an already-active split TX selector when the radio reports one.
+// Otherwise choose the WSJT-X-style logical opposite of the current RX side.
+vfo_t wsjtLikeFtRigSplitTxVfo(RIG *rig, vfo_t reportedRxVfo,
+                               split_t previousSplit, vfo_t previousTxVfo)
+{
+    if (rig == nullptr) return RIG_VFO_NONE;
+
+    if (previousSplit == RIG_SPLIT_ON &&
+        previousTxVfo != RIG_VFO_NONE &&
+        previousTxVfo != RIG_VFO_CURR) {
+        // An already-active operator split is authoritative.  Preserve the
+        // selector exactly as Hamlib reports it (including TX aliases or a
+        // backend-specific logical selector) instead of trying to reinterpret
+        // the radio topology from the current receive side.
+        return previousTxVfo;
+    }
+
+    const vfo_t available = static_cast<vfo_t>(rig->state.vfo_list);
+    const bool hasAB = (available & RIG_VFO_A) && (available & RIG_VFO_B);
+    const bool hasMainSub = (available & RIG_VFO_MAIN) && (available & RIG_VFO_SUB);
+    if (!hasAB && !hasMainSub) return RIG_VFO_NONE;
+
+    vfo_t current = reportedRxVfo;
+    if (current == RIG_VFO_NONE || current == RIG_VFO_CURR) {
+        current = rig->state.current_vfo;
+    }
+
+    if (hasAB) {
+        // MAIN_B/SUB_B are physical/backend-specific refinements of logical B.
+        const bool rxOnLogicalB = current == RIG_VFO_B ||
+                                  current == RIG_VFO_MAIN_B ||
+                                  current == RIG_VFO_SUB_B;
+        return rxOnLogicalB ? RIG_VFO_A : RIG_VFO_B;
+    }
+
+    // Same idea for backends that expose MAIN/SUB rather than A/B.
+    const bool rxOnLogicalSub = current == RIG_VFO_SUB ||
+                                current == RIG_VFO_SUB_A ||
+                                current == RIG_VFO_SUB_B;
+    return rxOnLogicalSub ? RIG_VFO_MAIN : RIG_VFO_SUB;
+}
+
+class ScopedHamlibTxVfo final
+{
+public:
+    ScopedHamlibTxVfo(RIG *rig, vfo_t txVfo)
+        : m_rig(rig),
+          m_previous(rig != nullptr ? rig->state.tx_vfo : RIG_VFO_NONE)
+    {
+        if (m_rig != nullptr) m_rig->state.tx_vfo = txVfo;
+    }
+
+    ~ScopedHamlibTxVfo()
+    {
+        if (m_rig != nullptr) m_rig->state.tx_vfo = m_previous;
+    }
+
+private:
+    RIG *m_rig = nullptr;
+    vfo_t m_previous = RIG_VFO_NONE;
+};
 #endif
 
 } // namespace
@@ -465,6 +533,11 @@ bool HamlibController::disconnectRig()
     if (!pttOffConfirmed) {
         emitError(QStringLiteral("CAT disconnect: the radio did not confirm PTT OFF; transmitter state remains unknown after closing the backend"));
     }
+    if (pttOffConfirmed && m_ftSplitTxActive && !endFtSplitTx()) {
+        emitError(QStringLiteral("CAT disconnect: FT split state could not be fully restored before closing the backend."));
+    } else if (!pttOffConfirmed && m_ftSplitTxActive) {
+        emitError(QStringLiteral("CAT disconnect: FT split restore was not attempted because PTT OFF was not confirmed; inspect the radio manually."));
+    }
     disconnectHrd();
 #ifdef MADMODEM_WITH_HAMLIB
     if (m_rig != nullptr) {
@@ -491,13 +564,30 @@ bool HamlibController::disconnectRig()
     m_havePreTxMode = false;
     m_preTxMode = 0;
     m_preTxPassband = 0;
+    m_preTxModeVfo = 0;
+    m_preTxModeWasSplit = false;
+    m_ftSplitRxVfo = 0;
+    m_ftSplitTxVfo = 0;
+    m_ftSplitPreviousState = 0;
+    m_ftSplitPreviousTxVfo = 0;
+    m_ftSplitPreviousTxFrequencyHz = 0.0;
 #endif
+    m_ftSplitTxActive = false;
+    m_ftSplitTxOperation.clear();
+    m_ftSplitRxFrequencyHz = 0.0;
+    m_ftSplitTxFrequencyHz = 0.0;
     return pttOffConfirmed;
 }
 
 void HamlibController::pollNow()
 {
     if (!m_config.catEnabled) {
+        return;
+    }
+
+    // Split/Fake-It temporarily changes a CAT frequency for TX. Never publish
+    // that transient value as the station RX frequency or band selection.
+    if (m_ftSplitTxActive) {
         return;
     }
 
@@ -573,6 +663,10 @@ bool HamlibController::setFrequencyHz(double frequencyHz)
     if (frequencyHz <= 0.0) {
         return false;
     }
+    if (m_ftSplitTxActive) {
+        emitError(QStringLiteral("CAT frequency change blocked while an FT split TX transaction is active."));
+        return false;
+    }
 
     if (isHamRadioDeluxeModel(m_config.rigModel)) {
         if (m_hrdSocket == nullptr || m_hrdSocket->state() != QTcpSocket::ConnectedState) {
@@ -637,6 +731,331 @@ bool HamlibController::setFrequencyHz(double frequencyHz)
         emitError(QStringLiteral("Hamlib frequency set succeeded, but CAT readback failed."));
         return false;
     }
+    return true;
+#endif
+}
+
+bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
+{
+    const QString op = operation.trimmed().toLower();
+    if (op != QStringLiteral("rig") && op != QStringLiteral("fake_it")) {
+        emitError(QStringLiteral("FT split TX requested with an invalid operation mode: %1").arg(operation));
+        return false;
+    }
+    if (m_config.readOnlyTest) {
+        emitError(QStringLiteral("FT split TX blocked: this controller instance is in read-only CAT-test mode."));
+        return false;
+    }
+    if (!m_config.catEnabled) {
+        emitError(QStringLiteral("FT split TX requires CAT control to be enabled."));
+        return false;
+    }
+    if (m_ftSplitTxActive) {
+        emitError(QStringLiteral("FT split TX transaction is already active; refusing a second concurrent owner."));
+        return false;
+    }
+
+    if (isHamRadioDeluxeModel(m_config.rigModel)) {
+        if (op == QStringLiteral("rig")) {
+            emitError(QStringLiteral("FT Split Operation/Rig is unavailable through the HRD backend because it does not expose Hamlib's native split-TX VFO abstraction; use Fake It or direct Hamlib CAT."));
+            return false;
+        }
+        if (m_hrdSocket == nullptr || m_hrdSocket->state() != QTcpSocket::ConnectedState) {
+            if (!connectHrd()) return false;
+        }
+        if (m_lastFrequencyHz <= 0.0 && !pollHrd()) {
+            emitError(QStringLiteral("FT Fake It could not read the current HRD frequency before TX."));
+            return false;
+        }
+        const double rxHz = m_lastFrequencyHz;
+        const double txHz = rxHz + static_cast<double>(rfShiftHz);
+        if (rxHz <= 0.0 || txHz <= 0.0) {
+            emitError(QStringLiteral("FT Fake It calculated an invalid CAT frequency."));
+            return false;
+        }
+        QString error;
+        if (rfShiftHz != 0 &&
+            !hrdSendSimpleCommand(QStringLiteral("set frequency %1").arg(QString::number(txHz, 'f', 0)), &error)) {
+            emitError(QStringLiteral("FT Fake It could not set the temporary HRD TX frequency: %1").arg(error));
+            return false;
+        }
+        m_ftSplitTxOperation = op;
+        m_ftSplitRxFrequencyHz = rxHz;
+        m_ftSplitTxFrequencyHz = txHz;
+        m_ftSplitTxActive = true;
+        setStatus(QStringLiteral("CAT connected / FT Fake It TX prepared"));
+        return true;
+    }
+
+#ifndef MADMODEM_WITH_HAMLIB
+    Q_UNUSED(rfShiftHz);
+    emitError(QStringLiteral("FT split TX requested, but Hamlib support is not compiled in."));
+    return false;
+#else
+    if (m_rig == nullptr && !connectRig()) return false;
+    if (m_rig == nullptr) return false;
+
+    RIG *rig = static_cast<RIG *>(m_rig);
+
+    // The RX frequency is always the currently selected receive frequency.
+    // Rig Split must never retune it.  A concrete VFO identity is only a hint
+    // for choosing Hamlib's logical split partner; many valid backends (e.g.
+    // IC-9700) intentionally do not implement rig_get_vfo().
+    vfo_t reportedRxVfo = RIG_VFO_CURR;
+    const int vfoRet = rig_get_vfo(rig, &reportedRxVfo);
+    if (vfoRet != RIG_OK || reportedRxVfo == RIG_VFO_NONE) {
+        reportedRxVfo = RIG_VFO_CURR;
+    }
+
+    freq_t rxFrequency = 0.0;
+    int ret = rig_get_freq(rig, RIG_VFO_CURR, &rxFrequency);
+    if (ret != RIG_OK || rxFrequency <= 0.0) {
+        emitError(QStringLiteral("FT split TX could not read the current RX frequency: %1")
+                      .arg(QString::fromLocal8Bit(rigerror(ret))));
+        return false;
+    }
+    const freq_t targetFrequency = rxFrequency + static_cast<freq_t>(rfShiftHz);
+    if (targetFrequency <= 0.0) {
+        emitError(QStringLiteral("FT split TX calculated an invalid TX frequency."));
+        return false;
+    }
+
+    if (op == QStringLiteral("fake_it")) {
+        // WSJT-X/JTDX Fake It: deliberately retune the current RX VFO only for
+        // the TX interval, then restore the exact RX frequency after PTT OFF.
+        if (rfShiftHz != 0) {
+            ret = rig_set_freq(rig, RIG_VFO_CURR, targetFrequency);
+            if (ret != RIG_OK) {
+                emitError(QStringLiteral("FT Fake It could not set the temporary TX frequency: %1")
+                              .arg(QString::fromLocal8Bit(rigerror(ret))));
+                return false;
+            }
+        }
+        m_ftSplitTxOperation = op;
+        m_ftSplitRxFrequencyHz = static_cast<double>(rxFrequency);
+        m_ftSplitTxFrequencyHz = static_cast<double>(targetFrequency);
+        m_ftSplitRxVfo = static_cast<qint64>(RIG_VFO_CURR);
+        m_ftSplitTxVfo = static_cast<qint64>(RIG_VFO_CURR);
+        m_ftSplitTxActive = true;
+        setStatus(QStringLiteral("CAT connected / FT Fake It TX prepared"));
+        return true;
+    }
+
+    // Native Rig Split. Preserve the operator's current split assignment.
+    // For a new split, select only Hamlib's logical A/B or MAIN/SUB side using
+    // the same vfo_list strategy as WSJT-X; Hamlib remains responsible for
+    // mapping that selector to the radio's actual VFO/slice/bank topology.
+    split_t previousSplit = RIG_SPLIT_OFF;
+    vfo_t previousTxVfo = RIG_VFO_NONE;
+    ret = rig_get_split_vfo(rig, RIG_VFO_CURR, &previousSplit, &previousTxVfo);
+    if (ret != RIG_OK) {
+        emitError(QStringLiteral("FT Split Operation/Rig could not snapshot the existing split state: %1")
+                      .arg(QString::fromLocal8Bit(rigerror(ret))));
+        return false;
+    }
+
+    const vfo_t txVfo = wsjtLikeFtRigSplitTxVfo(rig, reportedRxVfo, previousSplit, previousTxVfo);
+    if (txVfo == RIG_VFO_NONE || txVfo == RIG_VFO_CURR) {
+        emitError(QStringLiteral("FT Split Operation/Rig could not obtain a native split TX VFO from the Hamlib backend. Use Fake It for a single-VFO rig."));
+        return false;
+    }
+
+    freq_t previousTxFrequency = 0.0;
+    if (previousSplit == RIG_SPLIT_ON &&
+        (previousTxVfo == RIG_VFO_NONE || previousTxVfo == RIG_VFO_CURR)) {
+        emitError(QStringLiteral("FT Split Operation/Rig reported split ON without a concrete Hamlib TX VFO; refusing to overwrite an ambiguous radio state."));
+        return false;
+    }
+
+    auto restorePreviousSplit = [&]() {
+        vfo_t restoreTxVfo = previousTxVfo;
+        if (restoreTxVfo == RIG_VFO_NONE || restoreTxVfo == RIG_VFO_CURR) restoreTxVfo = txVfo;
+
+        // If we captured the TX-side frequency, restore it while split is
+        // still enabled so the operator's dormant/active TX VFO is not left at
+        // MadModem's 500-Hz compensated frequency.
+        if (previousTxFrequency > 0.0) {
+            const int selectRet = rig_set_split_vfo(rig, RIG_VFO_CURR, RIG_SPLIT_ON, restoreTxVfo);
+            if (selectRet == RIG_OK) {
+                ScopedHamlibTxVfo txTarget(rig, restoreTxVfo);
+                rig_set_split_freq(rig, RIG_VFO_CURR, previousTxFrequency);
+            }
+        }
+        rig_set_split_vfo(rig, RIG_VFO_CURR, previousSplit, restoreTxVfo);
+    };
+
+    // WSJT-X performs a split-VFO setup before setting split frequency so
+    // Hamlib's internal tx_vfo points at the correct logical transmitter on
+    // rigs whose backend needs this "tickle".  Split is enabled again last,
+    // since some Kenwood rigs leave split while VFO state is manipulated.
+    ret = rig_set_split_vfo(rig, RIG_VFO_CURR, RIG_SPLIT_ON, txVfo);
+    if (ret != RIG_OK) {
+        emitError(QStringLiteral("FT Split Operation/Rig could not select the native split TX VFO: %1")
+                      .arg(QString::fromLocal8Bit(rigerror(ret))));
+        return false;
+    }
+
+    // Capture the selected TX-side frequency *after* Hamlib has established
+    // the logical split selector but *before* MadModem changes it.  This also
+    // preserves a dormant TX VFO when split was originally OFF, so leaving FT
+    // operation cannot surprise the operator with a modified secondary VFO.
+    {
+        ScopedHamlibTxVfo txTarget(rig, txVfo);
+        ret = rig_get_split_freq(rig, RIG_VFO_CURR, &previousTxFrequency);
+    }
+    if (ret != RIG_OK || previousTxFrequency <= 0.0) {
+        restorePreviousSplit();
+        emitError(QStringLiteral("FT Split Operation/Rig could not snapshot the selected split TX frequency: %1")
+                      .arg(QString::fromLocal8Bit(rigerror(ret))));
+        return false;
+    }
+
+    {
+        ScopedHamlibTxVfo txTarget(rig, txVfo);
+        ret = rig_set_split_freq(rig, RIG_VFO_CURR, targetFrequency);
+    }
+    if (ret != RIG_OK) {
+        restorePreviousSplit();
+        emitError(QStringLiteral("FT Split Operation/Rig could not set the split TX frequency: %1")
+                      .arg(QString::fromLocal8Bit(rigerror(ret))));
+        return false;
+    }
+
+    ret = rig_set_split_vfo(rig, RIG_VFO_CURR, RIG_SPLIT_ON, txVfo);
+    if (ret != RIG_OK) {
+        restorePreviousSplit();
+        emitError(QStringLiteral("FT Split Operation/Rig could not enable native split after setting the TX frequency: %1")
+                      .arg(QString::fromLocal8Bit(rigerror(ret))));
+        return false;
+    }
+
+    m_ftSplitTxOperation = op;
+    m_ftSplitRxFrequencyHz = static_cast<double>(rxFrequency);
+    m_ftSplitTxFrequencyHz = static_cast<double>(targetFrequency);
+    m_ftSplitRxVfo = static_cast<qint64>(RIG_VFO_CURR);
+    m_ftSplitTxVfo = static_cast<qint64>(txVfo);
+    m_ftSplitPreviousState = static_cast<int>(previousSplit);
+    m_ftSplitPreviousTxVfo = static_cast<qint64>(previousTxVfo);
+    m_ftSplitPreviousTxFrequencyHz = static_cast<double>(previousTxFrequency);
+    m_ftSplitTxActive = true;
+    setStatus(QStringLiteral("CAT connected / FT Rig split TX prepared"));
+    return true;
+#endif
+}
+
+bool HamlibController::endFtSplitTx()
+{
+    if (!m_ftSplitTxActive) return true;
+
+    const QString op = m_ftSplitTxOperation;
+    bool ok = true;
+
+    if (isHamRadioDeluxeModel(m_config.rigModel)) {
+        if (op == QStringLiteral("fake_it")) {
+            QString error;
+            if (m_ftSplitRxFrequencyHz > 0.0 &&
+                !hrdSendSimpleCommand(QStringLiteral("set frequency %1").arg(QString::number(m_ftSplitRxFrequencyHz, 'f', 0)), &error)) {
+                emitError(QStringLiteral("FT Fake It could not restore the HRD RX frequency after TX: %1").arg(error));
+                ok = false;
+            }
+        }
+        if (!ok) {
+            // Keep the transaction snapshot intact so a later confirmed-RX
+            // cleanup can retry restoration.  While active, CAT polling stays
+            // suppressed and cannot publish the temporary TX dial as RX state.
+            return false;
+        }
+        m_ftSplitTxActive = false;
+        m_ftSplitTxOperation.clear();
+        m_ftSplitTxFrequencyHz = 0.0;
+        m_lastFrequencyHz = 0.0;
+        if (m_config.catEnabled) pollHrd();
+        m_ftSplitRxFrequencyHz = 0.0;
+        setStatus(QStringLiteral("CAT connected"));
+        return true;
+    }
+
+#ifndef MADMODEM_WITH_HAMLIB
+    m_ftSplitTxActive = false;
+    m_ftSplitTxOperation.clear();
+    m_ftSplitRxFrequencyHz = 0.0;
+    m_ftSplitTxFrequencyHz = 0.0;
+    return false;
+#else
+    if (m_rig == nullptr) {
+        emitError(QStringLiteral("FT split restore failed because the Hamlib connection is no longer open."));
+        ok = false;
+    } else {
+        RIG *rig = static_cast<RIG *>(m_rig);
+
+        if (op == QStringLiteral("fake_it")) {
+            const int ret = rig_set_freq(rig, RIG_VFO_CURR, static_cast<freq_t>(m_ftSplitRxFrequencyHz));
+            if (ret != RIG_OK) {
+                emitError(QStringLiteral("FT Fake It could not restore the RX frequency after TX: %1")
+                              .arg(QString::fromLocal8Bit(rigerror(ret))));
+                ok = false;
+            }
+        } else if (op == QStringLiteral("rig")) {
+            const vfo_t txVfo = static_cast<vfo_t>(m_ftSplitTxVfo);
+            const split_t previousSplit = static_cast<split_t>(m_ftSplitPreviousState);
+            vfo_t previousTxVfo = static_cast<vfo_t>(m_ftSplitPreviousTxVfo);
+            if (previousTxVfo == RIG_VFO_NONE || previousTxVfo == RIG_VFO_CURR) {
+                previousTxVfo = txVfo;
+            }
+
+            // Restore the operator's TX-side frequency first, while Hamlib
+            // still has a real split TX selector.  This is done for both an
+            // originally-active split and an originally-dormant secondary VFO.
+            int ret = rig_set_split_vfo(rig, RIG_VFO_CURR, RIG_SPLIT_ON, previousTxVfo);
+            if (ret != RIG_OK) {
+                emitError(QStringLiteral("FT Split Operation/Rig could not reselect the previous split TX VFO: %1")
+                              .arg(QString::fromLocal8Bit(rigerror(ret))));
+                ok = false;
+            }
+            if (ok && m_ftSplitPreviousTxFrequencyHz > 0.0) {
+                ScopedHamlibTxVfo txTarget(rig, previousTxVfo);
+                ret = rig_set_split_freq(rig,
+                                         RIG_VFO_CURR,
+                                         static_cast<freq_t>(m_ftSplitPreviousTxFrequencyHz));
+                if (ret != RIG_OK) {
+                    emitError(QStringLiteral("FT Split Operation/Rig could not restore the previous split TX frequency: %1")
+                                  .arg(QString::fromLocal8Bit(rigerror(ret))));
+                    ok = false;
+                }
+            }
+            if (ok) {
+                const int splitRet = rig_set_split_vfo(rig,
+                                                       RIG_VFO_CURR,
+                                                       previousSplit,
+                                                       previousTxVfo);
+                if (splitRet != RIG_OK) {
+                    emitError(QStringLiteral("FT Split Operation/Rig could not restore the previous split state: %1")
+                                  .arg(QString::fromLocal8Bit(rigerror(splitRet))));
+                    ok = false;
+                }
+            }
+        }
+    }
+
+    if (!ok) {
+        // Preserve the snapshot and keep normal CAT polling blocked. This
+        // makes restoration retryable and prevents a partially restored or
+        // still-temporary TX frequency from becoming the advertised RX state.
+        return false;
+    }
+
+    m_ftSplitTxActive = false;
+    m_ftSplitTxOperation.clear();
+    m_ftSplitRxFrequencyHz = 0.0;
+    m_ftSplitTxFrequencyHz = 0.0;
+    m_ftSplitRxVfo = 0;
+    m_ftSplitTxVfo = 0;
+    m_ftSplitPreviousState = 0;
+    m_ftSplitPreviousTxVfo = 0;
+    m_ftSplitPreviousTxFrequencyHz = 0.0;
+    m_lastFrequencyHz = 0.0;
+    if (m_config.catEnabled) pollNow();
+    setStatus(QStringLiteral("CAT connected"));
     return true;
 #endif
 }
@@ -797,12 +1216,26 @@ void HamlibController::capturePreTxMode()
     }
 
     RIG *rig = static_cast<RIG *>(m_rig);
+    const bool splitTx = m_ftSplitTxActive &&
+                         m_ftSplitTxOperation == QStringLiteral("rig") &&
+                         m_ftSplitTxVfo != 0;
     rmode_t mode = RIG_MODE_NONE;
     pbwidth_t width = 0;
-    const int ret = rig_get_mode(rig, RIG_VFO_CURR, &mode, &width);
+    int ret = RIG_OK;
+    if (splitTx) {
+        // Mirror WSJT-X: query the split TX mode through Hamlib's split API,
+        // with the logical TX selector installed only for the duration of the
+        // call.  Do not directly address a physical VFO bank from MadModem.
+        ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
+        ret = rig_get_split_mode(rig, RIG_VFO_CURR, &mode, &width);
+    } else {
+        ret = rig_get_mode(rig, RIG_VFO_CURR, &mode, &width);
+    }
     if (ret == RIG_OK && mode != RIG_MODE_NONE) {
         m_preTxMode = static_cast<qint64>(mode);
         m_preTxPassband = static_cast<qint64>(width);
+        m_preTxModeVfo = static_cast<qint64>(RIG_VFO_CURR);
+        m_preTxModeWasSplit = splitTx;
         m_havePreTxMode = true;
     }
 }
@@ -814,9 +1247,12 @@ void HamlibController::restorePreTxMode()
     }
     const rmode_t mode = static_cast<rmode_t>(m_preTxMode);
     pbwidth_t width = static_cast<pbwidth_t>(m_preTxPassband);
+    const bool splitMode = m_preTxModeWasSplit;
     m_havePreTxMode = false;
     m_preTxMode = 0;
     m_preTxPassband = 0;
+    m_preTxModeVfo = 0;
+    m_preTxModeWasSplit = false;
 
     if (!m_txModeChangedByMadModem) {
         return;
@@ -837,9 +1273,15 @@ void HamlibController::restorePreTxMode()
     }
 
     RIG *rig = static_cast<RIG *>(m_rig);
-    const int ret = rig_set_mode(rig, RIG_VFO_CURR, mode, width);
+    int ret = RIG_OK;
+    if (splitMode && m_ftSplitTxActive && m_ftSplitTxVfo != 0) {
+        ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
+        ret = rig_set_split_mode(rig, RIG_VFO_CURR, mode, width);
+    } else {
+        ret = rig_set_mode(rig, RIG_VFO_CURR, mode, width);
+    }
     if (ret != RIG_OK) {
-        emitError(QStringLiteral("Hamlib could not restore RX mode/passband after PTT: %1")
+        emitError(QStringLiteral("Hamlib could not restore transmit mode/passband after PTT: %1")
                       .arg(QString::fromLocal8Bit(rigerror(ret))));
     }
 }
@@ -881,7 +1323,25 @@ bool HamlibController::forceUsbMode(bool required)
     }
 
     RIG *rig = static_cast<RIG *>(m_rig);
-    const int ret = rig_set_mode(rig, RIG_VFO_CURR, RIG_MODE_USB, kDigitalWidePassbandHz);
+    const bool splitTx = m_ftSplitTxActive &&
+                         m_ftSplitTxOperation == QStringLiteral("rig") &&
+                         m_ftSplitTxVfo != 0;
+    // When MadModem is about to change the real split TX mode, restoration is
+    // part of the same transaction.  Do not modify a remote TX-side mode if
+    // Hamlib could not first snapshot it.  This check is intentionally limited
+    // to opt-in Rig Split; the long-standing None/Fake-It PTT path is unchanged.
+    if (splitTx && !m_havePreTxMode) {
+        emitError(QStringLiteral("FT Split Operation/Rig could not snapshot the split TX mode/passband before changing the transmit audio route; TX aborted."));
+        return false;
+    }
+
+    int ret = RIG_OK;
+    if (splitTx) {
+        ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
+        ret = rig_set_split_mode(rig, RIG_VFO_CURR, RIG_MODE_USB, kDigitalWidePassbandHz);
+    } else {
+        ret = rig_set_mode(rig, RIG_VFO_CURR, RIG_MODE_USB, kDigitalWidePassbandHz);
+    }
     if (ret == RIG_OK) {
         m_txModeChangedByMadModem = true;
         return true;
@@ -909,6 +1369,16 @@ bool HamlibController::forceDataUsbMode(bool required)
     }
 
     RIG *rig = static_cast<RIG *>(m_rig);
+    const bool splitTx = m_ftSplitTxActive &&
+                         m_ftSplitTxOperation == QStringLiteral("rig") &&
+                         m_ftSplitTxVfo != 0;
+    // Same transaction rule as USB above: a real split TX mode must be
+    // restorable before MadModem is allowed to change it.
+    if (splitTx && !m_havePreTxMode) {
+        emitError(QStringLiteral("FT Split Operation/Rig could not snapshot the split TX mode/passband before changing the transmit audio route; TX aborted."));
+        return false;
+    }
+
     const rmode_t modes[] = {
         RIG_MODE_PKTUSB,  // Hamlib's generic digital/packet USB mode.
 #ifdef RIG_MODE_USBD1
@@ -924,7 +1394,13 @@ bool HamlibController::forceDataUsbMode(bool required)
 
     QString lastError;
     for (rmode_t mode : modes) {
-        const int ret = rig_set_mode(rig, RIG_VFO_CURR, mode, kDigitalWidePassbandHz);
+        int ret = RIG_OK;
+        if (splitTx) {
+            ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
+            ret = rig_set_split_mode(rig, RIG_VFO_CURR, mode, kDigitalWidePassbandHz);
+        } else {
+            ret = rig_set_mode(rig, RIG_VFO_CURR, mode, kDigitalWidePassbandHz);
+        }
         if (ret == RIG_OK) {
             m_txModeChangedByMadModem = true;
             return true;

@@ -455,6 +455,13 @@ void RigControlSettingsDialog::buildUi()
     m_cmbTxAudioRoute->addItem(QString(), QStringLiteral("usb"));
     m_cmbTxAudioRoute->addItem(QString(), QStringLiteral("data_pkt"));
 
+    m_lblSplitOperation = new QLabel(catGroup);
+    m_cmbSplitOperation = new QComboBox(catGroup);
+    m_cmbSplitOperation->addItem(QString(), QStringLiteral("none"));
+    m_cmbSplitOperation->addItem(QString(), QStringLiteral("rig"));
+    m_cmbSplitOperation->addItem(QString(), QStringLiteral("fake_it"));
+    m_cmbSplitOperation->setToolTip(L(QStringLiteral("FT4/FT8 only: keep TX audio between 1500 and 2000 Hz. Rig uses separate RX/TX VFOs; Fake It temporarily retunes a single VFO at each TX/RX transition.")));
+
     m_lblTransmitAudioSource = new QLabel(catGroup);
     m_cmbTransmitAudioSource = new QComboBox(catGroup);
     m_cmbTransmitAudioSource->addItem(QString(), QStringLiteral("rear_data"));
@@ -554,20 +561,23 @@ void RigControlSettingsDialog::buildUi()
     grid->addWidget(m_lblTransmitAudioSource, row, 2);
     grid->addWidget(m_cmbTransmitAudioSource, row++, 3);
 
-    grid->addWidget(m_lblPttMethod, row, 0);
-    grid->addWidget(m_cmbPttMethod, row, 1);
-    grid->addWidget(m_lblStopBits, row, 2);
-    grid->addWidget(m_cmbStopBits, row++, 3);
+    grid->addWidget(m_lblSplitOperation, row, 0);
+    grid->addWidget(m_cmbSplitOperation, row, 1);
+    grid->addWidget(m_lblPttMethod, row, 2);
+    grid->addWidget(m_cmbPttMethod, row++, 3);
 
-    grid->addWidget(m_lblHandshake, row, 0);
-    grid->addWidget(m_cmbHandshake, row, 1);
-    grid->addWidget(m_lblForceDtr, row, 2);
-    grid->addWidget(m_cmbForceDtr, row++, 3);
+    grid->addWidget(m_lblStopBits, row, 0);
+    grid->addWidget(m_cmbStopBits, row, 1);
+    grid->addWidget(m_lblHandshake, row, 2);
+    grid->addWidget(m_cmbHandshake, row++, 3);
 
-    grid->addWidget(m_lblForceRts, row, 0);
-    grid->addWidget(m_cmbForceRts, row, 1);
-    grid->addWidget(m_lblPoll, row, 2);
-    grid->addWidget(m_spinPollMs, row++, 3);
+    grid->addWidget(m_lblForceDtr, row, 0);
+    grid->addWidget(m_cmbForceDtr, row, 1);
+    grid->addWidget(m_lblForceRts, row, 2);
+    grid->addWidget(m_cmbForceRts, row++, 3);
+
+    grid->addWidget(m_lblPoll, row, 0);
+    grid->addWidget(m_spinPollMs, row++, 1);
 
     grid->addWidget(m_lblBaudHint, row++, 0, 1, 4);
 
@@ -867,6 +877,14 @@ void RigControlSettingsDialog::loadFromSettings()
             m_cmbTxAudioRoute->setCurrentIndex(idx);
         }
     }
+    if (m_cmbSplitOperation != nullptr) {
+        QString split = m_settings.hamlibSplitOperation.trimmed().toLower();
+        if (split != QStringLiteral("rig") && split != QStringLiteral("fake_it")) {
+            split = QStringLiteral("none");
+        }
+        const int idx = m_cmbSplitOperation->findData(split);
+        m_cmbSplitOperation->setCurrentIndex(idx >= 0 ? idx : 0);
+    }
     if (m_cmbTransmitAudioSource != nullptr) {
         QString source = m_settings.hamlibTransmitAudioSource.trimmed().toLower();
         if (source != QStringLiteral("front_mic")) {
@@ -964,6 +982,17 @@ void RigControlSettingsDialog::refreshLabels()
         if (current >= 0) {
             m_cmbTxAudioRoute->setCurrentIndex(current);
         }
+    }
+    if (m_lblSplitOperation != nullptr) {
+        m_lblSplitOperation->setText(L("Split operation"));
+    }
+    if (m_cmbSplitOperation != nullptr) {
+        const int current = m_cmbSplitOperation->currentIndex();
+        m_cmbSplitOperation->setItemText(0, L("None"));
+        m_cmbSplitOperation->setItemText(1, L("Rig"));
+        m_cmbSplitOperation->setItemText(2, L("Fake It"));
+        m_cmbSplitOperation->setToolTip(L("FT4/FT8 only: keep TX audio between 1500 and 2000 Hz. Rig uses separate RX/TX VFOs; Fake It temporarily retunes a single VFO at each TX/RX transition."));
+        if (current >= 0) m_cmbSplitOperation->setCurrentIndex(current);
     }
     if (m_lblTransmitAudioSource != nullptr) {
         m_lblTransmitAudioSource->setText(L("Transmit audio source"));
@@ -1103,6 +1132,9 @@ void RigControlSettingsDialog::applyToSettings()
     m_settings.hamlibTxAudioRoute = (m_cmbTxAudioRoute != nullptr)
                                         ? m_cmbTxAudioRoute->currentData().toString()
                                         : QStringLiteral("default");
+    m_settings.hamlibSplitOperation = (m_cmbSplitOperation != nullptr)
+                                        ? m_cmbSplitOperation->currentData().toString()
+                                        : QStringLiteral("none");
     if (m_settings.hamlibTxAudioRoute.isEmpty()) {
         m_settings.hamlibTxAudioRoute = QStringLiteral("default");
     }
@@ -1144,6 +1176,8 @@ void RigControlSettingsDialog::refreshEnabledState()
     const QString pttMethod = (m_cmbPttMethod != nullptr) ? m_cmbPttMethod->currentData().toString() : QStringLiteral("none");
     const bool pttViaHamlib = (pttMethod == QStringLiteral("cat_hamlib") || pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr"));
     if (m_cmbTxAudioRoute != nullptr) m_cmbTxAudioRoute->setEnabled(enabled && pttMethod == QStringLiteral("cat_hamlib"));
+    if (m_cmbSplitOperation != nullptr) m_cmbSplitOperation->setEnabled(cat);
+    if (m_lblSplitOperation != nullptr) m_lblSplitOperation->setEnabled(cat);
     if (m_cmbTransmitAudioSource != nullptr) m_cmbTransmitAudioSource->setEnabled(enabled && pttMethod == QStringLiteral("cat_hamlib"));
     if (m_cmbSerialPort != nullptr) m_cmbSerialPort->setEnabled(enabled && !hrd);
     if (m_editTcpAddress != nullptr) m_editTcpAddress->setEnabled(enabled);

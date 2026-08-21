@@ -1,6 +1,6 @@
-# MadModem 0.5.8 release notes
+# MadModem 0.5.9-alpha release notes
 
-MadModem 0.5.8 concentrates on predictable live operation: weak-signal
+MadModem 0.5.9-alpha is a pre-release build for validating the new FT split-operation path while retaining the established live-operation baseline: weak-signal
 decoding keeps its established sensitivity, time-critical FT work is completed
 before the reply slot, and the interface communicates state without covering
 the operating area.
@@ -60,6 +60,11 @@ the operating area.
   status bar. Narrow side panels use compact, wrapping text and bounded controls.
 - Radio CAT/PTT and rotator connections remain separate. CAT/PTT fails closed
   when a requested data route cannot be established.
+- FT4/FT8 Split Operation is opt-in (`None` remains the default). `Rig` uses
+  Hamlib's native split-frequency and split-mode APIs with the same logical
+  A/B-or-MAIN/SUB selection strategy used by WSJT-X; the Hamlib backend, not
+  MadModem, maps that logical selector to radios with richer VFO/bank layouts.
+  `Fake It` is the WSJT-X name for temporarily moving the current VFO during TX.
 - Audio capture and UI/DSP distribution use bounded queues so a slow display
   cannot create an unbounded backlog.
 
