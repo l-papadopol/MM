@@ -5,6 +5,7 @@
 - Marks the current development line as an explicit alpha so 0.5.8 remains the rollback baseline.
 - Adds FT8/FT4 split-operation controls with Rig and Fake It modes and a 1500–2000 Hz TX-audio target window.
 - Rig split follows the Hamlib/WSJT-X logical VFO abstraction instead of assuming a fixed A/B physical topology.
+- Alpha r2 removes the accidental dependency on Hamlib private `RIG::state`; split discovery and control now use only Hamlib 4.7 public APIs, fixing the Linux package compile while preserving `Split=None`.
 - Includes the native Q65 A/B/C/D fixes, native MSK144 work, CW contest support and rules, independent CW TX marker/frequency, and WSJT-X/JTDX-compatible UDP Logged ADIF output developed after 0.5.8.
 
 ## 0.5.8 — integral source hardening — 2026-08-17

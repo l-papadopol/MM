@@ -164,6 +164,24 @@ constexpr pbwidth_t kDigitalWidePassbandHz = 3000;
 //
 // Preserve an already-active split TX selector when the radio reports one.
 // Otherwise choose the WSJT-X-style logical opposite of the current RX side.
+bool hamlibVfoListContains(const QByteArray &vfoList, vfo_t wanted)
+{
+    const auto tokens = vfoList.simplified().split(' ');
+    for (const QByteArray &token : tokens) {
+        if (!token.isEmpty() && rig_parse_vfo(token.constData()) == wanted) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Choose only among VFO selectors that Hamlib publicly reports as usable.
+// Never inspect Hamlib's private rig_state: Hamlib 4.7+ deliberately hides it
+// from applications.  An already-active split selector is authoritative.  For
+// a new split we mirror WSJT-X's A/B or MAIN/SUB policy, but preserve the more
+// specific MAIN_A/MAIN_B and SUB_A/SUB_B pairs when the backend reports them.
+// If the current VFO is a concrete selector with no unambiguous partner (for
+// example VFO C on a multi-VFO radio), fail closed instead of guessing.
 vfo_t wsjtLikeFtRigSplitTxVfo(RIG *rig, vfo_t reportedRxVfo,
                                split_t previousSplit, vfo_t previousTxVfo)
 {
@@ -172,57 +190,38 @@ vfo_t wsjtLikeFtRigSplitTxVfo(RIG *rig, vfo_t reportedRxVfo,
     if (previousSplit == RIG_SPLIT_ON &&
         previousTxVfo != RIG_VFO_NONE &&
         previousTxVfo != RIG_VFO_CURR) {
-        // An already-active operator split is authoritative.  Preserve the
-        // selector exactly as Hamlib reports it (including TX aliases or a
-        // backend-specific logical selector) instead of trying to reinterpret
-        // the radio topology from the current receive side.
         return previousTxVfo;
     }
 
-    const vfo_t available = static_cast<vfo_t>(rig->state.vfo_list);
-    const bool hasAB = (available & RIG_VFO_A) && (available & RIG_VFO_B);
-    const bool hasMainSub = (available & RIG_VFO_MAIN) && (available & RIG_VFO_SUB);
-    if (!hasAB && !hasMainSub) return RIG_VFO_NONE;
+    char listBuffer[256] = {};
+    if (rig_get_vfo_list(rig, listBuffer, static_cast<int>(sizeof(listBuffer))) != RIG_OK) {
+        return RIG_VFO_NONE;
+    }
+    const QByteArray vfoList(listBuffer);
+    const auto has = [&](vfo_t vfo) { return hamlibVfoListContains(vfoList, vfo); };
 
-    vfo_t current = reportedRxVfo;
-    if (current == RIG_VFO_NONE || current == RIG_VFO_CURR) {
-        current = rig->state.current_vfo;
+    const vfo_t current = reportedRxVfo;
+
+    if (current == RIG_VFO_MAIN_A && has(RIG_VFO_MAIN_B)) return RIG_VFO_MAIN_B;
+    if (current == RIG_VFO_MAIN_B && has(RIG_VFO_MAIN_A)) return RIG_VFO_MAIN_A;
+    if (current == RIG_VFO_SUB_A && has(RIG_VFO_SUB_B)) return RIG_VFO_SUB_B;
+    if (current == RIG_VFO_SUB_B && has(RIG_VFO_SUB_A)) return RIG_VFO_SUB_A;
+    if (current == RIG_VFO_A && has(RIG_VFO_B)) return RIG_VFO_B;
+    if (current == RIG_VFO_B && has(RIG_VFO_A)) return RIG_VFO_A;
+    if (current == RIG_VFO_MAIN && has(RIG_VFO_SUB)) return RIG_VFO_SUB;
+    if (current == RIG_VFO_SUB && has(RIG_VFO_MAIN)) return RIG_VFO_MAIN;
+
+    // Some radios cannot report which VFO is selected.  This is the same
+    // conservative startup assumption used by WSJT-X for that CAT class:
+    // receive is A/MAIN, transmit is B/SUB.  We make that assumption only when
+    // rig_get_vfo() did not produce a concrete selector.
+    if (current == RIG_VFO_NONE || current == RIG_VFO_CURR || current == RIG_VFO_VFO) {
+        if (has(RIG_VFO_A) && has(RIG_VFO_B)) return RIG_VFO_B;
+        if (has(RIG_VFO_MAIN) && has(RIG_VFO_SUB)) return RIG_VFO_SUB;
     }
 
-    if (hasAB) {
-        // MAIN_B/SUB_B are physical/backend-specific refinements of logical B.
-        const bool rxOnLogicalB = current == RIG_VFO_B ||
-                                  current == RIG_VFO_MAIN_B ||
-                                  current == RIG_VFO_SUB_B;
-        return rxOnLogicalB ? RIG_VFO_A : RIG_VFO_B;
-    }
-
-    // Same idea for backends that expose MAIN/SUB rather than A/B.
-    const bool rxOnLogicalSub = current == RIG_VFO_SUB ||
-                                current == RIG_VFO_SUB_A ||
-                                current == RIG_VFO_SUB_B;
-    return rxOnLogicalSub ? RIG_VFO_MAIN : RIG_VFO_SUB;
+    return RIG_VFO_NONE;
 }
-
-class ScopedHamlibTxVfo final
-{
-public:
-    ScopedHamlibTxVfo(RIG *rig, vfo_t txVfo)
-        : m_rig(rig),
-          m_previous(rig != nullptr ? rig->state.tx_vfo : RIG_VFO_NONE)
-    {
-        if (m_rig != nullptr) m_rig->state.tx_vfo = txVfo;
-    }
-
-    ~ScopedHamlibTxVfo()
-    {
-        if (m_rig != nullptr) m_rig->state.tx_vfo = m_previous;
-    }
-
-private:
-    RIG *m_rig = nullptr;
-    vfo_t m_previous = RIG_VFO_NONE;
-};
 #endif
 
 } // namespace
@@ -877,17 +876,16 @@ bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
         if (previousTxFrequency > 0.0) {
             const int selectRet = rig_set_split_vfo(rig, RIG_VFO_CURR, RIG_SPLIT_ON, restoreTxVfo);
             if (selectRet == RIG_OK) {
-                ScopedHamlibTxVfo txTarget(rig, restoreTxVfo);
                 rig_set_split_freq(rig, RIG_VFO_CURR, previousTxFrequency);
             }
         }
         rig_set_split_vfo(rig, RIG_VFO_CURR, previousSplit, restoreTxVfo);
     };
 
-    // WSJT-X performs a split-VFO setup before setting split frequency so
-    // Hamlib's internal tx_vfo points at the correct logical transmitter on
-    // rigs whose backend needs this "tickle".  Split is enabled again last,
-    // since some Kenwood rigs leave split while VFO state is manipulated.
+    // Establish the TX selector through Hamlib's public split API before asking
+    // Hamlib to read/write split frequency.  Hamlib itself owns and updates its
+    // internal TX-VFO state.  Split is enabled again last because some rigs
+    // (notably Kenwood families) may leave split while TX-side state changes.
     ret = rig_set_split_vfo(rig, RIG_VFO_CURR, RIG_SPLIT_ON, txVfo);
     if (ret != RIG_OK) {
         emitError(QStringLiteral("FT Split Operation/Rig could not select the native split TX VFO: %1")
@@ -899,10 +897,7 @@ bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
     // the logical split selector but *before* MadModem changes it.  This also
     // preserves a dormant TX VFO when split was originally OFF, so leaving FT
     // operation cannot surprise the operator with a modified secondary VFO.
-    {
-        ScopedHamlibTxVfo txTarget(rig, txVfo);
-        ret = rig_get_split_freq(rig, RIG_VFO_CURR, &previousTxFrequency);
-    }
+    ret = rig_get_split_freq(rig, RIG_VFO_CURR, &previousTxFrequency);
     if (ret != RIG_OK || previousTxFrequency <= 0.0) {
         restorePreviousSplit();
         emitError(QStringLiteral("FT Split Operation/Rig could not snapshot the selected split TX frequency: %1")
@@ -910,10 +905,7 @@ bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
         return false;
     }
 
-    {
-        ScopedHamlibTxVfo txTarget(rig, txVfo);
-        ret = rig_set_split_freq(rig, RIG_VFO_CURR, targetFrequency);
-    }
+    ret = rig_set_split_freq(rig, RIG_VFO_CURR, targetFrequency);
     if (ret != RIG_OK) {
         restorePreviousSplit();
         emitError(QStringLiteral("FT Split Operation/Rig could not set the split TX frequency: %1")
@@ -1013,7 +1005,6 @@ bool HamlibController::endFtSplitTx()
                 ok = false;
             }
             if (ok && m_ftSplitPreviousTxFrequencyHz > 0.0) {
-                ScopedHamlibTxVfo txTarget(rig, previousTxVfo);
                 ret = rig_set_split_freq(rig,
                                          RIG_VFO_CURR,
                                          static_cast<freq_t>(m_ftSplitPreviousTxFrequencyHz));
@@ -1223,10 +1214,9 @@ void HamlibController::capturePreTxMode()
     pbwidth_t width = 0;
     int ret = RIG_OK;
     if (splitTx) {
-        // Mirror WSJT-X: query the split TX mode through Hamlib's split API,
-        // with the logical TX selector installed only for the duration of the
-        // call.  Do not directly address a physical VFO bank from MadModem.
-        ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
+        // Query the active split TX mode through Hamlib's public split API.
+        // beginFtSplitTx() has already established the TX selector with
+        // rig_set_split_vfo(); MadModem never edits Hamlib private state.
         ret = rig_get_split_mode(rig, RIG_VFO_CURR, &mode, &width);
     } else {
         ret = rig_get_mode(rig, RIG_VFO_CURR, &mode, &width);
@@ -1275,7 +1265,6 @@ void HamlibController::restorePreTxMode()
     RIG *rig = static_cast<RIG *>(m_rig);
     int ret = RIG_OK;
     if (splitMode && m_ftSplitTxActive && m_ftSplitTxVfo != 0) {
-        ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
         ret = rig_set_split_mode(rig, RIG_VFO_CURR, mode, width);
     } else {
         ret = rig_set_mode(rig, RIG_VFO_CURR, mode, width);
@@ -1337,7 +1326,6 @@ bool HamlibController::forceUsbMode(bool required)
 
     int ret = RIG_OK;
     if (splitTx) {
-        ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
         ret = rig_set_split_mode(rig, RIG_VFO_CURR, RIG_MODE_USB, kDigitalWidePassbandHz);
     } else {
         ret = rig_set_mode(rig, RIG_VFO_CURR, RIG_MODE_USB, kDigitalWidePassbandHz);
@@ -1396,7 +1384,6 @@ bool HamlibController::forceDataUsbMode(bool required)
     for (rmode_t mode : modes) {
         int ret = RIG_OK;
         if (splitTx) {
-            ScopedHamlibTxVfo txTarget(rig, static_cast<vfo_t>(m_ftSplitTxVfo));
             ret = rig_set_split_mode(rig, RIG_VFO_CURR, mode, kDigitalWidePassbandHz);
         } else {
             ret = rig_set_mode(rig, RIG_VFO_CURR, mode, kDigitalWidePassbandHz);

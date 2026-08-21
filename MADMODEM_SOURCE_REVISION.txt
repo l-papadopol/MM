@@ -1,1 +1,1 @@
-0.5.9-alpha-source-r1-wsjtx-hamlib-rig-split
+0.5.9-alpha-source-r2-hamlib47-public-split-api

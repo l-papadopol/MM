@@ -274,10 +274,18 @@ PTT OFF at application shutdown.
 ### R24 — WSJT-X/Hamlib-native Rig Split correction
 
 - Corrected the first R23 `Rig` implementation before on-air acceptance: MadModem no longer contains a hand-written physical `A↔B`, `MAIN↔SUB`, `MAIN_A↔MAIN_B` or `SUB_A↔SUB_B` pairing table.
-- The implementation now follows the architecture used by WSJT-X `HamlibTransceiver`: choose only Hamlib's logical split family from `rig->state.vfo_list` (`A/B` when exposed, otherwise `MAIN/SUB`), respect a pre-existing split TX selector when one is reported, and let the Hamlib backend map that logical selector onto the radio's physical VFO/bank/slice topology.
-- Split TX frequency is set through `rig_set_split_freq()` rather than direct `rig_set_freq(txVfo, ...)`. Split TX mode is read/written through `rig_get_split_mode()` / `rig_set_split_mode()` rather than direct mode access to a guessed physical VFO. A short RAII scope mirrors WSJT-X's `hamlib_tx_vfo_fixup` so Hamlib's internal `state.tx_vfo` is correct only while the split API call is made.
+- The implementation follows the WSJT-X/Hamlib split architecture without accessing Hamlib private state. Hamlib 4.7+ deliberately hides `rig_state` from applications, so MadModem obtains the available logical selectors through the public `rig_get_vfo_list()` API and the selected receive side through `rig_get_vfo()`. A pre-existing split TX selector returned by `rig_get_split_vfo()` remains authoritative.
+- Split TX frequency is set through `rig_set_split_freq()` rather than direct `rig_set_freq(txVfo, ...)`. Split TX mode is read/written through `rig_get_split_mode()` / `rig_set_split_mode()`. `rig_set_split_vfo()` is called first so Hamlib itself establishes and owns its internal TX selector; MadModem never writes `rig_state`, `tx_vfo`, or any other Hamlib-private field.
 - `rig_get_vfo()` is only a hint. A backend that cannot report the selected VFO is not rejected solely for that reason; the current RX frequency remains `RIG_VFO_CURR` and is never retuned by `Rig` operation.
 - A pre-existing split state is snapshotted when the backend can report it and restored after confirmed PTT OFF. If the state cannot be snapshotted unambiguously, `Rig` fails closed rather than silently changing to `Fake It` or overwriting unknown radio state.
 - `Fake It` remains the WSJT-X/JTDX term and keeps its separate single-current-VFO transaction: temporary dial move before PTT, exact RX restoration after confirmed PTT OFF.
 - Stability invariant: `Hamlib/splitOperation` still defaults to `none`. With `None`, the pre-R23 CAT/PTT/frequency path is unchanged and none of the new split transaction code runs.
 
+
+
+### 0.5.9-alpha r2 — Hamlib 4.7 public-API split compile fix
+
+- Fixed the Linux/macOS/Windows compile break caused by direct `RIG::state` access. The bundled Hamlib 4.7.2 exposes only `state_addr` as private implementation data; application code must not dereference it.
+- FT Rig Split now uses only public Hamlib APIs: `rig_get_vfo()`, `rig_get_vfo_list()`, `rig_get_split_vfo()`, `rig_set_split_vfo()`, `rig_get_split_freq()`, `rig_set_split_freq()`, `rig_get_split_mode()` and `rig_set_split_mode()`.
+- A concrete current VFO such as VFO C with no unambiguous standard split partner fails closed rather than being silently mapped to A/B. When a backend cannot report the current selector, the public VFO list is used for the same conservative A/MAIN receive, B/SUB transmit assumption used by WSJT-X for that CAT class.
+- `Split=None` and `Fake It` are untouched by this correction; the stable pre-split CAT/PTT path remains unchanged when Split is disabled.

@@ -5,6 +5,11 @@ decoding keeps its established sensitivity, time-critical FT work is completed
 before the reply slot, and the interface communicates state without covering
 the operating area.
 
+### Alpha r2 Hamlib compatibility
+
+- The first alpha referenced the old public `RIG::state` layout used by older WSJT-X/Hamlib combinations. Bundled Hamlib 4.7.2 intentionally hides that state. MadModem now uses `rig_get_vfo_list()` and the normal split APIs only; no Hamlib private data is accessed.
+- This is a compile/encapsulation correction to the opt-in Rig Split path. `Split=None`, FT decoding/sequencing, CW, UDP logging and the established CAT/PTT path are unchanged.
+
 ## FT4 and FT8
 
 - An active QSO receives a bounded, frequency-focused decode pass before the

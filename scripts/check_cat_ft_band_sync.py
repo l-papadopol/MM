@@ -98,8 +98,11 @@ checks = {
         and "rig_get_split_mode" in controller
         and "rig_set_split_mode" in controller
         and "wsjtLikeFtRigSplitTxVfo" in controller
-        and "rig->state.vfo_list" in controller
-        and "ScopedHamlibTxVfo" in controller
+        and "rig_get_vfo_list" in controller
+        and "rig_parse_vfo" in controller
+        and "rig->state" not in controller
+        and "state_addr" not in controller
+        and "ScopedHamlibTxVfo" not in controller
         and "pairedSplitVfo" not in controller
         and "rig_set_freq(rig, txVfo" not in controller
         and "refusing a second concurrent owner" in controller
