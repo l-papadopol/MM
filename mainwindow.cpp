@@ -252,6 +252,11 @@ constexpr int kFtGeneratedSignalAllowanceMs = 120;
 constexpr int kFtSlotEndGuardMs = 200;
 constexpr int kFtMinimumLatePartialToneMs = 600;
 
+// Forward declaration: contest-dupe highlighting is implemented before the
+// contest helper definitions later in this translation unit. Keep the helper
+// in the shared anonymous namespace but make it visible at the first use.
+QString rttyContestPeriodId(const RttyContestProfile &profile, const QDateTime &utc);
+
 int latestFtFullFrameArmMs(const Ft8Mode::Profile &profile)
 {
     return qMax(0,

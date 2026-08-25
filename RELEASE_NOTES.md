@@ -5,6 +5,10 @@ decoding keeps its established sensitivity, time-critical FT work is completed
 before the reply slot, and the interface communicates state without covering
 the operating area.
 
+### Alpha r4 build correction
+
+- Corrects two R3 build-only issues: the contest-period helper is now declared before its first use in `mainwindow.cpp`, and the UDP broadcaster uses an explicitly typed `qint64` zero for Qt6/AppleClang. Runtime CW/RTTY logic is unchanged from r3.
+
 ### Alpha r3 CW/RTTY contest feedback
 
 - CW and RTTY now return to live RX immediately after local TX instead of waiting 250 ms and cold-resetting the decoder. CW preserves its learned relative timing/WPM/AFC and RTTY preserves carrier/polarity history, while both discard only state that cannot cross the deliberate TX audio-capture gap.

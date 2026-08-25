@@ -183,7 +183,7 @@ QsoUdpBroadcaster::SendResult QsoUdpBroadcaster::sendQsoLoggedBundle(
     for (const QByteArray &datagram : datagrams) {
         const qint64 written = socket.writeDatagram(datagram, address, port);
         if (written != datagram.size()) {
-            result.bytesWritten = total + qMax<qint64>(0, written);
+            result.bytesWritten = total + qMax<qint64>(qint64{0}, written);
             result.error = socket.errorString();
             if (result.error.trimmed().isEmpty()) {
                 result.error = QStringLiteral("UDP datagram was not fully written");

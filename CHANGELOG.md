@@ -2,6 +2,11 @@
 
 ## 0.5.9-alpha — FT split-operation validation — 2026-08-25
 
+### Alpha r4 — Linux/macOS build correction
+
+- Fixes the Linux compile by declaring the shared contest-period helper before the live-terminal duplicate-highlighting code that uses it. No contest behavior changes.
+- Fixes the Qt6/AppleClang portability check in `QsoUdpBroadcaster` by using a typed `qint64{0}` bound. UDP packet contents and CW/RTTY logging behavior are unchanged.
+
 ### Alpha r3 — CW/RTTY contest-operation feedback
 
 - Restores immediate CW/RTTY receive turnaround after local TX. The audio input restarts with zero artificial delay and the decoders preserve learned CW timing/WPM/AFC and RTTY signal/polarity history while discarding only frame/run state that cannot cross the local-TX capture gap.
