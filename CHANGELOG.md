@@ -1,6 +1,16 @@
 # MadModem changelog
 
-## 0.5.9-alpha — FT split-operation validation — 2026-08-21
+## 0.5.9-alpha — FT split-operation validation — 2026-08-25
+
+### Alpha r3 — CW/RTTY contest-operation feedback
+
+- Restores immediate CW/RTTY receive turnaround after local TX. The audio input restarts with zero artificial delay and the decoders preserve learned CW timing/WPM/AFC and RTTY signal/polarity history while discarding only frame/run state that cannot cross the local-TX capture gap.
+- Makes CW/RTTY worked-call red/strike highlighting a real contest duplicate indication: outside Contest, historical QSOs no longer paint the live terminal as duplicates; inside Contest the active session/rule and its band/period dupe scope are used.
+- Extends CW/RTTY QSO UDP compatibility with the WSJT-X/JTDX heartbeat + QSO Logged (type 5) + Logged ADIF (type 12) bundle after the local ADIF append succeeds. Other modes keep their already-working Logged ADIF path.
+- Tightens the CW Morse boundary model so stretched intra-character spaces from machine-sent contest CW no longer split calls such as `HB9DOM` into E/I fragments. The native regression includes a deliberately stretched H.
+- Makes exact-tone CW carrier qualification less dependent on winning every spectral bin when a coherent selected carrier is present inside a narrow receiver filter; the existing noise-only and weak-signal regressions remain green.
+- Limits the frameless/stays-on-top popup workaround to Linux. Windows/macOS keep native Qt menu flags, fixing the Mode menu becoming inaccessible on a maximized Windows window.
+- Does not change the FT8/FT4 runtime path in this revision. Native-radio CW/RTTY CAT-mode selection remains a separate radio-specific feature; this revision does not force a TS-890 or other rig out of its current stable CAT mode.
 
 - Marks the current development line as an explicit alpha so 0.5.8 remains the rollback baseline.
 - Adds FT8/FT4 split-operation controls with Rig and Fake It modes and a 1500–2000 Hz TX-audio target window.

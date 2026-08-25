@@ -5,6 +5,15 @@ decoding keeps its established sensitivity, time-critical FT work is completed
 before the reply slot, and the interface communicates state without covering
 the operating area.
 
+### Alpha r3 CW/RTTY contest feedback
+
+- CW and RTTY now return to live RX immediately after local TX instead of waiting 250 ms and cold-resetting the decoder. CW preserves its learned relative timing/WPM/AFC and RTTY preserves carrier/polarity history, while both discard only state that cannot cross the deliberate TX audio-capture gap.
+- CW/RTTY live calls are marked red/struck only when they are duplicates in the active Contest session according to that contest rule's dupe scope. Historical logbook QSOs no longer masquerade as contest dupes outside Contest mode.
+- CW/RTTY external logging now sends the WSJT-X/JTDX heartbeat, QSO Logged and Logged ADIF notification sequence after a successful local ADIF append, improving compatibility with contest loggers that consume structured QSO Logged rather than Logged ADIF alone.
+- The native CW sequence classifier is more resistant to machine-sent intra-character gaps stretched toward 1.5–1.7 dits, a failure mode that could split `H`/`S`/`5` into shorter letters. Carrier gating also accepts a coherent exact-tone lane inside a narrow receiver passband without allowing the noise-only regression to open the decoder.
+- Windows uses Qt's native popup-window behavior for the Mode menu. The Linux fullscreen popup workaround no longer leaks onto maximized Windows windows.
+- This r3 pass is intentionally limited to CW/RTTY and their shared UI/logging infrastructure; it does not change FT8/FT4 decoding or sequencing.
+
 ### Alpha r2 Hamlib compatibility
 
 - The first alpha referenced the old public `RIG::state` layout used by older WSJT-X/Hamlib combinations. Bundled Hamlib 4.7.2 intentionally hides that state. MadModem now uses `rig_get_vfo_list()` and the normal split APIs only; no Hamlib private data is accessed.

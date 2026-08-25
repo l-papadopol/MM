@@ -437,9 +437,19 @@ void CwMorseBeamDecoder::rebuild(const CwMorseTimingSnapshot& timing) {
         const double learnedWeight = 0.58 + 0.34 * timingTrust;
         const double elementLogLikelihood = familyLikelihood(
             base.elementSpace, 1.0, learnedWeight);
+        // A machine-sent element gap can stretch well past one dit because of
+        // audio keying/envelope shaping.  Treating ~1.5 dits as a plausible
+        // character boundary splits H/S/5 into E/I fragments (the real
+        // contest trace HB9DOM/P exposed exactly that failure).  Once the
+        // relative clock is trusted, require a clearer separation from the
+        // one-dit family while keeping the true three-dit boundary comfortably
+        // inside the character likelihood.
+        const double characterMinimumUnits = 1.72 + 0.18 * timingTrust;
+        const double characterMinimumSoftness = 0.25 - 0.05 * timingTrust;
         const double characterLogLikelihood = familyLikelihood(
             base.characterSpace, 3.0, learnedWeight) +
-            softMinimumUnitsLogPrior(units, 1.55, 0.24);
+            softMinimumUnitsLogPrior(units, characterMinimumUnits,
+                                     characterMinimumSoftness);
         const double wordLogLikelihood = familyLikelihood(
             base.wordSpace, 7.0, learnedWeight) +
             softMinimumUnitsLogPrior(units, 3.75, 0.38);

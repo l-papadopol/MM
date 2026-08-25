@@ -70,6 +70,28 @@ for old in ['m_autoInvert', 'm_markRunSamples', 'm_spaceRunSamples', 'm_framingF
     if old in dec:
         errors.append(f'RttyDecoder still contains obsolete polarity state {old}')
 
+# Contest turnaround and worked-call semantics are shared by RTTY/CW.  They
+# remain part of this consolidated UI/runtime audit rather than creating more
+# one-bug CTest entries.
+rtty_h=must(Path('modems/rtty/RttyDecoder.h'), ['resumeAfterLocalTransmit()'])
+rtty_multi=must(Path('modems/rtty/RttyMultiDecoder.cpp'), ['resumeAfterLocalTransmit()', 'track.decoder->resumeAfterLocalTransmit()', 'm_scanBuffer.clear()'])
+cw_h=must(Path('modems/cw/CwDecoder.h'), ['resumeAfterLocalTransmit()'])
+cw_tracker=must(Path('modems/cw/skimmer/SelectedToneCwTracker.cpp'),
+                ['resumeAfterLocalTransmit()', 'timingTask.reset(true)', 'discriminator.resumeAfterGap()'])
+# Use direct checks for multiline constructs whose whitespace is intentionally
+# not an API contract.
+if 'm_fastResumeCwRttyRxPending' not in main or \
+   'm_rttyDecoder->resumeAfterLocalTransmit()' not in main or \
+   'm_rttyMultiDecoder->resumeAfterLocalTransmit()' not in main or \
+   'm_cwDecoder->resumeAfterLocalTransmit()' not in main:
+    errors.append('mainwindow.cpp: CW/RTTY fast TX-to-RX resume path is incomplete')
+if 'const int rxRestartDelayMs = (ftLowLatencyReturn || fastResumeCwRtty) ? 0 : 250;' not in main:
+    errors.append('mainwindow.cpp: CW/RTTY fast resume is not immediate after PTT release')
+if 'contestTerminal' not in main or 'isCurrentContestDupe(call)' not in main:
+    errors.append('mainwindow.cpp: CW/RTTY worked highlighting is not scoped to the active contest')
+if '#if defined(Q_OS_LINUX)' not in main or 'Qt::WindowStaysOnTopHint' not in main:
+    errors.append('mainwindow.cpp: fullscreen popup workaround must remain Linux-only')
+
 if errors:
     print('RTTY live/contest/runtime audit FAILED')
     for e in errors: print(' -',e)

@@ -2156,6 +2156,10 @@ private:
     bool m_txFinishedNaturally = false;
     bool m_currentTxIsTextMode = false;
     bool m_preserveTextTerminalOnNextRx = false;
+    // CW/RTTY contest turnaround: after our own TX, keep the learned decoder
+    // state and resume capture immediately instead of performing a cold RX start.
+    bool m_fastResumeCwRttyRxPending = false;
+    QString m_fastResumeCwRttyMode;
     QTimer m_nativeWeakSignalTxTimer;
     bool m_nativeWeakSignalTxPending = false;
     bool m_nativeWeakSignalTxBoundaryStart = false;

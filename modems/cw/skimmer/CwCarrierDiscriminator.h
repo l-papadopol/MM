@@ -92,6 +92,9 @@ public:
   void setConfig(const CwCarrierDiscriminatorConfig& config);
   const CwCarrierDiscriminatorConfig& config() const;
   void reset();
+  // Breaks run/fixed-lag continuity after a known local TX gap while retaining
+  // the learned noise/mark level model.
+  void resumeAfterGap();
 
   CwCarrierDiscriminatorResult process(const CwCarrierObservation& observation);
   std::vector<CwLogicRun> flush(double timestampSec);

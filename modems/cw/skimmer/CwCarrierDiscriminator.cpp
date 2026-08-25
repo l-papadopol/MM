@@ -105,6 +105,29 @@ void CwCarrierDiscriminator::reset() {
   m_runQsbProbabilitySum = 0.0;
 }
 
+void CwCarrierDiscriminator::resumeAfterGap() {
+  // Preserve the adaptive level model; discard only states whose continuity is
+  // invalid once MadModem has intentionally stopped sampling during its own TX.
+  m_probability = 0.5;
+  m_confidence *= 0.70;
+  m_keyDown = false;
+  m_instantKeyDown = false;
+  m_haveActiveRun = false;
+  m_fixedLagMs = 0;
+  m_segmentBeam.clear();
+  m_pendingSamples.clear();
+  m_runStartSec = 0.0;
+  m_runConfidenceSum = 0.0;
+  m_runSnrSum = 0.0;
+  m_runPeakSnr = -99.0;
+  m_runCoherenceSum = 0.0;
+  m_runSamples = 0;
+  m_runQsbErasure = false;
+  m_runCarrierCenteredSamples = 0;
+  m_runMarkProbabilitySum = 0.0;
+  m_runQsbProbabilitySum = 0.0;
+}
+
 void CwCarrierDiscriminator::startRun(
     bool mark, double timestampSec,
     const CwCarrierObservation& observation,

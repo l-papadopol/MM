@@ -220,6 +220,23 @@ void CwDecoder::reset()
     refreshPriorityAndOverlays();
 }
 
+void CwDecoder::resumeAfterLocalTransmit()
+{
+    // Preserve decoded text and the relative-timing priors learned immediately
+    // before our own transmission.  Each exact-tone tracker discards only
+    // states which cannot legally cross the capture gap.
+    if (m_toneTrackerA) {
+        m_toneTrackerA->resumeAfterLocalTransmit();
+    }
+    if (m_toneTrackerB) {
+        m_toneTrackerB->resumeAfterLocalTransmit();
+    }
+    m_pendingDiagnosticsA.clear();
+    m_pendingDiagnosticsB.clear();
+    emitSkimmerStatus(false);
+    refreshPriorityAndOverlays();
+}
+
 void CwDecoder::clearReceiver(int rank)
 {
     if (rank <= 0) {

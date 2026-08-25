@@ -68,6 +68,21 @@ void RttyMultiDecoder::reset()
     emit calloutsChanged(m_callouts);
 }
 
+void RttyMultiDecoder::resumeAfterLocalTransmit()
+{
+    // Keep established contest lanes, but do not join a Baudot frame or FFT
+    // scan window across the interval in which our own transmitter stopped
+    // capture. Existing tracks can therefore decode the first complete reply
+    // character immediately, while discovery resumes from fresh audio.
+    for (Track &track : m_tracks) {
+        if (track.decoder != nullptr) {
+            track.decoder->resumeAfterLocalTransmit();
+        }
+    }
+    m_scanBuffer.clear();
+    m_samplesUntilScan = 0;
+}
+
 void RttyMultiDecoder::configure(double baud,
                                  int shiftHz,
                                  bool reverse,

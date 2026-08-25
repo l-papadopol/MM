@@ -495,6 +495,59 @@ public:
     log("clean restart: carrier discriminator and relative timing decoder reset");
   }
 
+  void resumeAfterLocalTransmit() {
+    // The local TX interval is an intentional hole in the received sample
+    // stream.  Keep everything expensive and useful for contest turnaround
+    // (relative Morse clock, WPM, carrier/noise levels and AFC), but never
+    // splice a MARK/SPACE run or an IIR/FFT window across that hole.
+    timingTask.reset(true);
+    discriminator.resumeAfterGap();
+
+    phase = 0.0;
+    sidePhase = 0.0;
+    havePreviousControl = false;
+    previousControlWasMark = false;
+    previousControl = {};
+    controlSum = {};
+    edgeControlSum = {};
+    carrierControlSum = {};
+    contrastCenterControlSum = {};
+    sidePlusControlSum = {};
+    sideMinusControlSum = {};
+    rawControlSum = {};
+    controlCount = 0;
+    controlAccumulator = 0.0;
+    slowCarrier = {};
+    slowCarrierPower = 0.0;
+
+    rawSpectrum.clear();
+    filteredSpectrum.clear();
+    spectrumHopCounter = 0;
+    carrierEvidence = std::min(carrierEvidence, 4);
+    carrierSessionProbability = std::min(carrierSessionProbability, 0.45);
+    carrierSessionTimestampSec = 0.0;
+    carrierLostSinceSec = -1.0;
+    temporalAwaitingSpace = false;
+    lastCompletedSpaceMs = 0.0;
+    runPreRoll.clear();
+    pendingPreRollSpace.reset();
+    suppressedPreLockRuns = 0U;
+    qsbErasureActive = false;
+    qsbErasureStart = 0.0;
+
+    i1.reset(); i2.reset(); q1.reset(); q2.reset();
+    edgeAverage.reset();
+    carrierAverage.reset();
+    contrastCenterAverage.reset();
+    sidePlusAverage.reset();
+    sideMinusAverage.reset();
+    laneSeparator.reset();
+
+    lastTiming = timingTask.snapshot();
+    publicWpm = clampd(lastTiming.wpm > 0.1 ? lastTiming.wpm : publicWpm, 5.0, 50.0);
+    log("fast RX resume after local TX: retained CW timing, carrier levels and AFC");
+  }
+
   void ensureSampleRate(double rate) {
     if (std::abs(sampleRate - rate) < 1.0e-6) return;
     if (!(sampleRate > 1000.0)) {
@@ -701,13 +754,20 @@ public:
     // dit/dah clock.  The screenshots that triggered this fix showed a
     // 15.9 dB peak with only 0.4 dB advantage over the second peak: visible
     // energy, but not a uniquely identified selected carrier.
-    const bool spectrumLanePresent = lastCarrierProminenceDb >= 6.0 &&
-        lastCarrierPeakWidthHz > 0.0 && lastCarrierPeakWidthHz <= 40.0 &&
-        (lastCarrierToSecondDb >= -4.0 ||
+    // Narrow roofing/DSP filters in high-end rigs can leave several similar
+    // noise peaks inside the receiver passband.  Do not require the selected
+    // lane to win the whole 500 Hz spectrum when its exact-tone coherence is
+    // already strong.  The thresholds remain dual-gated (PSD shape plus
+    // coherence/runner-up evidence), so broad noise cannot open the decoder.
+    const double laneProminenceMin = std::max(4.5, config.minSnrDb + 1.5);
+    const double timingProminenceMin = std::max(6.5, config.minSnrDb + 3.0);
+    const bool spectrumLanePresent = lastCarrierProminenceDb >= laneProminenceMin &&
+        lastCarrierPeakWidthHz > 0.0 && lastCarrierPeakWidthHz <= 45.0 &&
+        (lastCarrierToSecondDb >= -4.0 || coherence >= 0.58 ||
          (separatedKnownNeighbour && lastCarrierToSecondDb >= -14.0));
-    const bool spectrumTimingCentered = lastCarrierProminenceDb >= 9.5 &&
-        lastCarrierPeakWidthHz > 0.0 && lastCarrierPeakWidthHz <= 28.0 &&
-        (lastCarrierToSecondDb >= 2.0 ||
+    const bool spectrumTimingCentered = lastCarrierProminenceDb >= timingProminenceMin &&
+        lastCarrierPeakWidthHz > 0.0 && lastCarrierPeakWidthHz <= 32.0 &&
+        (lastCarrierToSecondDb >= 1.0 || coherence >= 0.72 ||
          (separatedKnownNeighbour && lastCarrierToSecondDb >= -10.0));
     // Before the first measured PSD frame, allow a coherent exact-tone MARK
     // to tag its own run so acquisition does not lose the leading dash.  It
@@ -770,9 +830,9 @@ public:
         (!timingFeedEnabled && acquisitionCentered) ||
         carrierSessionProbability >= 0.22;
     const bool currentStableCarrier = carrierEvidence >= 2 &&
-        lastCarrierProminenceDb >= 8.0 &&
-        lastCarrierPeakWidthHz > 0.0 && lastCarrierPeakWidthHz <= 30.0 &&
-        (lastCarrierToSecondDb >= 0.5 ||
+        lastCarrierProminenceDb >= std::max(5.5, config.minSnrDb + 2.0) &&
+        lastCarrierPeakWidthHz > 0.0 && lastCarrierPeakWidthHz <= 35.0 &&
+        (lastCarrierToSecondDb >= 0.0 || coherence >= 0.66 ||
          (separatedKnownNeighbour && lastCarrierToSecondDb >= -10.0));
 
     CwCarrierObservation observation;
@@ -1239,8 +1299,10 @@ public:
         std::isfinite(nearestKnownLaneSeparationHz) &&
         nearestKnownLaneSeparationHz >= 55.0 &&
         nearestKnownLaneSeparationHz <= 260.0;
-    if (lastCarrierProminenceDb >= 8.0 &&
-        (lastCarrierToSecondDb >= 0.5 ||
+    const double retainedCoherence = clampd(
+        std::norm(slowCarrier) / std::max(kEpsilon, slowCarrierPower), 0.0, 1.0);
+    if (lastCarrierProminenceDb >= std::max(5.5, config.minSnrDb + 2.0) &&
+        (lastCarrierToSecondDb >= 0.0 || retainedCoherence >= 0.66 ||
          (separatedKnownNeighbour && lastCarrierToSecondDb >= -14.0))) {
       // Two consistent 512 ms PSD observations are enough to acquire, while
       // two clearly bad observations remove stale carrier evidence. The old
@@ -1424,6 +1486,9 @@ void SelectedToneCwTracker::setInterferers(
 }
 const SelectedToneCwConfig& SelectedToneCwTracker::config() const { return m_impl->config; }
 void SelectedToneCwTracker::reset() { m_impl->resetAll(); m_impl->configureDsp(); }
+void SelectedToneCwTracker::resumeAfterLocalTransmit() {
+  m_impl->resumeAfterLocalTransmit();
+}
 void SelectedToneCwTracker::processFloatMono(const float* samples, std::size_t count,
                                               double sourceSampleRate) {
   m_impl->process(samples, count, sourceSampleRate);

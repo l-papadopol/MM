@@ -46,6 +46,14 @@ public:
     void reset();
 
     /**
+     * @brief Breaks only the live UART/frame continuity after MadModem's own TX.
+     *
+     * Preserves noise/gate and polarity statistics so contest RX can resume
+     * immediately instead of relearning the complete demodulator state.
+     */
+    void resumeAfterLocalTransmit();
+
+    /**
      * @brief Processes one block of normalized mono audio.
      */
     void processAudioBlock(const AudioBlock &block);

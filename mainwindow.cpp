@@ -272,12 +272,13 @@ void hardenPopupMenuForFullscreen(QMenu *menu)
         return;
     }
 
-    // In true frameless fullscreen on some X11/Wayland window managers a
-    // top-level QMenu can be created below the fullscreen window or lose the
-    // activation race.  Keep the menu as a normal Qt popup, but explicitly keep
-    // it above the cockpit window and raise it after Qt has created the native
-    // popup surface.  This is deliberately applied to mode/language menus only;
-    // it does not change modem routing.
+#if defined(Q_OS_LINUX)
+    // This workaround exists only for true frameless fullscreen on selected
+    // X11/Wayland window managers.  Applying WindowStaysOnTop/Frameless to a
+    // native Windows QMenu can leave the menu behind a maximized top-level
+    // window or make it lose activation, which made the Mode menu appear
+    // unusable until the operator restored the window.  Windows and macOS keep
+    // Qt's native popup flags untouched.
     menu->setWindowFlags(menu->windowFlags() | Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
     QObject::connect(menu, &QMenu::aboutToShow, menu, [menu]() {
         QTimer::singleShot(0, menu, [menu]() {
@@ -287,6 +288,9 @@ void hardenPopupMenuForFullscreen(QMenu *menu)
             }
         });
     });
+#else
+    Q_UNUSED(menu)
+#endif
 }
 
 QString catSettingsKey(const AppSettings &s)
@@ -3174,8 +3178,26 @@ void MainWindow::broadcastLoggedQsoUdp(const LogbookEntry &entry)
                                ? QStringLiteral("127.0.0.1")
                                : m_settings.logbookUdpServer.trimmed();
     const quint16 port = static_cast<quint16>(qBound(1, m_settings.logbookUdpPort, 65535));
-    const QsoUdpBroadcaster::SendResult result =
-        QsoUdpBroadcaster::sendLoggedAdif(entry, server, port, QCoreApplication::applicationVersion());
+    const QString normalizedMode = entry.mode.trimmed().toUpper();
+    const bool contestTextMode = normalizedMode == QStringLiteral("CW") ||
+                                 normalizedMode == QStringLiteral("RTTY");
+    QsoUdpBroadcaster::SendResult result;
+    if (contestTextMode) {
+        QsoUdpBroadcaster::SendContext context;
+        context.myCall = stationCallsign();
+        context.myGrid = stationLocator();
+        context.operatorCall = stationCallsign();
+        context.txFrequencyHz = m_lastRigFrequencyHz > 0.0
+            ? static_cast<quint64>(qRound64(m_lastRigFrequencyHz)) : 0U;
+        result = QsoUdpBroadcaster::sendQsoLoggedBundle(
+            entry, context, server, port, QCoreApplication::applicationVersion());
+    } else {
+        // Preserve the already-working notification used by the other modes.
+        // The compatibility bundle is deliberately limited to CW/RTTY in this
+        // contest-focused pass.
+        result = QsoUdpBroadcaster::sendLoggedAdif(
+            entry, server, port, QCoreApplication::applicationVersion());
+    }
 
     if (result.ok) {
         appendLog(uiText("qso_udp_sent", "QSO UDP: %1 sent to %2:%3 (%4 bytes).")
@@ -3490,6 +3512,50 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
     cursor.select(QTextCursor::Document);
     cursor.mergeCharFormat(normal);
 
+    const bool rttyTerminal = terminal == m_txtRttyRx;
+    const bool cwTerminal = terminal == m_txtCwRx || terminal == m_txtCwRxB;
+    const bool contestTerminal = rttyTerminal || cwTerminal;
+    const bool contestMatchesTerminal =
+        m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked() &&
+        currentRttyContestProfile() != nullptr &&
+        ((rttyTerminal && !contestContextIsCw()) || (cwTerminal && contestContextIsCw()));
+
+    // In CW/RTTY a red/struck callsign has a precise contest meaning: it is a
+    // duplicate in the currently active contest session according to that
+    // contest's dupe_scope.  A station worked months ago in another mode or
+    // another contest must not be painted as a contest dupe.  Non-contest text
+    // modes retain the historical logbook highlighting behaviour.
+    const auto isCurrentContestDupe = [this, contestMatchesTerminal](const QString &call) {
+        if (!contestMatchesTerminal || m_rttyContestActiveSessionId.isEmpty()) return false;
+        const RttyContestProfile *profile = currentRttyContestProfile();
+        if (profile == nullptr) return false;
+
+        const QString normalized = AdifLogbook::normalizeCallsign(call);
+        QsoFormWidgets *form = contestQsoForm();
+        const QString currentBand = (form != nullptr && form->band != nullptr)
+            ? form->band->text().trimmed().toLower() : QString();
+        const QString currentPeriod = rttyContestPeriodId(*profile, QDateTime::currentDateTimeUtc());
+
+        for (const LogbookEntry &entry : m_logbook.records()) {
+            if (AdifLogbook::normalizeCallsign(entry.callsign) != normalized) continue;
+            if (entry.mode.compare(contestModeForLog(), Qt::CaseInsensitive) != 0) continue;
+            if (entry.adifFields.value(contestAdifSessionKey()).trimmed() != m_rttyContestActiveSessionId) continue;
+            const QString ruleId = entry.adifFields.value(contestAdifRuleKey()).trimmed().toLower();
+            const QString cabrillo = entry.adifFields.value(QStringLiteral("CONTEST_ID")).trimmed().toUpper();
+            if (ruleId != profile->id && (profile->cabrilloId.isEmpty() || cabrillo != profile->cabrilloId)) continue;
+
+            if (profile->dupeScope == QStringLiteral("band") &&
+                entry.band.trimmed().toLower() != currentBand) continue;
+            if (profile->dupeScope == QStringLiteral("period") &&
+                rttyContestPeriodId(*profile, entry.utc) != currentPeriod) continue;
+            if (profile->dupeScope == QStringLiteral("band_period") &&
+                (entry.band.trimmed().toLower() != currentBand ||
+                 rttyContestPeriodId(*profile, entry.utc) != currentPeriod)) continue;
+            return true;
+        }
+        return false;
+    };
+
     const QRegularExpression re(QStringLiteral("\\b[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?\\b"),
                                 QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatchIterator it = re.globalMatch(text);
@@ -3501,7 +3567,9 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
         }
 
         QTextCharFormat fmt;
-        const bool worked = m_logbook.containsCallsign(call);
+        const bool worked = contestTerminal
+            ? isCurrentContestDupe(call)
+            : m_logbook.containsCallsign(call);
         const QColor callColor = MadModemUi::themeColor(worked
             ? MadModemUi::ThemeColorRole::Negative
             : MadModemUi::ThemeColorRole::Positive);
@@ -22148,6 +22216,16 @@ void MainWindow::startRx()
     }
 
     const QString modeName = ui->cmbMode->currentText();
+    const bool cwRttyMode = modeName == CwDecoder::modeName() ||
+                            modeName == RttyDecoder::modeName();
+    const bool fastResumeCwRtty = m_fastResumeCwRttyRxPending &&
+                                  cwRttyMode &&
+                                  modeName == m_fastResumeCwRttyMode;
+    if (m_fastResumeCwRttyRxPending && !fastResumeCwRtty) {
+        // A mode change invalidates the retained CW/RTTY receiver state.
+        m_fastResumeCwRttyRxPending = false;
+        m_fastResumeCwRttyMode.clear();
+    }
 
     if (m_ft8RxDecoder != nullptr) {
         const bool enableFtLive = Ft8Mode::isFamilyMode(modeName) &&
@@ -22181,13 +22259,13 @@ void MainWindow::startRx()
     } else if (modeName == SstvDecoder::modeName()) {
         applySstvSettings();
     } else if (modeName == RttyDecoder::modeName()) {
-        applyRttySettings();
+        if (!fastResumeCwRtty) applyRttySettings();
     } else if (modeName == Bpsk31Decoder::modeName()) {
         applyBpsk31Settings();
     } else if (modeName == MfskDecoder::modeName()) {
         applyMfskSettings();
     } else if (modeName == CwDecoder::modeName()) {
-        applyCwSettings();
+        if (!fastResumeCwRtty) applyCwSettings();
     } else if (modeName == HellschreiberDecoder::modeName()) {
         applyHellSettings();
     } else if (RadioTelescopeMode::isMode(modeName)) {
@@ -22211,15 +22289,17 @@ void MainWindow::startRx()
         return;
     }
 
-    resetDspEngine();
-    m_decoderConditioner.reset();
+    if (!fastResumeCwRtty) {
+        resetDspEngine();
+        m_decoderConditioner.reset();
 
-    if (m_waterfallWidget != nullptr) {
-        m_waterfallWidget->clear();
-    }
+        if (m_waterfallWidget != nullptr) {
+            m_waterfallWidget->clear();
+        }
 
-    if (m_faxImageWidget != nullptr) {
-        m_faxImageWidget->clear();
+        if (m_faxImageWidget != nullptr) {
+            m_faxImageWidget->clear();
+        }
     }
 
     const bool preserveTextTerminal = m_preserveTextTerminalOnNextRx;
@@ -22231,7 +22311,14 @@ void MainWindow::startRx()
         m_sstvDecoder->reset();
     } else if (modeName == RttyDecoder::modeName()) {
         m_lastRttyDecodedText.clear();
-        m_rttyDecoder->reset();
+        if (fastResumeCwRtty) {
+            m_rttyDecoder->resumeAfterLocalTransmit();
+            if (m_rttyMultiDecoder != nullptr) {
+                m_rttyMultiDecoder->resumeAfterLocalTransmit();
+            }
+        } else {
+            m_rttyDecoder->reset();
+        }
         if (!preserveTextTerminal && m_txtRttyRx != nullptr) {
             m_txtRttyRx->clear();
         }
@@ -22248,9 +22335,13 @@ void MainWindow::startRx()
             m_txtMfskRx->clear();
         }
     } else if (modeName == CwDecoder::modeName()) {
-        m_cwDecoder->reset();
-        m_cwPrimaryLineOpen = false;
-        m_cwSecondaryLineOpen = false;
+        if (fastResumeCwRtty) {
+            m_cwDecoder->resumeAfterLocalTransmit();
+        } else {
+            m_cwDecoder->reset();
+            m_cwPrimaryLineOpen = false;
+            m_cwSecondaryLineOpen = false;
+        }
         if (!preserveTextTerminal && m_txtCwRx != nullptr) {
             m_txtCwRx->clear();
         }
@@ -22395,8 +22486,16 @@ void MainWindow::startRx()
 
     if (!startAudioInputBlocking(inputName, m_settings.audioSampleRate)) {
         setReceiverRunning(false);
+        if (fastResumeCwRtty) {
+            m_fastResumeCwRttyRxPending = false;
+            m_fastResumeCwRttyMode.clear();
+        }
         appendLog("RX start failed.");
         return;
+    }
+    if (fastResumeCwRtty) {
+        m_fastResumeCwRttyRxPending = false;
+        m_fastResumeCwRttyMode.clear();
     }
 }
 
@@ -23726,6 +23825,12 @@ void MainWindow::startImageTx()
     m_returnToRxAfterTx = textMode;
     m_txFinishedNaturally = false;
 
+    const bool fastResumeCwRttyTx = liveRxRunning && (rttyMode || cwMode);
+    if (fastResumeCwRttyTx) {
+        m_fastResumeCwRttyRxPending = true;
+        m_fastResumeCwRttyMode = activeModeName;
+    }
+
     if (liveRxRunning && m_audioEngine != nullptr) {
         m_preserveTextTerminalOnNextRx = true;
         appendLog("Pausing RX for text TX.");
@@ -23737,13 +23842,13 @@ void MainWindow::startImageTx()
     } else if (activeModeName == SstvDecoder::modeName()) {
         applySstvSettings();
     } else if (activeModeName == RttyDecoder::modeName()) {
-        applyRttySettings();
+        if (!fastResumeCwRttyTx) applyRttySettings();
     } else if (activeModeName == Bpsk31Decoder::modeName()) {
         applyBpsk31Settings();
     } else if (activeModeName == MfskDecoder::modeName()) {
         applyMfskSettings();
     } else if (activeModeName == CwDecoder::modeName()) {
-        applyCwSettings();
+        if (!fastResumeCwRttyTx) applyCwSettings();
     } else if (activeModeName == HellschreiberDecoder::modeName()) {
         applyHellSettings();
     } else if (Ft8Mode::isFamilyMode(activeModeName)) {
@@ -23773,7 +23878,7 @@ void MainWindow::startImageTx()
         m_returnToRxAfterTx = false;
         m_currentTxIsTextMode = false;
         if (restartRx) {
-            QTimer::singleShot(250, this, [this]() { startRx(); });
+            QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this]() { startRx(); });
         }
         return;
     }
@@ -23793,10 +23898,11 @@ void MainWindow::startImageTx()
         m_faxImageWidget->setTransmitProgress(0.0);
     }
 
-    resetDspEngine();
-
-    if (m_waterfallWidget != nullptr) {
-        m_waterfallWidget->clear();
+    if (!fastResumeCwRttyTx) {
+        resetDspEngine();
+        if (m_waterfallWidget != nullptr) {
+            m_waterfallWidget->clear();
+        }
     }
 
     updateWaterfallMarkers();
@@ -23808,7 +23914,7 @@ void MainWindow::startImageTx()
         m_returnToRxAfterTx = false;
         m_currentTxIsTextMode = false;
         if (restartRx) {
-            QTimer::singleShot(250, this, [this]() { startRx(); });
+            QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this]() { startRx(); });
         }
         return;
     }
@@ -23851,7 +23957,7 @@ void MainWindow::startImageTx()
                              AppSettingsDialog::InitialPage::AudioPtt,
                              uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
         if (restartRx) {
-            QTimer::singleShot(250, this, [this]() { startRx(); });
+            QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this]() { startRx(); });
         }
     } else if (hellMode && m_hellDecoder != nullptr && m_txtHellTx != nullptr) {
         const HellschreiberDecoder::Variant variant = (m_cmbHellVariant != nullptr)
@@ -24175,6 +24281,11 @@ void MainWindow::handleTxStopped()
     const bool restartRx = m_returnToRxAfterTx;
     const bool naturalFinish = m_txFinishedNaturally;
     const bool textTx = m_currentTxIsTextMode;
+    const bool fastResumeCwRtty = restartRx && textTx &&
+        m_fastResumeCwRttyRxPending &&
+        ui->cmbMode->currentText() == m_fastResumeCwRttyMode &&
+        (ui->cmbMode->currentText() == CwDecoder::modeName() ||
+         ui->cmbMode->currentText() == RttyDecoder::modeName());
     const bool completedFt8Tx = (ftModeAtStop &&
                                   naturalFinish && textTx &&
                                   !m_ftSession.lastTxWasTune &&
@@ -24197,7 +24308,9 @@ void MainWindow::handleTxStopped()
         appendLog("TX stopped.");
     }
 
-    resetDspEngine();
+    if (!fastResumeCwRtty) {
+        resetDspEngine();
+    }
 
     if (m_faxImageWidget != nullptr) {
         m_faxImageWidget->clearTransmitProgress();
@@ -24263,7 +24376,7 @@ void MainWindow::handleTxStopped()
         }
 
         const bool ftLowLatencyReturn = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
-        const int rxRestartDelayMs = ftLowLatencyReturn ? 0 : 250;
+        const int rxRestartDelayMs = (ftLowLatencyReturn || fastResumeCwRtty) ? 0 : 250;
         if (ftLowLatencyReturn) {
             appendLog("FT timing: TX complete, PTT off requested, immediate RX restart requested.");
         }
@@ -24289,6 +24402,11 @@ void MainWindow::handleTxError(const QString &message)
     appendLog("TX audio error: " + message);
     unkeyPttAfterTx();
     const bool restartRx = m_returnToRxAfterTx;
+    const bool fastResumeCwRtty = restartRx && m_currentTxIsTextMode &&
+        m_fastResumeCwRttyRxPending &&
+        ui->cmbMode->currentText() == m_fastResumeCwRttyMode &&
+        (ui->cmbMode->currentText() == CwDecoder::modeName() ||
+         ui->cmbMode->currentText() == RttyDecoder::modeName());
     endTextTxHighlight();
     m_txRunning = false;
     m_returnToRxAfterTx = false;
@@ -24315,7 +24433,9 @@ void MainWindow::handleTxError(const QString &message)
                                   Qt::QueuedConnection,
                                   Q_ARG(qint64, erroredFtTxSlotBoundaryMs));
     }
-    resetDspEngine();
+    if (!fastResumeCwRtty) {
+        resetDspEngine();
+    }
     if (m_faxImageWidget != nullptr) {
         m_faxImageWidget->clearTransmitProgress();
     }
@@ -24330,7 +24450,8 @@ void MainWindow::handleTxError(const QString &message)
 
     if (restartRx) {
         const bool ftLowLatencyReturn = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
-        QTimer::singleShot(ftLowLatencyReturn ? 0 : 250, this, [this]() { startRx(); });
+        QTimer::singleShot((ftLowLatencyReturn || fastResumeCwRtty) ? 0 : 250,
+                           this, [this]() { startRx(); });
     }
 }
 

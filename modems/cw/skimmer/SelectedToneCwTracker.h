@@ -133,6 +133,9 @@ public:
   const SelectedToneCwConfig& config() const;
 
   void reset();
+  // Resume after MadModem intentionally stopped capture during its own CW TX.
+  // Keeps the learned timing/carrier model but discards sample-continuity state.
+  void resumeAfterLocalTransmit();
   void processFloatMono(const float* samples, std::size_t count,
                         double sourceSampleRate);
   void flush();

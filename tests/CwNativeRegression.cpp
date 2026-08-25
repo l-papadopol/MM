@@ -527,6 +527,61 @@ void testAdaptiveBeamReplaysWrongInitialClock() {
 }
 
 
+void testStretchedElementSpacesDoNotSplitCallsign() {
+  using namespace madmodem::cwskimmer;
+  CwMorseBeamDecoder beam;
+  CwMorseTimingSnapshot timing;
+  timing.ditMs = 48.0;       // 25 WPM machine sender
+  timing.dahMs = 144.0;
+  timing.elementSpaceMs = 48.0;
+  timing.characterSpaceMs = 144.0;
+  timing.wordSpaceMs = 336.0;
+  timing.timingConfidence = 0.94;
+
+  CwMorseObservationQuality quality;
+  quality.confidence = 0.97;
+  quality.coherence = 0.94;
+  quality.snrDb = 28.0;
+  quality.carrierCentered = true;
+  quality.stateProbability = 0.985;
+  quality.qsbProbability = 0.01;
+  quality.noiseProbability = 0.01;
+  quality.centeredProbability = 0.98;
+
+  std::string output;
+  const auto absorb = [&](const CwMorseBeamResult& result) {
+    output += result.committedText;
+  };
+
+  // The first character is H (....).  Its three intra-character spaces are
+  // deliberately stretched to 1.62/1.68/1.58 dits, reproducing the class of
+  // contest trace that used to become E/I fragments.  True character gaps
+  // remain close to three dits.
+  const std::string text = "HB9DOM";
+  const std::array<double, 3> stretched = {1.62, 1.68, 1.58};
+  std::size_t stretchedIndex = 0U;
+  for (std::size_t c = 0; c < text.size(); ++c) {
+    const auto found = kMorse.find(text[c]);
+    if (found == kMorse.end()) throw std::runtime_error("missing Morse test symbol");
+    const std::string& pattern = found->second;
+    for (std::size_t e = 0; e < pattern.size(); ++e) {
+      absorb(beam.observeMark(pattern[e] == '.' ? 48.0 : 144.0,
+                              timing, quality));
+      if (e + 1U < pattern.size()) {
+        const double units = (c == 0U && stretchedIndex < stretched.size())
+            ? stretched[stretchedIndex++] : 1.0;
+        absorb(beam.observeSpace(units * timing.ditMs, timing, quality));
+      }
+    }
+    if (c + 1U < text.size())
+      absorb(beam.observeSpace(3.0 * timing.ditMs, timing, quality));
+  }
+  absorb(beam.observeSpace(7.0 * timing.ditMs, timing, quality, true));
+  absorb(beam.flush(timing));
+
+  requireEqual("stretched-element-gap-callsign", normalize(output), text);
+}
+
 void testBayesianPosteriorMetadata() {
   using namespace madmodem::cwskimmer;
   CwMorseBeamDecoder beam;
@@ -570,6 +625,44 @@ void testBayesianPosteriorMetadata() {
               std::isfinite(last.posteriorOddsDb));
   requireTrue("bayesian-beam-bounded",
               last.hypothesisCount <= beam.config().beamWidth);
+}
+
+void testLocalTxResumeRetainsCwTiming() {
+  using namespace madmodem::cwskimmer;
+  SignalOptions signal;
+  signal.frequencyHz = 1412.0;
+  signal.wpm = 30.0;
+  signal.noiseAmplitude = 0.010;
+  signal.portableRandom = true;
+
+  SelectedToneCwConfig config;
+  config.toneHz = signal.frequencyHz;
+  config.bandwidthHz = 120.0;
+  config.minSnrDb = 0.0;
+  config.initialWpm = 18.0;  // deliberately different from the learned clock
+  config.autoWpm = true;
+  SelectedToneCwTracker tracker(config);
+  std::vector<std::string> logs;
+  tracker.setLogCallback([&](const std::string& line) { logs.push_back(line); });
+
+  const auto first = synthesize("CQ CQ DE TEST", signal);
+  for (std::size_t position = 0; position < first.size(); position += 1024U) {
+    const std::size_t count = std::min<std::size_t>(1024U, first.size() - position);
+    tracker.processFloatMono(first.data() + position, count, kSampleRate);
+  }
+  const double learnedBeforeTx = tracker.wpm();
+  requireTrue("local-tx-resume-clock-learned",
+              learnedBeforeTx > 24.0 && learnedBeforeTx < 36.0);
+
+  logs.clear();
+  tracker.resumeAfterLocalTransmit();
+  const double retainedAfterTx = tracker.wpm();
+  requireTrue("local-tx-resume-clock-retained",
+              std::abs(retainedAfterTx - learnedBeforeTx) < 1.5);
+  requireTrue("local-tx-resume-not-clean-restart",
+              std::none_of(logs.begin(), logs.end(), [](const std::string& line) {
+                return line.find("clean restart") != std::string::npos;
+              }));
 }
 
 void testAudioCase(const std::string& name, const SignalOptions& options,
@@ -968,6 +1061,7 @@ int main() {
     testProvisionalEpochRebasesBeforePublishing();
     testMalformedEstablishedClockRebasesAcrossMicroMark();
     testAdaptiveBeamReplaysWrongInitialClock();
+    testStretchedElementSpacesDoNotSplitCallsign();
     testBayesianPosteriorMetadata();
     testTimingRejectsMicroRunStorm();
     testWpmCeilingAndDuplicateToneUpdate();
@@ -975,6 +1069,7 @@ int main() {
     testSegmentalFixedLagIsCausalAndBounded();
     testFirstSampleRateDoesNotRestartAgain();
     testCommittedPatternSnapshot();
+    testLocalTxResumeRetainsCwTiming();
 
     SignalOptions clean;
     clean.frequencyHz = 1329.0;

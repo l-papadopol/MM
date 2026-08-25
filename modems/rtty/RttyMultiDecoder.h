@@ -35,6 +35,7 @@ public:
     explicit RttyMultiDecoder(QObject *parent = nullptr);
 
     void reset();
+    void resumeAfterLocalTransmit();
     void processAudioBlock(const AudioBlock &block);
 
     void configure(double baud,

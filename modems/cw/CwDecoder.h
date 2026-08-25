@@ -77,6 +77,7 @@ public:
     static QVector<FrequencyMarker> frequencyMarkers(double toneHz = 0.0);
 
     void reset();
+    void resumeAfterLocalTransmit();
     void clearReceiver(int rank);
     void processAudioBlock(const AudioBlock &block);
 

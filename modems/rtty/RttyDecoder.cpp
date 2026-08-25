@@ -121,6 +121,29 @@ void RttyDecoder::reset()
                                  polarityProbeScore(m_reverseProbe));
 }
 
+void RttyDecoder::resumeAfterLocalTransmit()
+{
+    // Audio capture is deliberately stopped while our transmitter is keyed.
+    // Do not stitch a partially received Baudot frame across that hole, but
+    // retain the expensive signal/noise, polarity and LETTERS/FIGURES context
+    // learned immediately before TX.  This makes a contest reply decodable
+    // from its first complete start bit instead of after a fresh squelch/polarity
+    // acquisition lasting several characters.
+    resetFrame();
+    m_markI = 0.0;
+    m_markQ = 0.0;
+    m_spaceI = 0.0;
+    m_spaceQ = 0.0;
+    m_carrierOpen = false;
+    m_startSpaceSamples = 0;
+    m_idleMarkSamples = 0;
+    m_scopeDecimator = 0;
+    m_scopeTrace.clear();
+    m_autoReverseRequestPending = false;
+    m_polarityEvaluationCooldown = qMax(0, m_polarityEvaluationCooldown / 2);
+    emit statusChanged(QStringLiteral("RTTY: RX resumed after local TX; retained signal/polarity history"));
+}
+
 void RttyDecoder::setBaudRate(double baud)
 {
     m_baudRate = qBound(10.0, baud, 300.0);

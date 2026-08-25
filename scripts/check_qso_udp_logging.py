@@ -2,9 +2,10 @@
 """Static architecture guard for outbound QSO UDP logging.
 
 This is part of the consolidated architecture suite, not a separate CTest.
-It protects the important ownership rule: ADIF append succeeds first, then one
-best-effort WSJT-X/JTDX Logged ADIF notification is emitted from both live QSO
-logging paths.
+It protects the important ownership rule: ADIF append succeeds first, then a
+best-effort WSJT-X/JTDX notification is emitted. CW/RTTY use the logger
+compatibility bundle (heartbeat + QSO Logged + Logged ADIF); other modes retain
+the established Logged ADIF notification path.
 """
 from pathlib import Path
 import sys
@@ -30,8 +31,10 @@ checks = [
      "UDP settings must be persisted"),
     ("m_chkLogbookUdpEnabled" in dialog and "m_editLogbookUdpServer" in dialog and "m_spinLogbookUdpPort" in dialog,
      "Settings UI must expose enable/server/port controls"),
-    ("0xadbccbdaU" in broadcaster and "kWsjtSchema = 3U" in broadcaster and "kWsjtLoggedAdifType = 12U" in broadcaster,
-     "broadcaster must emit WSJT-X schema-3 Logged ADIF messages"),
+    ("0xadbccbdaU" in broadcaster and "kWsjtSchema = 3U" in broadcaster and
+     "kWsjtHeartbeatType = 0U" in broadcaster and "kWsjtQsoLoggedType = 5U" in broadcaster and
+     "kWsjtLoggedAdifType = 12U" in broadcaster,
+     "broadcaster must implement WSJT-X schema-3 heartbeat, QSO Logged and Logged ADIF messages"),
     ("QDataStream::Qt_5_4" in broadcaster and "QDataStream::BigEndian" in broadcaster,
      "WSJT-X QDataStream wire encoding must be explicit"),
     ("AdifLogbook::entryToAdif(entry)" in broadcaster and "<EOH>" in broadcaster,
@@ -70,8 +73,12 @@ else:
     helper = main[helper_pos:helper_pos + 2400]
     if "if (!m_settings.logbookUdpEnabled)" not in helper:
         errors.append("UDP helper does not honor the opt-in setting")
-    if "QsoUdpBroadcaster::sendLoggedAdif" not in helper:
-        errors.append("UDP helper is not wired to the broadcaster")
+    if "QsoUdpBroadcaster::sendQsoLoggedBundle" not in helper or \
+       "QsoUdpBroadcaster::sendLoggedAdif" not in helper:
+        errors.append("UDP helper must use the CW/RTTY compatibility bundle and preserve the established path for other modes")
+    if 'normalizedMode == QStringLiteral("CW")' not in helper or \
+       'normalizedMode == QStringLiteral("RTTY")' not in helper:
+        errors.append("CW and RTTY must both use the contest/text logger compatibility bundle")
     if 'uiText("qso_udp_failed"' not in helper:
         errors.append("UDP failure is not reported without undoing local logging")
 
