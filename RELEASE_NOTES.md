@@ -5,6 +5,13 @@ decoding keeps its established sensitivity, time-critical FT work is completed
 before the reply slot, and the interface communicates state without covering
 the operating area.
 
+### Alpha r5 rotator signal-peak tracking
+
+- Rotator Auto peak now exposes only algorithms that are actually implemented: low-wear deterministic Pattern Search as the default, true Golden Section for azimuth-only systems, and true 2-D Nelder-Mead for Alt-Az. Old prototype IDs migrate to Pattern Search.
+- QSO tracking can refine a locator-derived pointing direction from the received signal when Auto peak is enabled for the active band. Measurements are frequency-focused and independent from modem decode state; the rotator is never driven by the Radio Telescope tile-power metric during a QSO.
+- Mechanical probing is deliberately discrete rather than continuous conical scanning: up to 5 measurements for azimuth-only or 7 for Alt-Az, bounded to a fraction of antenna beamwidth, with a 90-second minimum cycle interval, weak/no-signal rejection and hard probe timeouts.
+- Any local TX stops an in-progress probe before PTT. The logical QSO pointing is restored only after PTT OFF is confirmed, so optimisation cannot keep moving the antenna through a transmission.
+
 ### Alpha r4 build correction
 
 - Corrects two R3 build-only issues: the contest-period helper is now declared before its first use in `mainwindow.cpp`, and the UDP broadcaster uses an explicitly typed `qint64` zero for Qt6/AppleClang. Runtime CW/RTTY logic is unchanged from r3.

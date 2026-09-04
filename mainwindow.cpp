@@ -3031,6 +3031,19 @@ QWidget *MainWindow::createQsoFormPanel(QWidget *parent, const QString &modeLabe
                 addQsoToLogFromForm(form);
             });
 
+    // A valid text-mode locator is also a precise rotator target.  Do not
+    // derive a V/U/SHF bearing from a country centroid: QSO tracking is armed
+    // only when the operator/decoder has supplied a real Maidenhead locator.
+    connect(form->callsign, &QLineEdit::textChanged, this, [this](const QString &) {
+        updateCatRotatorTextQsoTarget(QStringLiteral("text-mode QSO callsign/grid changed"));
+    });
+    connect(form->grid, &QLineEdit::textChanged, this, [this](const QString &) {
+        updateCatRotatorTextQsoTarget(QStringLiteral("text-mode QSO callsign/grid changed"));
+    });
+    connect(form->band, &QLineEdit::textChanged, this, [this](const QString &) {
+        updateCatRotatorTextQsoTarget(QStringLiteral("text-mode QSO band changed"));
+    });
+
     if (qsoForm != nullptr) {
         *qsoForm = form;
     }
@@ -6762,7 +6775,8 @@ bool MainWindow::radioTelescopeTileMeasuredNear(double azimuthDeg, double elevat
 
 bool MainWindow::continueRadioTelescopePeakRefinement()
 {
-    if (m_radioTelescopeTiles.isEmpty() || m_catRotatorController == nullptr || !m_catRotatorController->config().enabled || !m_catRotatorController->isConnected()) {
+    if (m_radioTelescopeTiles.isEmpty() || m_catRotatorController == nullptr ||
+        !m_catRotatorController->config().enabled || !m_catRotatorController->isConnected()) {
         return false;
     }
 
@@ -6773,23 +6787,15 @@ bool MainWindow::continueRadioTelescopePeakRefinement()
                               profile.useElevation;
     const auto axisMode = useElevation ? mm::RotatorPeakSearch::AxisMode::AzimuthElevation
                                        : mm::RotatorPeakSearch::AxisMode::AzimuthOnly;
-
-    QString algorithm = profile.peakSearchAlgorithm.trimmed();
-    if (!mm::RotatorPeakSearch::isCompatible(algorithm, axisMode)) {
-        algorithm = mm::RotatorPeakSearch::defaultAlgorithm(axisMode);
-    }
+    const QString algorithm = mm::RotatorPeakSearch::normalizeAlgorithmId(profile.peakSearchAlgorithm, axisMode);
 
     auto normalizeBand = [](QString band) {
         return band.trimmed().toLower().remove(QChar(' '));
     };
 
     QString currentBand;
-    if (m_lastRigFrequencyHz > 0.0) {
-        currentBand = bandFromFrequencyHz(m_lastRigFrequencyHz);
-    }
-    if (currentBand.trimmed().isEmpty()) {
-        currentBand = m_settings.ft8Band;
-    }
+    if (m_lastRigFrequencyHz > 0.0) currentBand = bandFromFrequencyHz(m_lastRigFrequencyHz);
+    if (currentBand.trimmed().isEmpty()) currentBand = m_settings.ft8Band;
     const QString wantedBand = normalizeBand(currentBand);
 
     AppSettings::RotatorBandSettings spanRow;
@@ -6821,59 +6827,78 @@ bool MainWindow::continueRadioTelescopePeakRefinement()
                                           : qBound(beam, beam * 1.5, 180.0))
                               : 0.0;
 
-    QVector<mm::RotatorPeakSearch::Sample> samples;
-    samples.reserve(m_radioTelescopeTiles.size());
     int bestIndex = -1;
     double bestNoise = -1.0e9;
     for (int i = 0; i < m_radioTelescopeTiles.size(); ++i) {
-        const RadioTelescopeTileRecord &tile = m_radioTelescopeTiles[i];
+        const RadioTelescopeTileRecord &tile = m_radioTelescopeTiles.at(i);
         if (!tile.measured) continue;
-        mm::RotatorPeakSearch::Sample s;
-        s.azimuthDeg = tile.azimuthDeg;
-        s.elevationDeg = tile.elevationDeg;
-        s.metricDb = tile.noiseDb;
-        samples.append(s);
         if (bestIndex < 0 || tile.noiseDb > bestNoise) {
             bestIndex = i;
             bestNoise = tile.noiseDb;
         }
     }
-    if (samples.isEmpty() || bestIndex < 0) {
-        return false;
+    if (bestIndex < 0) return false;
+
+    const RadioTelescopeTileRecord &bestTile = m_radioTelescopeTiles.at(bestIndex);
+    if (!m_radioTelescopePeakSearchSession.initialized || !m_radioTelescopePeakRefineActive) {
+        mm::RotatorPeakSearch::SearchLimits limits;
+        limits.centerAzimuthDeg = bestTile.azimuthDeg;
+        limits.centerElevationDeg = useElevation ? bestTile.elevationDeg : 0.0;
+        limits.azimuthSpanDeg = spanAz;
+        limits.elevationSpanDeg = spanEl;
+        limits.axisMode = axisMode;
+        // Telescope scans can usually resolve somewhat finer than a large
+        // mechanical QSO antenna, but never chase sub-tenth-degree noise.
+        limits.toleranceDeg = qBound(0.20, beam * 0.025, 1.0);
+        mm::RotatorPeakSearch::reset(&m_radioTelescopePeakSearchSession, algorithm, limits);
     }
 
-    const RadioTelescopeTileRecord &bestTile = m_radioTelescopeTiles[bestIndex];
-    mm::RotatorPeakSearch::SearchLimits limits;
-    limits.centerAzimuthDeg = bestTile.azimuthDeg;
-    limits.centerElevationDeg = useElevation ? bestTile.elevationDeg : 0.0;
-    limits.azimuthSpanDeg = spanAz;
-    limits.elevationSpanDeg = spanEl;
-    limits.axisMode = axisMode;
+    mm::RotatorPeakSearch::Recommendation rec;
+    // Existing heatmap tiles are legitimate measurements. Feed them straight
+    // into the stateful optimiser when they coincide with a requested probe so
+    // the refinement never moves the rotator to a point already measured.
+    for (int guard = 0; guard < 32; ++guard) {
+        rec = mm::RotatorPeakSearch::advance(&m_radioTelescopePeakSearchSession, nullptr);
+        if (!rec.valid || rec.finished) break;
 
-    const mm::RotatorPeakSearch::Recommendation rec = mm::RotatorPeakSearch::recommendNextStep(
-        algorithm,
-        limits,
-        samples,
-        m_catRotatorController->currentAzimuth(),
-        m_catRotatorController->currentElevation());
+        const RadioTelescopeTileRecord *measured = nullptr;
+        for (const RadioTelescopeTileRecord &tile : std::as_const(m_radioTelescopeTiles)) {
+            if (!tile.measured) continue;
+            double da = qAbs(tile.azimuthDeg - rec.nextAzimuthDeg);
+            da = qMin(da, 360.0 - da);
+            if (da <= 0.35 && qAbs(tile.elevationDeg - rec.nextElevationDeg) <= 0.35) {
+                measured = &tile;
+                break;
+            }
+        }
+        if (measured == nullptr) break;
+
+        mm::RotatorPeakSearch::Sample sample;
+        sample.azimuthDeg = measured->azimuthDeg;
+        sample.elevationDeg = measured->elevationDeg;
+        sample.metricDb = measured->noiseDb;
+        rec = mm::RotatorPeakSearch::advance(&m_radioTelescopePeakSearchSession, &sample);
+        if (!rec.valid || rec.finished) break;
+    }
 
     if (!rec.valid) {
-        appendLog(QStringLiteral("Radio Telescope auto-peak: no valid recommendation from %1.").arg(algorithm));
+        appendLog(QStringLiteral("Radio Telescope auto-peak: optimiser rejected a measurement for %1.").arg(algorithm));
+        m_radioTelescopePeakSearchSession = mm::RotatorPeakSearch::Session();
         return false;
     }
 
-    if (m_radioTelescopePeakRefineStepsRemaining <= 0 ||
-        radioTelescopeTileMeasuredNear(rec.nextAzimuthDeg, rec.nextElevationDeg, 0.35)) {
+    if (rec.finished || m_radioTelescopePeakRefineStepsRemaining <= 0) {
         m_radioTelescopeTargetAzimuthDeg = rec.bestAzimuthDeg;
         m_radioTelescopeTargetElevationDeg = useElevation ? rec.bestElevationDeg : 0.0;
         m_catRotatorController->setAzEl(m_radioTelescopeTargetAzimuthDeg,
                                         m_radioTelescopeTargetElevationDeg,
                                         QStringLiteral("radio telescope auto-peak best hold"));
-        appendLog(QStringLiteral("Radio Telescope auto-peak complete (%1): best az %2°, el %3°, noise %4 dBFS. %5")
+        appendLog(QStringLiteral("Radio Telescope auto-peak complete (%1): best az %2°, el %3°, noise %4 dBFS after %5 evaluation(s). %6")
                       .arg(algorithm,
                            QString::number(rec.bestAzimuthDeg, 'f', 1),
                            QString::number(useElevation ? rec.bestElevationDeg : 0.0, 'f', 1),
                            QString::number(rec.bestMetricDb, 'f', 1),
+                           QString::number(rec.evaluations),
                            rec.status));
         if (m_lblRadioTelescopeStatus != nullptr) {
             m_lblRadioTelescopeStatus->setText(MadModemI18n::text(QStringLiteral("Auto-peak complete: az %1° el %2° (%3 dBFS)"))
@@ -6881,6 +6906,11 @@ bool MainWindow::continueRadioTelescopePeakRefinement()
                                                         QString::number(useElevation ? rec.bestElevationDeg : 0.0, 'f', 1),
                                                         QString::number(rec.bestMetricDb, 'f', 1)));
         }
+        m_radioTelescopePeakRefineActive = false;
+        m_radioTelescopePeakSearchSession = mm::RotatorPeakSearch::Session();
+        // Auto-point means hold the measured peak; do not immediately undo it
+        // with the normal post-scan return-to-start movement.
+        m_radioTelescopeReturnPositionValid = false;
         updateRadioTelescopeHeatmapWidget();
         if (m_radioTelescopeHeatmapWidget != nullptr) {
             m_radioTelescopeHeatmapWidget->setCurrentTarget(m_radioTelescopeTargetAzimuthDeg,
@@ -6923,7 +6953,7 @@ void MainWindow::pointRadioTelescopeMaxNoise()
         return;
     }
 
-    // Use the real rotator-profile algorithm from Settings -> Rotator -> Auto peak search algorithm.
+    // Use the real rotator-profile algorithm from Settings -> Rotator -> Peak search algorithm.
     // If RX is already stopped, do not schedule extra probe samples: just point the best measured direction.
     const bool canSampleRefine = (m_audioEngine != nullptr && m_audioEngine->isRunning());
     m_radioTelescopePeakRefineStepsRemaining = canSampleRefine ? 8 : 0;
@@ -6998,6 +7028,7 @@ void MainWindow::clearRadioTelescopeHeatmap()
     m_radioTelescopeTiles.clear();
     m_radioTelescopePeakRefineActive = false;
     m_radioTelescopePeakRefineStepsRemaining = 0;
+    m_radioTelescopePeakSearchSession = mm::RotatorPeakSearch::Session();
     m_radioTelescopeCurrentTileIndex = -1;
     m_radioTelescopeAccumulatedPower = 0.0;
     m_radioTelescopeAccumulatedBlocks = 0;
@@ -7350,6 +7381,7 @@ void MainWindow::startRadioTelescopeScan()
     m_radioTelescopeScanActive = true;
     m_radioTelescopePeakRefineActive = false;
     m_radioTelescopePeakRefineStepsRemaining = 0;
+    m_radioTelescopePeakSearchSession = mm::RotatorPeakSearch::Session();
     m_radioTelescopeCurrentTileIndex = -1;
     m_radioTelescopeScanPhase = RadioTelescopeScanPhase::Idle;
     m_radioTelescopeTargetAzimuthDeg = 0.0;
@@ -8971,7 +9003,12 @@ void MainWindow::setupProcessingConnections()
                             const AudioBlock waterfallBlock = conditionAudioForWaterfall(block);
                             m_dspAudioDispatcher->enqueue(waterfallBlock);
                         }
+                        // Decoder handling owns the live RX critical path. QSO
+                        // pointing is advanced only afterwards and consumes a
+                        // cached metric produced asynchronously by DspEngine from
+                        // the already-computed waterfall FFT.
                         handleRxAudioBlock(block);
+                        updateQsoSignalPeakTracking();
                     }
                 },
                 Qt::QueuedConnection);
@@ -9109,6 +9146,14 @@ void MainWindow::setupProcessingConnections()
 
     connect(m_dspEngine, &DspEngine::dominantFrequencyChanged,
             this, &MainWindow::handleDominantFrequency,
+            Qt::QueuedConnection);
+
+    connect(m_dspEngine, &DspEngine::signalPeakMetricReady,
+            this, [this](double metricDb, bool valid) {
+                m_qsoPeakLatestMetricDb = metricDb;
+                m_qsoPeakLatestMetricValid = valid;
+                m_qsoPeakLatestMetricMs = QDateTime::currentMSecsSinceEpoch();
+            },
             Qt::QueuedConnection);
 
     connect(m_waterfallWidget, &WaterfallWidget::frequencyClicked,
@@ -21346,17 +21391,495 @@ void MainWindow::updateCatRotatorQsoTarget(const QString &reason)
         target.distanceKm = QsoMapWidget::distanceKm(homeLonLat, dxLonLat);
     }
 
+    QString peakKey;
+    if (target.bearingDeg >= 0.0) {
+        const QString bandKey = bandFromFrequencyHz(m_lastRigFrequencyHz).trimmed().toUpper();
+        peakKey = QStringLiteral("%1|%2|%3")
+                                    .arg(target.callsign, target.grid.trimmed().toUpper(), bandKey);
+        m_qsoPeakTheoreticalAzDeg = target.bearingDeg;
+        m_qsoPeakTheoreticalElDeg = 0.0;
+        if (m_qsoPeakCorrectionValid && m_qsoPeakCorrectionKey == peakKey) {
+            target.bearingDeg += m_qsoPeakCorrectionAzDeg;
+            target.elevationDeg = m_qsoPeakCorrectionElDeg;
+        }
+        if (m_qsoPeakTargetKey != peakKey) {
+            resetQsoSignalPeakTracking(QStringLiteral("FT QSO peak target changed"), false);
+            m_qsoPeakTargetKey = peakKey;
+        }
+    }
+
     if (target.callsign.isEmpty()) {
+        resetQsoSignalPeakTracking(QStringLiteral("FT QSO target cleared"), false);
         m_catRotatorController->clearQsoTarget();
         if (m_catRotatorSidePanel != nullptr) {
             m_catRotatorSidePanel->updateQsoTarget(mm::CatRotatorController::QsoTarget());
         }
     } else {
-        m_catRotatorController->setQsoTarget(target);
+        if (m_qsoPeakSearchActive && target.qsoActive && !peakKey.isEmpty() && peakKey == m_qsoPeakTargetKey) {
+            // The peak-search session owns physical movement until its current
+            // probe cycle finishes. Keep FT call/grid/activity fresh without
+            // snapping the antenna back to the geometric bearing every decode.
+            m_catRotatorController->updateQsoTargetMetadata(target);
+        } else {
+            if (m_qsoPeakSearchActive && !target.qsoActive) {
+                resetQsoSignalPeakTracking(QStringLiteral("FT QSO no longer active"), false);
+            }
+            m_catRotatorController->setQsoTarget(target);
+        }
         if (m_catRotatorSidePanel != nullptr) {
             m_catRotatorSidePanel->updateQsoTarget(target);
         }
     }
+}
+
+
+void MainWindow::updateCatRotatorTextQsoTarget(const QString &reason)
+{
+    if (m_catRotatorController == nullptr || ui == nullptr || ui->cmbMode == nullptr) return;
+    if (Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) return;
+
+    QsoFormWidgets *form = activeQsoForm();
+    if (form == nullptr || form->callsign == nullptr || form->grid == nullptr) return;
+
+    const QString call = AdifLogbook::normalizeCallsign(form->callsign->text());
+    const QString grid = form->grid->text().trimmed().left(6).toUpper();
+    QPointF homeLonLat;
+    QPointF dxLonLat;
+    if (call.isEmpty() || grid.size() < 4 ||
+        !QsoMapWidget::maidenheadToLonLat(stationLocator(), &homeLonLat) ||
+        !QsoMapWidget::maidenheadToLonLat(grid, &dxLonLat)) {
+        const auto existing = m_catRotatorController->qsoTarget();
+        if (existing.reason.startsWith(QStringLiteral("text-mode"))) {
+            resetQsoSignalPeakTracking(QStringLiteral("text-mode QSO target cleared"), false);
+            m_catRotatorController->clearQsoTarget();
+            if (m_catRotatorSidePanel != nullptr) {
+                m_catRotatorSidePanel->updateQsoTarget(mm::CatRotatorController::QsoTarget());
+            }
+        }
+        return;
+    }
+
+    mm::CatRotatorController::QsoTarget target;
+    target.callsign = call;
+    target.grid = grid;
+    target.reason = QStringLiteral("text-mode QSO target: %1").arg(reason);
+    target.rxFrequencyHz = qsoSignalPeakAudioCenterHz();
+    target.qsoActive = true;
+    target.updatedUtc = QDateTime::currentDateTimeUtc();
+    target.bearingDeg = QsoMapWidget::bearingDeg(homeLonLat, dxLonLat);
+    target.distanceKm = QsoMapWidget::distanceKm(homeLonLat, dxLonLat);
+
+    QString band = form->band != nullptr ? form->band->text().trimmed() : QString();
+    if (band.isEmpty() && m_lastRigFrequencyHz > 0.0) band = bandFromFrequencyHz(m_lastRigFrequencyHz);
+    const QString peakKey = QStringLiteral("%1|%2|%3")
+                                .arg(call, grid, band.trimmed().toUpper());
+    m_qsoPeakTheoreticalAzDeg = target.bearingDeg;
+    m_qsoPeakTheoreticalElDeg = 0.0;
+    if (m_qsoPeakCorrectionValid && m_qsoPeakCorrectionKey == peakKey) {
+        target.bearingDeg += m_qsoPeakCorrectionAzDeg;
+        target.elevationDeg = m_qsoPeakCorrectionElDeg;
+    }
+    if (m_qsoPeakTargetKey != peakKey) {
+        resetQsoSignalPeakTracking(QStringLiteral("text-mode QSO peak target changed"), false);
+        m_qsoPeakTargetKey = peakKey;
+    }
+
+    // Do not force the operator out of Manual/Moon tracking merely because a
+    // QSO form was edited.  While a peak scan owns the mechanics, update only
+    // metadata so repeated decoder/form refreshes cannot cancel a probe.
+    if (m_qsoPeakSearchActive && peakKey == m_qsoPeakTargetKey) {
+        m_catRotatorController->updateQsoTargetMetadata(target);
+    } else {
+        m_catRotatorController->setQsoTarget(target);
+    }
+    if (m_catRotatorSidePanel != nullptr) m_catRotatorSidePanel->updateQsoTarget(target);
+}
+
+int MainWindow::qsoSignalPeakAudioCenterHz() const
+{
+    if (ui == nullptr || ui->cmbMode == nullptr) return 0;
+    const QString mode = ui->cmbMode->currentText();
+    if (mode == CwDecoder::modeName()) return m_spinCwToneHz != nullptr ? m_spinCwToneHz->value() : 700;
+    if (mode == RttyDecoder::modeName()) {
+        const int mark = m_spinRttyMarkHz != nullptr ? m_spinRttyMarkHz->value() : 2125;
+        const int shift = m_spinRttyShiftHz != nullptr ? m_spinRttyShiftHz->value() : 170;
+        return mark + shift / 2;
+    }
+    if (mode == Bpsk31Decoder::modeName()) return m_spinBpsk31ToneHz != nullptr ? m_spinBpsk31ToneHz->value() : 1000;
+    if (mode == MfskDecoder::modeName()) return m_spinMfskCenterHz != nullptr ? m_spinMfskCenterHz->value() : 1000;
+    if (mode == HellschreiberDecoder::modeName()) return m_spinHellToneHz != nullptr ? m_spinHellToneHz->value() : 1000;
+    if (Msk144Mode::isMode(mode)) return m_spinMsk144RxFreq != nullptr ? m_spinMsk144RxFreq->value() : 1500;
+    if (Q65Mode::isFamilyMode(mode)) return m_spinQ65RxFreq != nullptr ? m_spinQ65RxFreq->value() : 1500;
+    if (Ft8Mode::isFamilyMode(mode)) {
+        if (m_ftSession.audioFreqHz > 0) return m_ftSession.audioFreqHz;
+        return m_spinFt8RxFreq != nullptr ? m_spinFt8RxFreq->value() : m_settings.ft8RxFrequencyHz;
+    }
+    return 0;
+}
+
+bool MainWindow::qsoSignalPeakMetricBand(int *lowHzOut, int *highHzOut) const
+{
+    if (lowHzOut != nullptr) *lowHzOut = 0;
+    if (highHzOut != nullptr) *highHzOut = 0;
+    if (ui == nullptr || ui->cmbMode == nullptr) return false;
+
+    const QString mode = ui->cmbMode->currentText();
+    const int centerHz = qsoSignalPeakAudioCenterHz();
+    if (centerHz <= 0) return false;
+
+    int lowHz = centerHz - 60;
+    int highHz = centerHz + 60;
+    if (mode == RttyDecoder::modeName()) {
+        const int mark = m_spinRttyMarkHz != nullptr ? m_spinRttyMarkHz->value() : 2125;
+        const int shift = m_spinRttyShiftHz != nullptr ? m_spinRttyShiftHz->value() : 170;
+        lowHz = qMin(mark, mark + shift) - 55;
+        highHz = qMax(mark, mark + shift) + 55;
+    } else if (mode == CwDecoder::modeName()) {
+        const int bw = m_cwDecoder != nullptr ? qRound(m_cwDecoder->effectiveBandwidthHz(0)) : 120;
+        const int half = qBound(25, bw / 2, 100);
+        lowHz = centerHz - half;
+        highHz = centerHz + half;
+    } else if (Ft8Mode::isFamilyMode(mode)) {
+        const QString adif = Ft8Mode::profileForMode(mode).adifMode.toUpper();
+        const int half = adif == QStringLiteral("FT4") ? 140 : 90;
+        lowHz = centerHz - half;
+        highHz = centerHz + half;
+    } else if (Q65Mode::isFamilyMode(mode)) {
+        const int half = qBound(100, m_spinQ65DfTolerance != nullptr ? m_spinQ65DfTolerance->value() : 400, 800);
+        lowHz = centerHz - half;
+        highHz = centerHz + half;
+    } else if (Msk144Mode::isMode(mode)) {
+        lowHz = centerHz - 1000;
+        highHz = centerHz + 1000;
+    } else if (mode == Bpsk31Decoder::modeName()) {
+        lowHz = centerHz - 45;
+        highHz = centerHz + 45;
+    } else if (mode == MfskDecoder::modeName()) {
+        lowHz = centerHz - 300;
+        highHz = centerHz + 300;
+    }
+
+    lowHz = qMax(20, lowHz);
+    highHz = qMax(lowHz + 10, highHz);
+    if (lowHzOut != nullptr) *lowHzOut = lowHz;
+    if (highHzOut != nullptr) *highHzOut = highHz;
+    return true;
+}
+
+void MainWindow::configureQsoSignalPeakMetric(bool enabled)
+{
+    if (m_dspEngine == nullptr) return;
+
+    int lowHz = 0;
+    int highHz = 0;
+    if (enabled && !qsoSignalPeakMetricBand(&lowHz, &highHz)) enabled = false;
+
+    if (m_qsoPeakMetricWorkerEnabled == enabled &&
+        (!enabled || (m_qsoPeakMetricWorkerLowHz == lowHz && m_qsoPeakMetricWorkerHighHz == highHz))) {
+        return;
+    }
+
+    m_qsoPeakMetricWorkerEnabled = enabled;
+    m_qsoPeakMetricWorkerLowHz = enabled ? lowHz : 0;
+    m_qsoPeakMetricWorkerHighHz = enabled ? highHz : 0;
+    m_qsoPeakLatestMetricValid = false;
+    m_qsoPeakLatestMetricMs = 0;
+    m_qsoPeakLastMetricConsumedMs = 0;
+    QMetaObject::invokeMethod(m_dspEngine,
+                              "configureSignalPeakMetric",
+                              Qt::QueuedConnection,
+                              Q_ARG(bool, enabled),
+                              Q_ARG(int, m_qsoPeakMetricWorkerLowHz),
+                              Q_ARG(int, m_qsoPeakMetricWorkerHighHz));
+}
+
+void MainWindow::resetQsoSignalPeakTracking(const QString &reason, bool clearCorrection)
+{
+    if (m_qsoPeakSearchActive && !reason.trimmed().isEmpty()) {
+        appendLog(QStringLiteral("QSO signal peak search reset: %1").arg(reason));
+    }
+    m_qsoPeakSearchSession = mm::RotatorPeakSearch::Session();
+    m_qsoPeakSearchActive = false;
+    m_qsoPeakProbeSettled = false;
+    m_qsoPeakSettleUntilMs = 0;
+    m_qsoPeakDwellUntilMs = 0;
+    m_qsoPeakProbeCommandMs = 0;
+    m_qsoPeakDwellMetricsDb.clear();
+    m_qsoPeakLastMetricConsumedMs = 0;
+    configureQsoSignalPeakMetric(false);
+    if (clearCorrection) {
+        m_qsoPeakCorrectionValid = false;
+        m_qsoPeakCorrectionKey.clear();
+        m_qsoPeakCorrectionAzDeg = 0.0;
+        m_qsoPeakCorrectionElDeg = 0.0;
+    }
+}
+
+void MainWindow::pauseQsoSignalPeakForTransmit()
+{
+    if (!m_qsoPeakSearchActive || m_catRotatorController == nullptr) return;
+
+    // A mechanical peak probe must never continue once local TX is about to
+    // start. Stop the current movement before PTT, discard only optimiser
+    // state, and return to the logical QSO target after PTT is confirmed off.
+    m_catRotatorController->stop();
+    m_qsoPeakLastCompletedMs = QDateTime::currentMSecsSinceEpoch();
+    resetQsoSignalPeakTracking(QStringLiteral("local TX started"), false);
+    m_qsoPeakReturnAfterTx = true;
+}
+
+void MainWindow::resumeQsoSignalPeakAfterTransmit()
+{
+    if (!m_qsoPeakReturnAfterTx) return;
+    m_qsoPeakReturnAfterTx = false;
+    if (m_catRotatorController == nullptr || !m_catRotatorController->isConnected() ||
+        m_catRotatorController->trackingMode() != mm::CatRotatorController::TrackingMode::Qso ||
+        !m_catRotatorController->isTrackingQsoTarget()) {
+        return;
+    }
+    m_catRotatorController->trackQsoTargetNow(QStringLiteral("QSO signal peak resume after local TX"));
+}
+
+void MainWindow::updateQsoSignalPeakTracking()
+{
+    const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+    constexpr qint64 kControlTickMs = 50;
+    if (m_qsoPeakLastControlTickMs > 0 && nowMs - m_qsoPeakLastControlTickMs < kControlTickMs) return;
+    m_qsoPeakLastControlTickMs = nowMs;
+
+    if (m_catRotatorController == nullptr || !m_catRotatorController->isConnected() ||
+        !m_catRotatorController->config().trackSelectedQso ||
+        m_catRotatorController->trackingMode() != mm::CatRotatorController::TrackingMode::Qso ||
+        !m_catRotatorController->isTrackingQsoTarget() || m_txRunning || !m_rxRunning || m_offlineAnalysisActive) {
+        configureQsoSignalPeakMetric(false);
+        return;
+    }
+
+    const mm::CatRotatorController::QsoTarget target = m_catRotatorController->qsoTarget();
+    if (target.callsign.trimmed().isEmpty() || target.bearingDeg < 0.0 ||
+        (m_catRotatorController->config().trackOnlyWhenQsoActive && !target.qsoActive)) {
+        configureQsoSignalPeakMetric(false);
+        return;
+    }
+
+    const int profileIndex = qBound(0, m_catRotatorController->config().profileIndex, 2);
+    const AppSettings::RotatorProfileSettings &profile = m_settings.rotatorProfiles[profileIndex];
+    QString band = bandFromFrequencyHz(m_lastRigFrequencyHz);
+    if (band.trimmed().isEmpty()) {
+        if (QsoFormWidgets *form = activeQsoForm(); form != nullptr && form->band != nullptr) band = form->band->text().trimmed();
+    }
+    auto normBand = [](QString b) { return b.trimmed().toLower().remove(QChar(' ')); };
+    const QString wantedBand = normBand(band);
+    const AppSettings::RotatorBandSettings *bandRow = nullptr;
+    for (const auto &row : profile.bandSettings) {
+        if (normBand(row.band) == wantedBand) {
+            bandRow = &row;
+            break;
+        }
+    }
+    if (bandRow == nullptr || !bandRow->enabled || !bandRow->autoPeakEnabled || bandRow->azimuthSearchSpanDeg <= 0.0) {
+        configureQsoSignalPeakMetric(false);
+        return;
+    }
+
+    const QString key = QStringLiteral("%1|%2|%3")
+                            .arg(target.callsign.trimmed().toUpper(), target.grid.trimmed().toUpper(), band.trimmed().toUpper());
+    if (m_qsoPeakTargetKey != key) {
+        resetQsoSignalPeakTracking(QStringLiteral("QSO target/band changed"), false);
+        m_qsoPeakTargetKey = key;
+        // target.bearingDeg may include an old correction only when the keys
+        // match, so a genuinely new key starts from its geometric bearing.
+        m_qsoPeakTheoreticalAzDeg = target.bearingDeg;
+        m_qsoPeakTheoreticalElDeg = target.elevationDeg;
+    }
+
+    constexpr qint64 kMinimumCycleIntervalMs = 90000; // no continuous conical motion
+    const double beam = qBound(1.0, profile.antennaBeamWidthDeg, 120.0);
+    const double safeAzSpan = qMin(qAbs(bandRow->azimuthSearchSpanDeg), qMax(0.5, beam * 0.25));
+    const bool useElevation = profile.useElevation && bandRow->elevationSearchSpanDeg > 0.0;
+    const double safeElSpan = useElevation
+                                  ? qMin(qAbs(bandRow->elevationSearchSpanDeg), qMax(0.5, beam * 0.25))
+                                  : 0.0;
+    if (safeAzSpan < 0.10) {
+        configureQsoSignalPeakMetric(false);
+        return;
+    }
+
+    if (!m_qsoPeakSearchActive) {
+        configureQsoSignalPeakMetric(false);
+        if (m_qsoPeakLastCompletedMs > 0 && nowMs - m_qsoPeakLastCompletedMs < kMinimumCycleIntervalMs) return;
+        if (m_catRotatorController->isMoving()) return;
+
+        mm::RotatorPeakSearch::SearchLimits limits;
+        limits.centerAzimuthDeg = target.bearingDeg;
+        limits.centerElevationDeg = useElevation ? target.elevationDeg : 0.0;
+        limits.azimuthSpanDeg = safeAzSpan;
+        limits.elevationSpanDeg = safeElSpan;
+        limits.axisMode = useElevation ? mm::RotatorPeakSearch::AxisMode::AzimuthElevation
+                                       : mm::RotatorPeakSearch::AxisMode::AzimuthOnly;
+        // Do not ask a mechanical rotator for unrealistic sub-resolution moves.
+        limits.toleranceDeg = qBound(0.25, beam * 0.03, 1.0);
+        const QString algorithm = mm::RotatorPeakSearch::normalizeAlgorithmId(profile.peakSearchAlgorithm, limits.axisMode);
+        mm::RotatorPeakSearch::reset(&m_qsoPeakSearchSession, algorithm, limits);
+        const auto rec = mm::RotatorPeakSearch::advance(&m_qsoPeakSearchSession, nullptr);
+        if (!rec.valid || rec.finished) return;
+
+        m_qsoPeakSearchActive = true;
+        m_qsoPeakProbeSettled = false;
+        m_qsoPeakSettleUntilMs = 0;
+        m_qsoPeakDwellUntilMs = 0;
+        m_qsoPeakDwellMetricsDb.clear();
+        m_qsoPeakProbeCommandMs = nowMs;
+        configureQsoSignalPeakMetric(true);
+        m_catRotatorController->setAzEl(rec.nextAzimuthDeg, rec.nextElevationDeg,
+                                        QStringLiteral("QSO signal peak probe"));
+        appendLog(QStringLiteral("QSO signal peak %1: start %2 around %3, local span ±%4°%5.")
+                      .arg(target.callsign,
+                           algorithm,
+                           band,
+                           QString::number(safeAzSpan, 'f', 1),
+                           useElevation ? QStringLiteral(" / ±%1° El").arg(QString::number(safeElSpan, 'f', 1)) : QString()));
+        return;
+    }
+
+    configureQsoSignalPeakMetric(true);
+    const auto pending = mm::RotatorPeakSearch::advance(&m_qsoPeakSearchSession, nullptr);
+    if (!pending.valid) {
+        resetQsoSignalPeakTracking(QStringLiteral("optimiser state rejected pending point"), false);
+        return;
+    }
+    if (pending.finished) {
+        resetQsoSignalPeakTracking(QStringLiteral("optimiser already complete"), false);
+        return;
+    }
+
+    double azDelta = qAbs(m_catRotatorController->currentAzimuth() - pending.nextAzimuthDeg);
+    azDelta = qMin(azDelta, 360.0 - azDelta);
+    const double elDelta = qAbs(m_catRotatorController->currentElevation() - pending.nextElevationDeg);
+    const double arrivalTolerance = qBound(0.40, m_qsoPeakSearchSession.limits.toleranceDeg * 1.5, 1.25);
+    if (azDelta > arrivalTolerance || (useElevation && elDelta > arrivalTolerance)) {
+        const int estimatedMs = m_catRotatorController->estimatePointingTimeMs(pending.nextAzimuthDeg, pending.nextElevationDeg);
+        const qint64 timeoutMs = qMax<qint64>(qint64{5000}, static_cast<qint64>(estimatedMs) + qint64{5000});
+        if (m_qsoPeakProbeCommandMs > 0 && nowMs - m_qsoPeakProbeCommandMs > timeoutMs) {
+            appendLog(QStringLiteral("QSO signal peak %1: rotator did not reach probe within %2 ms; aborting search and returning to QSO target.")
+                          .arg(target.callsign, QString::number(timeoutMs)));
+            m_qsoPeakLastCompletedMs = nowMs;
+            resetQsoSignalPeakTracking(QString(), false);
+            m_catRotatorController->trackQsoTargetNow(QStringLiteral("QSO signal peak probe timeout"));
+        }
+        return;
+    }
+    if (m_catRotatorController->isMoving()) return;
+
+    if (!m_qsoPeakProbeSettled) {
+        m_qsoPeakProbeSettled = true;
+        m_qsoPeakSettleUntilMs = nowMs + qMax(500, profile.settleDelayMs);
+        m_qsoPeakDwellUntilMs = m_qsoPeakSettleUntilMs + 900;
+        m_qsoPeakDwellMetricsDb.clear();
+        return;
+    }
+    if (nowMs < m_qsoPeakSettleUntilMs) return;
+
+    // Metric samples arrive from DspEngine's worker thread and reuse its
+    // existing waterfall FFT. Consume at most ~5 Hz so QSO peak tracking can
+    // never become a high-rate UI or decoder-side workload.
+    constexpr qint64 kMetricConsumeIntervalMs = 180;
+    const bool freshMetric = m_qsoPeakLatestMetricValid &&
+                             std::isfinite(m_qsoPeakLatestMetricDb) &&
+                             m_qsoPeakLatestMetricMs >= m_qsoPeakSettleUntilMs &&
+                             nowMs - m_qsoPeakLatestMetricMs <= 750 &&
+                             (m_qsoPeakLastMetricConsumedMs == 0 ||
+                              m_qsoPeakLatestMetricMs - m_qsoPeakLastMetricConsumedMs >= kMetricConsumeIntervalMs);
+    if (freshMetric) {
+        m_qsoPeakDwellMetricsDb.append(m_qsoPeakLatestMetricDb);
+        m_qsoPeakLastMetricConsumedMs = m_qsoPeakLatestMetricMs;
+    }
+    if (nowMs < m_qsoPeakDwellUntilMs) return;
+
+    if (m_qsoPeakDwellMetricsDb.size() < 3) {
+        // Weak/keyed signals may leave a short silence, but a mechanical probe
+        // has a hard lifetime: never park the rotator indefinitely waiting for
+        // a CW key-down or intermittent digital burst.
+        const int estimatedMs = m_catRotatorController->estimatePointingTimeMs(
+            pending.nextAzimuthDeg, pending.nextElevationDeg);
+        const qint64 hardProbeLifetimeMs = qMax<qint64>(
+            qint64{8000}, static_cast<qint64>(estimatedMs) + qint64{8000});
+        if (m_qsoPeakProbeCommandMs > 0 &&
+            nowMs - m_qsoPeakProbeCommandMs >= hardProbeLifetimeMs) {
+            appendLog(QStringLiteral("QSO signal peak %1: insufficient valid signal samples at probe; aborting this cycle and returning to the QSO target.")
+                          .arg(target.callsign));
+            m_qsoPeakLastCompletedMs = nowMs;
+            resetQsoSignalPeakTracking(QString(), false);
+            m_catRotatorController->trackQsoTargetNow(QStringLiteral("QSO signal peak insufficient samples"));
+            return;
+        }
+        m_qsoPeakDwellUntilMs = nowMs + 500;
+        return;
+    }
+
+    std::sort(m_qsoPeakDwellMetricsDb.begin(), m_qsoPeakDwellMetricsDb.end());
+    const int p75Index = qBound(0, (m_qsoPeakDwellMetricsDb.size() * 3) / 4, m_qsoPeakDwellMetricsDb.size() - 1);
+    const double dwellMetricDb = m_qsoPeakDwellMetricsDb.at(p75Index);
+    if (m_qsoPeakSearchSession.evaluations == 0 && dwellMetricDb < 1.5) {
+        appendLog(QStringLiteral("QSO signal peak %1: centre metric %2 dB is too weak for safe mechanical search; holding current QSO bearing.")
+                      .arg(target.callsign, QString::number(dwellMetricDb, 'f', 1)));
+        m_qsoPeakLastCompletedMs = nowMs;
+        resetQsoSignalPeakTracking(QString(), false);
+        m_catRotatorController->trackQsoTargetNow(QStringLiteral("QSO signal peak weak-signal hold"));
+        return;
+    }
+
+    mm::RotatorPeakSearch::Sample sample;
+    sample.azimuthDeg = pending.nextAzimuthDeg;
+    sample.elevationDeg = pending.nextElevationDeg;
+    sample.metricDb = dwellMetricDb;
+    auto rec = mm::RotatorPeakSearch::advance(&m_qsoPeakSearchSession, &sample);
+
+    constexpr int kMaxAzEvaluations = 5;
+    constexpr int kMaxAltAzEvaluations = 7;
+    const int maxEvaluations = useElevation ? kMaxAltAzEvaluations : kMaxAzEvaluations;
+    if (!rec.valid || rec.finished || rec.evaluations >= maxEvaluations) {
+        if (rec.valid && rec.bestMetricDb > -900.0) {
+            auto signedDelta = [](double a, double b) {
+                double d = a - b;
+                while (d > 180.0) d -= 360.0;
+                while (d < -180.0) d += 360.0;
+                return d;
+            };
+            m_qsoPeakCorrectionAzDeg = signedDelta(rec.bestAzimuthDeg, m_qsoPeakTheoreticalAzDeg);
+            m_qsoPeakCorrectionElDeg = useElevation ? rec.bestElevationDeg - m_qsoPeakTheoreticalElDeg : 0.0;
+            m_qsoPeakCorrectionKey = key;
+            m_qsoPeakCorrectionValid = true;
+
+            auto held = target;
+            held.bearingDeg = rec.bestAzimuthDeg;
+            held.elevationDeg = useElevation ? rec.bestElevationDeg : 0.0;
+            held.reason = QStringLiteral("QSO signal peak best hold");
+            held.updatedUtc = QDateTime::currentDateTimeUtc();
+            m_catRotatorController->setQsoTarget(held);
+            if (m_catRotatorSidePanel != nullptr) m_catRotatorSidePanel->updateQsoTarget(held);
+            appendLog(QStringLiteral("QSO signal peak %1 complete: best az %2°, el %3°, metric %4 dB, correction %5°/%6°, %7 evaluation(s).")
+                          .arg(target.callsign,
+                               QString::number(rec.bestAzimuthDeg, 'f', 1),
+                               QString::number(useElevation ? rec.bestElevationDeg : 0.0, 'f', 1),
+                               QString::number(rec.bestMetricDb, 'f', 1),
+                               QString::number(m_qsoPeakCorrectionAzDeg, 'f', 1),
+                               QString::number(m_qsoPeakCorrectionElDeg, 'f', 1),
+                               QString::number(rec.evaluations)));
+        }
+        m_qsoPeakLastCompletedMs = nowMs;
+        resetQsoSignalPeakTracking(QString(), false);
+        return;
+    }
+
+    m_qsoPeakProbeSettled = false;
+    m_qsoPeakSettleUntilMs = 0;
+    m_qsoPeakDwellUntilMs = 0;
+    m_qsoPeakDwellMetricsDb.clear();
+    m_qsoPeakLastMetricConsumedMs = 0;
+    m_qsoPeakProbeCommandMs = nowMs;
+    m_catRotatorController->setAzEl(rec.nextAzimuthDeg, rec.nextElevationDeg,
+                                    QStringLiteral("QSO signal peak probe"));
 }
 
 
@@ -23512,7 +24035,9 @@ bool MainWindow::keyPttForTx()
                                  uiText("open_audio_cat_settings", "Open Audio/PTT + CAT settings"));
             return false;
         }
+        pauseQsoSignalPeakForTransmit();
         if (!invokeRigPttBlocking(true)) {
+            resumeQsoSignalPeakAfterTransmit();
             const QString detail = m_rigController->lastStatus().trimmed();
             const QString reason = detail.isEmpty()
                 ? uiText("tx_ptt_hamlib_key_failed",
@@ -23531,6 +24056,7 @@ bool MainWindow::keyPttForTx()
     }
 
     if (pttMethod == QStringLiteral("none")) {
+        pauseQsoSignalPeakForTransmit();
         appendLog("TX PTT disabled by Audio/PTT settings; transmitting audio only.");
         return true;
     }
@@ -23573,9 +24099,11 @@ bool MainWindow::keyPttForTx()
         return false;
     }
 
+    pauseQsoSignalPeakForTransmit();
     const bool ok = useDtr ? m_pttSerial.setDataTerminalReady(true)
                            : m_pttSerial.setRequestToSend(true);
     if (!ok) {
+        resumeQsoSignalPeakAfterTransmit();
         const QString reason = uiText("tx_ptt_serial_line_failed",
                                       "Serial PTT could not assert %1 on %2: %3")
             .arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), portName, m_pttSerial.errorString());
@@ -23625,6 +24153,7 @@ void MainWindow::unkeyPttAfterTx()
 
     if (pttOffConfirmed) {
         restoreFtSplitAfterTx();
+        resumeQsoSignalPeakAfterTransmit();
     } else if (m_ftSplitPreparedForTx) {
         appendLog("FT Split restore deferred: PTT OFF was not confirmed; radio frequency state is left untouched for RF safety.");
     }

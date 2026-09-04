@@ -1,4 +1,5 @@
 #include "AppSettings.h"
+#include "../rotator/RotatorPeakSearch.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -157,7 +158,7 @@ void normalizeRotatorBandSettings(AppSettings::RotatorProfileSettings &profile)
     profile.bandSettings = normalized;
     profile.bandsCsv = enabledBands.join(QStringLiteral(","));
     if (profile.peakSearchAlgorithm.trimmed().isEmpty()) {
-        profile.peakSearchAlgorithm = profile.useElevation ? QStringLiteral("nelder-mead") : QStringLiteral("bounded-adaptive");
+        profile.peakSearchAlgorithm = QStringLiteral("pattern-search");
     }
 }
 
@@ -674,6 +675,11 @@ void AppSettings::load()
         if (rp.txGuardMarginMs < 0 || rp.txGuardMarginMs > 30000) rp.txGuardMarginMs = 800;
         rp.calibrationStampUtc = settings.value(group + QStringLiteral("calibrationStampUtc"), rp.calibrationStampUtc).toString();
         rp.peakSearchAlgorithm = settings.value(group + QStringLiteral("peakSearchAlgorithm"), rp.peakSearchAlgorithm).toString().trimmed();
+        {
+            const auto axisMode = rp.useElevation ? mm::RotatorPeakSearch::AxisMode::AzimuthElevation
+                                                  : mm::RotatorPeakSearch::AxisMode::AzimuthOnly;
+            rp.peakSearchAlgorithm = mm::RotatorPeakSearch::normalizeAlgorithmId(rp.peakSearchAlgorithm, axisMode);
+        }
 
         QVector<RotatorBandSettings> rows = defaultRotatorBandSettings();
         for (RotatorBandSettings &row : rows) {

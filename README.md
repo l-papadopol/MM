@@ -28,8 +28,9 @@ separate utilities.
   analysis and image saving.
 - Control a radio through **Hamlib CAT/PTT**, keep the FT dial frequency aligned
   with the selected band and use saved station settings at startup.
-- Control up to three rotator profiles, point by locator or DXCC, and track the
-  mechanical azimuth range safely.
+- Control up to three rotator profiles, point by locator or DXCC, and use
+  low-wear signal-peak tracking with real Pattern Search, Golden Section or
+  Alt-Az Nelder-Mead optimisation inside configured mechanical limits.
 - Keep an **ADIF logbook**, inspect DXCC information and plot contacts on the
   integrated QSO map.
 - Run receive-only **Radio Telescope** sky scans with rotator movement, timed

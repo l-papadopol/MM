@@ -41,6 +41,7 @@
 #include "rig/HamlibController.h"
 #include "rotator/CatRotatorController.h"
 #include "rotator/CatRotatorPanel.h"
+#include "rotator/RotatorPeakSearch.h"
 #include "third_party/decodium_gpl/port/NtpClient.hpp"
 
 #include <QComboBox>
@@ -1319,6 +1320,14 @@ private:
     void setupCatRotatorSideTab();
     void applyCatRotatorSettings();
     void updateCatRotatorQsoTarget(const QString &reason = QString());
+    void updateCatRotatorTextQsoTarget(const QString &reason = QString());
+    void updateQsoSignalPeakTracking();
+    void resetQsoSignalPeakTracking(const QString &reason = QString(), bool clearCorrection = false);
+    void pauseQsoSignalPeakForTransmit();
+    void resumeQsoSignalPeakAfterTransmit();
+    bool qsoSignalPeakMetricBand(int *lowHz, int *highHz) const;
+    void configureQsoSignalPeakMetric(bool enabled);
+    int qsoSignalPeakAudioCenterHz() const;
     mm::CatRotatorController::Config catRotatorConfigFromSettings() const;
     void handleRigFrequencyChanged(double frequencyHz);
     void handleRigStatusChanged(const QString &status);
@@ -1915,6 +1924,7 @@ private:
     bool m_radioTelescopeScanActive = false;
     bool m_radioTelescopePeakRefineActive = false;
     int m_radioTelescopePeakRefineStepsRemaining = 0;
+    mm::RotatorPeakSearch::Session m_radioTelescopePeakSearchSession;
 
     QWidget *m_q65DisplayPage = nullptr;
     QWidget *m_pageQ65Settings = nullptr;
@@ -2134,6 +2144,34 @@ private:
     mm::CatRotatorController *m_catRotatorController = nullptr;
     QWidget *m_tabCatRotator = nullptr;
     mm::CatRotatorPanel *m_catRotatorSidePanel = nullptr;
+
+    // QSO signal peak tracking is deliberately discrete and rate-limited. It
+    // shares the mathematical optimiser with Radio Telescope but has separate
+    // state and a signal-centred RX metric; no telescope noise tile is reused.
+    mm::RotatorPeakSearch::Session m_qsoPeakSearchSession;
+    bool m_qsoPeakSearchActive = false;
+    bool m_qsoPeakProbeSettled = false;
+    qint64 m_qsoPeakSettleUntilMs = 0;
+    qint64 m_qsoPeakDwellUntilMs = 0;
+    qint64 m_qsoPeakProbeCommandMs = 0;
+    qint64 m_qsoPeakLastCompletedMs = 0;
+    bool m_qsoPeakReturnAfterTx = false;
+    QVector<double> m_qsoPeakDwellMetricsDb;
+    QString m_qsoPeakTargetKey;
+    QString m_qsoPeakCorrectionKey;
+    double m_qsoPeakTheoreticalAzDeg = 0.0;
+    double m_qsoPeakTheoreticalElDeg = 0.0;
+    double m_qsoPeakCorrectionAzDeg = 0.0;
+    double m_qsoPeakCorrectionElDeg = 0.0;
+    bool m_qsoPeakCorrectionValid = false;
+    double m_qsoPeakLatestMetricDb = -99.0;
+    bool m_qsoPeakLatestMetricValid = false;
+    qint64 m_qsoPeakLatestMetricMs = 0;
+    qint64 m_qsoPeakLastMetricConsumedMs = 0;
+    qint64 m_qsoPeakLastControlTickMs = 0;
+    bool m_qsoPeakMetricWorkerEnabled = false;
+    int m_qsoPeakMetricWorkerLowHz = 0;
+    int m_qsoPeakMetricWorkerHighHz = 0;
 
     struct Ft8WaterfallCallout
     {

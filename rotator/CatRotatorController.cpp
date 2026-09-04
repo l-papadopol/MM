@@ -493,6 +493,17 @@ void CatRotatorController::setQsoTarget(const QsoTarget &target)
     }
 }
 
+void CatRotatorController::updateQsoTargetMetadata(const QsoTarget &target)
+{
+    m_qsoTarget = target;
+    m_qsoTarget.callsign = m_qsoTarget.callsign.trimmed().toUpper();
+    m_qsoTarget.grid = m_qsoTarget.grid.trimmed().toUpper();
+    if (!m_qsoTarget.updatedUtc.isValid()) {
+        m_qsoTarget.updatedUtc = QDateTime::currentDateTimeUtc();
+    }
+    emit qsoTargetChanged(m_qsoTarget);
+}
+
 void CatRotatorController::clearQsoTarget()
 {
     m_qsoTarget = QsoTarget();
@@ -505,7 +516,9 @@ void CatRotatorController::trackQsoTargetNow(const QString &reason)
         setStatus(QStringLiteral("CatRotator QSO tracking skipped: no valid target/bearing or tracking disabled."));
         return;
     }
-    setAzEl(m_qsoTarget.bearingDeg, 0.0, reason.trimmed().isEmpty() ? QStringLiteral("QSO target") : reason.trimmed());
+    setAzEl(m_qsoTarget.bearingDeg,
+            m_config.useElevation ? m_qsoTarget.elevationDeg : 0.0,
+            reason.trimmed().isEmpty() ? QStringLiteral("QSO target") : reason.trimmed());
 }
 
 void CatRotatorController::setTrackingQsoTarget(bool enabled)

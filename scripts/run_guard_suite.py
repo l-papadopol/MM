@@ -22,6 +22,7 @@ SUITES: dict[str, list[tuple[str, str]]] = {
         ("py", "scripts/check_cat_ft_band_sync.py"),
         ("py", "scripts/check_msk144_q65_single_path.py"),
         ("py", "scripts/check_qso_udp_logging.py"),
+        ("py", "scripts/check_rotator_peak_tracking.py"),
     ],
     "ui": [
         ("py", "scripts/check_rtty_contest_layout.py"),

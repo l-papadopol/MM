@@ -356,10 +356,7 @@ void populatePeakAlgorithmList(QListWidget *list, bool useElevation, const QStri
         const bool compatible = mm::RotatorPeakSearch::isCompatible(info.id, axisMode);
         QListWidgetItem *item = new QListWidgetItem(info.displayName, list);
         item->setData(Qt::UserRole, info.id);
-        QString suffix;
-        if (info.continuousTracking) suffix += QStringLiteral(" • continuous");
-        if (info.stochastic) suffix += QStringLiteral(" • stochastic");
-        item->setText(info.displayName + suffix);
+        item->setText(info.displayName);
         item->setToolTip(info.description);
         if (!compatible) {
             Qt::ItemFlags flags = item->flags();
@@ -1884,9 +1881,9 @@ QWidget *AppSettingsDialog::makeRotatorPage()
         applyGeometryPreset(geometry->currentIndex());
         profileTopLayout->addWidget(settingsGroup, 2);
 
-        QGroupBox *algorithmGroup = new QGroupBox(L(QStringLiteral("Auto peak search algorithm")), tab);
+        QGroupBox *algorithmGroup = new QGroupBox(L(QStringLiteral("Peak search algorithm")), tab);
         QVBoxLayout *algorithmLayout = new QVBoxLayout(algorithmGroup);
-        QLabel *algorithmHint = new QLabel(L(QStringLiteral("Only algorithms compatible with this rotator axis configuration are selectable; incompatible algorithms are shown struck through.")), algorithmGroup);
+        QLabel *algorithmHint = new QLabel(L(QStringLiteral("Used by Radio Telescope peak refinement and QSO signal peak tracking. Pattern search is the recommended low-wear choice for mechanical rotators.")), algorithmGroup);
         algorithmHint->setWordWrap(true);
         QListWidget *algorithmList = new QListWidget(algorithmGroup);
         algorithmList->setObjectName(QStringLiteral("rotatorPeakAlgorithm_%1").arg(index));

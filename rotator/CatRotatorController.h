@@ -109,6 +109,9 @@ public:
         QString reason;
         int rxFrequencyHz = 0;
         double bearingDeg = -1.0;
+        // Optional signal-peak elevation correction. Terrestrial geometric
+        // QSO targeting starts at 0 degrees; auto-peak may refine it on Alt-Az.
+        double elevationDeg = 0.0;
         double distanceKm = -1.0;
         bool qsoActive = false;
         QDateTime updatedUtc;
@@ -152,6 +155,9 @@ public slots:
     void stop();
     void park();
     void setQsoTarget(const QsoTarget &target);
+    // Update call/grid/activity metadata while an external peak-search owns
+    // the physical rotator target.  This deliberately performs no movement.
+    void updateQsoTargetMetadata(const QsoTarget &target);
     void clearQsoTarget();
     void trackQsoTargetNow(const QString &reason = QString());
     void setTrackingQsoTarget(bool enabled);

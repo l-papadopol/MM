@@ -258,7 +258,7 @@ public:
         QString label = QStringLiteral("Rotator");
         QString bandsCsv; // Derived from bandSettings for legacy matching and older configs.
         QVector<RotatorBandSettings> bandSettings;
-        QString peakSearchAlgorithm = QStringLiteral("bounded-adaptive");
+        QString peakSearchAlgorithm = QStringLiteral("pattern-search");
         int hamlibModel = 1;
         QString path;
         int baudRate = 9600;

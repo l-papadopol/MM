@@ -2,6 +2,14 @@
 
 ## 0.5.9-alpha — FT split-operation validation — 2026-08-25
 
+### Alpha r5 — real rotator peak tracking
+
+- Replaces the five-name prototype peak menu with three implemented, stateful optimisers: deterministic Pattern Search (recommended/default), true one-dimensional Golden Section for azimuth-only rotors, and true two-dimensional Nelder-Mead for Alt-Az systems. Legacy `bounded-adaptive`, `spsa` and `extremum-seeking` settings migrate to Pattern Search instead of remaining misleading operator choices.
+- Keeps Radio Telescope auto-peak as a power-maximisation workflow, but moves it onto the same sequential optimiser state machine and holds the measured best point instead of immediately undoing the refinement.
+- Adds QSO Signal Peak Tracking to normal rotator QSO tracking. A valid callsign/locator and an enabled per-band Auto peak row are required; the metric is signal-band power relative to adjacent noise around the selected modem frequency and is passive with respect to decoder audio.
+- Protects mechanical systems with beam-relative bounded spans, a weak-signal gate, hard probe timeouts, maximum 5-point azimuth / 7-point Alt-Az cycles and a 90-second minimum interval. Local TX stops an active probe before PTT and returns to the logical QSO target only after PTT OFF is confirmed.
+- Removes the obsolete SPSA/extremum-seeking operator help keywords and documents the real algorithm compatibility and low-wear QSO workflow in all six help languages. No FT/CW/RTTY decoder or sequencer path is changed by this rotator revision.
+
 ### Alpha r4 — Linux/macOS build correction
 
 - Fixes the Linux compile by declaring the shared contest-period helper before the live-terminal duplicate-highlighting code that uses it. No contest behavior changes.

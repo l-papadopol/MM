@@ -3,6 +3,7 @@
 #include <QtMath>
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 // -----------------------------------------------------------------------------
@@ -48,6 +49,13 @@ void DspEngine::reset()
 {
     m_fifo.clear();
     m_waterfallLeveler.reset();
+}
+
+void DspEngine::configureSignalPeakMetric(bool enabled, int lowHz, int highHz)
+{
+    m_signalPeakMetricEnabled = enabled;
+    m_signalPeakLowHz = qMax(0, qMin(lowHz, highHz));
+    m_signalPeakHighHz = qMax(m_signalPeakLowHz, qMax(lowHz, highHz));
 }
 
 // -----------------------------------------------------------------------------
@@ -146,6 +154,69 @@ void DspEngine::analyzeWindow(const QVector<float> &window, int sampleRate)
     }
 
     emit waterfallLineReady(waterfallLine, m_minHz, m_maxHz);
+
+    // QSO signal peak metric. Reuse the FFT that was already required for the
+    // waterfall instead of running Welch/FFT work in MainWindow. The metric is
+    // intentionally small: average power in the selected signal band versus
+    // equal-width adjacent noise bands, with a guard gap around the signal.
+    if (m_signalPeakMetricEnabled && m_signalPeakHighHz > m_signalPeakLowHz) {
+        const int nyquist = sampleRate / 2;
+        const int lowHz = qBound(20, m_signalPeakLowHz, qMax(20, nyquist - 20));
+        const int highHz = qBound(lowHz + 10, m_signalPeakHighHz, qMax(lowHz + 10, nyquist - 10));
+        const int widthHz = qMax(20, highHz - lowHz);
+        const int guardHz = qMax(30, widthHz / 3);
+
+        auto meanBandPower = [&](int bandLowHz, int bandHighHz, bool *ok) -> double {
+            if (ok != nullptr) *ok = false;
+            bandLowHz = qBound(1, bandLowHz, nyquist - 1);
+            bandHighHz = qBound(bandLowHz + 1, bandHighHz, nyquist);
+            const int firstBin = qBound(1, static_cast<int>(qCeil(
+                static_cast<double>(bandLowHz) * m_fftSize / sampleRate)), maxBin);
+            const int lastBin = qBound(firstBin, static_cast<int>(qFloor(
+                static_cast<double>(bandHighHz) * m_fftSize / sampleRate)), maxBin);
+            if (lastBin < firstBin) return 0.0;
+            double sum = 0.0;
+            int count = 0;
+            for (int bin = firstBin; bin <= lastBin; ++bin) {
+                const double mag = magnitudes.at(bin);
+                sum += mag * mag;
+                ++count;
+            }
+            if (count <= 0 || !(sum > 0.0) || !qIsFinite(sum)) return 0.0;
+            if (ok != nullptr) *ok = true;
+            return sum / static_cast<double>(count);
+        };
+
+        bool signalOk = false;
+        const double signalPower = meanBandPower(lowHz, highHz, &signalOk);
+        QVector<double> noisePowers;
+        bool noiseOk = false;
+        const int leftHigh = lowHz - guardHz;
+        const int leftLow = leftHigh - widthHz;
+        if (leftLow >= 20) {
+            const double p = meanBandPower(leftLow, leftHigh, &noiseOk);
+            if (noiseOk) noisePowers.append(p);
+        }
+        const int rightLow = highHz + guardHz;
+        const int rightHigh = rightLow + widthHz;
+        if (rightHigh <= nyquist - 10) {
+            const double p = meanBandPower(rightLow, rightHigh, &noiseOk);
+            if (noiseOk) noisePowers.append(p);
+        }
+
+        if (signalOk && !noisePowers.isEmpty()) {
+            double noisePower = 0.0;
+            for (double p : std::as_const(noisePowers)) noisePower += p;
+            noisePower /= static_cast<double>(noisePowers.size());
+            if (noisePower > 0.0 && qIsFinite(noisePower)) {
+                emit signalPeakMetricReady(10.0 * qLn(qMax(1.0e-12, signalPower / noisePower)) / qLn(10.0), true);
+            } else {
+                emit signalPeakMetricReady(-99.0, false);
+            }
+        } else {
+            emit signalPeakMetricReady(-99.0, false);
+        }
+    }
 
     if (bestDb > -92.0) {
         emit dominantFrequencyChanged(bestFrequency, bestDb);

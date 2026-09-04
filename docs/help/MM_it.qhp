@@ -48,7 +48,8 @@
             <keyword name="elevation" ref="it/rotator.html" />
             <keyword name="auto calibration" ref="it/rotator.html" />
             <keyword name="peak search" ref="it/rotator.html" />
-            <keyword name="SPSA" ref="it/rotator.html" />
+            <keyword name="Pattern search" ref="it/rotator.html" />
+            <keyword name="QSO signal peak" ref="it/rotator.html" />
             <keyword name="Nelder-Mead" ref="it/rotator.html" />
             <keyword name="golden section" ref="it/rotator.html" />
             <keyword name="inertia" ref="it/rotator.html" />
