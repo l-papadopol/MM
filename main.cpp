@@ -9,6 +9,12 @@
 #include "settings/AppSettings.h"
 #include "modems/ft8/Ft8RxDecoder.h"
 #include "utils/CockpitTheme.h"
+#include "utils/RuntimeI18n.h"
+#include "dialogs/AppSettingsDialog.h"
+#include <QPushButton>
+#include <QTabWidget>
+#include <QScreen>
+#include <QDir>
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -87,6 +93,8 @@ public:
 
 } // namespace
 
+#include "tests/SettingsUiRegression.h"
+
 int main(int argc, char *argv[])
 {
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
@@ -125,6 +133,9 @@ int main(int argc, char *argv[])
         QStringLiteral("Decode depth used by --ft-regression: fast, deep or max."),
         QStringLiteral("depth"),
         QStringLiteral("max"));
+    const QCommandLineOption uiRegressionOption(QStringLiteral("ui-regression"),
+        QStringLiteral("Check translated Settings layouts without connecting radio hardware."));
+    commandLine.addOption(uiRegressionOption);
     commandLine.addOption(ftRegressionOption);
     commandLine.addOption(ftModeOption);
     commandLine.addOption(ftDepthOption);
@@ -236,6 +247,8 @@ int main(int argc, char *argv[])
         }
         return allOk ? 0 : 3;
     }
+
+    if (commandLine.isSet(uiRegressionOption)) return runSettingsUiRegression(app);
 
     AppSettings bootSettings;
     bootSettings.load();

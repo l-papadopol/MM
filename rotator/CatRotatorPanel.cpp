@@ -158,8 +158,8 @@ void CatRotatorPanel::buildUi()
     manual->addWidget(m_btnStop, 1, 2);
     manual->addWidget(m_btnGo, 2, 0, 1, 2);
     manual->addWidget(m_btnPark, 2, 2);
-    manual->addWidget(m_btnTrack, 3, 0, 1, 2);
-    manual->addWidget(m_btnMoonTrack, 3, 2);
+    manual->addWidget(m_btnTrack, 3, 0, 1, 3);
+    manual->addWidget(m_btnMoonTrack, 4, 0, 1, 3);
     outer->addLayout(manual);
 
     QGroupBox *trackingBox = new QGroupBox(this);

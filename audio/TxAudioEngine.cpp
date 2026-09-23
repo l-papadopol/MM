@@ -17,160 +17,17 @@
 #include <QAudioOutput>
 #endif
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+namespace AudioNs = QtAudio;
+#else
+namespace AudioNs = QAudio;
+#endif
+
+#include <atomic>
 #include <algorithm>
 #include <cstring>
 
-/**
- * @brief Pull-device used by Qt audio output to read generated PCM samples.
- */
-class TxOutputDevice final : public QIODevice
-{
-    Q_OBJECT
-
-public:
-    /**
-     * @brief Creates a pull-device connected to one modulator.
-     */
-    TxOutputDevice(TxModulator *modulator,
-                   int sampleRate,
-                   int volumePercent,
-                   QObject *parent = nullptr)
-        : QIODevice(parent),
-          m_modulator(modulator),
-          m_sampleRate(sampleRate),
-          m_volumePercent(qBound(0, volumePercent, 100))
-    {
-    }
-
-    /**
-     * @brief Returns sequential device status.
-     */
-    bool isSequential() const override
-    {
-        return true;
-    }
-
-    /**
-     * @brief Opens the device for audio-output reads.
-     */
-    bool start()
-    {
-        m_totalSamples = 0;
-        m_finishQueued = false;
-        return open(QIODevice::ReadOnly);
-    }
-
-    void setVolumePercent(int percent)
-    {
-        m_volumePercent = qBound(0, percent, 100);
-    }
-
-signals:
-    void audioBlockReady(const AudioBlock &block);
-    void rttyToneStateChanged(bool mark, double progress);
-    void progressChanged(double progress);
-    void finished();
-
-protected:
-    /**
-     * @brief Provides signed 16-bit little-endian PCM to Qt audio output.
-     */
-    qint64 readData(char *data, qint64 maxSize) override
-    {
-        if (data == nullptr || maxSize <= 0 || m_modulator == nullptr) {
-            return 0;
-        }
-
-        const qint64 alignedBytes = maxSize - (maxSize % 2);
-        const int requestedSamples = static_cast<int>(alignedBytes / 2);
-
-        if (requestedSamples <= 0) {
-            return 0;
-        }
-
-        QVector<float> samples(requestedSamples, 0.0f);
-        int generatedSamples = 0;
-
-        if (!m_modulator->isFinished()) {
-            generatedSamples = m_modulator->generate(samples.data(), requestedSamples);
-            generatedSamples = qBound(0, generatedSamples, requestedSamples);
-        }
-
-        /*
-         * Do not stop the Qt audio output immediately after the last generated
-         * sample.  Some backends still have the final pull buffer in flight; an
-         * immediate stop can audibly truncate the last Hell/RTTY/BPSK symbols.
-         * Once the modulator ends, keep returning a short run of silence before
-         * emitting finished().
-         */
-        if (m_modulator->isFinished() && !m_finishQueued && m_tailSamplesRemaining < 0) {
-            const int requestedTail = m_modulator->trailingSilenceSamples();
-            m_tailSamplesRemaining = (requestedTail >= 0) ? requestedTail : qMax(1, m_sampleRate / 3);
-        }
-
-        if (m_tailSamplesRemaining > 0) {
-            m_tailSamplesRemaining -= requestedSamples;
-        }
-
-        qint16 *pcm = reinterpret_cast<qint16 *>(data);
-
-        for (int i = 0; i < requestedSamples; ++i) {
-            const double gain = static_cast<double>(qBound(0, m_volumePercent, 100)) / 100.0;
-            const double bounded = qBound(-1.0, static_cast<double>(samples.at(i)) * gain, 1.0);
-            pcm[i] = static_cast<qint16>(qRound(bounded * 32767.0));
-        }
-
-        if (generatedSamples > 0) {
-            AudioBlock block;
-            block.sampleRate = m_sampleRate;
-            block.firstSampleIndex = m_totalSamples;
-            block.samples = samples.mid(0, generatedSamples);
-            m_totalSamples += generatedSamples;
-
-            emit audioBlockReady(block);
-            const double progress = m_modulator->progress();
-            emit progressChanged(progress);
-
-            m_samplesSinceRttyStateEmit += generatedSamples;
-            const int stateEmitInterval = qMax(1, m_sampleRate / 15);
-            if (m_samplesSinceRttyStateEmit >= stateEmitInterval) {
-                m_samplesSinceRttyStateEmit = 0;
-                bool markState = true;
-                if (m_modulator->rttyToneState(&markState)) {
-                    emit rttyToneStateChanged(markState, progress);
-                }
-            }
-        }
-
-        if (m_modulator->isFinished() &&
-            m_tailSamplesRemaining <= 0 &&
-            !m_finishQueued) {
-            m_finishQueued = true;
-            QMetaObject::invokeMethod(this, "finished", Qt::QueuedConnection);
-        }
-
-        return alignedBytes;
-    }
-
-    /**
-     * @brief Rejects writes because this is a read-only source device.
-     */
-    qint64 writeData(const char *data, qint64 maxSize) override
-    {
-        Q_UNUSED(data)
-        Q_UNUSED(maxSize)
-        return -1;
-    }
-
-private:
-    TxModulator *m_modulator = nullptr;
-    int m_sampleRate = 48000;
-    qint64 m_totalSamples = 0;
-    int m_samplesSinceRttyStateEmit = 0;
-    bool m_finishQueued = false;
-    int m_tailSamplesRemaining = -1;
-    int m_volumePercent = 100;
-};
+#include "TxOutputDevice.h"
 
 // -----------------------------------------------------------------------------
 // Construction
@@ -248,7 +105,7 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
     bool exactDeviceMatch = false;
 
     const QList<QAudioDeviceInfo> devices =
-        QAudioDeviceInfo::availableDevices(QAudio::AudioOutput);
+        QAudioDeviceInfo::availableDevices(AudioNs::AudioOutput);
 
     for (const QAudioDeviceInfo &device : devices) {
         if (device.deviceName() == deviceName) {
@@ -310,13 +167,27 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
 
     m_outputDevice = device;
 
+    const quint64 generation = ++m_outputGeneration;
+    connect(m_audioOutput, & 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    m_audioOutput->start(m_outputDevice);
+            QAudioSink::stateChanged,
 #else
-    m_audioOutput->start(m_outputDevice);
+            QAudioOutput::stateChanged,
 #endif
-
+            this, [this, generation]() {
+                if (generation == m_outputGeneration) checkOutputState();
+            }, Qt::QueuedConnection);
     m_running = true;
+    m_audioOutput->start(m_outputDevice);
+    if (m_audioOutput->error() != AudioNs::NoError &&
+        m_audioOutput->state() == AudioNs::StoppedState) {
+        const int error = static_cast<int>(m_audioOutput->error());
+        releaseAudioOutput();
+        m_running = false;
+        m_modulator.reset();
+        emit errorOccurred(QStringLiteral("TX audio backend failed to start (error %1).").arg(error));
+        return false;
+    }
     emit started();
     emit progressChanged(0.0);
 
@@ -374,14 +245,34 @@ int TxAudioEngine::outputVolumePercent() const
 
 void TxAudioEngine::handleDeviceFinished()
 {
-    if (m_finishedEmitted) {
+    // Source EOF only means the last PCM buffer has been handed to Qt.
+    // The sink's IdleState is the acknowledgement that its queue drained.
+    checkOutputState();
+}
+
+void TxAudioEngine::checkOutputState()
+{
+    if (!m_running || !m_audioOutput || m_finishedEmitted) return;
+    const auto state = m_audioOutput->state();
+    const auto error = m_audioOutput->error();
+    const auto *source = static_cast<TxOutputDevice *>(m_outputDevice);
+    if (state == AudioNs::IdleState && source && source->exhausted() &&
+        (error == AudioNs::NoError || error == AudioNs::UnderrunError)) {
+        m_finishedEmitted = true;
+        emit progressChanged(1.0);
+        emit finished();
+        stopOutput();
         return;
     }
-
-    m_finishedEmitted = true;
-    emit progressChanged(1.0);
-    emit finished();
-    stopOutput();
+    if (state == AudioNs::StoppedState || error != AudioNs::NoError) {
+        m_finishedEmitted = true;
+        const int errorCode = static_cast<int>(error);
+        releaseAudioOutput();
+        m_running = false;
+        m_modulator.reset();
+        // One terminal event; MainWindow's error handler releases PTT.
+        emit errorOccurred(QStringLiteral("TX audio backend stopped unexpectedly (error %1).").arg(errorCode));
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -390,7 +281,9 @@ void TxAudioEngine::handleDeviceFinished()
 
 void TxAudioEngine::releaseAudioOutput()
 {
+    ++m_outputGeneration;
     if (m_audioOutput != nullptr) {
+        disconnect(m_audioOutput, nullptr, this, nullptr);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         m_audioOutput->stop();
 #else
@@ -407,4 +300,4 @@ void TxAudioEngine::releaseAudioOutput()
     }
 }
 
-#include "TxAudioEngine.moc"
+

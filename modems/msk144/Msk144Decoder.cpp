@@ -296,7 +296,7 @@ void Msk144Decoder::appendResampledTo12k(const AudioBlock &block)
     }
 
     if (m_nextOutputUtcNs <= 0) {
-        m_nextOutputUtcNs = blockStartUtcNs;
+        m_nextOutputUtcNs = blockStartUtcNs - m_resampler.delayNanoseconds();
         m_outputTimeRemainder = 0;
     }
 

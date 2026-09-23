@@ -1,3 +1,7 @@
+## Source revision R6 — 23 September 2026
+
+See [R6 corrections, tests and remaining issues](R6_CORREZIONI_E_TEST.md) for this source package. Public application version remains 0.5.9-alpha.
+
 # MadModem 0.5.9-alpha release notes
 
 MadModem 0.5.9-alpha is a pre-release build for validating the new FT split-operation path while retaining the established live-operation baseline: weak-signal

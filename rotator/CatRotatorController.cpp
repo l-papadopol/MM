@@ -1,4 +1,5 @@
 #include "CatRotatorController.h"
+#include "RotatorCoordinates.h"
 
 #include <QtGlobal>
 #include <QMetaType>
@@ -329,7 +330,7 @@ void CatRotatorController::connectRotator()
         if (value.trimmed().isEmpty()) {
             return;
         }
-        const hamlib_token_t token = rot_token_lookup(rot, name);
+        const auto token = rot_token_lookup(rot, name);
         if (token != RIG_CONF_END) {
             rot_set_conf(rot, token, value.toUtf8().constData());
         }
@@ -443,7 +444,7 @@ void CatRotatorController::setAzEl(double azimuthDeg, double elevationDeg, const
         return;
     }
 
-moveBackend(az, el, reason);
+    moveBackend(az, el, reason);
 }
 
 void CatRotatorController::stop()
@@ -463,19 +464,8 @@ void CatRotatorController::stop()
 
 void CatRotatorController::park()
 {
-    if (!m_config.enabled) {
-        return;
-    }
-#ifdef MADMODEM_WITH_HAMLIB
-    if (m_connected && m_rot != nullptr) {
-        const int rc = rot_park(static_cast<ROT *>(m_rot));
-        if (rc == RIG_OK) {
-            setStatus(QStringLiteral("CatRotator park requested via backend."));
-            return;
-        }
-        // Many Hamlib backends do not implement native park; fall back to stored park coordinates.
-    }
-#endif
+    // Park is the user's configured position, with the same validation,
+    // geometry and motion tracking as every other commanded target.
     setAzEl(m_config.parkAzimuth, m_config.parkElevation, QStringLiteral("park"));
 }
 
@@ -716,7 +706,20 @@ void CatRotatorController::moveBackend(double azimuthDeg, double elevationDeg, c
     emit targetChanged(m_targetAz, m_targetEl, reason);
 #ifdef MADMODEM_WITH_HAMLIB
     if (m_rot != nullptr) {
-        const int rc = rot_set_position(static_cast<ROT *>(m_rot), azimuthDeg, elevationDeg);
+        ROT *rot = static_cast<ROT *>(m_rot);
+        // Mechanical coordinates may be signed/overlapping; Hamlib uses the
+        // coordinate domain advertised by this backend. Preserve the internal
+        // target for end-stop/path tracking, convert only at the protocol edge.
+        double backendAz = 0;
+        if (!backendAzimuth(azimuthDeg, m_config.azimuthMaxDeg - m_config.azimuthMinDeg,
+                            rot->caps->min_az, rot->caps->max_az, backendAz) ||
+            !std::isfinite(elevationDeg) ||
+            elevationDeg < rot->caps->min_el || elevationDeg > rot->caps->max_el) {
+            setMotionActive(false);
+            setStatus(QStringLiteral("CatRotator target is outside the backend coordinate limits."));
+            return;
+        }
+        const int rc = rot_set_position(rot, backendAz, elevationDeg);
         if (rc == RIG_OK) {
             m_motionCommandStartMs = QDateTime::currentMSecsSinceEpoch();
             m_lastMotionProgressMs = m_motionCommandStartMs;

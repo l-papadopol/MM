@@ -1,3 +1,4 @@
+#include "audio/AudioContinuity.h"
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
@@ -1638,6 +1639,7 @@ private:
     double m_cwTrackedWpmA = 0.0;
     double m_cwTrackedWpmB = 0.0;
     HellschreiberDecoder *m_hellDecoder = nullptr;
+    AudioContinuity m_rxContinuity;
     Ft8RxDecoder *m_ft8RxDecoder = nullptr;
     QThread *m_ft8RxThread = nullptr;
     NtpClient *m_ntpClient = nullptr;

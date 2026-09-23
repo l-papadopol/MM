@@ -284,6 +284,7 @@ AudioBlock DspConditioner::processBlock(const AudioBlock &block)
     output.firstSampleUtcNs = block.firstSampleUtcNs;
     output.firstSampleMonotonicNs = block.firstSampleMonotonicNs;
     output.captureSequence = block.captureSequence;
+    output.captureGeneration = block.captureGeneration;
     output.samples.resize(block.samples.size());
 
     QVector<double> stage;

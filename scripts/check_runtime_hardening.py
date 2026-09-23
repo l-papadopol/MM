@@ -51,7 +51,8 @@ checks = {
         and "m_audioThread->start()" in main
     ),
     "FT input still bypasses MainWindow": (
-        "m_ft8RxDecoder, &Ft8RxDecoder::processAudioBlock" in main
+        "[queue, decoder = m_ft8RxDecoder]" in main
+        and "new BoundedAudioDispatcher(64)" in main
         and "FT live audio bypasses MainWindow completely" in main
     ),
     "FT worker configuration lock cannot self-deadlock": (

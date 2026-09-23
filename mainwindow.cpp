@@ -8160,6 +8160,20 @@ void MainWindow::setupQ65Page()
         m_q65Decoder = new Q65Decoder();
         m_q65Thread = new QThread(this);
         m_q65Decoder->moveToThread(m_q65Thread);
+        auto *queue = new BoundedAudioDispatcher(64);
+        queue->moveToThread(m_q65Thread);
+        connect(m_q65Thread, &QThread::finished, queue, &QObject::deleteLater);
+        connect(m_audioEngine, &AudioEngine::audioBlockReady, queue,
+                [queue, decoder = m_q65Decoder](const AudioBlock &block) {
+                    if (decoder->liveInputEnabled()) queue->enqueue(block);
+                }, Qt::DirectConnection);
+        connect(queue, &BoundedAudioDispatcher::blocksAvailable, m_q65Decoder,
+                [queue, decoder = m_q65Decoder]() {
+                    const auto blocks = queue->takePending(4);
+                    if (!decoder->liveInputEnabled()) return;
+                    for (const auto &block : blocks) decoder->processAudioBlock(block);
+                }, Qt::QueuedConnection);
+
         connect(m_q65Thread, &QThread::finished,
                 m_q65Decoder, &QObject::deleteLater);
         connect(m_q65Decoder, &Q65Decoder::decoded, this, &MainWindow::handleQ65DecodeReady, Qt::QueuedConnection);
@@ -9018,15 +9032,35 @@ void MainWindow::setupProcessingConnections()
     // queues blocks straight to the FT decoder thread; MainWindow remains a UI
     // consumer and can no longer become an accidental DSP transport queue.
     if (m_ft8RxDecoder != nullptr) {
+        auto *queue = new BoundedAudioDispatcher(64);
+        queue->moveToThread(m_ft8RxThread);
+        connect(m_ft8RxThread, &QThread::finished, queue, &QObject::deleteLater);
         connect(m_audioEngine, &AudioEngine::audioBlockReady,
-                m_ft8RxDecoder, &Ft8RxDecoder::processAudioBlock,
-                Qt::QueuedConnection);
+                queue, &BoundedAudioDispatcher::enqueue, Qt::DirectConnection);
+        connect(queue, &BoundedAudioDispatcher::blocksAvailable, m_ft8RxDecoder,
+                [queue, decoder = m_ft8RxDecoder]() {
+                    // Drain this bounded snapshot before later queued slot-boundary markers.
+                    for (const AudioBlock &block : queue->takePending(64)) decoder->processAudioBlock(block);
+                }, Qt::QueuedConnection);
     }
 
     if (m_rxAudioRecorder != nullptr) {
+        auto *queue = new BoundedAudioDispatcher(128);
+        queue->moveToThread(m_rxAudioRecorderThread);
+        connect(m_rxAudioRecorderThread, &QThread::finished, queue, &QObject::deleteLater);
         connect(m_audioEngine, &AudioEngine::audioBlockReady,
-                m_rxAudioRecorder, &RxAudioRecorder::writeAudioBlock,
-                Qt::QueuedConnection);
+                queue, &BoundedAudioDispatcher::enqueue, Qt::DirectConnection);
+        connect(queue, &BoundedAudioDispatcher::blocksAvailable, m_rxAudioRecorder,
+                [queue, recorder = m_rxAudioRecorder]() {
+                    int dropped = 0;
+                    const auto blocks = queue->takePending(128, &dropped);
+                    if (dropped > 0 && recorder->isRecording()) {
+                        recorder->stopRecording();
+                        emit recorder->recordingError(QStringLiteral("Audio recording stopped: storage could not keep up with capture."));
+                        return;
+                    }
+                    for (const auto &block : blocks) recorder->writeAudioBlock(block);
+                }, Qt::QueuedConnection);
     }
 
     connect(m_txAudioEngine, &TxAudioEngine::audioBlockReady,
@@ -12418,6 +12452,7 @@ void MainWindow::selectComboByBackendName(QComboBox *combo, const QString &backe
 void MainWindow::setReceiverRunning(bool running)
 {
     m_rxRunning = running;
+    if (m_q65Decoder) m_q65Decoder->setLiveInputEnabled(running && !m_offlineAnalysisActive && Q65Mode::isFamilyMode(ui->cmbMode->currentText()));
 
     if (!m_rxRunning && !m_txRunning && m_rttyScopeWidget != nullptr) {
         m_rttyScopeWidget->setTrace(QVector<QPointF>(), 0.0, false);
@@ -13576,14 +13611,7 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
     }
 
     if (Q65Mode::isFamilyMode(modeName)) {
-        if (m_q65Decoder != nullptr) {
-            QMetaObject::invokeMethod(m_q65Decoder,
-                                      [decoder = m_q65Decoder, block]() {
-                                          decoder->processAudioBlock(block);
-                                      },
-                                      Qt::QueuedConnection);
-        }
-        return;
+        return; // Capture -> bounded Q65 worker queue; no GUI audio relay.
     }
 
     if (RadioTelescopeMode::isMode(modeName)) {
@@ -13598,6 +13626,18 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
         return;
     }
 
+    if (m_rxContinuity.accept(block)) {
+        m_decoderConditioner.reset();
+        if (modeName == WeatherFaxDecoder::modeName()) m_weatherFaxDecoder->reset();
+        else if (modeName == SstvDecoder::modeName()) m_sstvDecoder->reset();
+        else if (modeName == RttyDecoder::modeName()) {
+            m_rttyDecoder->reset();
+            if (m_rttyMultiDecoder) m_rttyMultiDecoder->reset();
+        } else if (modeName == Bpsk31Decoder::modeName()) m_bpsk31Decoder->reset();
+        else if (modeName == MfskDecoder::modeName()) m_mfskDecoder->reset();
+        else if (modeName == CwDecoder::modeName()) m_cwDecoder->reset();
+        else if (modeName == HellschreiberDecoder::modeName()) m_hellDecoder->reset();
+    }
     updateTextModeAfc(block);
     const AudioBlock conditionedBlock = conditionAudioForActiveMode(block);
 
@@ -21248,7 +21288,11 @@ void MainWindow::setupCatRotatorSideTab()
     m_catRotatorSidePanel->applyConfig(catRotatorConfigFromSettings());
     connect(m_catRotatorSidePanel, &mm::CatRotatorPanel::requestDirectTarget,
             this, &MainWindow::pointCatRotatorToDirectTarget);
-    layout->addWidget(m_catRotatorSidePanel, 2);
+    auto *scroll = new QScrollArea(m_tabCatRotator);
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(m_catRotatorSidePanel);
+    scroll->setFrameShape(QFrame::NoFrame);
+    layout->addWidget(scroll, 2);
 
     ui->sideTabWidget->insertTab(ui->sideTabWidget->count(), m_tabCatRotator, uiText("tab_rotator", "Rotator"));
     if (ui->sideTabWidget->tabBar() != nullptr) {
@@ -22139,18 +22183,6 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
         }
     });
 
-    // Force Settings to be a real full-screen workbench before exec() enters
-    // the modal loop.  Relying only on showEvent/showMaximized was not robust
-    // with the custom frameless cockpit chrome on all Linux WMs.
-    dialog.setWindowFlag(Qt::Window, true);
-    dialog.setWindowFlag(Qt::FramelessWindowHint, true);
-    dialog.setWindowModality(Qt::ApplicationModal);
-    if (QScreen *screen = this->screen()) {
-        dialog.setGeometry(screen->geometry());
-    } else if (QScreen *screen = QGuiApplication::primaryScreen()) {
-        dialog.setGeometry(screen->geometry());
-    }
-    dialog.showFullScreen();
     appendLog(QStringLiteral("Settings opened in %1 ms (construction %2 ms; heavy pages lazy-loaded).")
                   .arg(settingsOpenTimer.elapsed())
                   .arg(settingsConstructMs));
@@ -24729,37 +24761,23 @@ void MainWindow::startFtPreparedSlotTransmit()
         m_progressTx->setValue(0);
     }
 
-    if (m_ftTxWorker != nullptr) {
-        m_ftTxWorkerRunning = true;
-        QMetaObject::invokeMethod(m_ftTxWorker,
-                                  "startOutput",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(QString, outputName),
-                                  Q_ARG(TxModulator *, modulator.release()));
-        updateTxControlState();
+    if (!m_ftTxWorker) {
+        handleTxError(QStringLiteral("Dedicated FT TX worker is unavailable."));
         return;
     }
-
-    if (m_txAudioEngine == nullptr || !m_txAudioEngine->startOutput(outputName, std::move(modulator))) {
-        unkeyPttAfterTx();
-        const bool restartRx = m_returnToRxAfterTx;
-        m_txRunning = false;
-        m_returnToRxAfterTx = false;
-        m_currentTxIsTextMode = false;
-        m_pendingFt8PttPrearmed = false;
-        m_pendingFt8PttKeyed = false;
-        setReceiverRunning(false);
-        const QString reason = uiText("ft_tx_audio_start_failed",
-                                      "FT TX audio output could not be started. Check Settings -> Audio/PTT, the selected TX audio device and operating-system audio permissions.");
-        appendLog("FT TX start failed: " + reason);
-        showTxBlockedWarning(profile.shortLabel,
-                             reason,
-                             AppSettingsDialog::InitialPage::AudioPtt,
-                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
-        if (restartRx) {
-            QTimer::singleShot(0, this, [this]() { startRx(); });
-        }
+    m_ftTxWorkerRunning = true;
+    const qint64 deadline = m_pendingFt8Tune ? 0 :
+        m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs + 20;
+    TxModulator *owned = modulator.release();
+    if (!QMetaObject::invokeMethod(m_ftTxWorker, "startScheduledOutput", Qt::QueuedConnection,
+                                  Q_ARG(QString, outputName), Q_ARG(TxModulator *, owned),
+                                  Q_ARG(qint64, deadline))) {
+        delete owned;
+        handleTxError(QStringLiteral("Cannot enqueue prepared FT transmission."));
+        return;
     }
+    updateTxControlState();
+
 }
 
 
@@ -24931,6 +24949,7 @@ void MainWindow::handleTxFinished()
 void MainWindow::handleTxError(const QString &message)
 {
     m_ftTxWorkerRunning = false;
+    m_txFinishedNaturally = false;
     const bool ftModeAtError = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
     const qint64 erroredFtTxSlotBoundaryMs = ftModeAtError ? m_pendingFt8SlotBoundaryUtcMs : 0;
     appendLog("TX audio error: " + message);

@@ -372,6 +372,7 @@ add_executable(MadModem
     audio/WavFileReader.h
     audio/TxAudioEngine.cpp
     audio/TxAudioEngine.h
+    audio/TxOutputDevice.h
     audio/FtTxWorker.cpp
     audio/FtTxWorker.h
     audio/AudioBlock.h
@@ -962,6 +963,32 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_test(NAME madmodem_settings_ui_regression COMMAND MadModem --ui-regression)
+    set_tests_properties(madmodem_settings_ui_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
+    add_executable(madmodem_tx_pull_regression tests/TxPullRegression.cpp audio/TxOutputDevice.h)
+    target_include_directories(madmodem_tx_pull_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_tx_pull_regression PRIVATE ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_tx_pull_regression COMMAND madmodem_tx_pull_regression)
+    add_executable(madmodem_i18n_regression tests/RuntimeI18nRegression.cpp utils/RuntimeI18n.cpp tests/i18n.qrc)
+    target_include_directories(madmodem_i18n_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_i18n_regression PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_i18n_regression COMMAND madmodem_i18n_regression)
+    add_executable(madmodem_rotator_coordinates tests/RotatorCoordinatesRegression.cpp)
+    target_include_directories(madmodem_rotator_coordinates PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    set_target_properties(madmodem_rotator_coordinates PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME madmodem_rotator_coordinates COMMAND madmodem_rotator_coordinates)
+    add_executable(madmodem_antialias_regression tests/AntiAliasRegression.cpp)
+    target_include_directories(madmodem_antialias_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    set_target_properties(madmodem_antialias_regression PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME madmodem_antialias_regression COMMAND madmodem_antialias_regression)
+    add_executable(madmodem_resampler_streaming tests/ResamplerStreamingRegression.cpp dsp/text/LinearResampler.cpp)
+    target_include_directories(madmodem_resampler_streaming PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_resampler_streaming PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_resampler_streaming COMMAND madmodem_resampler_streaming)
+    add_executable(madmodem_logbook_regression tests/LogbookRegression.cpp logbook/AdifLogbook.cpp)
+    target_include_directories(madmodem_logbook_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_logbook_regression PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_logbook_regression COMMAND madmodem_logbook_regression)
     add_executable(madmodem_wav_reader_test
         tests/WavFileReaderTest.cpp
         audio/WavFileReader.cpp
@@ -1078,7 +1105,7 @@ endif()
 # -------------------------------------------------------------------------
 option(MADMODEM_BUILD_FT_TESTS
     "Build a small QtCore-only FT parser/sequencer regression test executable."
-    OFF)
+    ${BUILD_TESTING})
 
 if(MADMODEM_BUILD_FT_TESTS)
     add_executable(MadModemFtSequencerSelfTest
@@ -1091,6 +1118,9 @@ if(MADMODEM_BUILD_FT_TESTS)
     )
     target_include_directories(MadModemFtSequencerSelfTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(MadModemFtSequencerSelfTest PRIVATE ${QT}::Core)
+    if(BUILD_TESTING)
+        add_test(NAME madmodem_ft_sequencer COMMAND MadModemFtSequencerSelfTest)
+    endif()
 endif()
 
 # -------------------------------------------------------------------------

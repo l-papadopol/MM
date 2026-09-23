@@ -30,6 +30,7 @@ public:
 
 public slots:
     void startOutput(const QString &deviceName, TxModulator *modulator);
+    void startScheduledOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs);
     void stopOutput();
 
 signals:

@@ -145,7 +145,7 @@ void Q65Decoder::appendResampledTo12k(const AudioBlock &block)
     if (resampled.isEmpty()) return;
 
     if (m_nextOutputUtcNs <= 0) {
-        m_nextOutputUtcNs = blockStartUtcNs;
+        m_nextOutputUtcNs = blockStartUtcNs - m_resampler.delayNanoseconds();
         m_outputTimeRemainder = 0;
     }
     const qint64 periodNs = static_cast<qint64>(m_periodSeconds) * 1000000000LL;

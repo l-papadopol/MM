@@ -459,6 +459,11 @@ void compactEmbeddedSettingsWidgets(QWidget *root)
         return;
     }
 
+    for (QPushButton *button : root->findChildren<QPushButton *>()) {
+        button->ensurePolished();
+        button->setMinimumSize(button->minimumSize().expandedTo(button->sizeHint()));
+        button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    }
     const QList<QComboBox *> combos = root->findChildren<QComboBox *>();
     for (QComboBox *combo : combos) {
         if (combo == nullptr) {
@@ -581,15 +586,9 @@ AppSettingsDialog::AppSettingsDialog(const AppSettings &settings,
       m_schedulerTranslator(std::move(schedulerTranslator))
 {
     setWindowTitle(L(QStringLiteral("Settings")));
-    // Settings is a full-screen cockpit workbench, not a small floating panel.
-    // Use a real top-level window flag even though it is launched modally from
-    // MainWindow; otherwise some Linux window managers keep it constrained to
-    // the old 984x706 dialog geometry and showMaximized() is ignored.
-    setWindowFlag(Qt::Window, true);
-    setWindowFlag(Qt::FramelessWindowHint, true);
     setWindowModality(Qt::ApplicationModal);
-    resize(984, 706); // harmless fallback before the first full-screen show
-    setMinimumSize(760, 500);
+    resize(984, 706);
+    setMinimumSize(640, 420);
 
     QVBoxLayout *outer = new QVBoxLayout(this);
     outer->setContentsMargins(10, 10, 10, 10);
@@ -737,7 +736,12 @@ QWidget *AppSettingsDialog::embedDialogPage(QDialog *dialog)
     prepareEmbeddedDialog(dialog);
     layout->addWidget(dialog, 1);
     dialog->show();
-    return page;
+    QScrollArea *scroll = new QScrollArea(this);
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    layout->setSizeConstraint(QLayout::SetMinAndMaxSize);
+    scroll->setWidget(page);
+    return scroll;
 }
 
 QWidget *AppSettingsDialog::makeDeferredSettingsPage(const QString &title)
@@ -838,7 +842,7 @@ QWidget *AppSettingsDialog::makeUserQthMacrosPage()
     mainLayout->setContentsMargins(12, 10, 12, 10);
     mainLayout->setSpacing(8);
 
-    QHBoxLayout *splitLayout = new QHBoxLayout();
+    QVBoxLayout *splitLayout = new QVBoxLayout();
     splitLayout->setContentsMargins(0, 0, 0, 0);
     splitLayout->setSpacing(12);
     mainLayout->addLayout(splitLayout, 1);
@@ -878,16 +882,6 @@ QWidget *AppSettingsDialog::makeUserQthMacrosPage()
         grid->addWidget(makeTokenLabel(parent, tokenText), row, 1);
         grid->addWidget(editor, row, 2);
         grid->setRowMinimumHeight(row, 32);
-    };
-
-    auto makeScrollPage = [](QWidget *content) {
-        QScrollArea *scroll = new QScrollArea;
-        scroll->setWidgetResizable(true);
-        scroll->setFrameShape(QFrame::NoFrame);
-        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-        scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        scroll->setWidget(content);
-        return scroll;
     };
 
     QWidget *variablesContent = new QWidget;
@@ -1037,16 +1031,15 @@ QWidget *AppSettingsDialog::makeUserQthMacrosPage()
 
     macrosLayout->addStretch(1);
 
-    QScrollArea *variablesScroll = makeScrollPage(variablesContent);
-    variablesScroll->setObjectName(QStringLiteral("userQthCombinedScroll"));
-    variablesScroll->setMinimumWidth(440);
-    QScrollArea *macrosScroll = makeScrollPage(macrosContent);
-    macrosScroll->setObjectName(QStringLiteral("macrosCombinedScroll"));
-    macrosScroll->setMinimumWidth(520);
-    splitLayout->addWidget(variablesScroll, 1);
-    splitLayout->addWidget(macrosScroll, 1);
-
-    return page;
+    splitLayout->addWidget(variablesContent);
+    splitLayout->addWidget(macrosContent);
+    QScrollArea *scroll = new QScrollArea(this);
+    scroll->setObjectName(QStringLiteral("userQthCombinedScroll"));
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    mainLayout->setSizeConstraint(QLayout::SetMinAndMaxSize);
+    scroll->setWidget(page);
+    return scroll;
 }
 
 QWidget *AppSettingsDialog::makeAudioCatPage()
@@ -1054,7 +1047,7 @@ QWidget *AppSettingsDialog::makeAudioCatPage()
     QScrollArea *scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
     QWidget *holder = new QWidget(scroll);
@@ -1100,7 +1093,7 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     QScrollArea *scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
     QWidget *holder = new QWidget(scroll);
@@ -1550,7 +1543,7 @@ QWidget *AppSettingsDialog::makeRotatorPage()
     QScrollArea *scroll = new QScrollArea(this);
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 
     QWidget *page = new QWidget(scroll);
@@ -1569,9 +1562,9 @@ QWidget *AppSettingsDialog::makeRotatorPage()
     m_chkRotatorTrackOnlyQso = new QCheckBox(L(QStringLiteral("Only move while a QSO is active")), global);
     m_chkRotatorTrackOnlyQso->setChecked(m_initialSettings.rotatorTrackOnlyWhenQsoActive);
     globalGrid->addWidget(m_chkRotatorEnabled, 0, 0);
-    globalGrid->addWidget(m_chkRotatorAutoConnect, 0, 1);
-    globalGrid->addWidget(m_chkRotatorTrackSelectedQso, 1, 0);
-    globalGrid->addWidget(m_chkRotatorTrackOnlyQso, 1, 1);
+    globalGrid->addWidget(m_chkRotatorAutoConnect, 1, 0);
+    globalGrid->addWidget(m_chkRotatorTrackSelectedQso, 2, 0);
+    globalGrid->addWidget(m_chkRotatorTrackOnlyQso, 3, 0);
     outer->addWidget(global);
 
     QTabWidget *rotTabs = new QTabWidget(page);
@@ -1628,7 +1621,7 @@ QWidget *AppSettingsDialog::makeRotatorPage()
         conn->setColumnStretch(1, 0);
         conn->setColumnStretch(2, 1);
 
-        QHBoxLayout *profileTopLayout = new QHBoxLayout();
+        QVBoxLayout *profileTopLayout = new QVBoxLayout();
         profileTopLayout->setContentsMargins(0, 0, 0, 0);
         profileTopLayout->setSpacing(12);
         profileTopLayout->addWidget(connGroup, 1);
@@ -2041,6 +2034,8 @@ QWidget *AppSettingsDialog::makeRotatorPage()
     connect(m_chkRotatorEnabled, &QCheckBox::toggled, this, &AppSettingsDialog::updateRotatorEndpointWarning);
     updateRotatorEndpointWarning();
 
+    compactEmbeddedSettingsWidgets(page);
+    outer->setSizeConstraint(QLayout::SetMinAndMaxSize);
     scroll->setWidget(page);
     return scroll;
 }
@@ -2072,47 +2067,19 @@ void AppSettingsDialog::showEvent(QShowEvent *event)
 {
     QDialog::showEvent(event);
 
-    // 0.5.70: be explicit.  "Maximized" was not enough with the custom
-    // frameless cockpit chrome on some WMs: the Settings dialog kept the old
-    // floating geometry.  Force a full-screen workbench on the active screen
-    // and repeat it once after the window has been polished by Qt/style code.
-    auto forceFullScreen = [this]() {
-        if (!isVisible()) {
-            return;
-        }
-        QRect target;
-        if (QWindow *handle = windowHandle()) {
-            if (QScreen *screen = handle->screen()) {
-                target = screen->geometry();
-            }
-        }
-        if (!target.isValid()) {
-            if (QScreen *screen = QGuiApplication::screenAt(QCursor::pos())) {
-                target = screen->geometry();
-            }
-        }
-        if (!target.isValid()) {
-            if (QScreen *screen = QGuiApplication::primaryScreen()) {
-                target = screen->geometry();
-            }
-        }
-        setWindowFlag(Qt::Window, true);
-        setWindowFlag(Qt::FramelessWindowHint, true);
-        setWindowModality(Qt::ApplicationModal);
-        if (target.isValid()) {
-            setGeometry(target);
-        }
-        setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowFullScreen);
-        showFullScreen();
-        raise();
-        activateWindow();
-    };
+    if (m_initialGeometryApplied) return;
+    m_initialGeometryApplied = true;
+    QScreen *screen = parentWidget() ? parentWidget()->screen() : QGuiApplication::primaryScreen();
+    if (!screen) return;
+    const QRect available = screen->availableGeometry().adjusted(16, 32, -16, -16);
+    setMinimumSize(minimumSize().boundedTo(available.size()));
+    resize(size().boundedTo(available.size()));
+    const QPoint center = parentWidget() ? parentWidget()->frameGeometry().center() : available.center();
+    QPoint topLeft = center - QPoint(width() / 2, height() / 2);
+    topLeft.setX(qBound(available.left(), topLeft.x(), available.right() - width() + 1));
+    topLeft.setY(qBound(available.top(), topLeft.y(), available.bottom() - height() + 1));
+    move(topLeft);
 
-    forceFullScreen();
-    if (!m_settingsFullscreenApplied) {
-        m_settingsFullscreenApplied = true;
-        QTimer::singleShot(0, this, forceFullScreen);
-    }
 }
 
 

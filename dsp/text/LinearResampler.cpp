@@ -4,7 +4,8 @@
 
 void LinearResampler::configure(double outputSampleRate)
 {
-    m_outputSampleRate = outputSampleRate > 1.0 ? outputSampleRate : 8000.0;
+    const double rate = outputSampleRate > 1.0 ? outputSampleRate : 8000.0;
+    if (rate != m_outputSampleRate) { m_outputSampleRate = rate; reset(); }
 }
 
 void LinearResampler::reset()
@@ -26,6 +27,7 @@ QVector<double> LinearResampler::process(const QVector<float> &input, int inputS
 
     if (inputSampleRate != m_inputSampleRate) {
         m_inputSampleRate = inputSampleRate;
+        m_antiAlias.configure(inputSampleRate, m_outputSampleRate);
         m_stepInputSamples = static_cast<double>(inputSampleRate) / m_outputSampleRate;
         m_absoluteInputIndex = 0.0;
         m_nextOutputInputIndex = 0.0;
@@ -36,7 +38,7 @@ QVector<double> LinearResampler::process(const QVector<float> &input, int inputS
                                      static_cast<double>(inputSampleRate)) + 4.0));
 
     for (float raw : input) {
-        const double currentSample = std::max(-1.0, std::min(static_cast<double>(raw), 1.0));
+        const double currentSample = m_antiAlias.process(std::max(-1.0, std::min(static_cast<double>(raw), 1.0)));
         const double currentIndex = m_absoluteInputIndex;
 
         if (!m_havePreviousSample) {

@@ -25,29 +25,26 @@ void DspEngine::processAudioBlock(const AudioBlock &block)
         return;
     }
 
-    m_fifo.reserve(m_fifo.size() + block.samples.size());
-
-    for (float sample : block.samples) {
-        m_fifo.append(sample);
+    if (m_continuity.accept(block)) {
+        m_fifo.clear();
+        m_waterfallLeveler.reset();
     }
-
-    while (m_fifo.size() >= m_fftSize) {
-        QVector<float> window;
-        window.reserve(m_fftSize);
-
-        for (int i = 0; i < m_fftSize; ++i) {
-            window.append(m_fifo[i]);
-        }
-
-        analyzeWindow(window, block.sampleRate);
-
-        m_fifo.remove(0, qMin(m_hopSize, m_fifo.size()));
+    m_fifo += block.samples;
+    m_windowScratch.resize(m_fftSize);
+    int consumed = 0;
+    while (m_fifo.size() - consumed >= m_fftSize) {
+        std::copy_n(m_fifo.constBegin() + consumed, m_fftSize, m_windowScratch.begin());
+        analyzeWindow(m_windowScratch, block.sampleRate);
+        consumed += m_hopSize;
     }
+    if (consumed > 0) m_fifo.remove(0, consumed);
+
 }
 
 void DspEngine::reset()
 {
     m_fifo.clear();
+    m_continuity.reset();
     m_waterfallLeveler.reset();
 }
 
@@ -66,8 +63,10 @@ void DspEngine::analyzeWindow(const QVector<float> &window, int sampleRate)
 {
     ensureWindowTable();
 
-    QVector<double> real(m_fftSize);
-    QVector<double> imag(m_fftSize);
+    auto &real = m_realScratch;
+    auto &imag = m_imagScratch;
+    real.resize(m_fftSize);
+    imag.resize(m_fftSize);
 
     for (int i = 0; i < m_fftSize; ++i) {
         real[i] = static_cast<double>(window[i]) * m_windowTable[i];
@@ -77,7 +76,8 @@ void DspEngine::analyzeWindow(const QVector<float> &window, int sampleRate)
     fft(real, imag);
 
     const int maxBin = (m_fftSize / 2) - 2;
-    QVector<double> magnitudes(maxBin + 2);
+    auto &magnitudes = m_magnitudeScratch;
+    magnitudes.resize(maxBin + 2);
 
     for (int bin = 0; bin <= maxBin + 1; ++bin) {
         magnitudes[bin] = qSqrt(real[bin] * real[bin] + imag[bin] * imag[bin]) /

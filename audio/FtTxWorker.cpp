@@ -2,6 +2,7 @@
 #include "TxAudioEngine.h"
 
 #include <memory>
+#include <QDateTime>
 
 FtTxWorker::FtTxWorker(QObject *parent)
     : QObject(parent)
@@ -61,9 +62,17 @@ void FtTxWorker::startOutput(const QString &deviceName, TxModulator *modulator)
 
     emit logMessage(QStringLiteral("FT TX worker: starting dedicated low-latency audio output."));
     m_running = m_engine->startOutput(deviceName, std::move(owned));
-    if (!m_running) {
-        emit stopped();
+
+}
+
+void FtTxWorker::startScheduledOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs)
+{
+    if (latestStartUtcMs > 0 && QDateTime::currentMSecsSinceEpoch() > latestStartUtcMs) {
+        delete modulator;
+        emit errorOccurred(QStringLiteral("FT TX cancelled: worker audio-start deadline expired."));
+        return;
     }
+    startOutput(deviceName, modulator);
 }
 
 void FtTxWorker::stopOutput()
@@ -99,5 +108,6 @@ void FtTxWorker::handleFinished()
 
 void FtTxWorker::handleError(const QString &message)
 {
+    m_running = false;
     emit errorOccurred(message);
 }

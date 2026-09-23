@@ -78,7 +78,7 @@ bool setHamlibConfIfPresent(RIG *rig, const char *name, const QByteArray &value,
     if (rig == nullptr || name == nullptr) {
         return false;
     }
-    const hamlib_token_t token = rig_token_lookup(rig, name);
+    const auto token = rig_token_lookup(rig, name);
     if (token == RIG_CONF_END) {
         return true;
     }
@@ -405,7 +405,7 @@ bool HamlibController::connectRig()
             emitError(msg);
             return !required;
         }
-        const hamlib_token_t token = rig_token_lookup(rig, name);
+        const auto token = rig_token_lookup(rig, name);
         if (token == RIG_CONF_END && required) {
             emitError(QStringLiteral("Hamlib configuration token '%1' is not supported by this Hamlib build/model.")
                           .arg(QString::fromLatin1(name)));

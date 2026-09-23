@@ -1,0 +1,76 @@
+MadModem 0.5.9-alpha R6 — validation, 2026-09-23
+
+Environment: Ubuntu 24.04, x86_64; GCC 13.3.0; CMake 3.28.3;
+Qt 5.15.13; system Hamlib 4.5.5; Release, C++17, BUILD_TESTING=ON.
+Full application and test executables compiled successfully with Ninja.
+Qt Location not installed locally: offline map fallback compiled.
+
+Commands:
+cmake -S MadModem_R6 -B /tmp/mm-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DMADMODEM_REQUIRE_HAMLIB=ON -DBUILD_TESTING=ON
+cmake --build /tmp/mm-build --parallel 4
+ctest --test-dir /tmp/mm-build --output-on-failure
+
+Settings: offscreen Linux screen 800x600, normal window, all six pages in
+English, Italian, German, French, Norwegian and Czech. Automated full-screen,
+window-size and visible-button minimum-size checks. Italian User/QTH and
+rotator pages additionally inspected visually; scrolling and stacked groups
+corrected after inspection. This is not full UI coverage or a native desktop
+DPI/window-decoration test.
+
+Audio: PCM EOF and trailing silence tested with 0, 17 and 16000 tail samples.
+Anti-alias: 1 kHz passband and 11 kHz rejection at 44.1/48/96 kHz to 12 kHz.
+Streaming: identical result across 137-sample blocks and reset/restart.
+Rotor: signed/unsigned bearings, multiturn preservation/rejection, NaN.
+ADIF: EOH within values, padded header, missing dates, spaces, oversized
+length, stale concurrent writer rejection, reload and append.
+
+No physical radio/rotator/audio/PTT, Windows/macOS runtime, Qt 6 local build,
+or GitHub Actions run was available/performed. Qt 6 is queued by the supplied
+workflow after the user pushes the sources. The source guard suites inspect
+invariants; they do not prove the entire architecture free of defects.
+Remaining scope is documented in R6_CORREZIONI_E_TEST.md.
+
+Final CTest output:
+
+Internal ctest changing into directory: /tmp/mm-build
+Test project /tmp/mm-build
+      Start  1: madmodem_settings_ui_regression
+ 1/18 Test  #1: madmodem_settings_ui_regression ........   Passed    1.20 sec
+      Start  2: madmodem_tx_pull_regression
+ 2/18 Test  #2: madmodem_tx_pull_regression ............   Passed    0.01 sec
+      Start  3: madmodem_i18n_regression
+ 3/18 Test  #3: madmodem_i18n_regression ...............   Passed    0.00 sec
+      Start  4: madmodem_rotator_coordinates
+ 4/18 Test  #4: madmodem_rotator_coordinates ...........   Passed    0.00 sec
+      Start  5: madmodem_antialias_regression
+ 5/18 Test  #5: madmodem_antialias_regression ..........   Passed    0.04 sec
+      Start  6: madmodem_resampler_streaming
+ 6/18 Test  #6: madmodem_resampler_streaming ...........   Passed    0.09 sec
+      Start  7: madmodem_logbook_regression
+ 7/18 Test  #7: madmodem_logbook_regression ............   Passed    0.01 sec
+      Start  8: madmodem_wav_reader_test
+ 8/18 Test  #8: madmodem_wav_reader_test ...............   Passed    0.00 sec
+      Start  9: madmodem_q65_native_regression
+ 9/18 Test  #9: madmodem_q65_native_regression .........   Passed    1.98 sec
+      Start 10: madmodem_msk144_native_regression
+10/18 Test #10: madmodem_msk144_native_regression ......   Passed    0.35 sec
+      Start 11: madmodem_architecture_guard
+11/18 Test #11: madmodem_architecture_guard ............   Passed    0.20 sec
+      Start 12: madmodem_ui_contest_guard
+12/18 Test #12: madmodem_ui_contest_guard ..............   Passed    0.15 sec
+      Start 13: madmodem_ft_runtime_guard
+13/18 Test #13: madmodem_ft_runtime_guard ..............   Passed    0.26 sec
+      Start 14: madmodem_release_audit
+14/18 Test #14: madmodem_release_audit .................   Passed    0.96 sec
+      Start 15: madmodem_cw_native_regression
+15/18 Test #15: madmodem_cw_native_regression ..........   Passed   16.37 sec
+      Start 16: madmodem_waterfall_native_regression
+16/18 Test #16: madmodem_waterfall_native_regression ...   Passed    1.15 sec
+      Start 17: madmodem_waterfall_integrity_guard
+17/18 Test #17: madmodem_waterfall_integrity_guard .....   Passed    0.06 sec
+      Start 18: madmodem_ft_sequencer
+18/18 Test #18: madmodem_ft_sequencer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 18
+
+Total Test time (real) =  22.84 sec

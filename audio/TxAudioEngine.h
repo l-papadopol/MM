@@ -115,6 +115,7 @@ private slots:
      * @brief Handles natural end-of-transmission from the pull device.
      */
     void handleDeviceFinished();
+    void checkOutputState();
 
 private:
     /**
@@ -134,6 +135,7 @@ private:
 
     int m_sampleRate = 48000;
     qint64 m_totalSamples = 0;
+    quint64 m_outputGeneration = 0;
     bool m_running = false;
     bool m_finishedEmitted = false;
     int m_outputVolumePercent = 100;

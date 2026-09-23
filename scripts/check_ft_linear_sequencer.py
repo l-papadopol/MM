@@ -53,8 +53,11 @@ require("repeated RR73 while final 73 is on air -> no additional TX" in test,
 
 require("setLiveInputEnabled" in rx_h and "if (!m_liveInputEnabled)" in rx_cpp,
         "FT decoder owns an explicit live-input gate")
-require(re.search(r"connect\(m_audioEngine, &AudioEngine::audioBlockReady,\s*m_ft8RxDecoder, &Ft8RxDecoder::processAudioBlock", main, re.S) is not None,
-        "AudioEngine routes FT blocks directly to the decoder thread")
+require("[queue, decoder = m_ft8RxDecoder]" in main and
+        "queue, &BoundedAudioDispatcher::enqueue, Qt::DirectConnection" in main and
+        "decoder->processAudioBlock(block)" in main,
+        "AudioEngine routes FT blocks through a bounded decoder-thread queue")
+
 ft_branch_start = main.index("if (Ft8Mode::isFamilyMode(modeName))", main.index("void MainWindow::handleRxAudioBlock"))
 ft_branch = main[ft_branch_start:main.index("if (!m_rxRunning", ft_branch_start)]
 require("QMetaObject::invokeMethod" not in ft_branch and "m_ft8RxDecoder->processAudioBlock" not in ft_branch,

@@ -155,7 +155,7 @@ private:
     bool m_rotatorConnectionKnown[3] = {false, false, false};
     bool m_rotatorConnectionConnected[3] = {false, false, false};
     QString m_rotatorConnectionMessage[3];
-    bool m_settingsFullscreenApplied = false;
+    bool m_initialGeometryApplied = false;
 
     ColourButton m_colourMyCallBg;
     ColourButton m_colourMyCallFg;

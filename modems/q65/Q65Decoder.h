@@ -7,6 +7,7 @@
 #include "Q65NativeEngine.h"
 
 #include <QObject>
+#include <atomic>
 #include <QDateTime>
 #include <QString>
 #include <QVector>
@@ -27,11 +28,15 @@ Q_DECLARE_METATYPE(Q65Decode)
 class Q65Decoder : public QObject
 {
     Q_OBJECT
+    std::atomic<bool> m_liveInputEnabled{false};
 public:
     explicit Q65Decoder(QObject *parent = nullptr);
     ~Q65Decoder() override;
 
     /** Q65 RX is part of every normal MadModem build. */
+    void setLiveInputEnabled(bool enabled) { m_liveInputEnabled.store(enabled, std::memory_order_release); }
+    bool liveInputEnabled() const { return m_liveInputEnabled.load(std::memory_order_acquire); }
+
     static constexpr bool fullRxAvailable() { return true; }
 
     void setPeriodSeconds(int seconds);

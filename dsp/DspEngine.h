@@ -3,6 +3,7 @@
 
 #include "../audio/AudioBlock.h"
 #include "WaterfallLeveler.h"
+#include "../audio/AudioContinuity.h"
 
 #include <QObject>
 #include <QVector>
@@ -86,6 +87,9 @@ private:
     void fft(QVector<double> &real, QVector<double> &imag);
 
 private:
+    AudioContinuity m_continuity;
+    QVector<float> m_windowScratch;
+    QVector<double> m_realScratch, m_imagScratch, m_magnitudeScratch;
     QVector<float> m_fifo;
     QVector<double> m_windowTable;
 

@@ -40,8 +40,7 @@ bool looksLikeBadGeneratedValue(const QString &value, const QString &normalized,
     if (t.endsWith(QStringLiteral(".h"), Qt::CaseInsensitive) ||
         t.endsWith(QStringLiteral(".cpp"), Qt::CaseInsensitive) ||
         t.endsWith(QStringLiteral(".moc"), Qt::CaseInsensitive) ||
-        t.contains(QStringLiteral("../")) ||
-        t.contains(QLatin1Char('/'))) {
+        t.contains(QStringLiteral("../"))) {
         return true;
     }
     return false;
