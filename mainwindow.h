@@ -1,3 +1,5 @@
+#include "runtime/AsyncCatCommand.h"
+#include "runtime/RxDecoderWorker.h"
 #include "modems/rtty/RttyAfc.h"
 #include "audio/AudioContinuity.h"
 #ifndef MAINWINDOW_H
@@ -324,7 +326,6 @@ private slots:
     /**
      * @brief Applies a narrow marker-relative AFC nudge for text modes.
      */
-    void updateTextModeAfc(const AudioBlock &block);
 
     /**
      * @brief Retunes RTTY markers from AFC without clearing the text decoder.
@@ -1392,7 +1393,7 @@ private:
     /**
      * @brief Opens the configured RTS PTT line for image TX.
      */
-    bool keyPttForTx();
+    void keyPttForTx(std::function<void(bool)> completion);
 
     /**
      * @brief Releases the RTS PTT line after image TX.
@@ -1423,14 +1424,11 @@ private:
     void showRuntimeLogDialog();
     void appendRuntimeLogLine(const QString &line);
     void invokeRigConfigureFromSettings();
-    bool invokeRigPttBlocking(bool enabled);
-    bool invokeRigBeginFtSplitBlocking(const QString &operation, int rfShiftHz);
-    bool invokeRigEndFtSplitBlocking();
     void invokeRigSetFrequency(double frequencyHz);
 
     QString ftSplitOperationKey() const;
     int ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShiftHz = nullptr) const;
-    bool prepareFtSplitForTx();
+    void prepareFtSplitForTx(std::function<void(bool)> completion);
     void restoreFtSplitAfterTx();
 
     /**
@@ -2214,8 +2212,21 @@ private:
     bool m_rxRunning = false;
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;
-    int m_textAfcSamplesSinceUpdate = 0;
-    RttyAfc::Tracker m_rttyAfc;
+    AsyncCatCommand *m_catCommand = nullptr;
+    bool m_txPreparationPending = false;
+    quint64 m_txRequestGeneration = 0;
+    void requestRigPtt(bool enabled,std::function<void(bool)> completion);
+    RxDecoderWorker *m_rxDecoderWorker = nullptr;
+    QThread *m_rxDecoderThread = nullptr;
+    bool m_rxConfigPending = false;
+    void scheduleLiveRxConfig();
+    void syncLiveRxConfig();
+    DspConditioner::Config decoderConditionerConfig() const;
+    template<class T, class Method, class... Args>
+    void invokeRxDecoder(T *target, Method method, Args... args) {
+        m_rxDecoderWorker->command(target,method,m_offlineAnalysisActive,std::move(args)...);
+        scheduleLiveRxConfig();
+    }
     qint64 m_lastRxDispatcherDropLogUtcMs = 0;
 
     QString m_pendingModeName;

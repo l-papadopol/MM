@@ -38,6 +38,7 @@ public:
     void resumeAfterLocalTransmit();
     void processAudioBlock(const AudioBlock &block);
 
+    void setReverse(bool reverse);
     void configure(double baud,
                    int shiftHz,
                    bool reverse,

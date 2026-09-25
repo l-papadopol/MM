@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SUITES: dict[str, list[tuple[str, str]]] = {
     "architecture": [
         ("py", "scripts/check_runtime_hardening.py"),
+        ("py", "scripts/check_rx_cat_workers.py"),
         ("py", "scripts/check_cat_ft_band_sync.py"),
         ("py", "scripts/check_msk144_q65_single_path.py"),
         ("py", "scripts/check_qso_udp_logging.py"),

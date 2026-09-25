@@ -19,6 +19,7 @@ public:
     void enqueue(const AudioBlock &block);
     QVector<AudioBlock> takePending(int maximumBlocks, int *droppedBlocks = nullptr);
     void clear();
+    int pendingBlockCount();
 
 signals:
     void blocksAvailable();

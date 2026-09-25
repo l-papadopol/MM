@@ -83,6 +83,13 @@ void RttyMultiDecoder::resumeAfterLocalTransmit()
     m_samplesUntilScan = 0;
 }
 
+void RttyMultiDecoder::setReverse(bool reverse)
+{
+    if(m_reverse==reverse)return;
+    m_reverse=reverse;
+    reset();
+}
+
 void RttyMultiDecoder::configure(double baud,
                                  int shiftHz,
                                  bool reverse,

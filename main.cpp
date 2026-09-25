@@ -94,6 +94,7 @@ public:
 } // namespace
 
 #include "tests/SettingsUiRegression.h"
+#include "tests/RuntimeWorkersRegression.h"
 
 int main(int argc, char *argv[])
 {
@@ -135,6 +136,8 @@ int main(int argc, char *argv[])
         QStringLiteral("max"));
     const QCommandLineOption uiRegressionOption(QStringLiteral("ui-regression"),
         QStringLiteral("Check translated Settings layouts without connecting radio hardware."));
+    const QCommandLineOption runtimeRegressionOption(QStringLiteral("runtime-regression"),QStringLiteral("Check RX worker and asynchronous CAT without radio hardware."));
+    commandLine.addOption(runtimeRegressionOption);
     commandLine.addOption(uiRegressionOption);
     commandLine.addOption(ftRegressionOption);
     commandLine.addOption(ftModeOption);
@@ -248,6 +251,7 @@ int main(int argc, char *argv[])
         return allOk ? 0 : 3;
     }
 
+    if (commandLine.isSet(runtimeRegressionOption)) return runRuntimeWorkersRegression(app);
     if (commandLine.isSet(uiRegressionOption)) return runSettingsUiRegression(app);
 
     AppSettings bootSettings;

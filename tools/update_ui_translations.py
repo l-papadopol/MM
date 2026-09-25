@@ -1265,6 +1265,244 @@ for _key, _values in R7_TRANSLATIONS.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
 
+R8_TRANSLATIONS = {'log.cat_recovery_failed_tx_blocked_check_ptt_and_reconnect_restart_before_transmitting': {'it': 'Ripristino '
+                                                                                                  'CAT '
+                                                                                                  'fallito: '
+                                                                                                  'TX '
+                                                                                                  'bloccato; '
+                                                                                                  'controlla '
+                                                                                                  'il PTT e '
+                                                                                                  'riavvia '
+                                                                                                  'il '
+                                                                                                  'programma '
+                                                                                                  'prima di '
+                                                                                                  'trasmettere.',
+                                                                                            'fr': 'Échec de '
+                                                                                                  'la '
+                                                                                                  'restauration '
+                                                                                                  'CAT : TX '
+                                                                                                  'bloqué ; '
+                                                                                                  'vérifiez '
+                                                                                                  'le PTT et '
+                                                                                                  'redémarrez '
+                                                                                                  'le '
+                                                                                                  'logiciel '
+                                                                                                  'avant de '
+                                                                                                  'transmettre.',
+                                                                                            'de': 'CAT-Wiederherstellung '
+                                                                                                  'fehlgeschlagen: '
+                                                                                                  'TX '
+                                                                                                  'gesperrt; '
+                                                                                                  'PTT '
+                                                                                                  'prüfen '
+                                                                                                  'und '
+                                                                                                  'Software '
+                                                                                                  'vor dem '
+                                                                                                  'Senden '
+                                                                                                  'neu '
+                                                                                                  'starten.',
+                                                                                            'no': 'CAT-gjenoppretting '
+                                                                                                  'mislyktes: '
+                                                                                                  'TX '
+                                                                                                  'blokkert; '
+                                                                                                  'kontroller '
+                                                                                                  'PTT og '
+                                                                                                  'start '
+                                                                                                  'programmet '
+                                                                                                  'på nytt '
+                                                                                                  'før '
+                                                                                                  'sending.',
+                                                                                            'cs': 'Obnovení '
+                                                                                                  'CAT '
+                                                                                                  'selhalo: '
+                                                                                                  'TX '
+                                                                                                  'blokován; '
+                                                                                                  'zkontrolujte '
+                                                                                                  'PTT a '
+                                                                                                  'před '
+                                                                                                  'vysíláním '
+                                                                                                  'restartujte '
+                                                                                                  'program.'},
+ 'log.rx_decoder_queue_overflow_1_blocks_discarded_decoder_continuity_reset': {'it': 'Coda del decoder RX '
+                                                                                     'piena: %1 blocchi '
+                                                                                     'scartati; continuità '
+                                                                                     'del decoder azzerata.',
+                                                                               'fr': 'File du décodeur RX '
+                                                                                     'saturée : %1 blocs '
+                                                                                     'ignorés ; continuité '
+                                                                                     'du décodeur '
+                                                                                     'réinitialisée.',
+                                                                               'de': 'RX-Decoderwarteschlange '
+                                                                                     'voll: %1 Blöcke '
+                                                                                     'verworfen; '
+                                                                                     'Decoderkontinuität '
+                                                                                     'zurückgesetzt.',
+                                                                               'no': 'RX-dekoderkøen er '
+                                                                                     'full: %1 blokker '
+                                                                                     'forkastet; dekoderens '
+                                                                                     'kontinuitet nullstilt.',
+                                                                               'cs': 'Fronta dekodéru RX je '
+                                                                                     'plná: zahozeno %1 '
+                                                                                     'bloků; návaznost '
+                                                                                     'dekodéru resetována.'},
+ 'log.rx_overload_protection_dropped_1_stale_display_audio_block_s_decoder_queues_were_not_affec': {'it': 'Protezione '
+                                                                                                          'dal '
+                                                                                                          'sovraccarico '
+                                                                                                          'RX: '
+                                                                                                          'scartati '
+                                                                                                          '%1 '
+                                                                                                          'blocchi '
+                                                                                                          'audio '
+                                                                                                          'obsoleti '
+                                                                                                          'della '
+                                                                                                          'visualizzazione; '
+                                                                                                          'code '
+                                                                                                          'dei '
+                                                                                                          'decoder '
+                                                                                                          'non '
+                                                                                                          'coinvolte.',
+                                                                                                    'fr': 'Protection '
+                                                                                                          'contre '
+                                                                                                          'la '
+                                                                                                          'surcharge '
+                                                                                                          'RX '
+                                                                                                          ': '
+                                                                                                          '%1 '
+                                                                                                          'blocs '
+                                                                                                          'audio '
+                                                                                                          'périmés '
+                                                                                                          'ignorés '
+                                                                                                          'pour '
+                                                                                                          'l’affichage '
+                                                                                                          '; '
+                                                                                                          'files '
+                                                                                                          'des '
+                                                                                                          'décodeurs '
+                                                                                                          'non '
+                                                                                                          'affectées.',
+                                                                                                    'de': 'RX-Überlastschutz: '
+                                                                                                          '%1 '
+                                                                                                          'veraltete '
+                                                                                                          'Audioblöcke '
+                                                                                                          'für '
+                                                                                                          'die '
+                                                                                                          'Anzeige '
+                                                                                                          'verworfen; '
+                                                                                                          'Decoderwarteschlangen '
+                                                                                                          'nicht '
+                                                                                                          'betroffen.',
+                                                                                                    'no': 'RX-overlastvern: '
+                                                                                                          '%1 '
+                                                                                                          'utdaterte '
+                                                                                                          'lydblokker '
+                                                                                                          'for '
+                                                                                                          'visning '
+                                                                                                          'forkastet; '
+                                                                                                          'dekoderkøene '
+                                                                                                          'er '
+                                                                                                          'ikke '
+                                                                                                          'berørt.',
+                                                                                                    'cs': 'Ochrana '
+                                                                                                          'RX '
+                                                                                                          'proti '
+                                                                                                          'přetížení: '
+                                                                                                          'zahozeno '
+                                                                                                          '%1 '
+                                                                                                          'zastaralých '
+                                                                                                          'bloků '
+                                                                                                          'zvuku '
+                                                                                                          'pro '
+                                                                                                          'zobrazení; '
+                                                                                                          'fronty '
+                                                                                                          'dekodérů '
+                                                                                                          'nejsou '
+                                                                                                          'dotčeny.'},
+ 'log.ft_tx_aborted_asynchronous_cat_split_preparation_failed_or_timed_out': {'it': 'TX FT annullato: '
+                                                                                    'preparazione asincrona '
+                                                                                    'dello split CAT fallita '
+                                                                                    'o scaduta.',
+                                                                              'fr': 'TX FT annulé : échec ou '
+                                                                                    'expiration du délai de '
+                                                                                    'préparation asynchrone '
+                                                                                    'du split CAT.',
+                                                                              'de': 'FT-TX abgebrochen: '
+                                                                                    'asynchrone '
+                                                                                    'CAT-Split-Vorbereitung '
+                                                                                    'fehlgeschlagen oder '
+                                                                                    'Zeitlimit '
+                                                                                    'überschritten.',
+                                                                              'no': 'FT-TX avbrutt: asynkron '
+                                                                                    'klargjøring av '
+                                                                                    'CAT-split mislyktes '
+                                                                                    'eller fikk tidsavbrudd.',
+                                                                              'cs': 'FT TX zrušen: '
+                                                                                    'asynchronní příprava '
+                                                                                    'splitu CAT selhala nebo '
+                                                                                    'vypršel časový limit.'},
+ 'log.cat_ptt_on_failed_cancelled_or_timed_out_audio_tx_blocked': {'it': 'Attivazione PTT CAT fallita, '
+                                                                         'annullata o scaduta; audio TX '
+                                                                         'bloccato.',
+                                                                   'fr': 'Activation PTT CAT échouée, '
+                                                                         'annulée ou délai dépassé ; audio '
+                                                                         'TX bloqué.',
+                                                                   'de': 'CAT-PTT-Aktivierung '
+                                                                         'fehlgeschlagen, abgebrochen oder '
+                                                                         'Zeitlimit überschritten; TX-Audio '
+                                                                         'gesperrt.',
+                                                                   'no': 'CAT-PTT-aktivering mislyktes, ble '
+                                                                         'avbrutt eller fikk tidsavbrudd; '
+                                                                         'TX-lyd blokkert.',
+                                                                   'cs': 'Aktivace PTT CAT selhala, byla '
+                                                                         'zrušena nebo vypršel limit; zvuk '
+                                                                         'TX blokován.'},
+ 'log.cat_ptt_off_not_confirmed_further_tx_is_blocked': {'it': 'Rilascio PTT CAT non confermato; ulteriori '
+                                                               'trasmissioni bloccate.',
+                                                         'fr': 'Désactivation PTT CAT non confirmée ; '
+                                                               'nouvelles transmissions bloquées.',
+                                                         'de': 'CAT-PTT-Freigabe nicht bestätigt; weitere '
+                                                               'Sendungen gesperrt.',
+                                                         'no': 'Frakobling av CAT-PTT ikke bekreftet; videre '
+                                                               'sending blokkert.',
+                                                         'cs': 'Vypnutí PTT CAT nepotvrzeno; další vysílání '
+                                                               'blokováno.'},
+ 'log.ft_tx_aborted_cat_ptt_acknowledgement_missing_no_audio_transmitted': {'it': 'TX FT annullato: conferma '
+                                                                                  'CAT/PTT mancante; nessun '
+                                                                                  'audio trasmesso.',
+                                                                            'fr': 'TX FT annulé : '
+                                                                                  'confirmation CAT/PTT '
+                                                                                  'manquante ; aucun audio '
+                                                                                  'transmis.',
+                                                                            'de': 'FT-TX abgebrochen: '
+                                                                                  'CAT/PTT-Bestätigung '
+                                                                                  'fehlt; kein Audio '
+                                                                                  'gesendet.',
+                                                                            'no': 'FT-TX avbrutt: '
+                                                                                  'CAT/PTT-bekreftelse '
+                                                                                  'mangler; ingen lyd sendt.',
+                                                                            'cs': 'FT TX zrušen: chybí '
+                                                                                  'potvrzení CAT/PTT; žádný '
+                                                                                  'zvuk nebyl vyslán.'},
+ 'log.ft_slot_skipped_cat_ptt_was_not_confirmed_before_audio_deadline': {'it': 'Slot FT saltato: CAT/PTT non '
+                                                                               'confermato entro il termine '
+                                                                               'di avvio audio.',
+                                                                         'fr': 'Créneau FT ignoré : CAT/PTT '
+                                                                               'non confirmé avant '
+                                                                               'l’échéance de démarrage '
+                                                                               'audio.',
+                                                                         'de': 'FT-Zeitfenster übersprungen: '
+                                                                               'CAT/PTT nicht vor der '
+                                                                               'Audio-Startfrist bestätigt.',
+                                                                         'no': 'FT-tidsluke hoppet over: '
+                                                                               'CAT/PTT ikke bekreftet før '
+                                                                               'fristen for lydstart.',
+                                                                         'cs': 'Interval FT přeskočen: '
+                                                                               'CAT/PTT nebyl potvrzen před '
+                                                                               'termínem spuštění zvuku.'}}
+for _key, _values in R8_TRANSLATIONS.items():
+    for _lang, _value in _values.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

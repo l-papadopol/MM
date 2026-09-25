@@ -447,6 +447,9 @@ add_executable(MadModem
     modems/rtty/RttyMultiDecoder.h
     modems/rtty/RttyMultiDecoder.cpp
     modems/rtty/contest/RttyContestRules.h
+    runtime/RxDecoderWorker.cpp
+    runtime/RxDecoderWorker.h
+    runtime/AsyncCatCommand.h
     modems/rtty/contest/RttyContestRules.cpp
     modems/bpsk31/Bpsk31Decoder.h
     modems/bpsk31/Bpsk31Decoder.cpp
@@ -963,6 +966,8 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_test(NAME madmodem_runtime_workers_regression COMMAND MadModem --runtime-regression)
+    set_tests_properties(madmodem_runtime_workers_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME madmodem_settings_ui_regression COMMAND MadModem --ui-regression)
     set_tests_properties(madmodem_settings_ui_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_executable(madmodem_tx_pull_regression tests/TxPullRegression.cpp audio/TxOutputDevice.h)

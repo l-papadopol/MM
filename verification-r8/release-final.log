@@ -1,0 +1,35 @@
+MadModem consolidated guard suite: release
+
+--- RUN scripts/check_operator_ui_copy.py ---
+Operator UI copy guard passed: compact FT state and runtime localization are enforced.
+
+--- RUN tools/audit_localization.py ---
+Canonical keys: 1848
+en: 1848 keys; canonical source dictionary
+it: 1848 keys; 1475 localized values; 373 shared technical terms or coherent English fallbacks
+fr: 1848 keys; 1420 localized values; 428 shared technical terms or coherent English fallbacks
+de: 1848 keys; 1431 localized values; 417 shared technical terms or coherent English fallbacks
+no: 1848 keys; 1398 localized values; 450 shared technical terms or coherent English fallbacks
+cs: 1848 keys; 1434 localized values; 414 shared technical terms or coherent English fallbacks
+Translation audit PASSED: structure, placeholders, reviewed operator text and semantic-mixing checks are clean.
+
+--- RUN tools/audit_documentation.py ---
+Documentation audit PASSED: version 0.5.9-alpha, 72 localized HTML pages and six Qt Help projects are consistent.
+
+--- RUN tools/audit_rtty_rules.py ---
+rtty_rules: 30 profiles, 29 active, schema=1, updated=2026-08-15
+PASS: 0 errors, 0 warning(s)
+
+--- RUN tools/audit_rtty_rules.py ---
+cw_rules: 8 profiles, 8 active, schema=1, updated=2026-08-19
+PASS: 0 errors, 0 warning(s)
+
+--- RUN scripts/ci_release_version_guard.sh ---
+MadModem CI version guard
+  MADMODEM_VERSION.txt : 0.5.9-alpha
+  GITHUB_REF_TYPE      : manual
+  GITHUB_REF_NAME      : manual
+  GITHUB_SHA           : manual
+  status               : OK
+
+Consolidated release suite PASSED: 6 check(s) run, 0 platform check(s) skipped.

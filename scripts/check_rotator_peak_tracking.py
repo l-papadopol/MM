@@ -92,11 +92,11 @@ require("m_qsoPeakCorrectionValid" in track_body,
 require("void MainWindow::pauseQsoSignalPeakForTransmit" in main_cpp and
         "m_catRotatorController->stop();" in main_cpp,
         "local TX does not explicitly stop an active peak probe")
-key_body = main_cpp.split("bool MainWindow::keyPttForTx()", 1)[1].split("void MainWindow::unkeyPttAfterTx()", 1)[0]
+key_body = main_cpp.split("void MainWindow::keyPttForTx(", 1)[1].split("void MainWindow::unkeyPttAfterTx()", 1)[0]
 require("pauseQsoSignalPeakForTransmit();" in key_body,
         "peak-search pause is not tied to the PTT path")
 unkey_body = main_cpp.split("void MainWindow::unkeyPttAfterTx()", 1)[1].split("QString MainWindow::selectedAudioOutputName", 1)[0]
-require(re.search(r"if \(pttOffConfirmed\).*?resumeQsoSignalPeakAfterTransmit\(\);", unkey_body, re.S) is not None,
+require(re.search(r"if\(ok\).*?resumeQsoSignalPeakAfterTransmit\(\);", unkey_body, re.S) is not None,
         "QSO target return is not gated by confirmed PTT OFF")
 
 # The controller metadata-only path is the single owner-preserving way to keep

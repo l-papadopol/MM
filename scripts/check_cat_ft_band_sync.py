@@ -81,8 +81,9 @@ checks = {
         and "shift += 500;" in main
     ),
     "FT split CAT transaction is prepared before PTT and restored after PTT": (
-        "prepareFtSplitForTx()" in main
-        and main.find("prepareFtSplitForTx()") < main.find("m_pendingFt8PttKeyed = keyPttForTx();", main.find("void MainWindow::prearmFtPreparedSlotTransmit"))
+        "prepareFtSplitForTx([this,complete,token,generation](bool ok)" in main
+        and "if(!ok || token!=m_ft8PendingTxToken || generation!=m_txRequestGeneration){complete(false);return;}" in main
+        and "keyPttForTx(complete);" in main
         and "restoreFtSplitAfterTx();" in main
         and "beginFtSplitTx" in controller
         and "endFtSplitTx" in controller
@@ -106,7 +107,8 @@ checks = {
         and "pairedSplitVfo" not in controller
         and "rig_set_freq(rig, txVfo" not in controller
         and "refusing a second concurrent owner" in controller
-        and "no non-split fallback was used" in main
+        and "completion(ok);" in main
+        and "m_ftSplitPreparedForTx=ok;" in main
     ),
     "Rig split TX mode changes are fail-closed unless the previous split mode is restorable": (
         controller.count("splitTx && !m_havePreTxMode") >= 2
@@ -116,7 +118,7 @@ checks = {
     ),
     "Split is opt-in and the stable default CAT path remains unchanged": (
         'QString hamlibSplitOperation = "none";' in all_relevant
-        and 'if (operation == QStringLiteral("none")) return true;' in main
+        and 'operation==QStringLiteral("none")){completion(true);return;}' in main
     ),
 }
 

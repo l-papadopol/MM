@@ -63,3 +63,5 @@ void BoundedAudioDispatcher::clear()
     m_droppedSinceTake = 0;
     m_notificationPending = false;
 }
+
+int BoundedAudioDispatcher::pendingBlockCount() { QMutexLocker lock(&m_mutex); return m_queue.size(); }

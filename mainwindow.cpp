@@ -570,48 +570,6 @@ QString friendlyAudioName(const QString &backendName)
 }
 
 
-/**
- * @brief Result of a small AFC tone-energy search around one marker.
- */
-struct AfcTonePeak
-{
-    double frequencyHz = 0.0;
-    double power = 0.0;
-    double confidence = 0.0;
-    bool valid = false;
-};
-
-/**
- * @brief Goertzel tone power normalized to roughly sample-power units.
- */
-double goertzelPowerAt(const QVector<float> &samples, int sampleRate, double frequencyHz)
-{
-    const int n = samples.size();
-    if (n < 64 || sampleRate <= 0 || frequencyHz <= 0.0 || frequencyHz >= sampleRate * 0.48) {
-        return 0.0;
-    }
-
-    const double omega = 2.0 * M_PI * frequencyHz / static_cast<double>(sampleRate);
-    const double coeff = 2.0 * qCos(omega);
-    double s0 = 0.0;
-    double s1 = 0.0;
-    double s2 = 0.0;
-
-    /* A very light triangular window reduces false pulls from symbol edges and
-     * Hell keying clicks without adding allocations. */
-    const double half = 0.5 * static_cast<double>(n - 1);
-    for (int i = 0; i < n; ++i) {
-        const double w = 1.0 - (0.35 * qAbs((static_cast<double>(i) - half) / qMax(1.0, half)));
-        s0 = (static_cast<double>(samples.at(i)) * w) + (coeff * s1) - s2;
-        s2 = s1;
-        s1 = s0;
-    }
-
-    const double raw = (s1 * s1) + (s2 * s2) - (coeff * s1 * s2);
-    const double norm = static_cast<double>(n) * static_cast<double>(n);
-    return qMax(0.0, raw / qMax(1.0, norm));
-}
-
 int previousPowerOfTwo(int value)
 {
     int p = 1;
@@ -767,77 +725,6 @@ double radioTelescopeWelchBandPower(const QVector<float> &samples, int sampleRat
     // Robust temporal average inside this block; the dwell accumulator then
     // averages many block-level estimates.
     return trimmedMean(segmentBandPowers, 0.10, 0.10);
-}
-
-/**
- * @brief Finds the local energy maximum around one selected marker.
- *
- * The search is deliberately narrow.  It is an AFC nudge around an operator
- * marker, not an automatic signal finder across the whole waterfall.
- */
-AfcTonePeak estimateAfcTonePeak(const AudioBlock &block,
-                                double centerHz,
-                                int rangeHz,
-                                double stepHz)
-{
-    AfcTonePeak result;
-
-    if (block.samples.size() < 1024 || block.sampleRate <= 0 || rangeHz <= 0 || stepHz <= 0.0) {
-        return result;
-    }
-
-    const double minHz = qMax(20.0, centerHz - static_cast<double>(rangeHz));
-    const double maxHz = qMin(block.sampleRate * 0.45, centerHz + static_cast<double>(rangeHz));
-    if (maxHz <= minHz) {
-        return result;
-    }
-
-    QVector<double> powers;
-    powers.reserve(static_cast<int>((maxHz - minHz) / stepHz) + 2);
-
-    double bestFrequency = centerHz;
-    double bestPower = 0.0;
-    for (double f = minHz; f <= maxHz + 0.001; f += stepHz) {
-        const double p = goertzelPowerAt(block.samples, block.sampleRate, f);
-        powers.append(p);
-        if (p > bestPower) {
-            bestPower = p;
-            bestFrequency = f;
-        }
-    }
-
-    if (powers.size() < 3 || bestPower <= 0.0) {
-        return result;
-    }
-
-    std::sort(powers.begin(), powers.end());
-    const double medianPower = powers.at(powers.size() / 2);
-    const double confidence = bestPower / qMax(1.0e-12, medianPower);
-
-    double blockPower = 0.0;
-    for (float sample : block.samples) {
-        const double v = static_cast<double>(sample);
-        blockPower += v * v;
-    }
-    blockPower /= qMax(1, block.samples.size());
-
-    /* Avoid chasing random noise.  Strong keyed text signals usually produce a
-     * very clear local maximum inside ±10..30 Hz. */
-    const bool enoughAbsoluteEnergy = bestPower > qMax(1.0e-8, blockPower * 0.010);
-    const bool enoughContrast = confidence >= 1.35;
-
-    result.frequencyHz = bestFrequency;
-    result.power = bestPower;
-    result.confidence = confidence;
-    result.valid = enoughAbsoluteEnergy && enoughContrast;
-    return result;
-}
-
-int nudgedToneValue(int currentHz, double measuredHz, int maxStepHz, int minHz, int maxHz)
-{
-    const int targetHz = static_cast<int>(qRound(measuredHz));
-    const int delta = qBound(-maxStepHz, targetHz - currentHz, maxStepHz);
-    return qBound(minHz, currentHz + delta, maxHz);
 }
 
 /**
@@ -1549,6 +1436,27 @@ MainWindow::MainWindow(QWidget *parent)
     m_rigThread(new QThread(this))
 {
     ui->setupUi(this);
+    m_catCommand=new AsyncCatCommand(this);
+    connect(m_catCommand,&AsyncCatCommand::compensatedCommand,this,[this](bool recovered){
+        m_ftSplitPreparedForTx=!recovered;
+        m_ftSplitRestoreFailed=!recovered;
+        if(recovered)resumeQsoSignalPeakAfterTransmit();
+        else appendLog(QStringLiteral("CAT recovery failed: TX blocked; check PTT and reconnect/restart before transmitting."));
+    });
+    m_rxDecoderThread=new QThread(this);
+    m_rxDecoderWorker=new RxDecoderWorker({m_weatherFaxDecoder,m_sstvDecoder,m_rttyDecoder,m_rttyMultiDecoder,m_bpsk31Decoder,m_mfskDecoder,m_cwDecoder,m_hellDecoder,m_msk144Decoder});
+    m_rxDecoderWorker->moveToThread(m_rxDecoderThread);
+    connect(m_rxDecoderThread,&QThread::finished,m_rxDecoderWorker,&QObject::deleteLater);
+    connect(m_rxDecoderWorker,&RxDecoderWorker::overload,this,[this](int count){
+        appendLog(QStringLiteral("RX decoder queue overflow: %1 blocks discarded; decoder continuity reset.").arg(count));
+    });
+    connect(m_rxDecoderWorker,&RxDecoderWorker::afcToneAdjusted,this,[this](const QString &mode,int tone){
+        QSpinBox *spin=mode==Bpsk31Decoder::modeName()?m_spinBpsk31ToneHz:m_spinHellToneHz;
+        if(ui->cmbMode->currentText()!=mode || !spin)return;
+        const QSignalBlocker blocker(spin);spin->setValue(tone);updateWaterfallMarkers();
+    });
+    m_rxDecoderThread->start();
+
     setWindowIcon(QIcon(":/icons/madmodem.png"));
     if (ui->txtLog != nullptr) {
         ui->txtLog->setMaximumBlockCount(5000);
@@ -1893,27 +1801,10 @@ void MainWindow::shutdownRuntime(const char *reason)
         disconnect(m_ntpClient, nullptr, this, nullptr);
     }
 
-    if (m_rigController != nullptr) {
-        shutdownLog(QStringLiteral("requesting confirmed CAT PTT-OFF/disconnect"));
-        bool pttOffConfirmed = false;
-        bool disconnectExecuted = false;
-        const auto stopRig = [controller = m_rigController, &pttOffConfirmed, &disconnectExecuted]() {
-            pttOffConfirmed = controller->disconnectRig();
-            disconnectExecuted = true;
-        };
-        if (m_rigController->thread() == QThread::currentThread()) {
-            stopRig();
-        } else if (m_rigController->thread() != nullptr && m_rigController->thread()->isRunning()) {
-            QMetaObject::invokeMethod(m_rigController, stopRig, Qt::BlockingQueuedConnection);
-        }
-        if (!disconnectExecuted) {
-            shutdownLog(QStringLiteral("CAT shutdown failed: controller thread was not running"));
-        } else if (!pttOffConfirmed) {
-            shutdownLog(QStringLiteral("CAT shutdown warning: PTT-OFF was not confirmed by the backend"));
-        } else {
-            shutdownLog(QStringLiteral("CAT PTT-OFF confirmed and backend disconnected"));
-        }
-        disconnect(m_rigController, nullptr, this, nullptr);
+    m_catCommand->cancel();
+    if(m_rigController) {
+        QMetaObject::invokeMethod(m_rigController,[controller=m_rigController](){controller->disconnectRig();QThread::currentThread()->quit();},Qt::QueuedConnection);
+        disconnect(m_rigController,nullptr,this,nullptr);
     }
 
     savePersistentSettings();
@@ -1924,6 +1815,7 @@ void MainWindow::shutdownRuntime(const char *reason)
         QString name;
     };
     const QVector<RuntimeThreadStop> workers = {
+        {m_rxDecoderThread, QStringLiteral("Live RX decoders")},
         {m_rxAudioRecorderThread, QStringLiteral("RX audio recorder")},
         {m_audioThread, QStringLiteral("RX audio capture")},
         {m_ftTxThread, QStringLiteral("FT TX")},
@@ -1943,7 +1835,7 @@ void MainWindow::shutdownRuntime(const char *reason)
         }
         shutdownLog(QStringLiteral("requesting thread stop: %1").arg(worker.name));
         worker.thread->requestInterruption();
-        worker.thread->quit();
+        if(worker.thread!=m_rigThread)worker.thread->quit();
     }
 
     constexpr qint64 kGracefulShutdownBudgetMs = 5000;
@@ -9080,8 +8972,21 @@ void MainWindow::setupHelpTooltips()
 
 void MainWindow::setupProcessingConnections()
 {
+    connect(m_rxDecoderWorker,&RxDecoderWorker::imagesAvailable,this,[this](){
+        if(m_shutdownInProgress || m_runtimeShutdownComplete)return;
+        m_rxDecoderWorker->acknowledgeImages();
+        const QString mode=ui->cmbMode->currentText();
+        if(mode==WeatherFaxDecoder::modeName() && m_faxImageWidget)
+            m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_weatherFaxDecoder));
+        else if(mode==SstvDecoder::modeName() && m_faxImageWidget)
+            m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_sstvDecoder));
+        else if(mode==HellschreiberDecoder::modeName() && m_lblHellRaster)
+            updateHellRasterDisplay(m_rxDecoderWorker->image(m_hellDecoder));
+    },Qt::QueuedConnection);
+
+    connect(m_audioEngine,&AudioEngine::audioBlockReady,m_rxDecoderWorker->queue(),&BoundedAudioDispatcher::enqueue,Qt::DirectConnection);
     if (m_rxUiAudioDispatcher != nullptr) {
-        // This is the bounded branch for waterfall and non-FT decoders. At
+        // This bounded branch supplies waterfall and GUI signal metering only. At
         // most one UI notification is queued, independently of capture rate.
         connect(m_audioEngine, &AudioEngine::audioBlockReady,
                 m_rxUiAudioDispatcher, &BoundedAudioDispatcher::enqueue,
@@ -9097,7 +9002,7 @@ void MainWindow::setupProcessingConnections()
                         const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
                         if (nowMs - m_lastRxDispatcherDropLogUtcMs >= 2000) {
                             m_lastRxDispatcherDropLogUtcMs = nowMs;
-                            appendLog(QStringLiteral("RX overload protection: dropped %1 stale UI/non-FT audio block(s); FT worker input was not affected.")
+                            appendLog(QStringLiteral("RX overload protection: dropped %1 stale display audio block(s); decoder queues were not affected.")
                                           .arg(droppedBlocks));
                         }
                     }
@@ -9109,10 +9014,8 @@ void MainWindow::setupProcessingConnections()
                             const AudioBlock waterfallBlock = conditionAudioForWaterfall(block);
                             m_dspAudioDispatcher->enqueue(waterfallBlock);
                         }
-                        // Decoder handling owns the live RX critical path. QSO
-                        // pointing is advanced only afterwards and consumes a
-                        // cached metric produced asynchronously by DspEngine from
-                        // the already-computed waterfall FFT.
+                        // GUI metering uses a cached waterfall metric; live
+                        // decoders have an independent capture-to-worker path.
                         handleRxAudioBlock(block);
                         updateQsoSignalPeakTracking();
                     }
@@ -9302,7 +9205,7 @@ void MainWindow::setupProcessingConnections()
                 this, [this](const QString &modeName) {
                     m_lastRigModeName = modeName.trimmed().toUpper();
                     if (m_rttyDecoder != nullptr) {
-                        m_rttyDecoder->setCatModeHint(m_lastRigModeName);
+                        invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setCatModeHint, m_lastRigModeName);
                     }
                     appendLog(m_lastRigModeName.isEmpty()
                                   ? QStringLiteral("CAT mode: unavailable")
@@ -9333,9 +9236,6 @@ void MainWindow::setupProcessingConnections()
                 Qt::QueuedConnection);
     }
 
-    connect(m_weatherFaxDecoder, &WeatherFaxDecoder::imageUpdated,
-            m_faxImageWidget, &FaxImageWidget::setImage);
-
     connect(m_weatherFaxDecoder, &WeatherFaxDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
 
@@ -9352,9 +9252,6 @@ void MainWindow::setupProcessingConnections()
 
     connect(m_weatherFaxDecoder, &WeatherFaxDecoder::imageCompleted,
             this, &MainWindow::handleWeatherFaxImageCompleted);
-
-    connect(m_sstvDecoder, &SstvDecoder::imageUpdated,
-            m_faxImageWidget, &FaxImageWidget::setImage);
 
     connect(m_sstvDecoder, &SstvDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -9401,7 +9298,10 @@ void MainWindow::setupProcessingConnections()
                     const QSignalBlocker blockReverse(m_chkRttyReverse);
                     m_chkRttyReverse->setChecked(reverse);
                 }
-                applyRttySettings();
+                // Worker applies polarity without a GUI round trip.
+                m_settings.rttyReverse=reverse;
+                updateWaterfallMarkers();
+                updateTxPreview();
                 handleWeatherFaxStatus(reverse
                                            ? QStringLiteral("RTTY: auto polarity selected REVERSE")
                                            : QStringLiteral("RTTY: auto polarity selected NORMAL"));
@@ -9609,15 +9509,6 @@ void MainWindow::setupProcessingConnections()
     // RX B is no longer a second decoder object. It is a user-selected marker
     // inside the single skimmer engine, so there are no secondary decoder
     // signal connections here.
-
-    connect(m_hellDecoder, &HellschreiberDecoder::imageUpdated,
-            this, [this](const QImage &image) {
-                if (m_lblHellRaster == nullptr) {
-                    return;
-                }
-
-                updateHellRasterDisplay(image);
-            });
 
     connect(m_hellDecoder, &HellschreiberDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -10851,7 +10742,7 @@ void MainWindow::setupUiConnections()
         connect(m_btnHellResetImage, &QPushButton::clicked,
                 this, [this]() {
                     if (m_hellDecoder != nullptr) {
-                        m_hellDecoder->reset();
+                        invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::reset);
                     }
                 });
     }
@@ -11229,52 +11120,12 @@ void MainWindow::invokeRigConfigureFromSettings()
                   : QStringLiteral("CAT: saved configuration queued; CAT disabled in settings."));
 }
 
-bool MainWindow::invokeRigPttBlocking(bool enabled)
+void MainWindow::requestRigPtt(bool enabled, std::function<void(bool)> completion)
 {
-    if (m_rigController == nullptr) {
-        return false;
-    }
-    bool ok = false;
-    if (QThread::currentThread() == m_rigController->thread()) {
-        ok = m_rigController->setPtt(enabled);
-    } else {
-        QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, enabled, &ok]() {
-            ok = controller->setPtt(enabled);
-        }, Qt::BlockingQueuedConnection);
-    }
-    return ok;
-}
-
-bool MainWindow::invokeRigBeginFtSplitBlocking(const QString &operation, int rfShiftHz)
-{
-    if (m_rigController == nullptr) return false;
-    bool ok = false;
-    if (QThread::currentThread() == m_rigController->thread()) {
-        ok = m_rigController->beginFtSplitTx(operation, rfShiftHz);
-    } else {
-        QMetaObject::invokeMethod(m_rigController,
-                                  [controller = m_rigController, operation, rfShiftHz, &ok]() {
-                                      ok = controller->beginFtSplitTx(operation, rfShiftHz);
-                                  },
-                                  Qt::BlockingQueuedConnection);
-    }
-    return ok;
-}
-
-bool MainWindow::invokeRigEndFtSplitBlocking()
-{
-    if (m_rigController == nullptr) return false;
-    bool ok = false;
-    if (QThread::currentThread() == m_rigController->thread()) {
-        ok = m_rigController->endFtSplitTx();
-    } else {
-        QMetaObject::invokeMethod(m_rigController,
-                                  [controller = m_rigController, &ok]() {
-                                      ok = controller->endFtSplitTx();
-                                  },
-                                  Qt::BlockingQueuedConnection);
-    }
-    return ok;
+    if(m_shutdownInProgress || m_runtimeShutdownComplete){completion(false);return;}
+    auto *controller=m_rigController;
+    m_catCommand->request(controller,[controller,enabled](){return controller->setPtt(enabled);},
+        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},std::move(completion));
 }
 
 QString MainWindow::ftSplitOperationKey() const
@@ -11307,74 +11158,34 @@ int MainWindow::ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShift
     return audioHz;
 }
 
-bool MainWindow::prepareFtSplitForTx()
+void MainWindow::prepareFtSplitForTx(std::function<void(bool)> completion)
 {
-    if (m_ftSplitPreparedForTx) {
-        if (m_ftSplitRestoreFailed) {
-            appendLog(QStringLiteral("FT split TX blocked: the previous CAT split state could not be restored; resolve the radio/CAT state before another transmission."));
-            return false;
-        }
-        return true;
-    }
-
-    const QString operation = ftSplitOperationKey();
-    if (operation == QStringLiteral("none")) return true;
-
-    if (!m_settings.hamlibCatEnabled || m_rigController == nullptr) {
-        const QString reason = uiText("ft_split_requires_cat",
-                                      "FT Split Operation is enabled, but CAT control is not available. Enable CAT or set Split operation to None.");
-        appendLog(QStringLiteral("FT split TX blocked: ") + reason);
-        showTxBlockedWarning(QStringLiteral("FT4/FT8 Split"),
-                             reason,
-                             AppSettingsDialog::InitialPage::RadioCat,
-                             uiText("open_radio_cat_settings", "Open Radio/CAT settings"));
-        return false;
-    }
-
-    const int logicalHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz;
-    int rfShiftHz = 0;
-    const int actualAudioHz = ftEffectiveTxAudioFrequency(logicalHz, &rfShiftHz);
-    if (!invokeRigBeginFtSplitBlocking(operation, rfShiftHz)) {
-        const QString detail = m_rigController->lastStatus().trimmed();
-        const QString reason = detail.isEmpty()
-            ? uiText("ft_split_prepare_failed",
-                     "The radio did not accept the FT split/frequency preparation command. TX was aborted; no non-split fallback was used.")
-            : uiText("ft_split_prepare_failed_detail",
-                     "The radio did not accept the FT split/frequency preparation command: %1. TX was aborted; no non-split fallback was used.").arg(detail);
-        appendLog(QStringLiteral("FT split TX blocked: ") + reason);
-        showTxBlockedWarning(QStringLiteral("FT4/FT8 Split"),
-                             reason,
-                             AppSettingsDialog::InitialPage::RadioCat,
-                             uiText("open_radio_cat_settings", "Open Radio/CAT settings"));
-        return false;
-    }
-
-    m_ftSplitPreparedForTx = true;
-    m_ftSplitRestoreFailed = false;
-    const QString name = operation == QStringLiteral("rig") ? QStringLiteral("Rig") : QStringLiteral("Fake It");
-    appendLog(QStringLiteral("FT Split %1: waterfall TX %2 Hz -> actual AF %3 Hz; CAT dial shift %4 Hz.")
-                  .arg(name)
-                  .arg(logicalHz)
-                  .arg(actualAudioHz)
-                  .arg(rfShiftHz));
-    return true;
+    if(m_ftSplitRestoreFailed){completion(false);return;}
+    const QString operation=ftSplitOperationKey();
+    if(m_ftSplitPreparedForTx || operation==QStringLiteral("none")){completion(true);return;}
+    if(!m_settings.hamlibCatEnabled || !m_rigController){completion(false);return;}
+    int shift=0;
+    ftEffectiveTxAudioFrequency(m_spinFt8TxFreq?m_spinFt8TxFreq->value():m_settings.ft8TxFrequencyHz,&shift);
+    auto *controller=m_rigController;
+    m_catCommand->request(controller,[controller,operation,shift](){return controller->beginFtSplitTx(operation,shift);},
+        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},
+        [this,completion](bool ok){
+            m_ftSplitPreparedForTx=ok;
+            if(!ok)appendLog(QStringLiteral("FT TX aborted: asynchronous CAT split preparation failed or timed out."));
+            completion(ok);
+        });
 }
 
 void MainWindow::restoreFtSplitAfterTx()
 {
-    if (!m_ftSplitPreparedForTx) return;
-    const bool ok = invokeRigEndFtSplitBlocking();
-    if (ok) {
-        appendLog(QStringLiteral("FT Split: RX CAT state restored."));
-        m_ftSplitPreparedForTx = false;
-        m_ftSplitRestoreFailed = false;
-    } else {
-        // Keep ownership of the unresolved CAT transaction.  A subsequent
-        // cleanup/unkey may retry it, but a new FT transmission must not reuse
-        // or overwrite an unknown split state.
-        m_ftSplitRestoreFailed = true;
-        appendLog(QStringLiteral("FT Split ERROR: CAT could not fully restore the pre-TX RX/split state; further FT TX is blocked until the CAT state is restored or the rig is reconnected."));
-    }
+    if(!m_ftSplitPreparedForTx)return;
+    auto *controller=m_rigController;
+    m_catCommand->request(controller,[controller](){return controller->endFtSplitTx();},
+        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},[this](bool ok){
+            m_ftSplitPreparedForTx=!ok;m_ftSplitRestoreFailed=!ok;
+            appendLog(ok?QStringLiteral("FT Split: RX CAT state restored."):
+                QStringLiteral("FT Split ERROR: CAT could not fully restore the pre-TX RX/split state; further FT TX is blocked until the CAT state is restored or the rig is reconnected."));
+        });
 }
 
 void MainWindow::invokeRigSetFrequency(double frequencyHz)
@@ -11559,63 +11370,63 @@ void MainWindow::applyPersistentSettingsToRuntime(const AppSettings *previousSet
         updateCatRotatorQsoTarget(QStringLiteral("settings unchanged"));
     }
 
-    m_weatherFaxDecoder->setLpm(m_settings.weatherFaxLpm);
-    m_weatherFaxDecoder->setToneRange(
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setLpm, m_settings.weatherFaxLpm);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setToneRange, 
         static_cast<double>(m_settings.weatherFaxBlackHz),
         static_cast<double>(m_settings.weatherFaxWhiteHz)
         );
-    m_weatherFaxDecoder->setAutoStartEnabled(m_settings.weatherFaxAutoStartPhasing);
-    m_weatherFaxDecoder->setAutoToneTrackingEnabled(m_settings.weatherFaxAutoToneTracking);
-    m_weatherFaxDecoder->setInputBandpassEnabled(m_settings.weatherFaxInputBandpass);
-    m_weatherFaxDecoder->setAutoSlantCorrectionEnabled(false);
-    m_weatherFaxDecoder->setManualSlantPpm(0.0);
-    m_weatherFaxDecoder->setTargetImageLines(m_settings.weatherFaxImageLines);
-    m_weatherFaxDecoder->setEndOfSignalCompletionEnabled(m_settings.weatherFaxEndOfSignal);
-    m_weatherFaxDecoder->setEndOfSignalTimeoutSec(m_settings.weatherFaxEndOfSignalTimeoutSec);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoStartEnabled, m_settings.weatherFaxAutoStartPhasing);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoToneTrackingEnabled, m_settings.weatherFaxAutoToneTracking);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setInputBandpassEnabled, m_settings.weatherFaxInputBandpass);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoSlantCorrectionEnabled, false);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setManualSlantPpm, 0.0);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setTargetImageLines, m_settings.weatherFaxImageLines);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setEndOfSignalCompletionEnabled, m_settings.weatherFaxEndOfSignal);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setEndOfSignalTimeoutSec, m_settings.weatherFaxEndOfSignalTimeoutSec);
 
-    m_sstvDecoder->setModeName(m_settings.sstvMode);
-    m_sstvDecoder->setAutoSyncEnabled(m_settings.sstvAutoSync);
-    m_sstvDecoder->setHorizontalShiftPixels(m_settings.sstvHorizontalShiftPixels);
-    m_sstvDecoder->setColorShiftPixels(m_settings.sstvRedShiftPixels,
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setModeName, m_settings.sstvMode);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setAutoSyncEnabled, m_settings.sstvAutoSync);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setHorizontalShiftPixels, m_settings.sstvHorizontalShiftPixels);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setColorShiftPixels, m_settings.sstvRedShiftPixels,
                                        m_settings.sstvBlueShiftPixels);
 
-    m_rttyDecoder->setBaudRate(m_settings.rttyBaudRate);
-    m_rttyDecoder->setTones(static_cast<double>(m_settings.rttyMarkHz),
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setBaudRate, m_settings.rttyBaudRate);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setTones, static_cast<double>(m_settings.rttyMarkHz),
                             static_cast<double>(m_settings.rttyMarkHz + m_settings.rttyShiftHz));
-    m_rttyDecoder->setReverse(m_settings.rttyReverse);
-    m_rttyDecoder->setAutoReverseEnabled(m_settings.rttyAutoReverseEnabled);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setReverse, m_settings.rttyReverse);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setAutoReverseEnabled, m_settings.rttyAutoReverseEnabled);
 
-    m_bpsk31Decoder->setSymbolRate(bpskSymbolRateForVariant(m_settings.bpsk31Variant));
-    m_bpsk31Decoder->setQpskMode(pskVariantIsQpsk(m_settings.bpsk31Variant));
-    m_bpsk31Decoder->setToneHz(static_cast<double>(m_settings.bpsk31ToneHz));
-    m_bpsk31Decoder->setAfcEnabled(m_settings.bpsk31AfcEnabled);
-    m_bpsk31Decoder->setAfcRangeHz(static_cast<double>(m_settings.bpsk31AfcRangeHz));
-    m_bpsk31Decoder->setInvertBits(m_settings.bpsk31InvertBits);
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setSymbolRate, bpskSymbolRateForVariant(m_settings.bpsk31Variant));
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setQpskMode, pskVariantIsQpsk(m_settings.bpsk31Variant));
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setToneHz, static_cast<double>(m_settings.bpsk31ToneHz));
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setAfcEnabled, m_settings.bpsk31AfcEnabled);
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setAfcRangeHz, static_cast<double>(m_settings.bpsk31AfcRangeHz));
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setInvertBits, m_settings.bpsk31InvertBits);
 
     if (m_mfskDecoder != nullptr) {
-        m_mfskDecoder->setVariant(MfskDecoder::variantFromKey(m_settings.mfskVariant));
-        m_mfskDecoder->setCenterHz(static_cast<double>(m_settings.mfskCenterHz));
-        m_mfskDecoder->setAfcEnabled(m_settings.mfskAfcEnabled);
-        m_mfskDecoder->setAfcRangeHz(static_cast<double>(m_settings.mfskAfcRangeHz));
+        invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setVariant, MfskDecoder::variantFromKey(m_settings.mfskVariant));
+        invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setCenterHz, static_cast<double>(m_settings.mfskCenterHz));
+        invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setAfcEnabled, m_settings.mfskAfcEnabled);
+        invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setAfcRangeHz, static_cast<double>(m_settings.mfskAfcRangeHz));
     }
 
     m_cwSecondaryEnabled = m_settings.cwSecondaryEnabled;
     m_cwSecondaryToneHz = qBound(250, m_settings.cwSecondaryToneHz, 3000);
-    m_cwDecoder->setToneHz(static_cast<double>(m_settings.cwToneHz));
-    m_cwDecoder->setSecondaryToneHz(static_cast<double>(m_cwSecondaryToneHz));
-    m_cwDecoder->setSecondaryEnabled(m_cwSecondaryEnabled);
-    m_cwDecoder->setReceiverAutoWpm(0, m_settings.cwAutoWpmA);
-    m_cwDecoder->setReceiverWpm(0, static_cast<double>(m_settings.cwWpmA));
-    m_cwDecoder->setReceiverAutoWpm(1, m_settings.cwAutoWpmB);
-    m_cwDecoder->setReceiverWpm(1, static_cast<double>(m_settings.cwWpmB));
-    m_cwDecoder->setBandwidthHz(static_cast<double>(m_settings.cwBandwidthHz));
-    m_cwDecoder->setAutoBandwidth(m_settings.cwAutoBandwidth);
-    m_hellDecoder->setVariant(HellschreiberDecoder::variantFromKey(m_settings.hellVariant));
-    m_hellDecoder->setToneHz(static_cast<double>(m_settings.hellToneHz));
-    m_hellDecoder->setColumnRate(m_settings.hellColumnRate);
-    m_hellDecoder->setBandwidthHz(static_cast<double>(m_settings.hellBandwidthHz));
-    m_hellDecoder->setVerticalScale(m_settings.hellPaperScale);
-    m_hellDecoder->setFskShiftHz(HellschreiberDecoder::fsk105ShiftHz());
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setToneHz, static_cast<double>(m_settings.cwToneHz));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setSecondaryToneHz, static_cast<double>(m_cwSecondaryToneHz));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setSecondaryEnabled, m_cwSecondaryEnabled);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverAutoWpm, 0, m_settings.cwAutoWpmA);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverWpm, 0, static_cast<double>(m_settings.cwWpmA));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverAutoWpm, 1, m_settings.cwAutoWpmB);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverWpm, 1, static_cast<double>(m_settings.cwWpmB));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setBandwidthHz, static_cast<double>(m_settings.cwBandwidthHz));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setAutoBandwidth, m_settings.cwAutoBandwidth);
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setVariant, HellschreiberDecoder::variantFromKey(m_settings.hellVariant));
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setToneHz, static_cast<double>(m_settings.hellToneHz));
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setColumnRate, m_settings.hellColumnRate);
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setBandwidthHz, static_cast<double>(m_settings.hellBandwidthHz));
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setVerticalScale, m_settings.hellPaperScale);
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setFskShiftHz, HellschreiberDecoder::fsk105ShiftHz());
 
     if (m_ft8RxDecoder != nullptr) {
         const QString activeModeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
@@ -12544,6 +12355,7 @@ void MainWindow::selectComboByBackendName(QComboBox *combo, const QString &backe
 void MainWindow::setReceiverRunning(bool running)
 {
     m_rxRunning = running;
+    scheduleLiveRxConfig();
     if (m_q65Decoder) m_q65Decoder->setLiveInputEnabled(running && !m_offlineAnalysisActive && Q65Mode::isFamilyMode(ui->cmbMode->currentText()));
 
     if (!m_rxRunning && !m_txRunning && m_rttyScopeWidget != nullptr) {
@@ -12809,7 +12621,7 @@ void MainWindow::requestModeChange(const QString &modeName)
     }
 
     const QString currentMode = ui->cmbMode->currentText();
-    const bool txActive = m_txRunning ||
+    const bool txActive = m_txPreparationPending || m_txRunning ||
                           (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning());
     const bool rxActive = m_rxRunning ||
                           (m_audioEngine != nullptr && m_audioEngine->isRunning());
@@ -12903,6 +12715,7 @@ void MainWindow::finishPendingModeChange()
 
 void MainWindow::handleModeChanged(const QString &modeName)
 {
+    if(m_txPreparationPending)stopImageTx();
     if (m_nativeWeakSignalTxPending) {
         const bool sameFamily =
             (Msk144Mode::isMode(modeName) && Msk144Mode::isMode(m_nativeWeakSignalTxMode)) ||
@@ -12952,7 +12765,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
         setDecoderReady(QStringLiteral("WEFAX"));
 
         if (m_faxImageWidget != nullptr) {
-            m_faxImageWidget->setImage(m_weatherFaxDecoder->currentImage());
+            m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_weatherFaxDecoder));
         }
     } else if (modeName == SstvDecoder::modeName()) {
         ui->stkModeSettings->setCurrentWidget(ui->pageSstvSettings);
@@ -12960,7 +12773,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
         setDecoderReady(QStringLiteral("SSTV"));
 
         if (m_faxImageWidget != nullptr) {
-            m_faxImageWidget->setImage(m_sstvDecoder->currentImage());
+            m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_sstvDecoder));
         }
     } else if (modeName == RttyDecoder::modeName()) {
         if (m_pageRttySettings != nullptr) {
@@ -12994,7 +12807,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
         setDecoderReady(QStringLiteral("Hellschreiber"));
 
         if (m_lblHellRaster != nullptr) {
-            const QImage image = m_hellDecoder->currentImage();
+            const QImage image = m_rxDecoderWorker->image(m_hellDecoder);
             updateHellRasterDisplay(image);
         }
     } else if (RadioTelescopeMode::isMode(modeName)) {
@@ -13126,7 +12939,7 @@ void MainWindow::updateWaterfallMarkers()
     }
 
     if (mode == WeatherFaxDecoder::modeName()) {
-        m_waterfallWidget->setMarkers(m_weatherFaxDecoder->currentFrequencyMarkers());
+        m_waterfallWidget->setMarkers(m_rxDecoderWorker->faxMarkers());
         return;
     }
 
@@ -13386,8 +13199,8 @@ void MainWindow::handleWaterfallFrequencyClicked(double frequencyHz, Qt::MouseBu
             m_settings.cwSecondaryEnabled = true;
             m_settings.cwSecondaryToneHz = newTone;
             if (m_cwDecoder != nullptr) {
-                m_cwDecoder->setSecondaryToneHz(static_cast<double>(newTone));
-                m_cwDecoder->setSecondaryEnabled(true);
+                invokeRxDecoder(m_cwDecoder, &CwDecoder::setSecondaryToneHz, static_cast<double>(newTone));
+                invokeRxDecoder(m_cwDecoder, &CwDecoder::setSecondaryEnabled, true);
             }
             m_cwTrackedWpmB = 0.0;
             if (m_lblCwTrackedWpmB != nullptr) m_lblCwTrackedWpmB->setText(QStringLiteral("--"));
@@ -13513,136 +13326,7 @@ void MainWindow::retuneRttyFromAfc(int markHz, int spaceHz)
 
     // AFC is RX-only. Operator controls remain the immutable TX tone pair.
     if (spaceHz - markHz != m_spinRttyShiftHz->value()) return;
-    m_rttyDecoder->retuneTones(markHz, spaceHz);
-}
-
-void MainWindow::updateTextModeAfc(const AudioBlock &block)
-{
-    if (!m_rxRunning || m_txRunning || m_offlineAnalysisActive || block.samples.isEmpty() || block.sampleRate <= 0) {
-        return;
-    }
-
-    const QString modeName = ui->cmbMode->currentText();
-    const bool textMode = modeName == RttyDecoder::modeName() ||
-                          modeName == Bpsk31Decoder::modeName() ||
-                          modeName == MfskDecoder::modeName() ||
-                          modeName == HellschreiberDecoder::modeName();
-    if (!textMode) {
-        m_textAfcSamplesSinceUpdate = 0;
-        return;
-    }
-
-    if (modeName == RttyDecoder::modeName()) {
-        if (m_chkRttyAfc && m_chkRttyAfc->isChecked() && m_spinRttyMarkHz && m_spinRttyShiftHz && m_spinRttyAfcRangeHz) {
-            const int mark=m_spinRttyMarkHz->value(), shift=m_spinRttyShiftHz->value();
-            if (m_rttyAfc.process(block,mark,shift,m_spinRttyAfcRangeHz->value()))
-                retuneRttyFromAfc(mark+m_rttyAfc.offsetHz(),mark+shift+m_rttyAfc.offsetHz());
-        } else m_rttyAfc.reset();
-        return;
-    }
-
-    m_textAfcSamplesSinceUpdate += block.samples.size();
-    const int updateInterval = qMax(2048, block.sampleRate / 4);
-    if (m_textAfcSamplesSinceUpdate < updateInterval) {
-        return;
-    }
-    m_textAfcSamplesSinceUpdate = 0;
-
-    constexpr double searchStepHz = 1.0;
-    constexpr int maxStepHz = 3;
-
-    if (modeName == Bpsk31Decoder::modeName()) {
-        if (m_bpsk31Decoder == nullptr ||
-            m_chkBpsk31Afc == nullptr || !m_chkBpsk31Afc->isChecked() ||
-            m_spinBpsk31AfcRangeHz == nullptr || m_spinBpsk31ToneHz == nullptr) {
-            return;
-        }
-
-        const int oldTone = m_spinBpsk31ToneHz->value();
-        const AfcTonePeak peak = estimateAfcTonePeak(block, static_cast<double>(oldTone),
-                                                     m_spinBpsk31AfcRangeHz->value(), searchStepHz);
-        if (!peak.valid) {
-            return;
-        }
-
-        const int newTone = nudgedToneValue(oldTone, peak.frequencyHz, maxStepHz,
-                                            m_spinBpsk31ToneHz->minimum(), m_spinBpsk31ToneHz->maximum());
-        if (newTone != oldTone) {
-            const QSignalBlocker blockTone(m_spinBpsk31ToneHz);
-            m_spinBpsk31ToneHz->setValue(newTone);
-            m_bpsk31Decoder->setToneHz(static_cast<double>(newTone));
-            m_bpsk31Decoder->setAfcEnabled(true);
-            m_bpsk31Decoder->setAfcRangeHz(static_cast<double>(m_spinBpsk31AfcRangeHz->value()));
-            updateWaterfallMarkers();
-            updateTxPreview();
-        }
-        return;
-    }
-
-    // CW AFC is implemented inside each selected-tone receiver. The legacy
-    // main-window peak tracker is intentionally bypassed so the green/blue
-    // operator markers never move and RX A/RX B remain independent.
-    if (modeName == CwDecoder::modeName()) {
-        return;
-    }
-
-    if (modeName == HellschreiberDecoder::modeName()) {
-        if (m_hellDecoder == nullptr ||
-            m_chkHellAfc == nullptr || !m_chkHellAfc->isChecked() ||
-            m_spinHellAfcRangeHz == nullptr || m_spinHellToneHz == nullptr) {
-            return;
-        }
-
-        const int oldTone = m_spinHellToneHz->value();
-        const bool fsk105 = (m_cmbHellVariant != nullptr && m_cmbHellVariant->currentData().toString() == "FSK105");
-        double measuredCenterHz = 0.0;
-        bool measuredValid = false;
-
-        if (fsk105) {
-            const double halfShift = HellschreiberDecoder::fsk105ShiftHz() * 0.5;
-            const int rangeHz = m_spinHellAfcRangeHz->value();
-            const AfcTonePeak lowPeak = estimateAfcTonePeak(block,
-                                                            static_cast<double>(oldTone) - halfShift,
-                                                            rangeHz,
-                                                            searchStepHz);
-            const AfcTonePeak highPeak = estimateAfcTonePeak(block,
-                                                             static_cast<double>(oldTone) + halfShift,
-                                                             rangeHz,
-                                                             searchStepHz);
-
-            if (lowPeak.valid && highPeak.valid) {
-                measuredCenterHz = (lowPeak.frequencyHz + highPeak.frequencyHz) * 0.5;
-                measuredValid = true;
-            } else if (lowPeak.valid) {
-                measuredCenterHz = lowPeak.frequencyHz + halfShift;
-                measuredValid = true;
-            } else if (highPeak.valid) {
-                measuredCenterHz = highPeak.frequencyHz - halfShift;
-                measuredValid = true;
-            }
-        } else {
-            const AfcTonePeak peak = estimateAfcTonePeak(block, static_cast<double>(oldTone),
-                                                         m_spinHellAfcRangeHz->value(), searchStepHz);
-            if (peak.valid) {
-                measuredCenterHz = peak.frequencyHz;
-                measuredValid = true;
-            }
-        }
-
-        if (!measuredValid) {
-            return;
-        }
-
-        const int newTone = nudgedToneValue(oldTone, measuredCenterHz, maxStepHz,
-                                            m_spinHellToneHz->minimum(), m_spinHellToneHz->maximum());
-        if (newTone != oldTone) {
-            const QSignalBlocker blockTone(m_spinHellToneHz);
-            m_spinHellToneHz->setValue(newTone);
-            m_hellDecoder->setToneHz(static_cast<double>(newTone));
-            updateWaterfallMarkers();
-            updateTxPreview();
-        }
-    }
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::retuneTones, markHz, spaceHz);
 }
 
 void MainWindow::handleRxAudioBlock(const AudioBlock &block)
@@ -13662,17 +13346,6 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
         return;
     }
 
-    if (Msk144Mode::isMode(modeName)) {
-        if (m_msk144Decoder != nullptr) {
-            m_msk144Decoder->processAudioBlock(block);
-        }
-        return;
-    }
-
-    if (Q65Mode::isFamilyMode(modeName)) {
-        return; // Capture -> bounded Q65 worker queue; no GUI audio relay.
-    }
-
     if (RadioTelescopeMode::isMode(modeName)) {
         if (m_radioTelescopeScanActive && m_radioTelescopeScanPhase == RadioTelescopeScanPhase::Sampling &&
             m_radioTelescopeCurrentTileIndex >= 0 && m_radioTelescopeCurrentTileIndex < m_radioTelescopeTiles.size()) {
@@ -13685,66 +13358,7 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
         return;
     }
 
-    if (m_rxContinuity.accept(block)) {
-        m_rttyAfc.reset();
-        m_decoderConditioner.reset();
-        if (modeName == WeatherFaxDecoder::modeName()) m_weatherFaxDecoder->reset();
-        else if (modeName == SstvDecoder::modeName()) m_sstvDecoder->reset();
-        else if (modeName == RttyDecoder::modeName()) {
-            m_rttyDecoder->reset();
-            if (m_rttyMultiDecoder) m_rttyMultiDecoder->reset();
-        } else if (modeName == Bpsk31Decoder::modeName()) m_bpsk31Decoder->reset();
-        else if (modeName == MfskDecoder::modeName()) m_mfskDecoder->reset();
-        else if (modeName == CwDecoder::modeName()) m_cwDecoder->reset();
-        else if (modeName == HellschreiberDecoder::modeName()) m_hellDecoder->reset();
-    }
-    updateTextModeAfc(block);
-    const AudioBlock conditionedBlock = conditionAudioForActiveMode(block);
-
-    if (modeName == WeatherFaxDecoder::modeName()) {
-        m_weatherFaxDecoder->processAudioBlock(conditionedBlock);
-        return;
-    }
-
-    if (modeName == SstvDecoder::modeName()) {
-        m_sstvDecoder->processAudioBlock(conditionedBlock);
-        return;
-    }
-
-    if (modeName == RttyDecoder::modeName()) {
-        m_rttyDecoder->processAudioBlock(conditionedBlock);
-        if (m_rttyMultiDecoder != nullptr && m_settings.rttyMultiDecodeEnabled) {
-            // Parallel monitor must see the wide passband, not the selected
-            // RTTY tone bandpass used by the main terminal decoder.
-            m_rttyMultiDecoder->processAudioBlock(block);
-        }
-        return;
-    }
-
-    if (modeName == Bpsk31Decoder::modeName()) {
-        m_bpsk31Decoder->processAudioBlock(conditionedBlock);
-        return;
-    }
-
-    if (modeName == MfskDecoder::modeName()) {
-        m_mfskDecoder->processAudioBlock(conditionedBlock);
-        return;
-    }
-
-    if (modeName == CwDecoder::modeName()) {
-        // CW uses one full-passband skimmer engine.  The UI-selected A/B
-        // markers decide which decoded streams are promoted to the RX textbox.
-        if (m_cwDecoder != nullptr) {
-            m_cwDecoder->processAudioBlock(block);
-        }
-        return;
-    }
-
-    if (modeName == HellschreiberDecoder::modeName()) {
-        m_hellDecoder->processAudioBlock(conditionedBlock);
-        return;
-    }
-
+    // Live decoders receive capture directly through RxDecoderWorker.
 }
 
 
@@ -13758,15 +13372,15 @@ void MainWindow::applyMsk144Settings()
     const int rxHz = (m_spinMsk144RxFreq != nullptr) ? m_spinMsk144RxFreq->value() : 1500;
     const int txHz = (m_spinMsk144TxFreq != nullptr) ? m_spinMsk144TxFreq->value() : 1500;
     const int fTol = (m_cmbMsk144FrequencyTolerance != nullptr) ? m_cmbMsk144FrequencyTolerance->currentData().toInt() : 200;
-    m_msk144Decoder->setPeriodSeconds(period);
-    m_msk144Decoder->setDecodeDepth(depth);
-    m_msk144Decoder->setRxFrequencyHz(rxHz);
-    m_msk144Decoder->setFrequencyToleranceHz(fTol);
-    m_msk144Decoder->setShortMessagesEnabled(m_chkMsk144ShortMessages != nullptr && m_chkMsk144ShortMessages->isChecked());
-    m_msk144Decoder->setSwlEnabled(m_chkMsk144Swl != nullptr && m_chkMsk144Swl->isChecked());
-    m_msk144Decoder->setContestModeEnabled(m_chkMsk144Contest != nullptr && m_chkMsk144Contest->isChecked());
-    m_msk144Decoder->setMyCall(stationCallsign());
-    m_msk144Decoder->setDxCall(m_editMsk144DxCall != nullptr ? m_editMsk144DxCall->text() : QString());
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setPeriodSeconds, period);
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setDecodeDepth, depth);
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setRxFrequencyHz, rxHz);
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setFrequencyToleranceHz, fTol);
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setShortMessagesEnabled, m_chkMsk144ShortMessages != nullptr && m_chkMsk144ShortMessages->isChecked());
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setSwlEnabled, m_chkMsk144Swl != nullptr && m_chkMsk144Swl->isChecked());
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setContestModeEnabled, m_chkMsk144Contest != nullptr && m_chkMsk144Contest->isChecked());
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setMyCall, stationCallsign());
+    invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::setDxCall, m_editMsk144DxCall != nullptr ? m_editMsk144DxCall->text() : QString());
     if (m_lblMsk144Status != nullptr) {
         m_lblMsk144Status->setText(MadModemI18n::text(QStringLiteral("MSK144 RX: %1 s, %2, RX %3 Hz, F Tol ±%4 Hz; TX %5 Hz"))
                                        .arg(period)
@@ -13861,7 +13475,7 @@ void MainWindow::stopMsk144Shell()
         stopRx();
     }
     if (m_msk144Decoder != nullptr) {
-        m_msk144Decoder->flushPeriod();
+        invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::flushPeriod);
     }
 }
 
@@ -14355,23 +13969,23 @@ void MainWindow::applyWeatherFaxSettings()
                                      ? defaultWeatherFaxOutputFolder()
                                      : ui->editFaxOutputFolder->text().trimmed();
 
-    m_weatherFaxDecoder->setLpm(lpm);
-    m_weatherFaxDecoder->setAutoStartEnabled(autoStartPhasing);
-    m_weatherFaxDecoder->setAutoToneTrackingEnabled(autoToneTracking);
-    m_weatherFaxDecoder->setInputBandpassEnabled(inputBandpass);
-    m_weatherFaxDecoder->setAutoSlantCorrectionEnabled(false);
-    m_weatherFaxDecoder->setManualSlantPpm(0.0);
-    m_weatherFaxDecoder->setTargetImageLines(imageLines);
-    m_weatherFaxDecoder->setEndOfSignalCompletionEnabled(endOfSignal);
-    m_weatherFaxDecoder->setEndOfSignalTimeoutSec(endTimeoutSec);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setLpm, lpm);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoStartEnabled, autoStartPhasing);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoToneTrackingEnabled, autoToneTracking);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setInputBandpassEnabled, inputBandpass);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoSlantCorrectionEnabled, false);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setManualSlantPpm, 0.0);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setTargetImageLines, imageLines);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setEndOfSignalCompletionEnabled, endOfSignal);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setEndOfSignalTimeoutSec, endTimeoutSec);
 
     if (whiteHz <= blackHz + 50) {
-        m_weatherFaxDecoder->setToneRange(static_cast<double>(blackHz),
+        invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setToneRange, static_cast<double>(blackHz),
                                           static_cast<double>(whiteHz));
         return;
     }
 
-    m_weatherFaxDecoder->setToneRange(static_cast<double>(blackHz),
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setToneRange, static_cast<double>(blackHz),
                                       static_cast<double>(whiteHz));
 
     m_settings.weatherFaxLpm = lpm;
@@ -14411,10 +14025,10 @@ void MainWindow::applySstvSettings()
     const int redShiftPixels = ui->spinSstvRedShift->value();
     const int blueShiftPixels = ui->spinSstvBlueShift->value();
 
-    m_sstvDecoder->setModeName(modeName);
-    m_sstvDecoder->setAutoSyncEnabled(autoSync);
-    m_sstvDecoder->setHorizontalShiftPixels(horizontalShiftPixels);
-    m_sstvDecoder->setColorShiftPixels(redShiftPixels, blueShiftPixels);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setModeName, modeName);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setAutoSyncEnabled, autoSync);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setHorizontalShiftPixels, horizontalShiftPixels);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setColorShiftPixels, redShiftPixels, blueShiftPixels);
 
     m_settings.sstvMode = modeName;
     m_settings.sstvAutoSync = autoSync;
@@ -14431,7 +14045,6 @@ void MainWindow::applySstvSettings()
 
 void MainWindow::applyRttySettings()
 {
-    m_rttyAfc.reset();
     if (m_rttyDecoder == nullptr ||
         m_spinRttyBaud == nullptr ||
         m_spinRttyShiftHz == nullptr ||
@@ -14473,11 +14086,11 @@ void MainWindow::applyRttySettings()
                                 ? m_spinRttyMaxDecoders->value()
                                 : m_settings.rttyMaxParallelDecoders;
 
-    m_rttyDecoder->setBaudRate(baud);
-    m_rttyDecoder->setTones(static_cast<double>(markHz), static_cast<double>(spaceHz));
-    m_rttyDecoder->setReverse(reverse);
-    m_rttyDecoder->setAutoReverseEnabled(autoReverse);
-    m_rttyDecoder->setCatModeHint(m_lastRigModeName);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setBaudRate, baud);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setTones, static_cast<double>(markHz), static_cast<double>(spaceHz));
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setReverse, reverse);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setAutoReverseEnabled, autoReverse);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setCatModeHint, m_lastRigModeName);
 
     m_settings.rttyPreset = presetKey;
     m_settings.rttyBaudRate = baud;
@@ -14495,7 +14108,7 @@ void MainWindow::applyRttySettings()
     m_settings.rttyMaxParallelDecoders = maxDecoders;
 
     if (m_rttyMultiDecoder != nullptr) {
-        m_rttyMultiDecoder->configure(baud, shiftHz, reverse, multiDecode, overlayCallsigns, contestEnhanced, secondPass, maxDecoders);
+        invokeRxDecoder(m_rttyMultiDecoder, &RttyMultiDecoder::configure, baud, shiftHz, reverse, multiDecode, overlayCallsigns, contestEnhanced, secondPass, maxDecoders);
     }
     if (m_chkRttyOverlayCallsigns != nullptr) m_chkRttyOverlayCallsigns->setEnabled(multiDecode);
     if (m_chkRttyContestEnhanced != nullptr) m_chkRttyContestEnhanced->setEnabled(multiDecode);
@@ -14517,10 +14130,10 @@ void MainWindow::applyRttySettings()
 void MainWindow::clearRttyRxText()
 {
     if (m_rttyDecoder != nullptr) {
-        m_rttyDecoder->reset();
+        invokeRxDecoder(m_rttyDecoder, &RttyDecoder::reset);
     }
     if (m_rttyMultiDecoder != nullptr) {
-        m_rttyMultiDecoder->reset();
+        invokeRxDecoder(m_rttyMultiDecoder, &RttyMultiDecoder::reset);
     }
     m_rttyWaterfallCallouts.clear();
     m_rttyWaterfallLiveText.clear();
@@ -14674,13 +14287,13 @@ void MainWindow::applyBpsk31Settings()
                                       ? m_chkDspBpskCoherentTracking->isChecked()
                                       : m_settings.bpsk31CoherentTrackingEnabled;
 
-    m_bpsk31Decoder->setSymbolRate(symbolRate);
-    m_bpsk31Decoder->setQpskMode(pskVariantIsQpsk(variant));
-    m_bpsk31Decoder->setToneHz(static_cast<double>(toneHz));
-    m_bpsk31Decoder->setAfcEnabled(afc);
-    m_bpsk31Decoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
-    m_bpsk31Decoder->setInvertBits(invert);
-    m_bpsk31Decoder->setCoherentTrackingEnabled(coherentTracking);
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setSymbolRate, symbolRate);
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setQpskMode, pskVariantIsQpsk(variant));
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setToneHz, static_cast<double>(toneHz));
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setAfcEnabled, afc);
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setAfcRangeHz, static_cast<double>(afcRangeHz));
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setInvertBits, invert);
+    invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setCoherentTrackingEnabled, coherentTracking);
 
     m_settings.bpsk31Variant = variant.isEmpty() ? QString("BPSK31") : variant;
     m_settings.bpsk31ToneHz = toneHz;
@@ -14698,7 +14311,7 @@ void MainWindow::applyBpsk31Settings()
 void MainWindow::clearBpsk31RxText()
 {
     if (m_bpsk31Decoder != nullptr) {
-        m_bpsk31Decoder->reset();
+        invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::reset);
     }
 
     m_lastBpsk31DecodedText.clear();
@@ -14787,10 +14400,10 @@ void MainWindow::applyMfskSettings()
     const bool afc = m_chkMfskAfc->isChecked();
     const int afcRangeHz = m_spinMfskAfcRangeHz->value();
 
-    m_mfskDecoder->setVariant(variant);
-    m_mfskDecoder->setCenterHz(static_cast<double>(centerHz));
-    m_mfskDecoder->setAfcEnabled(afc);
-    m_mfskDecoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
+    invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setVariant, variant);
+    invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setCenterHz, static_cast<double>(centerHz));
+    invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setAfcEnabled, afc);
+    invokeRxDecoder(m_mfskDecoder, &MfskDecoder::setAfcRangeHz, static_cast<double>(afcRangeHz));
 
     m_settings.mfskVariant = variantKey.isEmpty() ? QString("MFSK16") : variantKey;
     m_settings.mfskCenterHz = centerHz;
@@ -14806,7 +14419,7 @@ void MainWindow::applyMfskSettings()
 void MainWindow::clearMfskRxText()
 {
     if (m_mfskDecoder != nullptr) {
-        m_mfskDecoder->reset();
+        invokeRxDecoder(m_mfskDecoder, &MfskDecoder::reset);
     }
 
     m_mfskPendingRxLineBreak = false;
@@ -14902,17 +14515,17 @@ void MainWindow::applyCwSettings()
     const bool afc = m_chkCwAfc->isChecked();
     const int afcRangeHz = m_spinCwAfcRangeHz->value();
 
-    m_cwDecoder->setToneHz(static_cast<double>(toneHz));
-    m_cwDecoder->setSecondaryToneHz(static_cast<double>(m_cwSecondaryToneHz));
-    m_cwDecoder->setSecondaryEnabled(m_cwSecondaryEnabled);
-    m_cwDecoder->setReceiverAutoWpm(0, autoWpmA);
-    m_cwDecoder->setReceiverWpm(0, static_cast<double>(wpmA));
-    m_cwDecoder->setReceiverAutoWpm(1, autoWpmB);
-    m_cwDecoder->setReceiverWpm(1, static_cast<double>(wpmB));
-    m_cwDecoder->setBandwidthHz(static_cast<double>(bandwidthHz));
-    m_cwDecoder->setAutoBandwidth(autoBandwidth);
-    m_cwDecoder->setAfcEnabled(afc);
-    m_cwDecoder->setAfcRangeHz(static_cast<double>(afcRangeHz));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setToneHz, static_cast<double>(toneHz));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setSecondaryToneHz, static_cast<double>(m_cwSecondaryToneHz));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setSecondaryEnabled, m_cwSecondaryEnabled);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverAutoWpm, 0, autoWpmA);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverWpm, 0, static_cast<double>(wpmA));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverAutoWpm, 1, autoWpmB);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setReceiverWpm, 1, static_cast<double>(wpmB));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setBandwidthHz, static_cast<double>(bandwidthHz));
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setAutoBandwidth, autoBandwidth);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setAfcEnabled, afc);
+    invokeRxDecoder(m_cwDecoder, &CwDecoder::setAfcRangeHz, static_cast<double>(afcRangeHz));
     m_settings.cwToneHz = toneHz;
     m_settings.cwTxToneHz = txToneHz;
     m_settings.cwSecondaryEnabled = m_cwSecondaryEnabled;
@@ -14940,7 +14553,7 @@ void MainWindow::applyCwSettings()
 void MainWindow::clearCwRxAText()
 {
     if (m_cwDecoder != nullptr) {
-        m_cwDecoder->clearReceiver(0);
+        invokeRxDecoder(m_cwDecoder, &CwDecoder::clearReceiver, 0);
     }
     m_cwPrimaryLineOpen = false;
     m_cwTrackedWpmA = 0.0;
@@ -14958,7 +14571,7 @@ void MainWindow::clearCwRxAText()
 void MainWindow::clearCwRxBText()
 {
     if (m_cwDecoder != nullptr) {
-        m_cwDecoder->clearReceiver(1);
+        invokeRxDecoder(m_cwDecoder, &CwDecoder::clearReceiver, 1);
     }
     m_cwSecondaryLineOpen = false;
     m_cwTrackedWpmB = 0.0;
@@ -15020,7 +14633,7 @@ void MainWindow::loadCwTxTextFile()
 
 void MainWindow::sendCwTxText()
 {
-    if (m_txRunning) {
+    if (m_txPreparationPending || m_txRunning) {
         stopImageTx();
         return;
     }
@@ -15102,13 +14715,13 @@ void MainWindow::updateCwDualRxStatusLabel()
                             ? m_spinCwToneHz->value()
                             : m_settings.cwToneHz;
     const int trackedA = m_cwDecoder != nullptr
-                             ? qRound(m_cwDecoder->trackedToneHz(0))
+                             ? qRound(m_rxDecoderWorker->cwSnapshot().tone[0])
                              : markerA;
     const int effectiveA = m_cwDecoder != nullptr
-                               ? qRound(m_cwDecoder->effectiveBandwidthHz(0))
+                               ? qRound(m_rxDecoderWorker->cwSnapshot().bandwidth[0])
                                : requestedBw;
     const QString stateA = localizedState(m_cwDecoder != nullptr
-                                              ? m_cwDecoder->trackingState(0)
+                                              ? m_rxDecoderWorker->cwSnapshot().state[0]
                                               : QStringLiteral("ACQUIRE"));
 
     QStringList lines;
@@ -15123,13 +14736,13 @@ void MainWindow::updateCwDualRxStatusLabel()
 
     if (m_cwSecondaryEnabled) {
         const int trackedB = m_cwDecoder != nullptr
-                                 ? qRound(m_cwDecoder->trackedToneHz(1))
+                                 ? qRound(m_rxDecoderWorker->cwSnapshot().tone[1])
                                  : m_cwSecondaryToneHz;
         const int effectiveB = m_cwDecoder != nullptr
-                                   ? qRound(m_cwDecoder->effectiveBandwidthHz(1))
+                                   ? qRound(m_rxDecoderWorker->cwSnapshot().bandwidth[1])
                                    : requestedBw;
         const QString stateB = localizedState(m_cwDecoder != nullptr
-                                                  ? m_cwDecoder->trackingState(1)
+                                                  ? m_rxDecoderWorker->cwSnapshot().state[1]
                                                   : QStringLiteral("ACQUIRE"));
         lines << uiText("cw_receiver_status_line",
                         "RX %1: marker %2 Hz → tracked %3 Hz · %4 · decode BW %5 Hz (set %6 Hz)")
@@ -15164,7 +14777,7 @@ void MainWindow::disableCwSecondaryRx()
     m_cwTrackedWpmB = 0.0;
     if (m_lblCwTrackedWpmB != nullptr) m_lblCwTrackedWpmB->setText(QStringLiteral("--"));
     if (m_cwDecoder != nullptr) {
-        m_cwDecoder->setSecondaryEnabled(false);
+        invokeRxDecoder(m_cwDecoder, &CwDecoder::setSecondaryEnabled, false);
     }
     if (m_waterfallWidget != nullptr) {
         m_waterfallWidget->clearTextOverlayStream(QStringLiteral("CW_B"));
@@ -15232,12 +14845,12 @@ void MainWindow::applyHellSettings()
     const int afcRangeHz = m_spinHellAfcRangeHz->value();
     const int paperScale = qBound(1, m_sliderHellPaperScale->value(), 12);
 
-    m_hellDecoder->setVariant(variant);
-    m_hellDecoder->setToneHz(static_cast<double>(toneHz));
-    m_hellDecoder->setColumnRate(columnRate);
-    m_hellDecoder->setBandwidthHz(static_cast<double>(bandwidthHz));
-    m_hellDecoder->setVerticalScale(paperScale);
-    m_hellDecoder->setFskShiftHz(HellschreiberDecoder::fsk105ShiftHz());
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setVariant, variant);
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setToneHz, static_cast<double>(toneHz));
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setColumnRate, columnRate);
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setBandwidthHz, static_cast<double>(bandwidthHz));
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setVerticalScale, paperScale);
+    invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::setFskShiftHz, HellschreiberDecoder::fsk105ShiftHz());
 
     /* Tone is a waterfall marker and remains session-only per v0.50 policy. */
     m_settings.hellVariant = HellschreiberDecoder::variantKey(variant);
@@ -15304,7 +14917,7 @@ void MainWindow::loadHellTxTextFile()
 
 void MainWindow::sendHellTxText()
 {
-    if (m_txRunning) {
+    if (m_txPreparationPending || m_txRunning) {
         stopImageTx();
         return;
     }
@@ -15316,7 +14929,7 @@ void MainWindow::sendHellTxText()
 
 void MainWindow::sendRttyTxText()
 {
-    if (m_txRunning) {
+    if (m_txPreparationPending || m_txRunning) {
         stopImageTx();
         return;
     }
@@ -15327,7 +14940,7 @@ void MainWindow::sendRttyTxText()
 
 void MainWindow::sendBpsk31TxText()
 {
-    if (m_txRunning) {
+    if (m_txPreparationPending || m_txRunning) {
         stopImageTx();
         return;
     }
@@ -15338,7 +14951,7 @@ void MainWindow::sendBpsk31TxText()
 
 void MainWindow::sendMfskTxText()
 {
-    if (m_txRunning) {
+    if (m_txPreparationPending || m_txRunning) {
         stopImageTx();
         return;
     }
@@ -16636,6 +16249,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
     // One accepted plan supersedes every older rotator retry callback.
 
     if (m_ftSlotScheduler != nullptr) {
+        ++m_txRequestGeneration; m_catCommand->cancel();
         QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
     }
     if (m_pendingFt8PttKeyed && !m_txRunning && !m_ftTxWorkerRunning) {
@@ -16712,7 +16326,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
             profile.slotMs,
             elapsedAfterBoundaryMs + kFtLateStartPreparationMs));
     }
-    // CAT calls are synchronous and can take several hundred milliseconds.
+    // CAT backend calls may take hundreds of milliseconds in the CAT worker.
     // Assert PTT in the protocol's quiet RX tail so the audio path reaches the
     // selected boundary without waiting for CAT. Capture itself remains alive
     // until the boundary and is stopped by the single audio-start owner.
@@ -17439,6 +17053,7 @@ void MainWindow::stopFt8Sequencer(const QString &reason)
     }
     updateCatRotatorQsoTarget(reason);
     if (m_ftSlotScheduler != nullptr) {
+        ++m_txRequestGeneration; m_catCommand->cancel();
         QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
     }
     if (m_pendingFt8PttKeyed && !m_txRunning && !m_ftTxWorkerRunning) {
@@ -17691,7 +17306,8 @@ void MainWindow::processFt8SequencerDecode(const Ft8RxDecoder::Decode &decode)
             appendLog(decision.logLine);
         }
         if (m_ftSlotScheduler != nullptr) {
-            QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
+            ++m_txRequestGeneration; m_catCommand->cancel();
+        QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
         }
         m_ft8PendingTxArmed = false;
         m_ft8PendingTxToken.clear();
@@ -17841,7 +17457,8 @@ void MainWindow::processFt8SequencerDecode(const Ft8RxDecoder::Decode &decode)
         return;
     case FtQsoSequencer::Action::StopTx:
         if (m_ftSlotScheduler != nullptr) {
-            QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
+            ++m_txRequestGeneration; m_catCommand->cancel();
+        QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
         }
         m_ft8PendingTxArmed = false;
         m_ft8PendingTxToken.clear();
@@ -17929,6 +17546,7 @@ void MainWindow::completeFt8Qso(const QString &reason)
     m_ftSession.retryTag.clear();
     m_ftSession.retryRemaining = 0;
     if (m_ftSlotScheduler != nullptr) {
+        ++m_txRequestGeneration; m_catCommand->cancel();
         QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
     }
     if (m_pendingFt8PttKeyed && !m_txRunning && !m_ftTxWorkerRunning) {
@@ -18318,7 +17936,8 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
             if (!m_txRunning && !m_ftTxWorkerRunning &&
                 !(m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
                 if (m_ftSlotScheduler != nullptr) {
-                    QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
+                    ++m_txRequestGeneration; m_catCommand->cancel();
+        QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
                 }
                 if (m_pendingFt8PttKeyed) {
                     unkeyPttAfterTx();
@@ -19615,7 +19234,8 @@ void MainWindow::beginScheduledFt8Transmit()
                           .arg(lateMs)
                           .arg(activeFtProfile.shortLabel, deferredMessage));
             if (m_ftSlotScheduler != nullptr) {
-                QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
+                ++m_txRequestGeneration; m_catCommand->cancel();
+        QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
             }
             m_ft8PendingTxArmed = false;
             m_ft8PendingTxToken.clear();
@@ -19670,6 +19290,7 @@ void MainWindow::stopFt8Shell()
                               (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning()));
 
     if (m_ftSlotScheduler != nullptr) {
+        ++m_txRequestGeneration; m_catCommand->cancel();
         QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
     }
 
@@ -19781,6 +19402,7 @@ void MainWindow::tuneFt8Shell()
     }
 
     if (m_ftSlotScheduler != nullptr) {
+        ++m_txRequestGeneration; m_catCommand->cancel();
         QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
     }
 
@@ -20421,7 +20043,7 @@ AudioBlock MainWindow::conditionAudioForWaterfall(const AudioBlock &block)
     return m_waterfallConditioner.processBlock(block);
 }
 
-AudioBlock MainWindow::conditionAudioForActiveMode(const AudioBlock &block)
+DspConditioner::Config MainWindow::decoderConditionerConfig() const
 {
     DspConditioner::Config config;
     const QString modeName = ui->cmbMode->currentText();
@@ -20511,8 +20133,45 @@ AudioBlock MainWindow::conditionAudioForActiveMode(const AudioBlock &block)
         config.modeBandpassEnabled = true;
     }
 
-    m_decoderConditioner.setConfig(config);
+    return config;
+}
+
+AudioBlock MainWindow::conditionAudioForActiveMode(const AudioBlock &block)
+{
+    m_decoderConditioner.setConfig(decoderConditionerConfig());
     return m_decoderConditioner.processBlock(block);
+}
+void MainWindow::syncLiveRxConfig()
+{
+    m_rxConfigPending=false;
+    if (!m_rxDecoderWorker || m_shutdownInProgress || !ui->cmbMode) return;
+    RxDecoderWorker::Config config;
+    config.mode=ui->cmbMode->currentText();
+    const bool supported=config.mode==RttyDecoder::modeName() || config.mode==CwDecoder::modeName()
+        || config.mode==WeatherFaxDecoder::modeName() || config.mode==SstvDecoder::modeName()
+        || config.mode==Bpsk31Decoder::modeName() || config.mode==MfskDecoder::modeName()
+        || config.mode==HellschreiberDecoder::modeName() || config.mode==Msk144Decoder::modeName();
+    config.enabled=supported && m_rxRunning && !m_txRunning && !m_offlineAnalysisActive;
+    config.filter=decoderConditionerConfig();
+    config.multi=m_settings.rttyMultiDecodeEnabled;
+    if(config.mode==RttyDecoder::modeName()) {
+        config.afc=m_chkRttyAfc && m_chkRttyAfc->isChecked();
+        config.afcRange=m_spinRttyAfcRangeHz?m_spinRttyAfcRangeHz->value():20;
+    } else if(config.mode==Bpsk31Decoder::modeName()) {
+        config.afc=m_chkBpsk31Afc && m_chkBpsk31Afc->isChecked();
+        config.afcRange=m_spinBpsk31AfcRangeHz?m_spinBpsk31AfcRangeHz->value():20;
+    } else if(config.mode==HellschreiberDecoder::modeName()) {
+        config.hellFsk105=m_cmbHellVariant && m_cmbHellVariant->currentData().toString()==QStringLiteral("FSK105");
+        config.afc=m_chkHellAfc && m_chkHellAfc->isChecked();
+        config.afcRange=m_spinHellAfcRangeHz?m_spinHellAfcRangeHz->value():20;
+    }
+    QMetaObject::invokeMethod(m_rxDecoderWorker,[worker=m_rxDecoderWorker,config](){worker->configure(config);},Qt::QueuedConnection);
+}
+void MainWindow::scheduleLiveRxConfig()
+{
+    if(m_rxConfigPending)return;
+    m_rxConfigPending=true;
+    QTimer::singleShot(0,this,&MainWindow::syncLiveRxConfig);
 }
 
 void MainWindow::resetDspEngine()
@@ -20706,7 +20365,7 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
      * decode free-running from sample zero while preserving the live-RX APT
      * setting in the UI.
      */
-    m_weatherFaxDecoder->setAutoStartEnabled(false);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoStartEnabled, false);
 
     resetDspEngine();
     m_decoderConditioner.reset();
@@ -20719,7 +20378,7 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
         m_faxImageWidget->clear();
     }
 
-    m_weatherFaxDecoder->reset();
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::reset);
 
     if (ui->progressAudioLevel != nullptr) ui->progressAudioLevel->setValue(0);
     if (m_ledVuMeter != nullptr) {
@@ -20771,7 +20430,7 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
 
         if (raw.isEmpty()) {
             appendLog("WAV analysis stopped: unexpected end of file.");
-            m_weatherFaxDecoder->setAutoStartEnabled(restoreAutoStartAfterWav);
+            invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoStartEnabled, restoreAutoStartAfterWav);
             ui->lblAppStatus->setText(uiText("ready", "Ready"));
             m_offlineAnalysisActive = false;
             setReceiverRunning(false);
@@ -20783,7 +20442,7 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
 
         if (!errorMessage.isEmpty()) {
             appendLog("WAV conversion failed: " + errorMessage);
-            m_weatherFaxDecoder->setAutoStartEnabled(restoreAutoStartAfterWav);
+            invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoStartEnabled, restoreAutoStartAfterWav);
             ui->lblAppStatus->setText(uiText("ready", "Ready"));
             m_offlineAnalysisActive = false;
             setReceiverRunning(false);
@@ -20798,7 +20457,7 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
 
             processDspAudioBlockForWav(block);
             const AudioBlock conditionedBlock = conditionAudioForActiveMode(block);
-            m_weatherFaxDecoder->processAudioBlock(conditionedBlock);
+            invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::processAudioBlock, conditionedBlock);
 
             firstSampleIndex += samples.size();
         }
@@ -20822,11 +20481,11 @@ bool MainWindow::analyzeWeatherFaxWavFile(const QString &fileName)
 
     progress.setValue(100);
 
-    m_weatherFaxDecoder->finishCurrentImage("end of WAV file");
-    m_weatherFaxDecoder->setAutoStartEnabled(restoreAutoStartAfterWav);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::finishCurrentImage, "end of WAV file");
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoStartEnabled, restoreAutoStartAfterWav);
 
     if (m_faxImageWidget != nullptr) {
-        m_faxImageWidget->setImage(m_weatherFaxDecoder->currentImage());
+        m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_weatherFaxDecoder));
     }
 
     m_offlineAnalysisActive = false;
@@ -20900,7 +20559,7 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
         m_faxImageWidget->clear();
     }
 
-    m_sstvDecoder->reset();
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::reset);
 
     if (ui->progressAudioLevel != nullptr) ui->progressAudioLevel->setValue(0);
     if (m_ledVuMeter != nullptr) {
@@ -20976,7 +20635,7 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
 
             processDspAudioBlockForWav(block);
             const AudioBlock conditionedBlock = conditionAudioForActiveMode(block);
-            m_sstvDecoder->processAudioBlock(conditionedBlock);
+            invokeRxDecoder(m_sstvDecoder, &SstvDecoder::processAudioBlock, conditionedBlock);
 
             firstSampleIndex += samples.size();
         }
@@ -21001,7 +20660,7 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
     progress.setValue(100);
 
     if (m_faxImageWidget != nullptr) {
-        m_faxImageWidget->setImage(m_sstvDecoder->currentImage());
+        m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_sstvDecoder));
     }
 
     m_offlineAnalysisActive = false;
@@ -21027,10 +20686,10 @@ void MainWindow::forceSstvManualRx()
         ui->chkSstvAutoSync->setChecked(false);
     }
     applySstvSettings();
-    m_sstvDecoder->setAutoSyncEnabled(false);
-    m_sstvDecoder->reset();
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::setAutoSyncEnabled, false);
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::reset);
     if (m_faxImageWidget != nullptr) {
-        m_faxImageWidget->setImage(m_sstvDecoder->currentImage());
+        m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_sstvDecoder));
     }
 
     appendLog(uiText("log.forceSstvRx", "Forced SSTV manual RX: sync wait bypassed."));
@@ -21049,10 +20708,10 @@ void MainWindow::resetSstvImage()
         return;
     }
 
-    m_sstvDecoder->reset();
+    invokeRxDecoder(m_sstvDecoder, &SstvDecoder::reset);
 
     if (m_faxImageWidget != nullptr) {
-        m_faxImageWidget->setImage(m_sstvDecoder->currentImage());
+        m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_sstvDecoder));
     }
 
     appendLog("SSTV image reset.");
@@ -21064,7 +20723,7 @@ void MainWindow::saveSstvImage()
         return;
     }
 
-    const QImage image = m_sstvDecoder->currentImage();
+    const QImage image = m_rxDecoderWorker->image(m_sstvDecoder);
 
     if (image.isNull()) {
         appendLog("Save PNG failed: no SSTV image available.");
@@ -21110,8 +20769,8 @@ void MainWindow::forceWeatherFaxManualRx()
         ui->chkFaxAutoStartPhasing->setChecked(false);
     }
     applyWeatherFaxSettings();
-    m_weatherFaxDecoder->setAutoStartEnabled(false);
-    m_weatherFaxDecoder->reset();
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::setAutoStartEnabled, false);
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::reset);
     if (m_faxImageWidget != nullptr) {
         m_faxImageWidget->clear();
     }
@@ -21132,10 +20791,10 @@ void MainWindow::resetWeatherFaxImage()
         return;
     }
 
-    m_weatherFaxDecoder->reset();
+    invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::reset);
 
     if (m_faxImageWidget != nullptr) {
-        m_faxImageWidget->setImage(m_weatherFaxDecoder->currentImage());
+        m_faxImageWidget->setImage(m_rxDecoderWorker->image(m_weatherFaxDecoder));
     }
 
     appendLog("MeteoFax image reset.");
@@ -21147,7 +20806,7 @@ void MainWindow::saveWeatherFaxImage()
         return;
     }
 
-    const QImage image = m_weatherFaxDecoder->currentImage();
+    const QImage image = m_rxDecoderWorker->image(m_weatherFaxDecoder);
 
     if (image.isNull()) {
         appendLog("Save PNG failed: no MeteoFax image available.");
@@ -21651,7 +21310,7 @@ bool MainWindow::qsoSignalPeakMetricBand(int *lowHzOut, int *highHzOut) const
         lowHz = qMin(mark, mark + shift) - 55;
         highHz = qMax(mark, mark + shift) + 55;
     } else if (mode == CwDecoder::modeName()) {
-        const int bw = m_cwDecoder != nullptr ? qRound(m_cwDecoder->effectiveBandwidthHz(0)) : 120;
+        const int bw = m_cwDecoder != nullptr ? qRound(m_rxDecoderWorker->cwSnapshot().bandwidth[0]) : 120;
         const int half = qBound(25, bw / 2, 100);
         lowHz = centerHz - half;
         highHz = centerHz + half;
@@ -22865,7 +22524,7 @@ void MainWindow::startRx()
         const Qt::ConnectionType enableConnection =
             (m_ft8RxDecoder->thread() == QThread::currentThread())
                 ? Qt::DirectConnection
-                : Qt::BlockingQueuedConnection;
+                : Qt::QueuedConnection;
         QMetaObject::invokeMethod(m_ft8RxDecoder,
                                   "setLiveInputEnabled",
                                   enableConnection,
@@ -22938,39 +22597,39 @@ void MainWindow::startRx()
     m_preserveTextTerminalOnNextRx = false;
 
     if (modeName == WeatherFaxDecoder::modeName()) {
-        m_weatherFaxDecoder->reset();
+        invokeRxDecoder(m_weatherFaxDecoder, &WeatherFaxDecoder::reset);
     } else if (modeName == SstvDecoder::modeName()) {
-        m_sstvDecoder->reset();
+        invokeRxDecoder(m_sstvDecoder, &SstvDecoder::reset);
     } else if (modeName == RttyDecoder::modeName()) {
         m_lastRttyDecodedText.clear();
         if (fastResumeCwRtty) {
-            m_rttyDecoder->resumeAfterLocalTransmit();
+            invokeRxDecoder(m_rttyDecoder, &RttyDecoder::resumeAfterLocalTransmit);
             if (m_rttyMultiDecoder != nullptr) {
-                m_rttyMultiDecoder->resumeAfterLocalTransmit();
+                invokeRxDecoder(m_rttyMultiDecoder, &RttyMultiDecoder::resumeAfterLocalTransmit);
             }
         } else {
-            m_rttyDecoder->reset();
+            invokeRxDecoder(m_rttyDecoder, &RttyDecoder::reset);
         }
         if (!preserveTextTerminal && m_txtRttyRx != nullptr) {
             m_txtRttyRx->clear();
         }
     } else if (modeName == Bpsk31Decoder::modeName()) {
         m_lastBpsk31DecodedText.clear();
-        m_bpsk31Decoder->reset();
+        invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::reset);
         if (!preserveTextTerminal && m_txtBpsk31Rx != nullptr) {
             m_txtBpsk31Rx->clear();
         }
     } else if (modeName == MfskDecoder::modeName()) {
-        m_mfskDecoder->reset();
+        invokeRxDecoder(m_mfskDecoder, &MfskDecoder::reset);
         m_mfskPendingRxLineBreak = false;
         if (!preserveTextTerminal && m_txtMfskRx != nullptr) {
             m_txtMfskRx->clear();
         }
     } else if (modeName == CwDecoder::modeName()) {
         if (fastResumeCwRtty) {
-            m_cwDecoder->resumeAfterLocalTransmit();
+            invokeRxDecoder(m_cwDecoder, &CwDecoder::resumeAfterLocalTransmit);
         } else {
-            m_cwDecoder->reset();
+            invokeRxDecoder(m_cwDecoder, &CwDecoder::reset);
             m_cwPrimaryLineOpen = false;
             m_cwSecondaryLineOpen = false;
         }
@@ -22981,12 +22640,12 @@ void MainWindow::startRx()
             m_txtCwRxB->clear();
         }
     } else if (modeName == HellschreiberDecoder::modeName()) {
-        m_hellDecoder->reset();
+        invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::reset);
     } else if (RadioTelescopeMode::isMode(modeName)) {
         clearRadioTelescopeHeatmap();
     } else if (Msk144Mode::isMode(modeName)) {
         if (m_msk144Decoder != nullptr) {
-            m_msk144Decoder->reset();
+            invokeRxDecoder(m_msk144Decoder, &Msk144Decoder::reset);
         }
         if (m_tableMsk144Rx != nullptr && !preserveTextTerminal) {
             m_tableMsk144Rx->setRowCount(0);
@@ -23000,7 +22659,7 @@ void MainWindow::startRx()
             const Qt::ConnectionType resetConnection =
                 (m_q65Decoder->thread() == QThread::currentThread())
                     ? Qt::DirectConnection
-                    : Qt::BlockingQueuedConnection;
+                    : Qt::QueuedConnection;
             QMetaObject::invokeMethod(m_q65Decoder, "reset", resetConnection);
         }
         if (m_tableQ65Rx != nullptr && !preserveTextTerminal) {
@@ -23116,8 +22775,9 @@ void MainWindow::startRx()
                       .arg(profile.interoperableCoreAvailable ? QStringLiteral("Live Costas/LDPC decoder active.") : profile.note));
     }
 
-    m_rxContinuity.reset(); // First block of an intentional restart establishes a new epoch.
-    m_rttyAfc.reset();
+    syncLiveRxConfig();
+    QMetaObject::invokeMethod(m_rxDecoderWorker,&RxDecoderWorker::beginCapture,Qt::QueuedConnection);
+    m_rxContinuity.reset(); // Offline/UI continuity only.
     if (!startAudioInputBlocking(inputName, m_settings.audioSampleRate)) {
         setReceiverRunning(false);
         if (fastResumeCwRtty) {
@@ -23139,7 +22799,7 @@ void MainWindow::stopRx()
         const Qt::ConnectionType disableConnection =
             (m_ft8RxDecoder->thread() == QThread::currentThread())
                 ? Qt::DirectConnection
-                : Qt::BlockingQueuedConnection;
+                : Qt::QueuedConnection;
         QMetaObject::invokeMethod(m_ft8RxDecoder,
                                   "setLiveInputEnabled",
                                   disableConnection,
@@ -23940,6 +23600,7 @@ void MainWindow::updateTxControlState()
         return;
     }
 
+    const bool txBusy=m_txRunning || m_txPreparationPending;
     const QString modeName = ui->cmbMode->currentText();
     const bool rttyMode = modeName == RttyDecoder::modeName();
     const bool bpskMode = modeName == Bpsk31Decoder::modeName();
@@ -23964,8 +23625,8 @@ void MainWindow::updateTxControlState()
     const bool hasSource = textMode ? (hasRttyText || hasBpskText || hasMfskText || hasCwText || hasHellText || hasMskMessage || hasQ65Message) : hasImage;
     const bool rxBusy = m_rxRunning || (m_audioEngine != nullptr && m_audioEngine->isRunning());
     const bool canStartTx = textMode
-                                ? (hasSource && !m_txRunning && !m_nativeWeakSignalTxPending && !m_offlineAnalysisActive)
-                                : (hasSource && !m_txRunning && !rxBusy && !m_offlineAnalysisActive);
+                                ? (hasSource && !txBusy && !m_nativeWeakSignalTxPending && !m_offlineAnalysisActive)
+                                : (hasSource && !txBusy && !rxBusy && !m_offlineAnalysisActive);
 
     if (m_grpTxImage != nullptr) {
         // Keep the image-TX panel visually compact; the surrounding Mode tab
@@ -23981,10 +23642,10 @@ void MainWindow::updateTxControlState()
     }
 
     m_btnLoadTxImage->setVisible(!textMode && !rxOnlyTextMode);
-    m_btnLoadTxImage->setEnabled(!m_txRunning && !textMode && !rxOnlyTextMode);
+    m_btnLoadTxImage->setEnabled(!txBusy && !textMode && !rxOnlyTextMode);
     if (m_btnSstvEditor != nullptr) {
         m_btnSstvEditor->setVisible(sstvMode);
-        m_btnSstvEditor->setEnabled(sstvMode && !m_txRunning);
+        m_btnSstvEditor->setEnabled(sstvMode && !txBusy);
     }
     if (m_lblSstvTxPreview != nullptr) {
         m_lblSstvTxPreview->setVisible(sstvMode && hasImage);
@@ -24003,17 +23664,17 @@ void MainWindow::updateTxControlState()
     m_btnStartImageTx->setText(sstvMode ? uiText("button.sendSstv", "Send SSTV") : uiText("button.startImageTx", "Start image TX"));
     m_btnStartImageTx->setEnabled(!textMode && !rxOnlyTextMode && canStartTx);
     m_btnStopImageTx->setVisible(!textMode && !rxOnlyTextMode);
-    m_btnStopImageTx->setEnabled(!textMode && !rxOnlyTextMode && m_txRunning);
+    m_btnStopImageTx->setEnabled(!textMode && !rxOnlyTextMode && txBusy);
     if (ui->btnTxTone != nullptr) {
-        ui->btnTxTone->setText((m_txRunning || m_nativeWeakSignalTxPending)
+        ui->btnTxTone->setText((txBusy || m_nativeWeakSignalTxPending)
                                    ? uiText("button.transport_tx_stop", "■ TX")
                                    : uiText("button.transport_tx", "● TX"));
         ui->btnTxTone->setEnabled(!rxOnlyTextMode &&
-                                  (m_txRunning || m_nativeWeakSignalTxPending || canStartTx));
+                                  (txBusy || m_nativeWeakSignalTxPending || canStartTx));
     }
 
     const bool nativeWeakSignalConfigurable =
-        !m_txRunning && !m_nativeWeakSignalTxPending && !m_offlineAnalysisActive;
+        !txBusy && !m_nativeWeakSignalTxPending && !m_offlineAnalysisActive;
     for (QWidget *control : {
              static_cast<QWidget *>(m_cmbMsk144Period),
              static_cast<QWidget *>(m_spinMsk144RxFreq),
@@ -24046,80 +23707,81 @@ void MainWindow::updateTxControlState()
     }
 
     if (m_btnRttySend != nullptr) {
-        m_btnRttySend->setText(m_txRunning && rttyMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
-        m_btnRttySend->setToolTip(m_txRunning && rttyMode ? "Stop the current RTTY transmission." : "Transmit the text typed in the input box.");
-        m_btnRttySend->setEnabled(rttyMode && (m_txRunning || (hasRttyText && !m_offlineAnalysisActive)));
+        m_btnRttySend->setText(txBusy && rttyMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
+        m_btnRttySend->setToolTip(txBusy && rttyMode ? "Stop the current RTTY transmission." : "Transmit the text typed in the input box.");
+        m_btnRttySend->setEnabled(rttyMode && (txBusy || (hasRttyText && !m_offlineAnalysisActive)));
     }
 
     if (m_btnBpsk31Send != nullptr) {
-        m_btnBpsk31Send->setText(m_txRunning && bpskMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
-        m_btnBpsk31Send->setToolTip(m_txRunning && bpskMode ? "Stop the current PSK transmission." : "Transmit the text typed in the input box.");
-        m_btnBpsk31Send->setEnabled(bpskMode && (m_txRunning || (hasBpskText && !m_offlineAnalysisActive)));
+        m_btnBpsk31Send->setText(txBusy && bpskMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
+        m_btnBpsk31Send->setToolTip(txBusy && bpskMode ? "Stop the current PSK transmission." : "Transmit the text typed in the input box.");
+        m_btnBpsk31Send->setEnabled(bpskMode && (txBusy || (hasBpskText && !m_offlineAnalysisActive)));
     }
 
     if (m_btnMfskSend != nullptr) {
-        m_btnMfskSend->setText(m_txRunning && mfskMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
-        m_btnMfskSend->setToolTip(m_txRunning && mfskMode ? "Stop the current MFSK transmission." : "Transmit the MFSK text typed in the input box.");
-        m_btnMfskSend->setEnabled(mfskMode && (m_txRunning || (hasMfskText && !m_offlineAnalysisActive)));
+        m_btnMfskSend->setText(txBusy && mfskMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
+        m_btnMfskSend->setToolTip(txBusy && mfskMode ? "Stop the current MFSK transmission." : "Transmit the MFSK text typed in the input box.");
+        m_btnMfskSend->setEnabled(mfskMode && (txBusy || (hasMfskText && !m_offlineAnalysisActive)));
     }
 
     if (m_btnCwSend != nullptr) {
-        m_btnCwSend->setText(m_txRunning && cwMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
-        m_btnCwSend->setToolTip(m_txRunning && cwMode ? "Stop the current CW transmission." : "Transmit the CW text typed in the input box.");
-        m_btnCwSend->setEnabled(cwMode && (m_txRunning || (hasCwText && !m_offlineAnalysisActive)));
+        m_btnCwSend->setText(txBusy && cwMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
+        m_btnCwSend->setToolTip(txBusy && cwMode ? "Stop the current CW transmission." : "Transmit the CW text typed in the input box.");
+        m_btnCwSend->setEnabled(cwMode && (txBusy || (hasCwText && !m_offlineAnalysisActive)));
     }
 
     if (m_btnHellSend != nullptr) {
-        m_btnHellSend->setText(m_txRunning && hellMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
-        m_btnHellSend->setToolTip(m_txRunning && hellMode ? "Stop the current Hellschreiber transmission." : "Transmit the Hellschreiber text typed in the input box.");
-        m_btnHellSend->setEnabled(hellMode && (m_txRunning || (hasHellText && !m_offlineAnalysisActive)));
+        m_btnHellSend->setText(txBusy && hellMode ? QString::fromUtf8("■") : QString::fromUtf8("➤"));
+        m_btnHellSend->setToolTip(txBusy && hellMode ? "Stop the current Hellschreiber transmission." : "Transmit the Hellschreiber text typed in the input box.");
+        m_btnHellSend->setEnabled(hellMode && (txBusy || (hasHellText && !m_offlineAnalysisActive)));
     }
 
     for (QPushButton *button : m_rttyMacroButtons) {
         if (button != nullptr) {
-            button->setEnabled(rttyMode && !m_txRunning && !m_offlineAnalysisActive);
+            button->setEnabled(rttyMode && !txBusy && !m_offlineAnalysisActive);
         }
     }
 
     for (QPushButton *button : m_bpsk31MacroButtons) {
         if (button != nullptr) {
-            button->setEnabled(bpskMode && !m_txRunning && !m_offlineAnalysisActive);
+            button->setEnabled(bpskMode && !txBusy && !m_offlineAnalysisActive);
         }
     }
 
     for (QPushButton *button : m_mfskMacroButtons) {
         if (button != nullptr) {
-            button->setEnabled(mfskMode && !m_txRunning && !m_offlineAnalysisActive);
+            button->setEnabled(mfskMode && !txBusy && !m_offlineAnalysisActive);
         }
     }
 
     for (QPushButton *button : m_cwMacroButtons) {
         if (button != nullptr) {
-            button->setEnabled(cwMode && !m_txRunning && !m_offlineAnalysisActive);
+            button->setEnabled(cwMode && !txBusy && !m_offlineAnalysisActive);
         }
     }
 
     for (QPushButton *button : m_hellMacroButtons) {
         if (button != nullptr) {
-            button->setEnabled(hellMode && !m_txRunning && !m_offlineAnalysisActive);
+            button->setEnabled(hellMode && !txBusy && !m_offlineAnalysisActive);
         }
     }
 
-    if (!m_txRunning && m_progressTx->value() == 100) {
+    if (!txBusy && m_progressTx->value() == 100) {
         updateFt8TxBannerUi();
         return;
     }
 
-    if (!m_txRunning && !hasSource) {
+    if (!txBusy && !hasSource) {
         m_progressTx->setValue(0);
     }
     updateFt8TxBannerUi();
 }
 
-bool MainWindow::keyPttForTx()
+void MainWindow::keyPttForTx(std::function<void(bool)> completion)
 {
+    if(m_catCommand->faulted() || m_ftSplitRestoreFailed){completion(false);return;}
     if (!ensureStationIdentityForTx(QStringLiteral("TX/PTT"))) {
-        return false;
+        completion(false); return;
     }
 
     const QString pttMethod = m_settings.pttMethod.trimmed().toLower();
@@ -24131,36 +23793,14 @@ bool MainWindow::keyPttForTx()
                                      ((pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr")) &&
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
     if (pttViaRigController) {
-        if (m_rigController == nullptr) {
-            const QString reason = uiText("tx_ptt_hamlib_controller_missing",
-                                          "CAT/Hamlib PTT is selected, but the Hamlib controller is not available. Check Settings -> Audio/PTT + CAT, radio model, CAT port and PTT method.");
-            appendLog("TX PTT failed: " + reason);
-            showTxBlockedWarning(QStringLiteral("TX/PTT"),
-                                 reason,
-                                 AppSettingsDialog::InitialPage::RadioCat,
-                                 uiText("open_audio_cat_settings", "Open Audio/PTT + CAT settings"));
-            return false;
-        }
         pauseQsoSignalPeakForTransmit();
-        if (!invokeRigPttBlocking(true)) {
-            resumeQsoSignalPeakAfterTransmit();
-            const QString detail = m_rigController->lastStatus().trimmed();
-            const QString reason = detail.isEmpty()
-                ? uiText("tx_ptt_hamlib_key_failed",
-                         "CAT/Hamlib PTT is selected, but the radio did not accept the TX/PTT command. Check the rig model, serial port, baud rate, CAT connection and PTT method.")
-                : uiText("tx_ptt_hamlib_key_failed_detail",
-                         "CAT/Hamlib PTT is selected, but the radio did not accept the TX/PTT command: %1").arg(detail);
-            appendLog("TX PTT failed: " + reason);
-            showTxBlockedWarning(QStringLiteral("TX/PTT"),
-                                 reason,
-                                 AppSettingsDialog::InitialPage::RadioCat,
-                                 uiText("open_audio_cat_settings", "Open Audio/PTT + CAT settings"));
-            return false;
-        }
-        appendLog(QString("Hamlib CAT PTT ON (%1).").arg(m_settings.hamlibTxAudioRoute.isEmpty() ? QStringLiteral("default") : m_settings.hamlibTxAudioRoute));
-        return true;
+        requestRigPtt(true,[this,completion](bool ok){
+            if(!ok){appendLog(QStringLiteral("CAT PTT ON failed, cancelled or timed out; audio TX blocked."));}
+            completion(ok);
+        });
+        return;
     }
-
+    const bool keyed=[&]() -> bool {
     if (pttMethod == QStringLiteral("none")) {
         pauseQsoSignalPeakForTransmit();
         appendLog("TX PTT disabled by Audio/PTT settings; transmitting audio only.");
@@ -24224,10 +23864,13 @@ bool MainWindow::keyPttForTx()
 
     appendLog(QString("TX %1 ON on %2.").arg(useDtr ? QStringLiteral("DTR") : QStringLiteral("RTS"), portName));
     return true;
+    }();
+    completion(keyed);
 }
 
 void MainWindow::unkeyPttAfterTx()
 {
+    if(m_shutdownInProgress || m_runtimeShutdownComplete)return;
     const QString pttMethod = m_settings.pttMethod.trimmed().toLower();
     const QString pttPort = selectedPttPort().trimmed();
     const bool pttUsesCatPort = pttPort.isEmpty() ||
@@ -24237,32 +23880,20 @@ void MainWindow::unkeyPttAfterTx()
                                      ((pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr")) &&
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
 
-    bool pttOffConfirmed = true;
-    if (pttViaRigController && m_rigController != nullptr) {
-        pttOffConfirmed = invokeRigPttBlocking(false);
-        if (pttOffConfirmed) {
-            appendLog("Hamlib CAT PTT OFF.");
-        } else {
-            appendLog("TX PTT ERROR: Hamlib did not confirm PTT OFF; transmitter state is unknown.");
-        }
-    }
-
-    // For a dedicated serial RTS/DTR line, release the physical PTT before
-    // restoring Fake-It/Rig CAT frequencies. Never retune a transmitter that
-    // may still be keyed.
     if (m_pttSerial.isOpen()) {
-        m_pttSerial.setRequestToSend(false);
-        m_pttSerial.setDataTerminalReady(false);
-        m_pttSerial.close();
-        appendLog("TX serial PTT OFF.");
+        m_pttSerial.setRequestToSend(false);m_pttSerial.setDataTerminalReady(false);m_pttSerial.close();
     }
+    if (m_catCommand->busy()) {
+        m_catCommand->cancel(); // In-flight command must unkey/restore before its gate reopens.
+        return;
+    }
+    auto released=[this](bool ok){
+        if(ok){restoreFtSplitAfterTx();resumeQsoSignalPeakAfterTransmit();}
+        else {m_ftSplitRestoreFailed=true;appendLog(QStringLiteral("CAT PTT OFF not confirmed; further TX is blocked."));}
+    };
+    if(pttViaRigController)requestRigPtt(false,released);
+    else released(true);
 
-    if (pttOffConfirmed) {
-        restoreFtSplitAfterTx();
-        resumeQsoSignalPeakAfterTransmit();
-    } else if (m_ftSplitPreparedForTx) {
-        appendLog("FT Split restore deferred: PTT OFF was not confirmed; radio frequency state is left untouched for RF safety.");
-    }
 }
 
 QString MainWindow::selectedAudioOutputName() const
@@ -24345,6 +23976,7 @@ void MainWindow::loadTxImage()
 
 void MainWindow::startImageTx()
 {
+    if(m_txPreparationPending || m_catCommand->busy() || m_ftSplitRestoreFailed)return;
     if (m_shutdownInProgress || m_runtimeShutdownComplete) {
         return;
     }
@@ -24547,7 +24179,16 @@ void MainWindow::startImageTx()
 
     updateWaterfallMarkers();
 
-    const bool pttKeyed = keyPttForTx();
+    const auto prepared=std::make_shared<std::unique_ptr<TxModulator>>(std::move(modulator));
+    const auto generation=m_txRequestGeneration;
+    const QString preparedMode=ui->cmbMode->currentText();
+    m_txPreparationPending=true;
+    updateTxControlState();
+    keyPttForTx([=](bool pttKeyed) mutable {
+        m_txPreparationPending=false;
+        updateTxControlState();
+        auto modulator=std::move(*prepared);
+        if(generation!=m_txRequestGeneration || m_shutdownInProgress || preparedMode!=ui->cmbMode->currentText()){unkeyPttAfterTx();return;}
     if (!pttKeyed) {
         appendLog("TX aborted: PTT/safety gate did not allow transmission; no audio TX will be generated.");
         const bool restartRx = m_returnToRxAfterTx;
@@ -24604,8 +24245,9 @@ void MainWindow::startImageTx()
                                                          ? HellschreiberDecoder::variantFromKey(m_cmbHellVariant->currentData().toString())
                                                          : HellschreiberDecoder::Variant::FeldHell;
         const QImage txRaster = HellschreiberTransmitter::transmitRasterImage(m_txtHellTx->toPlainText(), variant);
-        m_hellDecoder->appendTransmitRaster(txRaster);
+        invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::appendTransmitRaster, txRaster);
     }
+    });
 }
 
 void MainWindow::prearmFtPreparedSlotTransmit()
@@ -24647,42 +24289,28 @@ void MainWindow::prearmFtPreparedSlotTransmit()
     // pre-arm time, cut the last part of the RX slot and prevented the WSJT-X
     // gated live decode from launching when a TX was armed.
 
-    if (!m_pendingFt8PttKeyed) {
-        // Split/Fake-It owns the temporary CAT frequency change and must be
-        // prepared before PTT. A failure aborts TX; never fall back silently
-        // to an out-of-range audio tone or a different CAT path.
-        if (!prepareFtSplitForTx()) {
-            appendLog("FT TX aborted: split/CAT preparation failed; no audio TX will be generated.");
-            m_ft8PendingTxArmed = false;
-            m_pendingFt8PttPrearmed = false;
-            m_pendingFt8TxMessage.clear();
-            m_pendingFt8TxTag.clear();
-            updateFt8TxBannerUi();
-            updateTxControlState();
-            return;
+    if(m_pendingFt8PttKeyed){m_pendingFt8PttPrearmed=true;return;}
+    if(m_txPreparationPending || m_catCommand->busy())return;
+    m_txPreparationPending=true;
+    const QString token=m_ft8PendingTxToken;
+    const auto generation=m_txRequestGeneration;
+    const auto complete=[this,token,generation](bool ok){
+        m_txPreparationPending=false;
+        if(generation!=m_txRequestGeneration || token!=m_ft8PendingTxToken || (!m_ft8PendingTxArmed && !m_pendingFt8Tune) || m_shutdownInProgress){unkeyPttAfterTx();return;}
+        if(!ok){
+            m_ft8PendingTxArmed=false;m_pendingFt8PttPrearmed=false;m_pendingFt8PttKeyed=false;
+            unkeyPttAfterTx();appendLog(QStringLiteral("FT TX aborted: CAT/PTT acknowledgement missing; no audio transmitted."));
+        } else {
+            m_pendingFt8PttKeyed=true;m_pendingFt8PttPrearmed=true;
+            if(m_pendingFt8Tune)QTimer::singleShot(0,this,&MainWindow::startFtPreparedSlotTransmit);
         }
-        m_pendingFt8PttKeyed = keyPttForTx();
-        if (!m_pendingFt8PttKeyed) {
-            restoreFtSplitAfterTx();
-            appendLog("FT TX aborted: PTT/safety gate did not allow transmission; no audio TX will be generated.");
-            m_ft8PendingTxArmed = false;
-            m_pendingFt8PttPrearmed = false;
-            m_pendingFt8TxMessage.clear();
-            m_pendingFt8TxTag.clear();
-            updateFt8TxBannerUi();
-            updateTxControlState();
-            return;
-        }
-    }
+        updateTxControlState();updateFt8TxBannerUi();
+    };
+    prepareFtSplitForTx([this,complete,token,generation](bool ok){
+        if(!ok || token!=m_ft8PendingTxToken || generation!=m_txRequestGeneration){complete(false);return;}
+        keyPttForTx(complete);
+    });
 
-    m_pendingFt8PttPrearmed = true;
-    appendLog(QString("FT timing: PTT pre-armed for %1 slot; boundary=%2, audio target=%3 ms, PTT lead=%4 ms.")
-                  .arg(profile.shortLabel)
-                  .arg(m_pendingFt8SlotBoundaryUtcMs)
-                  .arg(m_pendingFt8AudioTargetDelayMs)
-                  .arg(m_pendingFt8PttLeadMs));
-    updateTxControlState();
-    updateFt8TxBannerUi();
 }
 
 void MainWindow::startFtPreparedSlotTransmit()
@@ -24735,7 +24363,8 @@ void MainWindow::startFtPreparedSlotTransmit()
                           .arg(lateMs)
                           .arg(profile.shortLabel, deferredMessage));
             if (m_ftSlotScheduler != nullptr) {
-                QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
+                ++m_txRequestGeneration; m_catCommand->cancel();
+        QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
             }
             if (m_pendingFt8PttKeyed || m_pendingFt8PttPrearmed) {
                 unkeyPttAfterTx();
@@ -24758,13 +24387,22 @@ void MainWindow::startFtPreparedSlotTransmit()
         appendLog("FT timing: audio-start event arrived before PTT pre-arm; pre-arming immediately.");
         prearmFtPreparedSlotTransmit();
     }
+    if(!m_pendingFt8PttPrearmed || !m_pendingFt8PttKeyed) {
+        if(m_pendingFt8Tune)return; // Tune starts from the acknowledgement callback.
+        const auto message=m_pendingFt8TxMessage, tag=m_pendingFt8TxTag;
+        ++m_txRequestGeneration;m_catCommand->cancel();m_ft8PendingTxArmed=false;
+        unkeyPttAfterTx();
+        appendLog(QStringLiteral("FT slot skipped: CAT/PTT was not confirmed before audio deadline."));
+        QTimer::singleShot(0,this,[this,message,tag](){scheduleFt8SequencerMessage(message,tag);});
+        return;
+    }
 
     const bool liveRxRunning = m_rxRunning ||
                                (m_audioEngine != nullptr && m_audioEngine->isRunning());
     if (liveRxRunning) {
         if (m_audioEngine != nullptr) {
             appendLog("FT timing: RX audio stop requested at UTC boundary for FT TX.");
-            stopAudioInputBlocking();
+            QMetaObject::invokeMethod(m_audioEngine,[engine=m_audioEngine](){engine->stopInput();},Qt::QueuedConnection);
         }
         if (m_ft8RxDecoder != nullptr) {
             // Never wait for an in-flight boundary/deep decode on the GUI/TX
@@ -24857,6 +24495,23 @@ void MainWindow::startFtPreparedSlotTransmit()
 
 void MainWindow::stopImageTx()
 {
+    ++m_txRequestGeneration;m_catCommand->cancel();
+    if(!m_txRunning && (m_ft8PendingTxArmed || m_pendingFt8PttPrearmed || m_pendingFt8PttKeyed)){
+        if(m_ftSlotScheduler)QMetaObject::invokeMethod(m_ftSlotScheduler,"cancelTransmission",Qt::QueuedConnection);
+        m_ft8PendingTxArmed=false;m_ft8PendingTxToken.clear();
+        m_pendingFt8PttPrearmed=false;m_pendingFt8PttKeyed=false;
+        m_pendingFt8PreparedModulator.reset();
+        unkeyPttAfterTx();
+    }
+    if(m_txPreparationPending){
+        m_txPreparationPending=false;unkeyPttAfterTx();
+        const bool restart=m_returnToRxAfterTx;
+        m_returnToRxAfterTx=false;m_currentTxIsTextMode=false;
+        m_ft8PendingTxArmed=false;m_pendingFt8PttPrearmed=false;m_pendingFt8PttKeyed=false;
+        updateTxControlState();
+        if(restart && !m_shutdownInProgress && m_pendingModeName.isEmpty())
+            QTimer::singleShot(0,this,[this](){if(!m_txRunning && !m_rxRunning)startRx();});
+    }
     if (m_nativeWeakSignalTxPending) {
         cancelNativeWeakSignalPeriodTx(QStringLiteral("operator STOP"));
         return;
@@ -25128,7 +24783,7 @@ void MainWindow::testPtt()
         return;
     }
 
-    if (m_txRunning ||
+    if (m_txPreparationPending || m_txRunning ||
         m_ftTxWorkerRunning ||
         (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
         const QString reason = uiText("ptt_test_tx_running", "PTT test is blocked because TX/PTT is already active.");
@@ -25140,50 +24795,25 @@ void MainWindow::testPtt()
         return;
     }
 
-    if (!keyPttForTx()) {
-        return;
-    }
-
-    m_offlineAnalysisActive = false;
-    m_txRunning = true;
-    setReceiverRunning(false);
-    appendLog(uiText("ptt_test_on_one_second", "PTT test ON for 1 second."));
-    m_pttTestTimer.start(1000);
+    if(m_txPreparationPending || m_catCommand->busy())return;
+    m_txPreparationPending=true;
+    const auto generation=m_txRequestGeneration;
+    keyPttForTx([this,generation](bool ok){
+        m_txPreparationPending=false;
+        if(!ok || generation!=m_txRequestGeneration){unkeyPttAfterTx();return;}
+        m_offlineAnalysisActive=false;m_txRunning=true;setReceiverRunning(false);
+        appendLog(uiText("ptt_test_on_one_second", "PTT test ON for 1 second."));
+        m_pttTestTimer.start(1000);
+    });
 }
 
 
 void MainWindow::finishPttTest()
 {
-    const QString pttMethod = m_settings.pttMethod.trimmed().toLower();
-    const QString pttPort = selectedPttPort().trimmed();
-    const bool pttUsesCatPort = pttPort.isEmpty() ||
-                                pttPort.compare(QStringLiteral("CAT"), Qt::CaseInsensitive) == 0 ||
-                                pttPort.compare(m_settings.hamlibSerialPath.trimmed(), Qt::CaseInsensitive) == 0;
-    const bool pttViaRigController = (pttMethod == QStringLiteral("cat_hamlib")) ||
-                                     ((pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr")) &&
-                                      m_settings.hamlibCatEnabled && pttUsesCatPort);
-    bool rigPttReleased = true;
-    if (pttViaRigController && m_rigController != nullptr) {
-        rigPttReleased = invokeRigPttBlocking(false);
-    }
-
-    if (m_pttSerial.isOpen()) {
-        m_pttSerial.setRequestToSend(false);
-        m_pttSerial.setDataTerminalReady(false);
-        m_pttSerial.close();
-    }
-
-    m_txRunning = false;
-    setReceiverRunning(m_rxRunning);
-
-    if (pttViaRigController) {
-        appendLog(rigPttReleased
-                      ? QStringLiteral("Hamlib/CAT-port PTT OFF.")
-                      : QStringLiteral("PTT TEST ERROR: Hamlib did not confirm PTT OFF; transmitter state is unknown."));
-    } else {
-        appendLog(QStringLiteral("PTT serial line OFF."));
-    }
+    unkeyPttAfterTx();
+    m_txRunning=false;setReceiverRunning(m_rxRunning);
 }
+
 
 void MainWindow::txToneTest()
 {
@@ -25197,7 +24827,7 @@ void MainWindow::txToneTest()
         return;
     }
 
-    if (m_txRunning ||
+    if (m_txPreparationPending || m_txRunning ||
         m_ftTxWorkerRunning ||
         (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
         stopImageTx();

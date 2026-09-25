@@ -81,9 +81,9 @@ cw_tracker=must(Path('modems/cw/skimmer/SelectedToneCwTracker.cpp'),
 # Use direct checks for multiline constructs whose whitespace is intentionally
 # not an API contract.
 if 'm_fastResumeCwRttyRxPending' not in main or \
-   'm_rttyDecoder->resumeAfterLocalTransmit()' not in main or \
-   'm_rttyMultiDecoder->resumeAfterLocalTransmit()' not in main or \
-   'm_cwDecoder->resumeAfterLocalTransmit()' not in main:
+   'invokeRxDecoder(m_rttyDecoder, &RttyDecoder::resumeAfterLocalTransmit)' not in main or \
+   'invokeRxDecoder(m_rttyMultiDecoder, &RttyMultiDecoder::resumeAfterLocalTransmit)' not in main or \
+   'invokeRxDecoder(m_cwDecoder, &CwDecoder::resumeAfterLocalTransmit)' not in main:
     errors.append('mainwindow.cpp: CW/RTTY fast TX-to-RX resume path is incomplete')
 if 'const int rxRestartDelayMs = (ftLowLatencyReturn || fastResumeCwRtty) ? 0 : 250;' not in main:
     errors.append('mainwindow.cpp: CW/RTTY fast resume is not immediate after PTT release')
