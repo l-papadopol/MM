@@ -189,6 +189,7 @@ void AppSettings::load()
     }
     logbookFilePath = settings.value("Logbook/filePath", logbookFilePath).toString().trimmed();
     logbookStrikeWorkedCalls = settings.value("Logbook/strikeWorkedCalls", logbookStrikeWorkedCalls).toBool();
+    logbookUdpTextFormat = qBound(0, settings.value("Logbook/udpTextFormat", 0).toInt(), 2);
     logbookUdpEnabled = settings.value("Logbook/udpEnabled", logbookUdpEnabled).toBool();
     logbookUdpServer = settings.value("Logbook/udpServer", logbookUdpServer).toString().trimmed();
     if (logbookUdpServer.isEmpty()) logbookUdpServer = QStringLiteral("127.0.0.1");
@@ -744,6 +745,7 @@ bool AppSettings::save() const
     settings.setValue("Audio/sampleRate", audioSampleRate);
     settings.setValue("Logbook/filePath", logbookFilePath);
     settings.setValue("Logbook/strikeWorkedCalls", logbookStrikeWorkedCalls);
+    settings.setValue("Logbook/udpTextFormat", logbookUdpTextFormat);
     settings.setValue("Logbook/udpEnabled", logbookUdpEnabled);
     settings.setValue("Logbook/udpServer", logbookUdpServer.trimmed().isEmpty() ? QStringLiteral("127.0.0.1") : logbookUdpServer.trimmed());
     settings.setValue("Logbook/udpPort", qBound(1, logbookUdpPort, 65535));

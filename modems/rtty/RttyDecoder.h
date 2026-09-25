@@ -87,6 +87,7 @@ public:
      * so the user-visible Reverse checkbox remains the single manual state.
      */
     void setAutoReverseEnabled(bool enabled);
+    void setVisualizationEnabled(bool enabled) { m_visualizationEnabled = enabled; }
 
     /**
      * @brief Supplies the current CAT demodulation mode as an automatic-polarity prior.
@@ -303,6 +304,7 @@ private:
     int m_badFrames = 0;
     int m_squelchedStarts = 0;
     int m_statusCounter = 0;
+    bool m_visualizationEnabled = true;
     int m_scopeDecimator = 0;
     QVector<QPointF> m_scopeTrace;
 

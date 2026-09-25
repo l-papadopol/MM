@@ -172,6 +172,7 @@ private:
     QCheckBox *m_chkLogbookUdpEnabled = nullptr;
     QLineEdit *m_editLogbookUdpServer = nullptr;
     QSpinBox *m_spinLogbookUdpPort = nullptr;
+    QComboBox *m_comboLogbookUdpFormat = nullptr;
     QComboBox *m_comboUiTheme = nullptr;
     QCheckBox *m_chkUiUseThemeFont = nullptr;
     QComboBox *m_comboUiFontFamily = nullptr;

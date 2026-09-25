@@ -141,6 +141,9 @@ bool CtyCountryFile::loadFromFile(const QString &path)
             if (t.isEmpty()) {
                 continue;
             }
+            const auto cq = QRegularExpression(QStringLiteral("\\(([0-9]+)\\)")).match(raw);
+            const auto itu = QRegularExpression(QStringLiteral("\\[([0-9]+)\\]")).match(raw);
+            if (cq.hasMatch() || itu.hasMatch()) m_zoneOverrides.insert(t, qMakePair(cq.captured(1).toInt(), itu.captured(1).toInt()));
             if (t.startsWith('=')) {
                 t.remove(0, 1);
                 if (!t.isEmpty()) {
@@ -222,6 +225,9 @@ CtyCountryFile::LookupResult CtyCountryFile::lookupEntityNameOrPrefix(const QStr
             result.entity = m_entities.at(idx);
             result.matchedToken = token;
             result.exactMatch = exact;
+            const auto zones = m_zoneOverrides.value((exact ? QStringLiteral("=") : QString()) + token);
+            if (zones.first > 0) result.entity.cqZone = zones.first;
+            if (zones.second > 0) result.entity.ituZone = zones.second;
         }
     };
 
@@ -293,8 +299,17 @@ CtyCountryFile::LookupResult CtyCountryFile::lookupCallsign(const QString &calls
     // Portable calls are tricky.  Try the whole call first, then try individual
     // components so EA/IZ6NNH or IZ6NNH/P still resolve sensibly.
     QStringList candidates;
-    candidates << call;
     const QStringList parts = call.split('/', Qt::SkipEmptyParts);
+    if (parts.size() > 1) {
+        const QString suffix = parts.last();
+        if (suffix != "P" && suffix != "M" && suffix != "MM" && suffix != "AM" && suffix != "QRP" &&
+            !suffix.contains(QRegularExpression(QStringLiteral("^[0-9]+$")))) {
+            for (const auto &prefix : m_prefixIndex) {
+                if (suffix == prefix.first) { candidates << suffix; break; }
+            }
+        }
+    }
+    candidates << call;
     for (const QString &part : parts) {
         if (!candidates.contains(part)) {
             candidates << part;

@@ -1,0 +1,131 @@
+--- a/dialogs/AppSettingsDialog.cpp
++++ b/dialogs/AppSettingsDialog.cpp
+@@ -453,17 +453,24 @@
+     return cleaned.join(QStringLiteral("\n"));
+ }
+ 
++void fitSettingsButtons(QWidget *root)
++{
++    if (!root) return;
++    for (QPushButton *button : root->findChildren<QPushButton *>()) {
++        button->ensurePolished();
++        const QSize required = button->sizeHint().expandedTo(button->minimumSizeHint());
++        button->setMinimumSize(button->minimumSize().expandedTo(required));
++        button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
++    }
++}
++
+ void compactEmbeddedSettingsWidgets(QWidget *root)
+ {
+     if (root == nullptr) {
+         return;
+     }
+ 
+-    for (QPushButton *button : root->findChildren<QPushButton *>()) {
+-        button->ensurePolished();
+-        button->setMinimumSize(button->minimumSize().expandedTo(button->sizeHint()));
+-        button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+-    }
++    fitSettingsButtons(root);
+     const QList<QComboBox *> combos = root->findChildren<QComboBox *>();
+     for (QComboBox *combo : combos) {
+         if (combo == nullptr) {
+@@ -1112,7 +1119,7 @@
+     compactEmbeddedSettingsWidgets(m_logbookPage);
+     logbookLayout->addWidget(m_logbookPage);
+ 
+-    QHBoxLayout *topRow = new QHBoxLayout;
++    QVBoxLayout *topRow = new QVBoxLayout;
+     topRow->setContentsMargins(0, 0, 0, 0);
+     topRow->setSpacing(10);
+     QWidget *appearancePanel = makeAppearancePage();
+@@ -1311,6 +1318,8 @@
+     layout->addWidget(colourEditor);
+     layout->addStretch(1);
+ 
++    fitSettingsButtons(holder);
++    layout->setSizeConstraint(QLayout::SetMinAndMaxSize);
+     scroll->setWidget(holder);
+     return scroll;
+ }
+@@ -2125,6 +2134,13 @@
+         "QPushButton { text-align: left; padding-left: 6px; font-family: monospace; }"
+         "QPushButton:disabled { color: palette(disabled, text); }"));
+     button->setToolTip(name);
++    // Native Windows styles include icon, font and frame metrics in sizeHint.
++    // A fixed 128 px floor alone can be smaller than the painted content.
++    button->ensurePolished();
++    button->setMinimumSize(button->sizeHint().expandedTo(button->minimumSizeHint())
++                              .expandedTo(QSize(128, 0)));
++    button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
++    button->updateGeometry();
+ }
+ 
+ void AppSettingsDialog::chooseColour(ColourButton *entry)
+--- a/tests/SettingsUiRegression.h
++++ b/tests/SettingsUiRegression.h
+@@ -1,4 +1,8 @@
+ #pragma once
++#include <QStyleFactory>
++#include <QFont>
++#include <QScrollArea>
++#include <QScrollBar>
+ inline int runSettingsUiRegression(QApplication &app) {
+         bool ok = true;
+         QTextStream out(stdout);
+@@ -6,6 +10,13 @@
+         parent.resize(800, 600);
+         parent.show();
+         AppSettings settings;
++        const QFont originalFont = app.font();
++        for (const QString &styleName : QStyleFactory::keys()) {
++        app.setStyle(QStyleFactory::create(styleName));
++        for (const double pointSize : {9.0, 14.0}) {
++        QFont font = originalFont;
++        font.setPointSizeF(pointSize);
++        app.setFont(font);
+         for (const QString &language : {QStringLiteral("en"), QStringLiteral("it"), QStringLiteral("de"),
+                                        QStringLiteral("fr"), QStringLiteral("no"), QStringLiteral("cs")}) {
+             MadModemI18n::setLanguageCode(language);
+@@ -25,21 +36,33 @@
+                         if (!button->isVisible() || button->text().isEmpty()) continue;
+                         if (button->width() < button->minimumSizeHint().width() ||
+                             button->height() < button->minimumSizeHint().height()) {
+-                            out << "CLIPPED\t" << language << "\t" << page << "\t" << button->text() << "\n";
++                            out << "CLIPPED\t" << styleName << "\t" << pointSize << "pt\t" << button->width() << "x" << button->height() << " required=" << button->minimumSizeHint().width() << "x" << button->minimumSizeHint().height() << "\t" << language << "\t" << page << "\t" << button->text() << "\n";
+                             languageOk = false;
+                         }
+                     }
+                     const QString captureDir = qEnvironmentVariable("MADMODEM_UI_CAPTURE_DIR");
+                     if (!captureDir.isEmpty()) {
+                         QDir().mkpath(captureDir);
+-                        dialog.grab().save(QDir(captureDir).filePath(QStringLiteral("settings_%1_%2.png").arg(language).arg(page)));
++                        dialog.grab().save(QDir(captureDir).filePath(QStringLiteral("settings_%1_%2_%3_%4.png").arg(styleName).arg(pointSize).arg(language).arg(page)));
++                        // Include controls below the fold, especially the colour buttons.
++                        for (QScrollArea *area : tabs->currentWidget()->findChildren<QScrollArea *>()) {
++                            area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
++                        }
++                        if (auto *area = qobject_cast<QScrollArea *>(tabs->currentWidget())) {
++                            area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());
++                        }
++                        app.processEvents();
++                        dialog.grab().save(QDir(captureDir).filePath(QStringLiteral("settings_%1_%2_%3_%4_bottom.png").arg(styleName).arg(pointSize).arg(language).arg(page)));
+                     }
+                 }
+             } else languageOk = false;
+-            out << (languageOk ? "PASS" : "FAIL") << " Settings geometry/buttons " << language << "\n";
++            out << (languageOk ? "PASS" : "FAIL") << " Settings geometry/buttons " << styleName << " " << pointSize << "pt " << language << "\n";
+             ok &= languageOk;
+             dialog.close();
+         }
++        }
++        }
++        app.setFont(originalFont);
+         return ok ? 0 : 1;
+     }
+ 
+--- a/MADMODEM_SOURCE_REVISION.txt
++++ b/MADMODEM_SOURCE_REVISION.txt
+@@ -1 +1 @@
+-0.5.9-alpha-source-r6-runtime-ui-rotator-hardening
++0.5.9-alpha-source-r6.1-windows-settings-layout

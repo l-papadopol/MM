@@ -2513,20 +2513,22 @@
             "id": "CQZONE",
             "label": "Zona CQ",
             "type": "zone",
-            "source": "my_cq_zone"
+            "source": "station_setting:CQZONE",
+            "regex": "^(?:0?[1-9]|[1-3][0-9]|40)$"
           },
           {
             "id": "QTH",
             "label": "State/Province",
             "type": "text",
             "source": "station_setting:LOCATION",
-            "required": false,
+            "required": true,
             "when": {
               "own_primary_prefix_in": [
                 "K",
                 "VE"
               ]
-            }
+            },
+            "regex": "^(?:AL|AR|AZ|CA|CO|CT|DE|FL|GA|IA|ID|IL|IN|KS|KY|LA|MA|MD|ME|MI|MN|MO|MS|MT|NC|ND|NE|NH|NJ|NM|NV|NY|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VA|VT|WA|WI|WV|WY|DC|AB|BC|MB|NB|NF|LB|NS|NWT|NU|ON|PEI|QC|SK|YT)$"
           }
         ],
         "received": [
@@ -2539,46 +2541,47 @@
             "id": "CQZONE",
             "label": "Zona CQ RX",
             "type": "zone",
-            "regex": "^\\d{1,2}$"
+            "regex": "^(?:0?[1-9]|[1-3][0-9]|40)$"
           },
           {
             "id": "QTH",
             "label": "State/Province RX",
             "type": "text",
-            "required": false,
+            "required": true,
             "when": {
               "dx_primary_prefix_in": [
                 "K",
                 "VE"
               ]
-            }
+            },
+            "regex": "^(?:AL|AR|AZ|CA|CO|CT|DE|FL|GA|IA|ID|IL|IN|KS|KY|LA|MA|MD|ME|MI|MN|MO|MS|MT|NC|ND|NE|NH|NJ|NM|NV|NY|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VA|VT|WA|WI|WV|WY|DC|AB|BC|MB|NB|NF|LB|NS|NWT|NU|ON|PEI|QC|SK|YT)$"
           }
         ]
       },
       "macros": [
         {
           "label": "CQ CQWW RTTY",
-          "text": "CQ CQWW RTTY {MYCALL} {MYCALL} CQ "
+          "text": "\r\nCQ CQWW RTTY {MYCALL} {MYCALL} CQ\r\n"
         },
         {
           "label": "Rispondi",
-          "text": "{CALL} {EXCHANGE_SENT} {CALL} "
+          "text": "\r\n{CALL} {EXCHANGE_SENT} {CALL}\r\n"
         },
         {
           "label": "Exchange",
-          "text": "{EXCHANGE_SENT} {EXCHANGE_SENT} "
+          "text": "\r\n{EXCHANGE_SENT} {EXCHANGE_SENT}\r\n"
         },
         {
           "label": "AGN?",
-          "text": "AGN? AGN? "
+          "text": "\r\nAGN? AGN?\r\n"
         },
         {
           "label": "NR? / EXCH?",
-          "text": "NR? EXCH? "
+          "text": "\r\nNR? EXCH?\r\n"
         },
         {
           "label": "TU / QRZ",
-          "text": "TU {MYCALL} QRZ "
+          "text": "\r\nTU {MYCALL} QRZ\r\n"
         }
       ],
       "scoring": {
@@ -2605,13 +2608,13 @@
           {
             "id": "zone",
             "label": "Zone CQ",
-            "source": "cq_zone",
+            "source": "field:CQZONE",
             "scope": "band"
           },
           {
             "id": "dxcc",
             "label": "DXCC",
-            "source": "dxcc",
+            "source": "contest_country",
             "scope": "band"
           },
           {

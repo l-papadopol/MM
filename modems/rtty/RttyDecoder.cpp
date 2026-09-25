@@ -307,8 +307,7 @@ void RttyDecoder::processAudioBlock(const AudioBlock &block)
         const double sumEnergy = markEnergy + spaceEnergy + 1.0e-14;
         const double diffNorm = (markEnergy - spaceEnergy) / sumEnergy;
         const double bitQuality = qAbs(diffNorm);
-        ++m_scopeDecimator;
-        if (m_scopeDecimator >= 24) {
+        if (m_visualizationEnabled && ++m_scopeDecimator >= 24) {
             m_scopeDecimator = 0;
 
             /*
@@ -824,6 +823,7 @@ void RttyDecoder::evaluateAutomaticPolarity()
 
 void RttyDecoder::maybeEmitStatus()
 {
+    if (!m_visualizationEnabled) return;
     ++m_statusCounter;
     if (m_statusCounter < 10) {
         return;

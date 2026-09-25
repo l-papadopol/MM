@@ -453,17 +453,24 @@ QString callsToText(const QStringList &calls)
     return cleaned.join(QStringLiteral("\n"));
 }
 
+void fitSettingsButtons(QWidget *root)
+{
+    if (!root) return;
+    for (QPushButton *button : root->findChildren<QPushButton *>()) {
+        button->ensurePolished();
+        const QSize required = button->sizeHint().expandedTo(button->minimumSizeHint());
+        button->setMinimumSize(button->minimumSize().expandedTo(required));
+        button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    }
+}
+
 void compactEmbeddedSettingsWidgets(QWidget *root)
 {
     if (root == nullptr) {
         return;
     }
 
-    for (QPushButton *button : root->findChildren<QPushButton *>()) {
-        button->ensurePolished();
-        button->setMinimumSize(button->minimumSize().expandedTo(button->sizeHint()));
-        button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
-    }
+    fitSettingsButtons(root);
     const QList<QComboBox *> combos = root->findChildren<QComboBox *>();
     for (QComboBox *combo : combos) {
         if (combo == nullptr) {
@@ -1112,7 +1119,7 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     compactEmbeddedSettingsWidgets(m_logbookPage);
     logbookLayout->addWidget(m_logbookPage);
 
-    QHBoxLayout *topRow = new QHBoxLayout;
+    QVBoxLayout *topRow = new QVBoxLayout;
     topRow->setContentsMargins(0, 0, 0, 0);
     topRow->setSpacing(10);
     QWidget *appearancePanel = makeAppearancePage();
@@ -1168,7 +1175,12 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     udpInfo->setStyleSheet(QStringLiteral("color: palette(mid);"));
     udpGrid->addWidget(udpInfo, 2, 0, 1, 4);
 
+    m_comboLogbookUdpFormat = new QComboBox(udpGroup);
+    m_comboLogbookUdpFormat->addItems({QStringLiteral("CW/RTTY: QSO + ADIF"), QStringLiteral("CW/RTTY: QSO Logged (5)"), QStringLiteral("CW/RTTY: Logged ADIF (12)")});
+    m_comboLogbookUdpFormat->setCurrentIndex(m_initialSettings.logbookUdpTextFormat);
+    udpGrid->addWidget(m_comboLogbookUdpFormat, 3, 0, 1, 4);
     auto refreshUdpControls = [this](bool enabled) {
+        if (m_comboLogbookUdpFormat) m_comboLogbookUdpFormat->setEnabled(enabled);
         if (m_editLogbookUdpServer != nullptr) m_editLogbookUdpServer->setEnabled(enabled);
         if (m_spinLogbookUdpPort != nullptr) m_spinLogbookUdpPort->setEnabled(enabled);
     };
@@ -1311,6 +1323,8 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     layout->addWidget(colourEditor);
     layout->addStretch(1);
 
+    fitSettingsButtons(holder);
+    layout->setSizeConstraint(QLayout::SetMinAndMaxSize);
     scroll->setWidget(holder);
     return scroll;
 }
@@ -2125,6 +2139,13 @@ void AppSettingsDialog::setColourButton(QPushButton *button, const QColor &colou
         "QPushButton { text-align: left; padding-left: 6px; font-family: monospace; }"
         "QPushButton:disabled { color: palette(disabled, text); }"));
     button->setToolTip(name);
+    // Native Windows styles include icon, font and frame metrics in sizeHint.
+    // A fixed 128 px floor alone can be smaller than the painted content.
+    button->ensurePolished();
+    button->setMinimumSize(button->sizeHint().expandedTo(button->minimumSizeHint())
+                              .expandedTo(QSize(128, 0)));
+    button->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::Fixed);
+    button->updateGeometry();
 }
 
 void AppSettingsDialog::chooseColour(ColourButton *entry)
@@ -2343,6 +2364,7 @@ void AppSettingsDialog::collectSettings()
     }
     if (m_spinLogbookUdpPort != nullptr) {
         merged.logbookUdpPort = m_spinLogbookUdpPort->value();
+        if (m_comboLogbookUdpFormat) merged.logbookUdpTextFormat = m_comboLogbookUdpFormat->currentIndex();
     }
     if (m_comboUiTheme != nullptr) {
         merged.uiTheme = m_comboUiTheme->currentData().toString().trimmed().toLower();

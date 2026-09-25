@@ -26,6 +26,7 @@ public:
         quint64 txFrequencyHz = 0;
         QString operatorCall;
         QString revision;
+        int messageFormat = 0; // bundle / QSO Logged only / Logged ADIF only
     };
 
     struct SendResult

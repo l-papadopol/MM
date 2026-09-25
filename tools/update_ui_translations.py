@@ -1255,6 +1255,16 @@ for _key, _translations in FT_SPLIT_TRANSLATIONS.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
 
+
+R7_TRANSLATIONS = {
+    "contest_invalid_tx": {"it":"Controlla lo scambio TX: %1", "fr":"Vérifiez l’échange TX : %1", "de":"TX-Austausch prüfen: %1", "no":"Kontroller TX-utveksling: %1", "cs":"Zkontrolujte vysílané údaje: %1"},
+    "text.invalid_missing_1": {"it":"Non valido o mancante: %1", "fr":"Incorrect ou manquant : %1", "de":"Ungültig oder fehlend: %1", "no":"Ugyldig eller mangler: %1", "cs":"Neplatné nebo chybějící: %1"},
+}
+for _key, _values in R7_TRANSLATIONS.items():
+    for _lang, _value in _values.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

@@ -1,3 +1,21 @@
+# 0.5.9-alpha R7 — RTTY / CQ WW
+
+Corretti avvio LTRS, AFC RX a shift fisso, continuità RX dopo TX, scambi contest
+e scoring CQ WW. Aggiunti export Cabrillo e selezione formato UDP; ottimizzato
+lo scanner multidecoder. Conservate le correzioni UI/rotore delle R6/R6.1.
+Vedere `R7_CORREZIONI_E_TEST.md` per uso, prove e limiti.
+
+---
+
+# 0.5.9-alpha R6.1 — 2026-09-24
+
+Corretto il dimensionamento dei pulsanti Impostazioni segnalato dalla CI Windows.
+Test UI esteso a più stili e font. Incluso audit funzionale RTTY/contest/logbook;
+i difetti RTTY elencati nel rapporto restano aperti. Dettagli e limiti della
+validazione in `R6_1_CORREZIONI_E_TEST.md`.
+
+---
+
 ## Source revision R6 — 23 September 2026
 
 See [R6 corrections, tests and remaining issues](R6_CORREZIONI_E_TEST.md) for this source package. Public application version remains 0.5.9-alpha.

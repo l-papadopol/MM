@@ -1,3 +1,4 @@
+#include "modems/rtty/RttyAfc.h"
 #include "audio/AudioContinuity.h"
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
@@ -2214,6 +2215,7 @@ private:
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;
     int m_textAfcSamplesSinceUpdate = 0;
+    RttyAfc::Tracker m_rttyAfc;
     qint64 m_lastRxDispatcherDropLogUtcMs = 0;
 
     QString m_pendingModeName;

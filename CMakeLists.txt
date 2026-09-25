@@ -1137,3 +1137,15 @@ if(MADMODEM_BUILD_CW_TESTS)
     target_include_directories(MadModemCwNativeRegression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(MadModemCwNativeRegression PRIVATE madmodem_cwskimmer)
 endif()
+
+if(BUILD_TESTING)
+    add_executable(madmodem_rtty_contest_regression tests/RttyContestRegression.cpp
+        modems/rtty/RttyDecoder.cpp modems/rtty/RttyMultiDecoder.cpp
+        modems/rtty/tx/RttyTransmitter.cpp dsp/common/DspConditioner.cpp
+        logbook/AdifLogbook.cpp dxcc/CtyCountryFile.cpp network/QsoUdpBroadcaster.cpp)
+    target_include_directories(madmodem_rtty_contest_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_rtty_contest_regression PRIVATE ${QT}::Core ${QT}::Gui ${QT}::Network)
+    add_custom_command(TARGET madmodem_rtty_contest_regression POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cty.csv $<TARGET_FILE_DIR:madmodem_rtty_contest_regression>/cty.csv)
+    add_test(NAME madmodem_rtty_contest_regression COMMAND madmodem_rtty_contest_regression)
+endif()

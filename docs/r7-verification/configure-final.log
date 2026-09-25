@@ -1,0 +1,19 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- MadModem package/app version: 0.5.9-alpha
+-- MadModem source revision: 0.5.9-alpha-source-r6.1-windows-settings-layout
+-- MadModem LTO/IPO disabled by default to avoid GCC/LTO private-slot link regressions
+-- MadModem portable CPU baseline: global AVX2/FMA disabled; runtime-dispatched kernels may still use AVX2 on capable CPUs.
+-- Qt Location QSO map backend not available; using offline planet_map.jpg fallback
+-- Qt Help backend enabled for the MM online manual
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Hamlib support enabled via pkg-config: 4.5.5
+-- Configuring done (0.4s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/scratch/568f9cc8dc74/build-r7-qt5

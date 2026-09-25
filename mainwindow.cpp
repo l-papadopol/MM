@@ -1,3 +1,4 @@
+#include "logbook/CqWwRtty.h"
 #include "mainwindow.h"
 #include "MadModemVersion.h"
 #include "ui_mainwindow.h"
@@ -3031,6 +3032,13 @@ QWidget *MainWindow::createQsoFormPanel(QWidget *parent, const QString &modeLabe
                 addQsoToLogFromForm(form);
             });
 
+    connect(form->callsign, &QLineEdit::textChanged, this, [this, form]() {
+        if (form != contestQsoForm()) return;
+        for (auto *edit : m_rttyContestReceivedFieldEdits) if (edit) edit->clear();
+        if (form->grid) form->grid->clear();
+        m_rttyContestLastRxLine.clear();
+    });
+
     // A valid text-mode locator is also a precise rotator target.  Do not
     // derive a V/U/SHF bearing from a country centroid: QSO tracking is armed
     // only when the operator/decoder has supplied a real Maidenhead locator.
@@ -3202,11 +3210,11 @@ void MainWindow::broadcastLoggedQsoUdp(const LogbookEntry &entry)
     QsoUdpBroadcaster::SendResult result;
     if (contestTextMode) {
         QsoUdpBroadcaster::SendContext context;
-        context.myCall = stationCallsign();
+        context.messageFormat = m_settings.logbookUdpTextFormat;
+        context.myCall = entry.stationCallsign;
         context.myGrid = stationLocator();
-        context.operatorCall = stationCallsign();
-        context.txFrequencyHz = m_lastRigFrequencyHz > 0.0
-            ? static_cast<quint64>(qRound64(m_lastRigFrequencyHz)) : 0U;
+        context.operatorCall = entry.operatorCall;
+        context.txFrequencyHz = static_cast<quint64>(qRound64(entry.freq.toDouble() * 1.0e6));
         result = QsoUdpBroadcaster::sendQsoLoggedBundle(
             entry, context, server, port, QCoreApplication::applicationVersion());
     } else {
@@ -3262,6 +3270,11 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
     entry.mode = form->mode != nullptr ? form->mode->text().trimmed().toUpper() : currentAdifMode();
     entry.grid = form->grid != nullptr ? form->grid->text().trimmed().toUpper() : QString();
     entry.utc = QDateTime::currentDateTimeUtc();
+    entry.utcEnd = entry.utc;
+    entry.adifFields.insert(QStringLiteral("APP_MADMODEM_QSO_ID"), QUuid::createUuid().toString(QUuid::WithoutBraces));
+    entry.stationCallsign = stationCallsign();
+    entry.operatorCall = stationCallsign();
+    if (m_lastRigFrequencyHz > 0.0) entry.freq = QString::number(m_lastRigFrequencyHz / 1.0e6, 'f', 6);
 
     if (entry.callsign.isEmpty()) {
         QMessageBox::information(this,
@@ -3281,6 +3294,23 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
     }
 
     if (contestProfile != nullptr) {
+        QStringList missing;
+        if (!contestProfile->bands.isEmpty() && !contestProfile->bands.contains(entry.band)) missing << QStringLiteral("Band");
+        for (bool sent : {true, false}) {
+            const auto &fields = sent ? contestProfile->sentFields : contestProfile->receivedFields;
+            for (const auto &field : fields) {
+                if (!rttyContestConditionMatches(field.when, &entry, entry.callsign)) continue;
+                const QString value = rttyContestFieldValue(field, sent);
+                if ((field.required && value.isEmpty()) ||
+                    (!value.isEmpty() && !field.regex.isEmpty() && !QRegularExpression(field.regex, QRegularExpression::CaseInsensitiveOption).match(value).hasMatch()) ||
+                    (field.type == QStringLiteral("zone") && !value.isEmpty() && (value.toInt() < 1 || value.toInt() > 40)))
+                    missing << (sent ? QStringLiteral("TX ") : QStringLiteral("RX ")) + field.label;
+            }
+        }
+        if (!missing.isEmpty()) {
+            QMessageBox::warning(this, QStringLiteral("Contest"), QStringLiteral("Invalid / missing: %1").arg(missing.join(QStringLiteral(", "))));
+            return false;
+        }
         entry.adifFields.insert(QStringLiteral("CONTEST_ID"), contestProfile->cabrilloId);
         ensureRttyContestSession(false);
         entry.adifFields.insert(contestAdifRuleKey(), contestProfile->id);
@@ -3292,6 +3322,7 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
             if (!value.isEmpty()) {
                 entry.adifFields.insert(contestFieldAdifKey(QStringLiteral("TX"), field.id), value);
                 if (field.id == QStringLiteral("SERIAL")) entry.adifFields.insert(QStringLiteral("STX"), value);
+                if (field.id == QStringLiteral("CQZONE")) entry.adifFields.insert(QStringLiteral("MY_CQ_ZONE"), value);
             }
         }
         for (const RttyContestFieldRule &field : contestProfile->receivedFields) {
@@ -3299,11 +3330,33 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
             if (!value.isEmpty()) {
                 entry.adifFields.insert(contestFieldAdifKey(QStringLiteral("RX"), field.id), value);
                 if (field.id == QStringLiteral("SERIAL")) entry.adifFields.insert(QStringLiteral("SRX"), value);
+                if (field.id == QStringLiteral("CQZONE")) entry.adifFields.insert(QStringLiteral("CQZ"), value);
+                if (field.id == QStringLiteral("QTH")) {
+                    QString state = value;
+                    if (value == QStringLiteral("NF") || value == QStringLiteral("LB")) state = QStringLiteral("NL");
+                    else if (value == QStringLiteral("NWT")) state = QStringLiteral("NT");
+                    else if (value == QStringLiteral("PEI")) state = QStringLiteral("PE");
+                    entry.adifFields.insert(QStringLiteral("STATE"), state);
+                }
                 if (field.type == QStringLiteral("locator") && entry.grid.isEmpty()) entry.grid = value;
             }
         }
     }
 
+    if (contestProfile && contestProfile->id == QStringLiteral("cq_ww_rtty")) {
+        if (entry.freq.isEmpty()) {
+            bool accepted = false;
+            const double mhz = QInputDialog::getDouble(this, QStringLiteral("CQ WW RTTY"),
+                QStringLiteral("MHz"), 14.085, 1.0, 30.0, 6, &accepted);
+            if (!accepted) return false;
+            entry.freq = QString::number(mhz, 'f', 6);
+        }
+        const QString why = CqWwRtty::validate(entry);
+        if (!why.isEmpty()) {
+            QMessageBox::warning(this, QStringLiteral("CQ WW RTTY"), why);
+            return false;
+        }
+    }
     const bool wasKnown = m_logbook.containsCallsign(entry.callsign);
     QString error;
     if (!m_logbook.append(entry, &error)) {
@@ -3348,6 +3401,12 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
         refreshTextMacroButtons();
     }
 
+    if (contestProfile != nullptr) {
+        form->callsign->clear();
+        for (auto *edit : m_rttyContestReceivedFieldEdits) if (edit) edit->clear();
+        m_rttyContestLastRxLine.clear();
+        return true;
+    }
     QMessageBox::information(this,
                              uiText("add_qso_to_log", "Add QSO to log"),
                              uiText("qso_saved_to_adif", "QSO with %1 saved to ADIF logbook.%2")
@@ -3358,7 +3417,7 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
 
 QString MainWindow::extractCallsignFromText(const QString &text) const
 {
-    const QRegularExpression re(QStringLiteral("\\b[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?\\b"),
+    const QRegularExpression re(QStringLiteral("(?<![A-Z0-9/])(?:[A-Z0-9]{1,4}/)?[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?(?![A-Z0-9/])"),
                                 QRegularExpression::CaseInsensitiveOption);
     const QRegularExpressionMatch match = re.match(text.toUpper());
     if (match.hasMatch()) {
@@ -3398,7 +3457,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                     event->accept();
                     return true;
                 }
-                const QRegularExpression re(QStringLiteral("\\b[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?\\b"),
+                const QRegularExpression re(QStringLiteral("(?<![A-Z0-9/])(?:[A-Z0-9]{1,4}/)?[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?(?![A-Z0-9/])"),
                                             QRegularExpression::CaseInsensitiveOption);
                 QRegularExpressionMatchIterator it = re.globalMatch(text);
                 while (it.hasNext()) {
@@ -3574,7 +3633,7 @@ void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
         return false;
     };
 
-    const QRegularExpression re(QStringLiteral("\\b[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?\\b"),
+    const QRegularExpression re(QStringLiteral("(?<![A-Z0-9/])(?:[A-Z0-9]{1,4}/)?[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?(?![A-Z0-9/])"),
                                 QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatchIterator it = re.globalMatch(text);
     while (it.hasNext()) {
@@ -4820,7 +4879,6 @@ void MainWindow::rebuildRttyContestFieldEditors()
             });
         } else if (!sent) {
             connect(edit, &QLineEdit::textChanged, this, [this]() {
-                refreshRttyContestScore();
                 if (m_txtRttyRx != nullptr) {
                     highlightCallsignsInTerminal(m_txtRttyRx);
                 }
@@ -4946,6 +5004,8 @@ bool MainWindow::rttyContestConditionMatches(const QJsonObject &condition,
         if (key == QStringLiteral("same_country")) {
             if (!own.valid || !dx.valid) return false;
             matched = !own.entity.dxcc.isEmpty() && own.entity.dxcc == dx.entity.dxcc;
+            if (currentRttyContestProfile() && currentRttyContestProfile()->id == QStringLiteral("cq_ww_rtty"))
+                matched = own.entity.primaryPrefix == dx.entity.primaryPrefix;
             if (matched != value.toBool()) return false;
             continue;
         }
@@ -4966,6 +5026,7 @@ bool MainWindow::rttyContestConditionMatches(const QJsonObject &condition,
             continue;
         }
         if (key == QStringLiteral("dx_primary_prefix_in") || key == QStringLiteral("not_dx_primary_prefix_in")) {
+            if (call.endsWith(QStringLiteral("/MM")) && currentRttyContestProfile() && currentRttyContestProfile()->id == QStringLiteral("cq_ww_rtty")) return false;
             if (!dx.valid) return false;
             matched = inList(dx.entity.primaryPrefix.toUpper(), jsonList(value));
             if ((key.startsWith(QStringLiteral("not_")) ? matched : !matched)) return false;
@@ -5189,12 +5250,12 @@ void MainWindow::processRttyContestRxLine(const QString &line)
     }
     const QString upper = line.simplified().toUpper();
     const QString myCall = stationCallsign();
-    if (upper.isEmpty() || myCall.isEmpty() || !upper.contains(myCall, Qt::CaseInsensitive)) {
+    if (upper.isEmpty() || myCall.isEmpty() || !upper.split(QRegularExpression(QStringLiteral("[^A-Z0-9/]+")), Qt::SkipEmptyParts).contains(myCall.toUpper())) {
         return; // Automatic fill is intentionally conservative; click-to-fill remains available on every line.
     }
 
     QString dxCall;
-    const QRegularExpression callRe(QStringLiteral("\\b[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?\\b"), QRegularExpression::CaseInsensitiveOption);
+    const QRegularExpression callRe(QStringLiteral("(?<![A-Z0-9/])(?:[A-Z0-9]{1,4}/)?[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?(?![A-Z0-9/])"), QRegularExpression::CaseInsensitiveOption);
     QRegularExpressionMatchIterator calls = callRe.globalMatch(upper);
     while (calls.hasNext()) {
         const QString call = AdifLogbook::normalizeCallsign(calls.next().captured(0));
@@ -5204,7 +5265,9 @@ void MainWindow::processRttyContestRxLine(const QString &line)
         }
     }
     if (!dxCall.isEmpty() && contestQsoForm()->callsign != nullptr) {
-        contestQsoForm()->callsign->setText(dxCall);
+        const QString current = contestQsoForm()->callsign->text().trimmed().toUpper();
+        if (!current.isEmpty() && current != dxCall) return;
+        if (current != dxCall) contestQsoForm()->callsign->setText(dxCall);
     }
 
     QStringList tokens;
@@ -5216,6 +5279,11 @@ void MainWindow::processRttyContestRxLine(const QString &line)
     auto findToken = [&](const RttyContestFieldRule &field) -> QString {
         for (int i = 0; i < tokens.size(); ++i) {
             if (used.contains(i)) continue;
+            if (field.id == QStringLiteral("QTH")) {
+                bool afterReport = false;
+                for (int index : used) if (index < i) afterReport = true;
+                if (!afterReport) continue;
+            }
             const QString token = tokens.at(i);
             if (token == myCall || token == dxCall) continue;
             bool match = false;
@@ -5334,7 +5402,10 @@ void MainWindow::ensureRttyContestSession(bool forceNew)
     const QString base = contestSettingsRoot() + QStringLiteral("/session/%1/").arg(profile->id);
     QString id = settings.value(base + QStringLiteral("id")).toString().trimmed();
     QDateTime started = QDateTime::fromString(settings.value(base + QStringLiteral("startedUtc")).toString(), Qt::ISODate);
-    if (forceNew || id.isEmpty() || !started.isValid()) {
+    const auto now = QDateTime::currentDateTimeUtc();
+    const bool newEdition = profile->id == QStringLiteral("cq_ww_rtty") &&
+        (started.date().year() != now.date().year() || CqWwRtty::inPeriod(started) != CqWwRtty::inPeriod(now));
+    if (forceNew || newEdition || id.isEmpty() || !started.isValid()) {
         id = QUuid::createUuid().toString(QUuid::WithoutBraces);
         started = QDateTime::currentDateTimeUtc();
         settings.setValue(base + QStringLiteral("id"), id);
@@ -5391,7 +5462,25 @@ void MainWindow::refreshRttyContestScore()
     int validQso = 0;
     bool scoreScopeComplete = true;
 
-    for (const LogbookEntry &entry : entries) {
+    if (profile->id == QStringLiteral("cq_ww_rtty")) {
+        const auto score = CqWwRtty::score(entries, m_rttyContestActiveSessionStartedUtc.date().year());
+        validQso = score.qsos;
+        points = score.points;
+        multKeys = score.multipliers;
+    } else for (const LogbookEntry &entry : entries) {
+        if (!profile->bands.isEmpty() && !profile->bands.contains(entry.band.toLower())) continue;
+        bool exchangeValid = true;
+        for (const auto &field : profile->receivedFields) {
+            if (!rttyContestConditionMatches(field.when, &entry, entry.callsign)) continue;
+            const QString value = field.type == QStringLiteral("rst") ? entry.rstReceived :
+                field.type == QStringLiteral("call") ? entry.callsign :
+                field.type == QStringLiteral("locator") ? entry.grid : entry.adifFields.value(contestFieldAdifKey(QStringLiteral("RX"), field.id));
+            if ((field.required && value.isEmpty()) || (!value.isEmpty() && !field.regex.isEmpty() && !QRegularExpression(field.regex, QRegularExpression::CaseInsensitiveOption).match(value).hasMatch())) exchangeValid = false;
+        }
+        if (!exchangeValid) continue;
+        if (profile->id == QStringLiteral("cq_ww_rtty") &&
+            (!CqWwRtty::validate(entry).isEmpty() || !CqWwRtty::inPeriod(entry.utc) ||
+             entry.utc.toUTC().date().year() != m_rttyContestActiveSessionStartedUtc.date().year())) continue;
         QString dupeKey = AdifLogbook::normalizeCallsign(entry.callsign);
         const QString periodId = rttyContestPeriodId(*profile, entry.utc);
         if (profile->dupeScope == QStringLiteral("band")) {
@@ -5434,13 +5523,15 @@ void MainWindow::refreshRttyContestScore()
             }
             break;
         }
+        if (profile->id == QStringLiteral("cq_ww_rtty")) qsoPoints = CqWwRtty::points(entry);
         points += qsoPoints;
 
         const auto dx = CtyCountryFile::instance().lookupCallsign(entry.callsign);
         for (const RttyContestMultiplierRule &mult : profile->scoring.multipliers) {
             if (!rttyContestConditionMatches(mult.when, &entry, entry.callsign)) continue;
             QString value;
-            if (mult.source == QStringLiteral("dxcc") && dx.valid) value = dx.entity.dxcc;
+            if (mult.source == QStringLiteral("contest_country") && dx.valid && !entry.callsign.endsWith(QStringLiteral("/MM"))) value = dx.entity.primaryPrefix;
+            else if (mult.source == QStringLiteral("dxcc") && dx.valid) value = dx.entity.dxcc;
             else if (mult.source == QStringLiteral("continent") && dx.valid) value = dx.entity.continent;
             else if (mult.source == QStringLiteral("cq_zone") && dx.valid && dx.entity.cqZone > 0) value = QString::number(dx.entity.cqZone);
             else if (mult.source == QStringLiteral("call")) value = AdifLogbook::normalizeCallsign(entry.callsign);
@@ -5468,6 +5559,7 @@ void MainWindow::refreshRttyContestScore()
                 value = useCallArea ? rttyContestCallArea(entry.callsign) : dx.entity.dxcc;
             }
             if (value.isEmpty()) continue;
+            if (profile->id == QStringLiteral("cq_ww_rtty") && mult.source == QStringLiteral("field:CQZONE")) value = CqWwRtty::zoneKey(value);
             QString key = mult.id + QStringLiteral(":") + value.toUpper();
             if (mult.scope == QStringLiteral("band")) {
                 key += QStringLiteral("@") + entry.band.toLower();
@@ -8900,7 +8992,7 @@ void MainWindow::setupHelpTooltips()
         if (m_chkRttyAutoReverse != nullptr) {
             setHelpText(m_chkRttyAutoReverse, "Automatic RTTY polarity: CAT USB/LSB/RTTY mode supplies the initial orientation when available, then live normal/reverse ITA2 framing verifies it. Disable Auto to keep manual Reverse authoritative.");
         }
-        setHelpText(m_chkRttyAfc, "Enable narrow AFC around the current RTTY markers. Mark and Space are searched independently so each carrier can settle on its own local energy peak.");
+        setHelpText(m_chkRttyAfc, "Track a common RX offset around the RTTY markers. AFC preserves the selected shift and never changes the TX tones.");
         setHelpText(m_spinRttyAfcRangeHz, "Maximum AFC search window around each RTTY marker. Start with ±20 Hz; use smaller values for crowded contest bands.");
         setHelpText(m_chkRttyWaterfallTextOverlay, "Show the selected RTTY decoder text vertically between the Mark and Space tones on the waterfall. Disable it for an unobstructed spectrum.");
         setHelpText(m_chkRttyMultiDecode, "Run lightweight parallel RTTY shadow decoders over the waterfall while the main terminal remains tuned to the selected signal.");
@@ -13419,21 +13511,9 @@ void MainWindow::retuneRttyFromAfc(int markHz, int spaceHz)
         return;
     }
 
-    markHz = qBound(m_spinRttyMarkHz->minimum(), markHz, m_spinRttyMarkHz->maximum());
-    spaceHz = qBound(300, spaceHz, 3500);
-    const int shiftHz = spaceHz - markHz;
-    if (shiftHz < m_spinRttyShiftHz->minimum() || shiftHz > m_spinRttyShiftHz->maximum()) {
-        return;
-    }
-
-    const QSignalBlocker blockMark(m_spinRttyMarkHz);
-    const QSignalBlocker blockShift(m_spinRttyShiftHz);
-    m_spinRttyMarkHz->setValue(markHz);
-    m_spinRttyShiftHz->setValue(shiftHz);
-
-    m_rttyDecoder->retuneTones(static_cast<double>(markHz), static_cast<double>(spaceHz));
-    updateWaterfallMarkers();
-    updateTxPreview();
+    // AFC is RX-only. Operator controls remain the immutable TX tone pair.
+    if (spaceHz - markHz != m_spinRttyShiftHz->value()) return;
+    m_rttyDecoder->retuneTones(markHz, spaceHz);
 }
 
 void MainWindow::updateTextModeAfc(const AudioBlock &block)
@@ -13452,6 +13532,15 @@ void MainWindow::updateTextModeAfc(const AudioBlock &block)
         return;
     }
 
+    if (modeName == RttyDecoder::modeName()) {
+        if (m_chkRttyAfc && m_chkRttyAfc->isChecked() && m_spinRttyMarkHz && m_spinRttyShiftHz && m_spinRttyAfcRangeHz) {
+            const int mark=m_spinRttyMarkHz->value(), shift=m_spinRttyShiftHz->value();
+            if (m_rttyAfc.process(block,mark,shift,m_spinRttyAfcRangeHz->value()))
+                retuneRttyFromAfc(mark+m_rttyAfc.offsetHz(),mark+shift+m_rttyAfc.offsetHz());
+        } else m_rttyAfc.reset();
+        return;
+    }
+
     m_textAfcSamplesSinceUpdate += block.samples.size();
     const int updateInterval = qMax(2048, block.sampleRate / 4);
     if (m_textAfcSamplesSinceUpdate < updateInterval) {
@@ -13461,36 +13550,6 @@ void MainWindow::updateTextModeAfc(const AudioBlock &block)
 
     constexpr double searchStepHz = 1.0;
     constexpr int maxStepHz = 3;
-
-    if (modeName == RttyDecoder::modeName()) {
-        if (m_chkRttyAfc == nullptr || !m_chkRttyAfc->isChecked() ||
-            m_spinRttyAfcRangeHz == nullptr ||
-            m_spinRttyMarkHz == nullptr || m_spinRttyShiftHz == nullptr) {
-            return;
-        }
-
-        const int rangeHz = m_spinRttyAfcRangeHz->value();
-        const int oldMark = m_spinRttyMarkHz->value();
-        const int oldSpace = oldMark + m_spinRttyShiftHz->value();
-
-        const AfcTonePeak markPeak = estimateAfcTonePeak(block, static_cast<double>(oldMark), rangeHz, searchStepHz);
-        const AfcTonePeak spacePeak = estimateAfcTonePeak(block, static_cast<double>(oldSpace), rangeHz, searchStepHz);
-
-        int newMark = oldMark;
-        int newSpace = oldSpace;
-        if (markPeak.valid) {
-            newMark = nudgedToneValue(oldMark, markPeak.frequencyHz, maxStepHz,
-                                      m_spinRttyMarkHz->minimum(), m_spinRttyMarkHz->maximum());
-        }
-        if (spacePeak.valid) {
-            newSpace = nudgedToneValue(oldSpace, spacePeak.frequencyHz, maxStepHz, 300, 3500);
-        }
-
-        if ((newMark != oldMark || newSpace != oldSpace) && newSpace > newMark + 20) {
-            retuneRttyFromAfc(newMark, newSpace);
-        }
-        return;
-    }
 
     if (modeName == Bpsk31Decoder::modeName()) {
         if (m_bpsk31Decoder == nullptr ||
@@ -13627,6 +13686,7 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
     }
 
     if (m_rxContinuity.accept(block)) {
+        m_rttyAfc.reset();
         m_decoderConditioner.reset();
         if (modeName == WeatherFaxDecoder::modeName()) m_weatherFaxDecoder->reset();
         else if (modeName == SstvDecoder::modeName()) m_sstvDecoder->reset();
@@ -13652,12 +13712,12 @@ void MainWindow::handleRxAudioBlock(const AudioBlock &block)
     }
 
     if (modeName == RttyDecoder::modeName()) {
+        m_rttyDecoder->processAudioBlock(conditionedBlock);
         if (m_rttyMultiDecoder != nullptr && m_settings.rttyMultiDecodeEnabled) {
             // Parallel monitor must see the wide passband, not the selected
             // RTTY tone bandpass used by the main terminal decoder.
             m_rttyMultiDecoder->processAudioBlock(block);
         }
-        m_rttyDecoder->processAudioBlock(conditionedBlock);
         return;
     }
 
@@ -14371,6 +14431,7 @@ void MainWindow::applySstvSettings()
 
 void MainWindow::applyRttySettings()
 {
+    m_rttyAfc.reset();
     if (m_rttyDecoder == nullptr ||
         m_spinRttyBaud == nullptr ||
         m_spinRttyShiftHz == nullptr ||
@@ -14543,7 +14604,7 @@ void MainWindow::handleRttyTextUpdated(const QString &text)
         for (const QChar ch : text) {
             if (ch == QLatin1Char('\r') || ch == QLatin1Char('\n')) {
                 if (!m_rttyContestLastRxLine.trimmed().isEmpty()) {
-                    processRttyContestRxLine(m_rttyContestLastRxLine);
+                    processRttyContestRxLine(QString(m_rttyContestLastRxLine));
                     m_rttyContestLastRxLine.clear();
                 }
             } else if (ch.isPrint()) {
@@ -20172,9 +20233,10 @@ bool MainWindow::startTextModeTx(const QString &text)
         return false;
     }
 
-    const QString expanded = expandTextTemplate(text).trimmed();
+    m_rttyContestLastRxLine.clear();
+    const QString expanded = expandTextTemplate(text);
 
-    if (expanded.isEmpty()) {
+    if (expanded.trimmed().isEmpty()) {
         appendLog("Text TX blocked: empty text.");
         return false;
     }
@@ -20329,6 +20391,16 @@ void MainWindow::sendRttyContestMacro(int index)
         return;
     }
     if (index < 0 || index >= profile->macros.size()) return;
+    if (profile->id == QStringLiteral("cq_ww_rtty")) {
+        for (const auto &field : profile->sentFields) {
+            if (!rttyContestConditionMatches(field.when)) continue;
+            const QString value = rttyContestFieldValue(field, true);
+            if ((field.required && value.isEmpty()) || (!field.regex.isEmpty() && !rttyContestRegexMatches(field.regex, value))) {
+                QMessageBox::warning(this, QStringLiteral("CQ WW RTTY"), uiText("contest_invalid_tx", "Check TX exchange: %1").arg(field.label));
+                return;
+            }
+        }
+    }
     startTextModeTx(expandRttyContestTemplate(profile->macros.at(index).text));
 }
 
@@ -23044,6 +23116,8 @@ void MainWindow::startRx()
                       .arg(profile.interoperableCoreAvailable ? QStringLiteral("Live Costas/LDPC decoder active.") : profile.note));
     }
 
+    m_rxContinuity.reset(); // First block of an intentional restart establishes a new epoch.
+    m_rttyAfc.reset();
     if (!startAudioInputBlocking(inputName, m_settings.audioSampleRate)) {
         setReceiverRunning(false);
         if (fastResumeCwRtty) {

@@ -1,0 +1,193 @@
+[0/2] Re-checking globbed directories...
+[1/162] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwSkimmerEngine.cpp.o
+[2/162] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwCarrierDiscriminator.cpp.o
+[3/162] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwRelativeTimingDecoder.cpp.o
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/modems/cw/skimmer/CwRelativeTimingDecoder.cpp: In member function ‘void madmodem::cwskimmer::CwRelativeTimingDecoder::replayEpochProbe()’:
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/modems/cw/skimmer/CwRelativeTimingDecoder.cpp:181:29: warning: ‘*(madmodem::cwskimmer::CwLogicRun*)((char*)&pendingSpace + offsetof(std::optional<madmodem::cwskimmer::CwLogicRun>,std::optional<madmodem::cwskimmer::CwLogicRun>::<unnamed>.std::_Optional_base<madmodem::cwskimmer::CwLogicRun, true, true>::<unnamed>)).madmodem::cwskimmer::CwLogicRun::confidence’ is used uninitialized [-Wuninitialized]
+  181 |   std::optional<CwLogicRun> pendingSpace;
+      |                             ^~~~~~~~~~~~
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/modems/cw/skimmer/CwRelativeTimingDecoder.cpp:181:29: warning: ‘*(madmodem::cwskimmer::CwLogicRun*)((char*)&pendingSpace + offsetof(std::optional<madmodem::cwskimmer::CwLogicRun>,std::optional<madmodem::cwskimmer::CwLogicRun>::<unnamed>.std::_Optional_base<madmodem::cwskimmer::CwLogicRun, true, true>::<unnamed>)).madmodem::cwskimmer::CwLogicRun::coherence’ is used uninitialized [-Wuninitialized]
+[4/162] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwMorseBeamDecoder.cpp.o
+[5/162] Building CXX object CMakeFiles/madmodem_rotator_coordinates.dir/tests/RotatorCoordinatesRegression.cpp.o
+[6/162] Linking CXX executable madmodem_rotator_coordinates
+[7/162] Copying localized MM HTML help files
+[8/162] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwRelativeTimingTask.cpp.o
+[9/162] Automatic MOC and UIC for target madmodem_weak_signal_codec
+[10/162] Automatic MOC and UIC for target madmodem_linear_resampler
+[11/162] Generating localized MM Qt Help manuals (.qch, optional)
+-- Generated MM Qt Help: MM_en.qch, MM_it.qch, MM_fr.qch, MM_de.qch, MM_no.qch, MM_cs.qch
+[12/162] Automatic MOC and UIC for target madmodem_i18n_regression
+[13/162] Building CXX object CMakeFiles/madmodem_antialias_regression.dir/tests/AntiAliasRegression.cpp.o
+[14/162] Automatic MOC and UIC for target madmodem_resampler_streaming
+[15/162] Automatic MOC and UIC for target madmodem_tx_pull_regression
+[16/162] Automatic MOC and UIC for target madmodem_logbook_regression
+[17/162] Automatic MOC and UIC for target madmodem_wav_reader_test
+[18/162] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/madmodem_weak_signal_codec_autogen/mocs_compilation.cpp.o
+[19/162] Linking CXX executable madmodem_antialias_regression
+[20/162] Automatic MOC and UIC for target MadModemFtSequencerSelfTest
+[21/162] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/third_party/mshv_gpl/nhash.cpp.o
+[22/162] Building CXX object CMakeFiles/madmodem_linear_resampler.dir/madmodem_linear_resampler_autogen/mocs_compilation.cpp.o
+[23/162] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/modems/weak_signal/WeakSignalCodecLock.cpp.o
+[24/162] Building CXX object CMakeFiles/madmodem_linear_resampler.dir/dsp/text/LinearResampler.cpp.o
+[25/162] Linking CXX static library libmadmodem_linear_resampler.a
+[26/162] Building CXX object CMakeFiles/madmodem_tx_pull_regression.dir/madmodem_tx_pull_regression_autogen/mocs_compilation.cpp.o
+[27/162] Automatic RCC for tests/i18n.qrc
+[28/162] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/madmodem_i18n_regression_autogen/mocs_compilation.cpp.o
+[29/162] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/SelectedToneCwTracker.cpp.o
+[30/162] Linking CXX static library libmadmodem_cwskimmer.a
+[31/162] Building CXX object CMakeFiles/madmodem_tx_pull_regression.dir/tests/TxPullRegression.cpp.o
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/tests/TxPullRegression.cpp: In function ‘int main(int, char**)’:
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/tests/TxPullRegression.cpp:36:71: warning: ISO C++ says that these are ambiguous, even though the worst conversion for the first is better than the worst conversion for the second:
+   36 |         for (int i = 4096 * 2; i < pcm.size(); ++i) pass &= pcm[i] == 0;
+      |                                                                       ^
+In file included from /usr/include/x86_64-linux-gnu/qt5/QtCore/qmetatype.h:47,
+                 from /usr/include/x86_64-linux-gnu/qt5/QtCore/QMetaType:1,
+                 from /workspace/scratch/568f9cc8dc74/MadModem_R6_1/audio/AudioBlock.h:4,
+                 from /workspace/scratch/568f9cc8dc74/MadModem_R6_1/audio/TxOutputDevice.h:2,
+                 from /workspace/scratch/568f9cc8dc74/MadModem_R6_1/tests/TxPullRegression.cpp:1:
+/usr/include/x86_64-linux-gnu/qt5/QtCore/qbytearray.h:612:17: note: candidate 1: ‘bool QByteRef::operator==(char) const’
+  612 |     inline bool operator==(char c) const
+      |                 ^~~~~~~~
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/tests/TxPullRegression.cpp:36:71: note: candidate 2: ‘operator==(int, int)’ (built-in)
+   36 |         for (int i = 4096 * 2; i < pcm.size(); ++i) pass &= pcm[i] == 0;
+      |                                                                       ^
+[32/162] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/tests/RuntimeI18nRegression.cpp.o
+[33/162] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/madmodem_i18n_regression_autogen/KRHXW7JQHD/qrc_i18n.cpp.o
+[34/162] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/madmodem_resampler_streaming_autogen/mocs_compilation.cpp.o
+[35/162] Linking CXX executable madmodem_tx_pull_regression
+[36/162] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp.o
+[37/162] Linking CXX static library libmadmodem_weak_signal_codec.a
+[38/162] Automatic MOC and UIC for target madmodem_msk144
+[39/162] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/utils/RuntimeI18n.cpp.o
+[40/162] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/tests/ResamplerStreamingRegression.cpp.o
+[41/162] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/dsp/text/LinearResampler.cpp.o
+[42/162] Building CXX object CMakeFiles/madmodem_msk144.dir/madmodem_msk144_autogen/mocs_compilation.cpp.o
+[43/162] Building CXX object CMakeFiles/madmodem_msk144.dir/modems/msk144/tx/Msk144Transmitter.cpp.o
+[44/162] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/HvTxW/hvqthloc.cpp.o
+[45/162] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp.o
+[46/162] Building CXX object CMakeFiles/madmodem_msk144.dir/modems/msk144/Msk144Decoder.cpp.o
+[47/162] Linking CXX executable madmodem_i18n_regression
+[48/162] Linking CXX executable madmodem_resampler_streaming
+[49/162] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/madmodem_logbook_regression_autogen/mocs_compilation.cpp.o
+[50/162] Automatic MOC and UIC for target madmodem_q65
+[51/162] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp.o
+[52/162] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp.o
+[53/162] Linking CXX static library libmadmodem_msk144.a
+[54/162] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/tests/LogbookRegression.cpp.o
+[55/162] Building CXX object CMakeFiles/madmodem_q65.dir/madmodem_q65_autogen/mocs_compilation.cpp.o
+[56/162] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/Q65Decoder.cpp.o
+[57/162] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/logbook/AdifLogbook.cpp.o
+[58/162] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/tx/Q65Transmitter.cpp.o
+[59/162] Building CXX object CMakeFiles/madmodem_q65.dir/third_party/mshv_gpl/port/HvGenQ65/gen_q65.cpp.o
+[60/162] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/madmodem_wav_reader_test_autogen/mocs_compilation.cpp.o
+[61/162] Linking CXX executable madmodem_logbook_regression
+[62/162] Building CXX object CMakeFiles/madmodem_q65.dir/third_party/mshv_gpl/port/HvGenQ65/q65_subs.cpp.o
+[63/162] Automatic MOC and UIC for target madmodem_msk144_native_regression
+[64/162] Building CXX object CMakeFiles/madmodem_msk144_native_regression.dir/madmodem_msk144_native_regression_autogen/mocs_compilation.cpp.o
+[65/162] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/Q65NativeEngine.cpp.o
+[66/162] Linking CXX static library libmadmodem_q65.a
+[67/162] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/tests/WavFileReaderTest.cpp.o
+[68/162] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/audio/WavFileReader.cpp.o
+[69/162] Automatic MOC and UIC for target madmodem_q65_native_regression
+[70/162] Building CXX object CMakeFiles/madmodem_q65_native_regression.dir/madmodem_q65_native_regression_autogen/mocs_compilation.cpp.o
+[71/162] Linking CXX executable madmodem_wav_reader_test
+[72/162] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/MadModemFtSequencerSelfTest_autogen/mocs_compilation.cpp.o
+[73/162] Building CXX object CMakeFiles/madmodem_msk144_native_regression.dir/tests/Msk144NativeRegression.cpp.o
+[74/162] Automatic MOC and UIC for target MadModem
+[75/162] Linking CXX executable madmodem_msk144_native_regression
+[76/162] Building CXX object CMakeFiles/madmodem_q65_native_regression.dir/tests/Q65NativeRegression.cpp.o
+[77/162] Linking CXX executable madmodem_q65_native_regression
+[78/162] Automatic RCC for resources.qrc
+[79/162] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/tests/FtSequencerSelfTest.cpp.o
+[80/162] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtQsoSequencer.cpp.o
+[81/162] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtDecodedText.cpp.o
+[82/162] Building CXX object CMakeFiles/MadModem.dir/audio/AudioEngine.cpp.o
+[83/162] Building CXX object CMakeFiles/MadModem.dir/audio/BoundedAudioDispatcher.cpp.o
+[84/162] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[85/162] Building CXX object CMakeFiles/MadModem.dir/audio/RxAudioRecorder.cpp.o
+[86/162] Building CXX object CMakeFiles/MadModem.dir/audio/WavFileReader.cpp.o
+[87/162] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/mocs_compilation.cpp.o
+[88/162] Building CXX object CMakeFiles/MadModem.dir/audio/TxAudioEngine.cpp.o
+[89/162] Building CXX object CMakeFiles/MadModem.dir/audio/FtTxWorker.cpp.o
+[90/162] Building CXX object CMakeFiles/MadModem.dir/widgets/RttyScopeWidget.cpp.o
+[91/162] Building CXX object CMakeFiles/MadModem.dir/widgets/WaterfallWidget.cpp.o
+[92/162] Building CXX object CMakeFiles/MadModem.dir/widgets/RadioTelescopeHeatmapWidget.cpp.o
+[93/162] Building CXX object CMakeFiles/MadModem.dir/utils/RuntimeI18n.cpp.o
+[94/162] Building CXX object CMakeFiles/MadModem.dir/widgets/CwDiagnosticWidget.cpp.o
+[95/162] Building CXX object CMakeFiles/MadModem.dir/widgets/QsoMapWidget.cpp.o
+[96/162] Building CXX object CMakeFiles/MadModem.dir/utils/SystemResourceManager.cpp.o
+[97/162] Building CXX object CMakeFiles/MadModem.dir/utils/CockpitTheme.cpp.o
+[98/162] Building CXX object CMakeFiles/MadModem.dir/dsp/DspEngine.cpp.o
+[99/162] Building CXX object CMakeFiles/MadModem.dir/dsp/WaterfallLeveler.cpp.o
+[100/162] Building CXX object CMakeFiles/MadModem.dir/dsp/text/Nco.cpp.o
+[101/162] Building CXX object CMakeFiles/MadModem.dir/dsp/cpu/CpuFeatures.cpp.o
+[102/162] Building CXX object CMakeFiles/MadModem.dir/dsp/text/BaudAwareFilter.cpp.o
+[103/162] Building CXX object CMakeFiles/MadModem.dir/dsp/text/SymbolClockDpll.cpp.o
+[104/162] Building CXX object CMakeFiles/MadModem.dir/dsp/text/SoftSquelch.cpp.o
+[105/162] Building CXX object CMakeFiles/MadModem.dir/dsp/text/AtcDetector.cpp.o
+[106/162] Building CXX object CMakeFiles/MadModem.dir/dsp/common/DspConditioner.cpp.o
+[107/162] Building CXX object CMakeFiles/MadModem.dir/dsp/text/GoertzelToneBank.cpp.o
+[108/162] Building CXX object CMakeFiles/MadModem.dir/widgets/FaxImageWidget.cpp.o
+[109/162] Building CXX object CMakeFiles/MadModem.dir/modems/weatherfax/tx/WeatherFaxTransmitter.cpp.o
+[110/162] Building CXX object CMakeFiles/MadModem.dir/modems/weatherfax/WeatherFaxDecoder.cpp.o
+[111/162] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[112/162] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/tx/RttyTransmitter.cpp.o
+[113/162] Building CXX object CMakeFiles/MadModem.dir/modems/bpsk31/tx/Bpsk31Transmitter.cpp.o
+[114/162] Building CXX object CMakeFiles/MadModem.dir/modems/cw/tx/CwTransmitter.cpp.o
+[115/162] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/tx/MfskTransmitter.cpp.o
+[116/162] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvModeDefinition.cpp.o
+[117/162] Building CXX object CMakeFiles/MadModem.dir/modems/hell/tx/HellschreiberTransmitter.cpp.o
+[118/162] Building CXX object CMakeFiles/MadModem.dir/third_party/mmsstv_lgpl/MmsstvRxCore.cpp.o
+[119/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/tx/Ft8Transmitter.cpp.o
+[120/162] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyDecoder.cpp.o
+[121/162] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyMultiDecoder.cpp.o
+[122/162] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvDecoder.cpp.o
+[123/162] Building CXX object CMakeFiles/MadModem.dir/modems/bpsk31/Bpsk31Decoder.cpp.o
+[124/162] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/contest/RttyContestRules.cpp.o
+[125/162] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/MfskDecoder.cpp.o
+[126/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8Mode.cpp.o
+[127/162] Building CXX object CMakeFiles/MadModem.dir/modems/hell/HellschreiberDecoder.cpp.o
+[128/162] Building CXX object CMakeFiles/MadModem.dir/modems/cw/CwDecoder.cpp.o
+[129/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtStandardMessageSet.cpp.o
+[130/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtDecodedText.cpp.o
+[131/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtQsoSession.cpp.o
+[132/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtQsoSequencer.cpp.o
+[133/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtSlotScheduler.cpp.o
+[134/162] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/genpom.cpp.o
+[135/162] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/HvGenFt8/gen_ft8.cpp.o
+[136/162] Building CXX object CMakeFiles/MadModem.dir/third_party/decodium_gpl/port/NtpClient.cpp.o
+[137/162] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/HvGenFt4/gen_ft4.cpp.o
+[138/162] Building CXX object CMakeFiles/MadModem.dir/dsp/FrequencyTracker.cpp.o
+[139/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/HelpDialog.cpp.o
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/dialogs/HelpDialog.cpp: In member function ‘bool HelpDialog::setupQtHelpBackend(const QUrl&)’:
+/workspace/scratch/568f9cc8dc74/MadModem_R6_1/dialogs/HelpDialog.cpp:229:51: warning: ‘void QHelpIndexWidget::linkActivated(const QUrl&, const QString&)’ is deprecated: Use documentActivated() instead [-Wdeprecated-declarations]
+  229 |         connect(m_indexWidget, &QHelpIndexWidget::linkActivated,
+      |                                                   ^~~~~~~~~~~~~
+In file included from /usr/include/x86_64-linux-gnu/qt5/QtHelp/QHelpIndexWidget:1,
+                 from /workspace/scratch/568f9cc8dc74/MadModem_R6_1/dialogs/HelpDialog.cpp:29:
+/usr/include/x86_64-linux-gnu/qt5/QtHelp/qhelpindexwidget.h:95:10: note: declared here
+   95 |     void linkActivated(const QUrl &link, const QString &keyword);
+      |          ^~~~~~~~~~~~~
+[140/162] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8RxDecoder.cpp.o
+[141/162] Building CXX object CMakeFiles/MadModem.dir/settings/AppSettings.cpp.o
+[142/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/BandSchedulerDialog.cpp.o
+[143/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/AudioSettingsDialog.cpp.o
+[144/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/TextMacroSettingsDialog.cpp.o
+[145/162] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[146/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/SoundCardCalibrationDialog.cpp.o
+[147/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookSettingsDialog.cpp.o
+[148/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/AppSettingsDialog.cpp.o
+[149/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/RigControlSettingsDialog.cpp.o
+[150/162] Building CXX object CMakeFiles/MadModem.dir/rig/HamlibController.cpp.o
+[151/162] Building CXX object CMakeFiles/MadModem.dir/rotator/CatRotatorController.cpp.o
+[152/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookDialog.cpp.o
+[153/162] Building CXX object CMakeFiles/MadModem.dir/rotator/RotatorPeakSearch.cpp.o
+[154/162] Building CXX object CMakeFiles/MadModem.dir/rotator/CatRotatorPanel.cpp.o
+[155/162] Building CXX object CMakeFiles/MadModem.dir/rotator/NavballWidget.cpp.o
+[156/162] Building CXX object CMakeFiles/MadModem.dir/network/QsoUdpBroadcaster.cpp.o
+[157/162] Building CXX object CMakeFiles/MadModem.dir/dialogs/SstvImageEditorDialog.cpp.o
+[158/162] Linking CXX executable MadModemFtSequencerSelfTest
+[159/162] Building CXX object CMakeFiles/MadModem.dir/logbook/AdifLogbook.cpp.o
+[160/162] Building CXX object CMakeFiles/MadModem.dir/dxcc/CtyCountryFile.cpp.o
+[161/162] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/EWIEGA46WW/qrc_resources.cpp.o
+[162/162] Linking CXX executable MadModem

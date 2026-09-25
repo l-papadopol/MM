@@ -166,7 +166,7 @@ void RttyTransmitter::buildSegments(const QString &text)
 
     // Lead-in idle mark lets a receiving decoder settle before the start bit.
     appendBit(true, 20.0);
-    ensureShift(false);
+    appendCode(31); // Explicit LTRS: the remote decoder may still be in FIGS.
 
     QString normalized = text;
     normalized.replace("\r\n", "\n");

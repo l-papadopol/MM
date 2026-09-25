@@ -19,7 +19,7 @@ ALLOWED_DUPE_SCOPE = {"overall", "band", "period", "band_period"}
 ALLOWED_MULT_SCOPE = {"overall", "band", "period", "band_period"}
 ALLOWED_AGGREGATE = {"mults", "continents"}
 ALLOWED_MULT_SOURCES = {
-    "dxcc", "continent", "cq_zone", "call", "call_area", "wpx_prefix",
+    "dxcc", "contest_country", "continent", "cq_zone", "call", "call_area", "wpx_prefix",
     "call_regex_capture", "dxcc_or_call_area",
 }
 ALLOWED_CONDITION_KEYS = {

@@ -46,6 +46,7 @@ public:
     bool logbookUdpEnabled = false;
     QString logbookUdpServer = "127.0.0.1";
     int logbookUdpPort = 2237;
+    int logbookUdpTextFormat = 0; // 0 bundle, 1 type 5, 2 type 12
     bool logbookVisibleFieldsConfigured = false;
     QStringList logbookVisibleFields;
     int waterfallColorScalePercent = 80;

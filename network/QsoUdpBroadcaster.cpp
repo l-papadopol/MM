@@ -4,6 +4,7 @@
 #include <QDataStream>
 #include <QHostAddress>
 #include <QUdpSocket>
+#include <QNetworkProxy>
 
 namespace {
 constexpr quint32 kWsjtMagic = 0xadbccbdaU;
@@ -143,6 +144,12 @@ QsoUdpBroadcaster::SendResult QsoUdpBroadcaster::sendLoggedAdif(const LogbookEnt
 
     const QByteArray datagram = buildLoggedAdifDatagram(entry, programVersion);
     QUdpSocket socket;
+    socket.setProxy(QNetworkProxy::NoProxy); // Logger UDP uses the selected IP directly.
+    const QHostAddress local(address.protocol() == QAbstractSocket::IPv6Protocol ? QHostAddress::AnyIPv6 : QHostAddress::AnyIPv4);
+    if (!socket.bind(local, quint16(0))) {
+        result.error = socket.errorString();
+        return result;
+    }
     result.bytesWritten = socket.writeDatagram(datagram, address, port);
     if (result.bytesWritten != datagram.size()) {
         result.error = socket.errorString();
@@ -172,13 +179,17 @@ QsoUdpBroadcaster::SendResult QsoUdpBroadcaster::sendQsoLoggedBundle(
     QHostAddress address;
     if (!resolveAddress(serverAddress, &address, &result.error)) return result;
 
-    const QList<QByteArray> datagrams = {
-        buildHeartbeatDatagram(programVersion, context.revision),
-        buildQsoLoggedDatagram(entry, context),
-        buildLoggedAdifDatagram(entry, programVersion)
-    };
+    QList<QByteArray> datagrams{buildHeartbeatDatagram(programVersion, context.revision)};
+    if (context.messageFormat != 2) datagrams << buildQsoLoggedDatagram(entry, context);
+    if (context.messageFormat != 1) datagrams << buildLoggedAdifDatagram(entry, programVersion);
 
     QUdpSocket socket;
+    socket.setProxy(QNetworkProxy::NoProxy); // Logger UDP uses the selected IP directly.
+    const QHostAddress local(address.protocol() == QAbstractSocket::IPv6Protocol ? QHostAddress::AnyIPv6 : QHostAddress::AnyIPv4);
+    if (!socket.bind(local, quint16(0))) {
+        result.error = socket.errorString();
+        return result;
+    }
     qint64 total = 0;
     for (const QByteArray &datagram : datagrams) {
         const qint64 written = socket.writeDatagram(datagram, address, port);

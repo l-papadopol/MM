@@ -73,6 +73,7 @@ private:
 
     QVector<Entity> m_entities;
     QHash<QString, int> m_exactIndex;
+    QHash<QString, QPair<int,int>> m_zoneOverrides;
     QVector<QPair<QString, int>> m_prefixIndex;
     bool m_loaded = false;
     QString m_sourcePath;

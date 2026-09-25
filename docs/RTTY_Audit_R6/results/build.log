@@ -1,0 +1,7 @@
+-- Configuring done (0.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/rtty-audit-build
+[1/5] Automatic MOC for target rtty_audit
+[2/4] Building CXX object CMakeFiles/rtty_audit.dir/workspace/scratch/568f9cc8dc74/MadModem_R6/dxcc/CtyCountryFile.cpp.o
+[3/4] Building CXX object CMakeFiles/rtty_audit.dir/audit.cpp.o
+[4/4] Linking CXX executable rtty_audit

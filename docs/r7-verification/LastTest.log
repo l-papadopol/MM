@@ -1,0 +1,786 @@
+Start testing: Sep 25 00:18 +03
+----------------------------------------------------------
+1/19 Testing: madmodem_settings_ui_regression
+1/19 Test: madmodem_settings_ui_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/MadModem" "--ui-regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_settings_ui_regression" start time: Sep 25 00:18 +03
+Output:
+----------------------------------------------------------
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS Settings geometry/buttons Windows 9pt en
+PASS Settings geometry/buttons Windows 9pt it
+PASS Settings geometry/buttons Windows 9pt de
+PASS Settings geometry/buttons Windows 9pt fr
+PASS Settings geometry/buttons Windows 9pt no
+PASS Settings geometry/buttons Windows 9pt cs
+PASS Settings geometry/buttons Windows 14pt en
+PASS Settings geometry/buttons Windows 14pt it
+PASS Settings geometry/buttons Windows 14pt de
+PASS Settings geometry/buttons Windows 14pt fr
+PASS Settings geometry/buttons Windows 14pt no
+PASS Settings geometry/buttons Windows 14pt cs
+PASS Settings geometry/buttons Fusion 9pt en
+PASS Settings geometry/buttons Fusion 9pt it
+PASS Settings geometry/buttons Fusion 9pt de
+PASS Settings geometry/buttons Fusion 9pt fr
+PASS Settings geometry/buttons Fusion 9pt no
+PASS Settings geometry/buttons Fusion 9pt cs
+PASS Settings geometry/buttons Fusion 14pt en
+PASS Settings geometry/buttons Fusion 14pt it
+PASS Settings geometry/buttons Fusion 14pt de
+PASS Settings geometry/buttons Fusion 14pt fr
+PASS Settings geometry/buttons Fusion 14pt no
+PASS Settings geometry/buttons Fusion 14pt cs
+<end of output>
+Test time =   2.86 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_settings_ui_regression" end time: Sep 25 00:19 +03
+"madmodem_settings_ui_regression" time elapsed: 00:00:02
+----------------------------------------------------------
+
+2/19 Testing: madmodem_tx_pull_regression
+2/19 Test: madmodem_tx_pull_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_tx_pull_regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_tx_pull_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS finite TX source, tail=0, bytes=8192
+PASS finite TX source, tail=17, bytes=8226
+PASS finite TX source, tail=16000, bytes=40192
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_tx_pull_regression" end time: Sep 25 00:19 +03
+"madmodem_tx_pull_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/19 Testing: madmodem_i18n_regression
+3/19 Test: madmodem_i18n_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_i18n_regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_i18n_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS translated labels containing slash
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_i18n_regression" end time: Sep 25 00:19 +03
+"madmodem_i18n_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/19 Testing: madmodem_rotator_coordinates
+4/19 Test: madmodem_rotator_coordinates
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_rotator_coordinates"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_rotator_coordinates" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS rotator coordinate domains and overlap
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_rotator_coordinates" end time: Sep 25 00:19 +03
+"madmodem_rotator_coordinates" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/19 Testing: madmodem_antialias_regression
+5/19 Test: madmodem_antialias_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_antialias_regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_antialias_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS 44100 Hz, tone 1000, gain 1.00001
+PASS 44100 Hz, tone 11000, gain 3.03152e-06
+PASS 48000 Hz, tone 1000, gain 0.999988
+PASS 48000 Hz, tone 11000, gain 5.26858e-06
+PASS 96000 Hz, tone 1000, gain 0.999993
+PASS 96000 Hz, tone 11000, gain 5.29338e-06
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_antialias_regression" end time: Sep 25 00:19 +03
+"madmodem_antialias_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/19 Testing: madmodem_resampler_streaming
+6/19 Test: madmodem_resampler_streaming
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_resampler_streaming"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_resampler_streaming" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS 44100 split/reset/delay
+PASS 48000 split/reset/delay
+PASS 96000 split/reset/delay
+<end of output>
+Test time =   0.11 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_resampler_streaming" end time: Sep 25 00:19 +03
+"madmodem_resampler_streaming" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/19 Testing: madmodem_logbook_regression
+7/19 Test: madmodem_logbook_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_logbook_regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_logbook_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS EOH inside headerless COMMENT
+PASS missing date stays missing
+PASS preserve repeated spaces
+PASS length-aware padded header delimiter
+PASS temporary directory
+PASS load empty snapshots
+PASS first append
+PASS stale writer rejected
+PASS existing QSO retained
+PASS reload and append
+PASS oversized field rejected without overflow
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_logbook_regression" end time: Sep 25 00:19 +03
+"madmodem_logbook_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/19 Testing: madmodem_wav_reader_test
+8/19 Test: madmodem_wav_reader_test
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_wav_reader_test"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_wav_reader_test" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS: valid PCM WAV parses
+PASS: valid PCM frames convert safely
+PASS: undersized blockAlign is rejected
+PASS: partial audio frame is rejected
+PASS: data chunk beyond RIFF bounds is rejected
+PASS: declared RIFF size beyond file is rejected
+PASS: float32 WAV container parses
+PASS: non-finite float sample is rejected
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_wav_reader_test" end time: Sep 25 00:19 +03
+"madmodem_wav_reader_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/19 Testing: madmodem_q65_native_regression
+9/19 Test: madmodem_q65_native_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_q65_native_regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_q65_native_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS Q65A offset/frequency round-trip: CQ IZ6NNH JN61
+PASS Q65B offset/frequency round-trip: CQ IZ6NNH JN61
+PASS Q65C offset/frequency round-trip: CQ IZ6NNH JN61
+PASS Q65D offset/frequency round-trip: CQ IZ6NNH JN61
+<end of output>
+Test time =   2.03 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_q65_native_regression" end time: Sep 25 00:19 +03
+"madmodem_q65_native_regression" time elapsed: 00:00:02
+----------------------------------------------------------
+
+10/19 Testing: madmodem_msk144_native_regression
+10/19 Test: madmodem_msk144_native_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_msk144_native_regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_msk144_native_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS MSK144 full-frame round-trip
+PASS MSK40 short-frame round-trip
+<end of output>
+Test time =   0.36 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_msk144_native_regression" end time: Sep 25 00:19 +03
+"madmodem_msk144_native_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/19 Testing: madmodem_architecture_guard
+11/19 Test: madmodem_architecture_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R7/scripts/run_guard_suite.py" "architecture" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_architecture_guard" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: architecture
+
+--- RUN scripts/check_runtime_hardening.py ---
+[OK] one strict WAV reader rejects malformed layouts
+[OK] bounded UI audio relay
+[OK] audio capture has its own thread
+[OK] FT input still bypasses MainWindow
+[OK] FT worker configuration lock cannot self-deadlock
+[OK] audio buffer removal is batched
+[OK] configured RX/TX devices never fall back silently
+[OK] CAT route is fail closed
+[OK] CAT disconnect never invents a PTT-OFF acknowledgement
+[OK] Q65 RX has one always-built native path
+[OK] ADIF persistence is atomic
+[OK] offline image WAV loop is non-reentrant
+[OK] OSM TLS remains verified
+[OK] OSM tile responses are bounded
+[OK] Hamlib configure has no default build side effect
+Runtime hardening audit passed.
+
+--- RUN scripts/check_cat_ft_band_sync.py ---
+[OK] startup applies saved CAT settings
+[OK] saved CAT settings auto-connect when enabled
+[OK] FT band selector commands a CAT QSY
+[OK] CAT frequency always synchronizes the FT band
+[OK] obsolete optional CAT-to-band gate is absent
+[OK] QSY publishes actual Hamlib readback
+[OK] QSY publishes actual HRD readback
+[OK] CAT remains open and is polled
+[OK] FT split setting is persisted and exposed in Radio/CAT UI
+[OK] FT split keeps actual TX AF in the 1500..2000 Hz corridor
+[OK] FT split CAT transaction is prepared before PTT and restored after PTT
+[OK] Fake It transient CAT frequency is hidden from ordinary CAT polling
+[OK] Rig split follows Hamlib/WSJT-X logical VFO abstraction with no non-split fallback
+[OK] Rig split TX mode changes are fail-closed unless the previous split mode is restorable
+[OK] Split is opt-in and the stable default CAT path remains unchanged
+CAT/FT band sync audit passed.
+
+--- RUN scripts/check_msk144_q65_single_path.py ---
+[OK] Q65 native engine is mandatory
+[OK] Q65 wrapper owns only the native engine
+[OK] Q65 RX performs complete protocol validation
+[OK] Q65 QRA symbols map to transmitted tones 1 through 64
+[OK] Q65 RX and TX serialize the one codec workspace
+[OK] Q65 TX uses direct native-rate synthesis
+[OK] Q65 full AP list spans the protocol report range
+[OK] Q65 regression covers A B C D
+[OK] MSK144 candidate budget covers the complete period
+[OK] MSK40 RX and real short-message TX are wired
+[OK] MSK144 target contains every 77-bit protocol primitive
+[OK] shared message primitives are compiled exactly once
+[OK] FT4 FT8 MSK144 and Q65 serialize the shared message codec
+[OK] MSK144 and Q65 use one process-wide codec lock
+[OK] MSK144 and Q65 share one complete-frame UTC TX scheduler
+[OK] native modem regressions are registered
+[OK] native modem targets carry their thread runtime
+MSK144/Q65 single-path audit passed.
+
+--- RUN scripts/check_qso_udp_logging.py ---
+QSO UDP logging guard passed.
+
+--- RUN scripts/check_rotator_peak_tracking.py ---
+Rotator peak tracking guard passed: 3 real stateful algorithms, async FFT-reuse QSO metric, low-wear probes and TX interlock are intact.
+
+Consolidated architecture suite PASSED: 5 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.23 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_architecture_guard" end time: Sep 25 00:19 +03
+"madmodem_architecture_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/19 Testing: madmodem_ui_contest_guard
+12/19 Test: madmodem_ui_contest_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R7/scripts/run_guard_suite.py" "ui" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_ui_contest_guard" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: ui
+
+--- RUN scripts/check_rtty_contest_layout.py ---
+[OK] contest page follows the narrow viewport
+[OK] only vertical scrolling remains
+[OK] contest header is a two-column form
+[OK] service buttons keep text-sized width
+[OK] QSO editor is a single label-field column
+[OK] QSO controls may shrink inside 300 px
+[OK] contest chrome uses compact padding
+[OK] macro buttons have no forced horizontal minimum
+[OK] short tab caption is used
+RTTY contest narrow-layout audit passed.
+
+--- RUN scripts/check_rtty_live_contest_runtime.py ---
+RTTY live/contest/runtime audit OK (30 rule profiles)
+
+--- RUN scripts/check_cw_macro_ui.py ---
+[OK] CW macro layout exists
+[OK] CW macro bank is initialized once in its page
+[OK] CW macro bank contains six buttons
+[OK] CW macro buttons are retained
+[OK] CW macro row is visible above TX
+[OK] setup does not destroy CW macro bank
+[OK] CW macro buttons transmit shared text macros
+[OK] CW macro labels use shared macro settings
+[OK] CW macro bank remains available outside Contest
+[OK] CW macro bank switches to contest profile when Contest is active
+[OK] CW macro clicks route to contest macros only while CW Contest is active
+[OK] CW TX tone has a dedicated editable control
+[OK] CW TX tone is persisted independently
+[OK] CW waterfall exposes a red TX marker
+[OK] CW transmitter uses the dedicated TX tone
+[OK] CW enables opt-in waterfall chord detection
+[OK] CW TX chord is wired to the dedicated handler
+[OK] waterfall chord requires both left and right buttons
+[OK] CW single clicks are delayed only for chord disambiguation
+CW operator UI guard passed.
+
+--- RUN scripts/check_ui_theme_integrity.py ---
+PASS contrast avionica window text: 11.14:1
+PASS contrast avionica editor text: 11.47:1
+PASS contrast avionica button text: 10.60:1
+PASS contrast avionica selection text: 9.22:1
+PASS contrast avionica positive state: 15.26:1
+PASS contrast avionica negative state: 6.88:1
+PASS contrast avionica warning state: 12.67:1
+PASS contrast avionica muted text: 6.19:1
+PASS contrast avionica map text: 11.44:1
+PASS contrast avionica map muted text: 6.51:1
+PASS contrast qt_default window text: 14.30:1
+PASS contrast qt_default editor text: 16.29:1
+PASS contrast qt_default button text: 13.18:1
+PASS contrast qt_default selection text: 7.16:1
+PASS contrast qt_default positive state: 5.13:1
+PASS contrast qt_default negative state: 5.72:1
+PASS contrast qt_default warning state: 4.76:1
+PASS contrast qt_default muted text: 5.10:1
+PASS contrast qt_default map text: 13.81:1
+PASS contrast qt_default map muted text: 5.29:1
+PASS contrast hacker_green window text: 15.23:1
+PASS contrast hacker_green editor text: 15.98:1
+PASS contrast hacker_green button text: 13.42:1
+PASS contrast hacker_green selection text: 12.13:1
+PASS contrast hacker_green positive state: 13.43:1
+PASS contrast hacker_green negative state: 6.88:1
+PASS contrast hacker_green warning state: 13.76:1
+PASS contrast hacker_green muted text: 6.93:1
+PASS contrast hacker_green map text: 15.63:1
+PASS contrast hacker_green map muted text: 6.71:1
+PASS contrast classic_dark window text: 12.52:1
+PASS contrast classic_dark editor text: 15.01:1
+PASS contrast classic_dark button text: 10.49:1
+PASS contrast classic_dark selection text: 7.54:1
+PASS contrast classic_dark positive state: 8.19:1
+PASS contrast classic_dark negative state: 5.70:1
+PASS contrast classic_dark warning state: 9.48:1
+PASS contrast classic_dark muted text: 6.85:1
+PASS contrast classic_dark map text: 14.32:1
+PASS contrast classic_dark map muted text: 7.32:1
+PASS contrast high_contrast window text: 21.00:1
+PASS contrast high_contrast editor text: 21.00:1
+PASS contrast high_contrast button text: 19.91:1
+PASS contrast high_contrast selection text: 15.07:1
+PASS contrast high_contrast positive state: 15.97:1
+PASS contrast high_contrast negative state: 7.63:1
+PASS contrast high_contrast warning state: 15.07:1
+PASS contrast high_contrast muted text: 13.62:1
+PASS contrast high_contrast map text: 21.00:1
+PASS contrast high_contrast map muted text: 13.62:1
+UI theme integrity audit: PASS (5/5 complete themes)
+
+Consolidated ui suite PASSED: 4 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.19 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ui_contest_guard" end time: Sep 25 00:19 +03
+"madmodem_ui_contest_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/19 Testing: madmodem_ft_runtime_guard
+13/19 Test: madmodem_ft_runtime_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R7/scripts/run_guard_suite.py" "ft" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_ft_runtime_guard" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: ft
+
+--- RUN scripts/check_ft_atomic_tx_lifecycle.py ---
+PASS: atomic decode-batch decision retained
+PASS: 1181 ms late operator request starts an intact FT8 frame now
+PASS: mode-specific current-slot window guarantees full-frame fit
+PASS: automatic too-late requests defer intact frames
+PASS: manual +6.2 s request emits a bounded current-period visual burst
+PASS: manual late burst preserves frame prefix and stops before slot flip
+PASS: CAT/PTT pre-arms before the UTC boundary
+PASS: TX start never blocks behind the FT decoder thread
+PASS: one immutable boundary drives delay, token and watchdog
+PASS: TX arm token has a monotonic generation
+PASS: stale boundary-only recovery removed
+PASS: expired slot is rejected before local TX row and PTT
+
+--- RUN scripts/check_ft_caller_queue_waterfall_restore.py ---
+PASS: caller queue setting exists
+PASS: caller queue setting loads
+PASS: caller queue setting saves
+PASS: caller queue checkbox exists
+PASS: session QSO counter exists
+PASS: FIFO uses first queued caller
+PASS: queue feeds normal sequencer
+PASS: queue uses shared opposite-period selector
+PASS: terminal acks do not resurrect queued QSO
+PASS: queued direct callers outrank Auto QSO CQ
+PASS: legacy parked late-reply fallback removed
+PASS: waterfall detects minimized top-level
+PASS: waterfall drops hidden/minimized display rows
+PASS: waterfall preserves GL history on restore
+PASS: waterfall resize does not recreate GL history
+PASS: waterfall drains queued FFT rows with fixed time geometry
+PASS: translations ui_cs.ini include queue/session keys without duplicates
+PASS: translations ui_de.ini include queue/session keys without duplicates
+PASS: translations ui_en.ini include queue/session keys without duplicates
+PASS: translations ui_fr.ini include queue/session keys without duplicates
+PASS: translations ui_it.ini include queue/session keys without duplicates
+PASS: translations ui_no.ini include queue/session keys without duplicates
+PASS: translation key parity ui_cs.ini
+PASS: translation key parity ui_de.ini
+PASS: translation key parity ui_en.ini
+PASS: translation key parity ui_fr.ini
+PASS: translation key parity ui_it.ini
+PASS: translation key parity ui_no.ini
+FT caller queue + stable waterfall source audit: PASS
+
+--- RUN scripts/check_ft_linear_sequencer.py ---
+PASS: AutoQSO reclaim/fallback path removed
+PASS: QSO activity/history selection cannot arm TX
+PASS: QSO activity/history selection explicitly requires TX
+PASS: terminal decode can interrupt an obsolete active FT frame
+PASS: final 73 cannot create another 73 retry
+PASS: sequencer regression covers late RR73 during TX
+PASS: sequencer regression covers repeated terminal decode
+PASS: FT decoder owns an explicit live-input gate
+PASS: AudioEngine routes FT blocks through a bounded decoder-thread queue
+PASS: MainWindow no longer duplicates FT audio transport
+PASS: generated FT TX audio is not injected into the RX waterfall
+PASS: generic TX monitor also freezes for FT family modes
+PASS: adaptive live-worker controller and mutable target removed
+PASS: live worker budget uses the proven topology while telemetry continues
+PASS: default CAT TX route does not query/restore rig mode
+PASS: rig mode is restored only when MadModem actually changed it
+PASS: FT8/FT4 period clock is embedded under the sequencer
+PASS: FT period clock is no longer placed in the Status tab
+PASS: redundant I/II range and UTC caption labels removed from the FT clock
+PASS: TX/SEQ/RETRY tag is metadata, not pending-plan identity
+FT linear sequencer source audit: PASS
+
+--- RUN scripts/check_ft_qso_deadline_priority.py ---
+PASS: candidate carries an explicit QSO-priority classification
+PASS: priority admission is restricted to the live gate
+PASS: priority admission requires an active QSO
+PASS: QSO search is bounded around the tracked correspondent
+PASS: QSO candidate work has a hard upper bound
+PASS: only the reserved QSO quota receives the lower sync floor
+PASS: reserved candidates do not consume the normal wideband quota
+PASS: QSO candidates enter LDPC before the general wideband candidates
+PASS: the bounded QSO set receives metric recovery
+PASS: the ordinary live gate keeps its established fast policy
+PASS: early completion validates both correspondent and local calls
+PASS: a recovered QSO reply returns without waiting for wideband LDPC
+PASS: no competing decoder path was introduced
+PASS: MainWindow propagates QSO lifecycle and callsign context
+PASS: the decoder receives the tracked correspondent frequency
+FT8 QSO deadline priority source audit: PASS
+
+--- RUN scripts/check_ft4_adaptive_runtime.sh ---
+FT4 active-QSO-first deadline runtime source audit: PASS
+
+--- RUN scripts/check_ft_wideband_sensitivity.sh ---
+FT8/FT4 wideband algorithm audit: PASS
+FT sensitivity regression source audit: PASS
+
+Consolidated ft suite PASSED: 6 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.28 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ft_runtime_guard" end time: Sep 25 00:19 +03
+"madmodem_ft_runtime_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/19 Testing: madmodem_release_audit
+14/19 Test: madmodem_release_audit
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R7/scripts/run_guard_suite.py" "release" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_release_audit" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: release
+
+--- RUN scripts/check_operator_ui_copy.py ---
+Operator UI copy guard passed: compact FT state and runtime localization are enforced.
+
+--- RUN tools/audit_localization.py ---
+Canonical keys: 1863
+en: 1863 keys; canonical source dictionary
+it: 1863 keys; 1487 localized values; 376 shared technical terms or coherent English fallbacks
+fr: 1863 keys; 1429 localized values; 434 shared technical terms or coherent English fallbacks
+de: 1863 keys; 1443 localized values; 420 shared technical terms or coherent English fallbacks
+no: 1863 keys; 1409 localized values; 454 shared technical terms or coherent English fallbacks
+cs: 1863 keys; 1446 localized values; 417 shared technical terms or coherent English fallbacks
+Translation audit PASSED: structure, placeholders, reviewed operator text and semantic-mixing checks are clean.
+
+--- RUN tools/audit_documentation.py ---
+Documentation audit PASSED: version 0.5.9-alpha, 72 localized HTML pages and six Qt Help projects are consistent.
+
+--- RUN tools/audit_rtty_rules.py ---
+rtty_rules: 30 profiles, 29 active, schema=1, updated=2026-08-15
+PASS: 0 errors, 0 warning(s)
+
+--- RUN tools/audit_rtty_rules.py ---
+cw_rules: 8 profiles, 8 active, schema=1, updated=2026-08-19
+PASS: 0 errors, 0 warning(s)
+
+--- RUN scripts/ci_release_version_guard.sh ---
+MadModem CI version guard
+  MADMODEM_VERSION.txt : 0.5.9-alpha
+  GITHUB_REF_TYPE      : manual
+  GITHUB_REF_NAME      : manual
+  GITHUB_SHA           : manual
+  status               : OK
+
+Consolidated release suite PASSED: 6 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.87 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_release_audit" end time: Sep 25 00:19 +03
+"madmodem_release_audit" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/19 Testing: madmodem_cw_native_regression
+15/19 Test: madmodem_cw_native_regression
+Command: "/usr/bin/bash" "/workspace/scratch/568f9cc8dc74/MadModem_R7/scripts/run_cw_native_regression.sh" "/workspace/scratch/568f9cc8dc74/build-r7-qt5/tests-cw"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_cw_native_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS relative-pair-human-ratio: CQ
+PASS relative-pair-lock
+PASS same-lane-abrupt-speed-change: CQQTH
+PASS same-lane-new-temporal-epoch
+PASS same-lane-slow-clock-installed
+PASS provisional-epoch-rebase: CQ CQ CQ
+PASS provisional-epoch-new-clock
+PASS malformed-established-clock-rebase: C
+PASS malformed-established-new-epoch
+PASS adaptive-beam-no-premature-first-mark: 
+PASS adaptive-beam-replay-first-dash: C
+PASS adaptive-beam-pattern-exact
+PASS stretched-element-gap-callsign: HB9DOM
+PASS bayesian-posterior-text: C
+PASS bayesian-posterior-range
+PASS bayesian-beam-bounded
+PASS micro-run-storm-bootstrap: CQ
+PASS micro-run-storm-track
+PASS micro-run-storm-no-text: 
+PASS micro-run-storm-clock-retained
+PASS auto-wpm-ceiling-50
+PASS duplicate-tone-no-reset
+PASS real-tone-change-one-reset
+PASS mid-stream-reset-produces-run
+PASS mid-stream-reset-live-start
+PASS discriminator-posterior-export
+PASS segmental-fixed-lag-single-mark
+PASS segmental-fixed-lag-mark-duration
+PASS segmental-fixed-lag-causal-delay
+PASS first-sample-rate-no-extra-restart
+PASS real-sample-rate-change-restarts
+PASS commit-pattern-character
+PASS commit-pattern-exact
+PASS local-tx-resume-clock-learned
+PASS local-tx-resume-clock-retained
+PASS local-tx-resume-not-clean-restart
+PASS clean-20: CQ CQ DE IZ6NNH 599
+PASS clean-35-wrong-hint: CQ CQ DE TEST
+PASS live-30-long-word-gap: CQ CQ OG50YL OG50YL CQ CQ OG50YL
+PASS fast-farnsworth-11-dit: CQ CQ DE TEST
+PASS clean-12-wrong-hint: CQ DE IZ6NNH
+PASS awgn: CQ CQ DE IZ6NNH
+PASS weak-coherent-structure
+PASS weak-coherent-edit-similarity
+PASS weak-coherent-awgn: RQ CQ DE SZ6NNH similarity=0.866667
+PASS qsb: CQ CQ DE TEST
+PASS human-relative: CQ CQ DE IZ6NNH
+PASS adjacent-carrier-plus-70: CQ CQ DE IZ6NNH
+PASS message-then-broad-noise-tail: CQ CQ DE TEST
+PASS noise-tail-carrier-gate-closes
+PASS noise-tail-wpm-frozen
+PASS live-same-lane-two-operators: CQ CQ QTH ROMA
+PASS live-same-lane-epoch-log
+PASS noise-only: 
+All carrier-gated relative-timing CW regressions passed.
+<end of output>
+Test time =  18.61 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_cw_native_regression" end time: Sep 25 00:19 +03
+"madmodem_cw_native_regression" time elapsed: 00:00:18
+----------------------------------------------------------
+
+16/19 Testing: madmodem_waterfall_native_regression
+16/19 Test: madmodem_waterfall_native_regression
+Command: "/usr/bin/bash" "/workspace/scratch/568f9cc8dc74/MadModem_R7/scripts/run_waterfall_leveler_regression.sh" "/workspace/scratch/568f9cc8dc74/build-r7-qt5/tests-waterfall"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_waterfall_native_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+WFREG	quiet-edges-strong-signal-keeps-full-width	OK	A=0.00	B=55.81
+WFREG	receiver-agc-step-cancelled-next-row	OK	A=17.00	B=0.00
+WFREG	broad-receiver-slope-flattened	OK	A=0.49	B=-85.17
+WFREG	narrow-carrier-does-not-lift-baseline	OK	A=42.82	B=1.15
+WFREG	steep-passband-edges-not-artificially-hot	OK	A=0.70	B=-0.08
+WFREG	asymmetric-one-sided-edges-anchored	OK	A=1.01	B=35.94
+<end of output>
+Test time =   1.34 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_waterfall_native_regression" end time: Sep 25 00:19 +03
+"madmodem_waterfall_native_regression" time elapsed: 00:00:01
+----------------------------------------------------------
+
+17/19 Testing: madmodem_waterfall_integrity_guard
+17/19 Test: madmodem_waterfall_integrity_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R7/scripts/run_guard_suite.py" "waterfall" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_waterfall_integrity_guard" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: waterfall
+
+--- RUN scripts/check_waterfall_wsjtx_flattening.sh ---
+WSJT-X-style waterfall flattening source audit: PASS
+
+Consolidated waterfall suite PASSED: 1 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_waterfall_integrity_guard" end time: Sep 25 00:19 +03
+"madmodem_waterfall_integrity_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/19 Testing: madmodem_ft_sequencer
+18/19 Test: madmodem_ft_sequencer
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/MadModemFtSequencerSelfTest"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_ft_sequencer" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+FtSequencerSelfTest: all regression cases passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ft_sequencer" end time: Sep 25 00:19 +03
+"madmodem_ft_sequencer" time elapsed: 00:00:00
+----------------------------------------------------------
+
+19/19 Testing: madmodem_rtty_contest_regression
+19/19 Test: madmodem_rtty_contest_regression
+Command: "/workspace/scratch/568f9cc8dc74/build-r7-qt5/madmodem_rtty_contest_regression"
+Directory: /workspace/scratch/568f9cc8dc74/build-r7-qt5
+"madmodem_rtty_contest_regression" start time: Sep 25 00:19 +03
+Output:
+----------------------------------------------------------
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 137 offset 12
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 1024 offset 19
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 4096 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 137 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 1024 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 4096 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 137 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 1024 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 4096 offset 17
+PASS AFC common offset acquired
+PASS first capture
+PASS contiguous capture
+PASS unexpected gap resets
+PASS expected restart preserves decoder state
+PASS zone leading zero is not another multiplier
+PASS valid complete CQ WW QSO
+PASS score skips invalid/dupe and uses received zone
+PASS separate WAE countries and zones
+PASS Cabrillo received zone preserved
+PASS reject invalid zone
+PASS require US state
+PASS US state not Canadian province
+PASS export rejects absent frequency
+PASS export rejects practice date
+PASS export rejects mixed sessions
+PASS IG9 intercontinental despite shared DXCC
+PASS IT9 different contest country
+PASS Italian same contest country
+PASS geographical portable suffix
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+MULTI 48000 max_ms=20.7438 labels=CQ IZ6NNH|CQ DL1ABC
+PASS two stations decoded without duplicate callouts
+MULTI 96000 max_ms=31.1471 labels=CQ IZ6NNH|CQ DL1ABC
+PASS two stations decoded without duplicate callouts
+<end of output>
+Test time =   5.13 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_rtty_contest_regression" end time: Sep 25 00:19 +03
+"madmodem_rtty_contest_regression" time elapsed: 00:00:05
+----------------------------------------------------------
+
+End testing: Sep 25 00:19 +03

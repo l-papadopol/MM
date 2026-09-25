@@ -14,7 +14,7 @@ constexpr int kMinFreqHz = 300;
 constexpr int kMaxFreqHz = 3000;
 constexpr int kScanStepHz = 10;
 constexpr int kEnhancedScanStepHz = 5;
-constexpr int kTrackBucketHz = 18;
+constexpr int kTrackBucketHz = 35;
 constexpr int kTrackHoldMs = 12000;
 constexpr int kScanIntervalMs = 650;
 constexpr int kFastScanWindowSamples = 4096;
@@ -140,14 +140,14 @@ void RttyMultiDecoder::processAudioBlock(const AudioBlock &block)
     }
 
     m_scanBuffer += block.samples;
-    if (m_scanBuffer.size() > kEnhancedScanWindowSamples) {
-        m_scanBuffer.remove(0, m_scanBuffer.size() - kEnhancedScanWindowSamples);
+    const int maxWindow = qMax(1024, qRound(kEnhancedScanWindowSamples * m_sampleRate / 48000.0));
+    if (m_scanBuffer.size() > maxWindow) {
+        m_scanBuffer.remove(0, m_scanBuffer.size() - maxWindow);
     }
 
     m_samplesProcessed += block.samples.size();
-    const int requiredScanSamples = m_contestEnhanced
-        ? kEnhancedScanWindowSamples
-        : kFastScanWindowSamples;
+    const int requiredScanSamples = qMax(1024, qRound((m_contestEnhanced
+        ? kEnhancedScanWindowSamples : kFastScanWindowSamples) * m_sampleRate / 48000.0));
     if (m_scanBuffer.size() < requiredScanSamples) {
         pruneTracks(m_samplesProcessed);
         return;
@@ -166,19 +166,8 @@ void RttyMultiDecoder::processAudioBlock(const AudioBlock &block)
     scanBlock.samples = m_scanBuffer;
     QVector<Candidate> candidates = scanCandidates(scanBlock);
 
-    const bool allowSecondPass = m_secondPass && m_lastScanMs < 120;
-    if (allowSecondPass && !candidates.isEmpty()) {
-        QVector<QPair<int, int>> strongBands;
-        const int guardCount = qMin(6, candidates.size());
-        strongBands.reserve(guardCount);
-        for (int i = 0; i < guardCount; ++i) {
-            strongBands.append(qMakePair(candidates.at(i).markHz, candidates.at(i).spaceHz));
-        }
-        QVector<Candidate> second = scanCandidates(scanBlock, strongBands);
-        for (const Candidate &candidate : second) {
-            candidates.append(candidate);
-        }
-    }
+    // Reuse the single spectrum: energy-sorted non-maximum suppression below
+    // already exposes weaker unsuppressed pairs without recomputing Goertzel.
 
     std::sort(candidates.begin(), candidates.end(), [](const Candidate &a, const Candidate &b) {
         return a.score > b.score;
@@ -230,7 +219,7 @@ QVector<RttyMultiDecoder::Candidate> RttyMultiDecoder::scanCandidates(const Audi
         return candidates;
     }
 
-    const int targetWindow = m_contestEnhanced ? kEnhancedScanWindowSamples : kFastScanWindowSamples;
+    const int targetWindow = qMax(1024, qRound((m_contestEnhanced ? kEnhancedScanWindowSamples : kFastScanWindowSamples) * block.sampleRate / 48000.0));
     const int available = qMin(block.samples.size(), targetWindow);
     if (available < 1024) {
         return candidates;
@@ -240,7 +229,7 @@ QVector<RttyMultiDecoder::Candidate> RttyMultiDecoder::scanCandidates(const Audi
     window.reserve(available);
     const int start = block.samples.size() - available;
     for (int i = 0; i < available; ++i) {
-        window.append(block.samples.at(start + i));
+        window.append(block.samples.at(start + i) * (0.5 - 0.5 * qCos(kTwoPi * i / qMax(1, available - 1))));
     }
 
     const int stepHz = m_contestEnhanced ? kEnhancedScanStepHz : kScanStepHz;
@@ -330,6 +319,8 @@ void RttyMultiDecoder::addOrRefreshTrack(const Candidate &candidate, qint64 samp
     track.decoder->setBaudRate(m_baud);
     track.decoder->setTones(candidate.markHz, candidate.spaceHz);
     track.decoder->setReverse(m_reverse);
+    track.decoder->setAutoReverseEnabled(false);
+    track.decoder->setVisualizationEnabled(false);
 
     RttyDecoder *decoder = track.decoder;
     connect(decoder, &RttyDecoder::characterReceived,
@@ -406,6 +397,15 @@ void RttyMultiDecoder::rebuildCallouts()
         return a.score > b.score;
     });
 
+    QVector<Callout> unique;
+    for (const auto &candidate : next) {
+        bool duplicate = false;
+        for (const auto &kept : unique) {
+            if ((candidate.label == kept.label || candidate.label.startsWith(kept.label) || kept.label.startsWith(candidate.label)) && qAbs(candidate.markHz-kept.markHz)<100) { duplicate = true; break; }
+        }
+        if (!duplicate) unique.append(candidate);
+    }
+    next = unique;
     if (next.size() > m_maxDecoders) {
         next.resize(m_maxDecoders);
     }
@@ -499,8 +499,7 @@ double RttyMultiDecoder::goertzelPower(const QVector<float> &samples, int sample
     double s2 = 0.0;
     const int n = samples.size();
     for (int i = 0; i < n; ++i) {
-        const double w = 0.5 - (0.5 * qCos(kTwoPi * static_cast<double>(i) / qMax(1, n - 1)));
-        s0 = (w * static_cast<double>(samples.at(i))) + (coeff * s1) - s2;
+        s0 = static_cast<double>(samples.at(i)) + (coeff * s1) - s2;
         s2 = s1;
         s1 = s0;
     }

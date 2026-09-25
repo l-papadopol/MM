@@ -1,3 +1,7 @@
+#include "../logbook/CqWwRtty.h"
+#include <QSaveFile>
+#include <QComboBox>
+#include <QFormLayout>
 #include "LogbookDialog.h"
 #include "../utils/UiScale.h"
 #include "../utils/RuntimeI18n.h"
@@ -1248,17 +1252,45 @@ bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
     const QString defaultName = adjustedBaseName.endsWith(".adi", Qt::CaseInsensitive)
                                 ? adjustedBaseName
                                 : adjustedBaseName + ".adi";
+    QString selectedFilter;
     const QString fileName = QFileDialog::getSaveFileName(
-        this,
-        L(dialogTitle),
-        defaultName,
-        L("ADIF logbook (*.adi);;ADIF logbook (*.adif);;All files (*)")
-        );
+        this, L(dialogTitle), defaultName,
+        L("ADIF logbook (*.adi);;ADIF logbook (*.adif);;CQ WW RTTY Cabrillo (*.log);;All files (*)"), &selectedFilter);
     if (fileName.isEmpty()) {
         return false;
     }
 
     QString error;
+    if (selectedFilter.contains(QStringLiteral("Cabrillo"))) {
+        QDialog options(this);
+        options.setWindowTitle(L("CQ WW RTTY Cabrillo"));
+        auto *layout = new QFormLayout(&options);
+        auto combo = [&](const QString &label, const QStringList &values) {
+            auto *c = new QComboBox(&options); c->addItems(values); layout->addRow(label,c); return c;
+        };
+        auto *category = combo(QStringLiteral("CATEGORY-OPERATOR"), {"SINGLE-OP","CHECKLOG"});
+        auto *power = combo(QStringLiteral("CATEGORY-POWER"), {"LOW","HIGH","QRP"});
+        auto *assisted = combo(QStringLiteral("CATEGORY-ASSISTED"), {"ASSISTED","NON-ASSISTED"});
+        auto *band = combo(QStringLiteral("CATEGORY-BAND"), {"ALL","80M","40M","20M","15M","10M"});
+        auto *name = new QLineEdit(&options); layout->addRow(QStringLiteral("NAME"),name);
+        auto *email = new QLineEdit(&options); layout->addRow(QStringLiteral("EMAIL"),email);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&options);
+        layout->addRow(buttons);
+        connect(buttons,&QDialogButtonBox::accepted,&options,&QDialog::accept);
+        connect(buttons,&QDialogButtonBox::rejected,&options,&QDialog::reject);
+        if (options.exec()!=QDialog::Accepted) return false;
+        CqWwRtty::CabrilloOptions o;
+        o.operatorCategory=category->currentText(); o.power=power->currentText();
+        o.assisted=assisted->currentText(); o.band=band->currentText(); o.name=name->text(); o.email=email->text();
+        const QByteArray data=CqWwRtty::cabrillo(exportList,o,&error);
+        if (!data.isEmpty()) {
+            QSaveFile file(fileName);
+            if (file.open(QIODevice::WriteOnly) && file.write(data)==data.size() && file.commit()) return true;
+            error=file.errorString();
+        }
+        QMessageBox::warning(this,QStringLiteral("Cabrillo"),error);
+        return false;
+    }
     if (!m_logbook->exportRecordsAdif(fileName, exportList, &error)) {
         QMessageBox::warning(this, L(dialogTitle), L("Export failed:") + " " + error);
         return false;
