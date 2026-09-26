@@ -30,6 +30,7 @@ SUITES: dict[str, list[tuple[str, str]]] = {
         ("py", "scripts/check_rtty_live_contest_runtime.py"),
         ("py", "scripts/check_cw_macro_ui.py"),
         ("py", "scripts/check_ui_theme_integrity.py"),
+        ("py", "scripts/check_window_rotator_ui.py"),
     ],
     "ft": [
         ("py", "scripts/check_ft_atomic_tx_lifecycle.py"),

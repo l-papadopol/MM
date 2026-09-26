@@ -325,7 +325,7 @@ public:
                              QStringLiteral("Maximize"));
             layout->addWidget(m_maximizeButton, 0, Qt::AlignRight | Qt::AlignVCenter);
             QObject::connect(m_maximizeButton, &QPushButton::clicked, this, [this]() {
-                toggleMainWindowFullScreen();
+                toggleMainWindowMaximized();
             });
             updateMaximizeButtonIcon();
         }
@@ -360,7 +360,7 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent *event) override
     {
         if (m_mainWindowButtons && event->button() == Qt::LeftButton && m_owner != nullptr) {
-            toggleMainWindowFullScreen();
+            toggleMainWindowMaximized();
             event->accept();
             return;
         }
@@ -476,7 +476,7 @@ private:
         }
     }
 
-    void toggleMainWindowFullScreen()
+    void toggleMainWindowMaximized()
     {
         if (m_owner == nullptr) {
             return;
@@ -484,8 +484,7 @@ private:
         if (m_owner->isFullScreen() || m_owner->isMaximized()) {
             m_owner->showNormal();
         } else {
-            m_owner->setWindowState((m_owner->windowState() & ~Qt::WindowMinimized) | Qt::WindowFullScreen);
-            m_owner->showFullScreen();
+            MadModemUi::showMainWindowMaximized(m_owner);
         }
         QTimer::singleShot(0, this, [this]() { updateMaximizeButtonIcon(); });
     }
@@ -1165,6 +1164,13 @@ QLabel[ftBannerState="ready"], QLabel[ftBannerState="monitor"] { border:2px soli
 )QSS"));
 }
 
+
+void showMainWindowMaximized(QWidget *window)
+{
+    if (!window) return;
+    window->setWindowState(window->windowState() & ~(Qt::WindowFullScreen | Qt::WindowMinimized));
+    window->showMaximized();
+}
 
 void installCockpitMainWindowChrome(QMainWindow *window)
 {

@@ -1,6 +1,12 @@
 #include "CatRotatorPanel.h"
 #include "../utils/RuntimeI18n.h"
 #include "NavballWidget.h"
+#include "../settings/AppSettings.h"
+#include <QSlider>
+#include <QSettings>
+#include <QInputDialog>
+#include <QResizeEvent>
+#include <cmath>
 
 #include <QDoubleSpinBox>
 #include <QGridLayout>
@@ -24,8 +30,9 @@
 
 namespace mm {
 
-CatRotatorPanel::CatRotatorPanel(CatRotatorController *controller, QWidget *parent)
-    : QWidget(parent), m_controller(controller)
+CatRotatorPanel::CatRotatorPanel(CatRotatorController *controller, QWidget *parent, const QString &presetSettingsFile)
+    : QWidget(parent), m_controller(controller),
+      m_presetSettingsFile(presetSettingsFile.isEmpty() ? AppSettings::settingsFilePath() : presetSettingsFile)
 {
     buildUi();
     if (m_controller != nullptr) {
@@ -75,6 +82,7 @@ void CatRotatorPanel::buildUi()
     QVBoxLayout *outer = new QVBoxLayout(this);
     outer->setContentsMargins(8, 8, 8, 8);
     outer->setSpacing(7);
+    outer->setSizeConstraint(QLayout::SetMinimumSize);
 
     // Connection state is shown in the compact status line at the bottom.
     // Do not consume vertical space with a duplicate top label.
@@ -119,6 +127,7 @@ void CatRotatorPanel::buildUi()
     lblSetEl->setToolTip(MadModemI18n::text(QStringLiteral("Manual elevation setpoint for the rotator, in degrees.")));
 
     m_spinAz = new QDoubleSpinBox(this);
+    m_spinAz->setObjectName(QStringLiteral("rotatorSetAz"));
     m_spinAz->setRange(0.0, 359.9);
     m_spinAz->setDecimals(1);
     m_spinAz->setSuffix(QStringLiteral("°"));
@@ -127,6 +136,7 @@ void CatRotatorPanel::buildUi()
     m_spinAz->setToolTip(MadModemI18n::text(QStringLiteral("Manual azimuth setpoint. Press Go to command this value.")));
 
     m_spinEl = new QDoubleSpinBox(this);
+    m_spinEl->setObjectName(QStringLiteral("rotatorSetEl"));
     m_spinEl->setRange(-10.0, 180.0);
     m_spinEl->setDecimals(1);
     m_spinEl->setSuffix(QStringLiteral("°"));
@@ -142,6 +152,7 @@ void CatRotatorPanel::buildUi()
     m_btnStop->setProperty("mmRole", QStringLiteral("negative"));
 
     m_btnGo = new QPushButton(MadModemI18n::text(QStringLiteral("Go")), this);
+    m_btnGo->setObjectName(QStringLiteral("rotatorGo"));
     m_btnGo->setToolTip(MadModemI18n::text(QStringLiteral("Move the rotator to the manual Set Az / Set El values.")));
     m_btnTrack = new QPushButton(MadModemI18n::text(QStringLiteral("Track QSO")), this);
     m_btnTrack->setToolTip(MadModemI18n::text(QStringLiteral("Track the current QSO/correspondent locator target.")));
@@ -150,17 +161,65 @@ void CatRotatorPanel::buildUi()
     m_btnPark = new QPushButton(MadModemI18n::text(QStringLiteral("Park")), this);
     m_btnPark->setToolTip(MadModemI18n::text(QStringLiteral("Move the rotator to the configured park position.")));
 
+    auto axisEditor = [this](QDoubleSpinBox *spin, QSlider *&slider, const QString &name) {
+        auto *box = new QWidget(this);
+        box->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Minimum);
+        auto *layout = new QVBoxLayout(box);
+        layout->setSizeConstraint(QLayout::SetMinimumSize);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->setSpacing(1);
+        layout->addWidget(spin);
+        slider = new QSlider(Qt::Horizontal, box);
+        slider->setObjectName(name);
+        slider->setRange(qRound(spin->minimum()*10), qRound(spin->maximum()*10));
+        slider->setSingleStep(10); // One degree on arrow keys; spin retains 0.1 degree precision.
+        slider->setPageStep(100);
+        slider->setToolTip(spin->toolTip());
+        slider->setAccessibleName(spin->toolTip());
+        connect(slider, &QSlider::valueChanged, spin, [spin](int value){spin->setValue(value/10.0);});
+        connect(spin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), slider,
+                [slider](double value){QSignalBlocker blocker(slider);slider->setValue(qRound(value*10));});
+        layout->addWidget(slider);
+        layout->activate();
+        return box;
+    };
     manual->addWidget(lblSetAz, 0, 0);
-    manual->addWidget(m_spinAz, 0, 1, Qt::AlignLeft);
+    manual->addWidget(axisEditor(m_spinAz,m_sliderAz,QStringLiteral("rotatorAzSlider")), 0, 1);
     manual->addWidget(m_btnConnect, 0, 2);
     manual->addWidget(lblSetEl, 1, 0);
-    manual->addWidget(m_spinEl, 1, 1, Qt::AlignLeft);
+    manual->addWidget(axisEditor(m_spinEl,m_sliderEl,QStringLiteral("rotatorElSlider")), 1, 1);
     manual->addWidget(m_btnStop, 1, 2);
     manual->addWidget(m_btnGo, 2, 0, 1, 2);
     manual->addWidget(m_btnPark, 2, 2);
     manual->addWidget(m_btnTrack, 3, 0, 1, 3);
     manual->addWidget(m_btnMoonTrack, 4, 0, 1, 3);
     outer->addLayout(manual);
+
+    auto *presets = new QGridLayout;
+    auto *presetHint = new QLabel(MadModemI18n::text(QStringLiteral("Recall a position, then press Go. Right-click to save.")), this);
+    presetHint->setWordWrap(true);
+    presets->addWidget(presetHint, 0, 0, 1, 2);
+    for (int slot=0;slot<4;++slot) {
+        auto *button=new QPushButton(this);
+        button->setObjectName(QStringLiteral("rotatorPreset%1").arg(slot+1));
+        button->setMinimumWidth(70);
+        button->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Fixed);
+        button->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(button,&QPushButton::clicked,this,[this,slot](){
+            QSettings settings(m_presetSettingsFile,QSettings::IniFormat);
+            if(settings.contains(presetKey(slot)+QStringLiteral("/name"))){
+                if(!recallManualPreset(slot))QMessageBox::warning(this,
+                    MadModemI18n::text(QStringLiteral("Rotator position")),
+                    MadModemI18n::text(QStringLiteral("This position is outside the configured limits. Save a new position.")));
+            }
+            else editManualPreset(slot);
+        });
+        connect(button,&QWidget::customContextMenuRequested,this,[this,slot](const QPoint &){editManualPreset(slot);});
+        m_presetButtons[slot]=button;
+        presets->addWidget(button,1+slot/2,slot%2);
+    }
+    outer->addLayout(presets);
+    updateManualPresetButtons();
 
     QGroupBox *trackingBox = new QGroupBox(this);
     QVBoxLayout *trackingLayout = new QVBoxLayout(trackingBox);
@@ -292,7 +351,97 @@ void CatRotatorPanel::buildUi()
 void CatRotatorPanel::applyConfig(const CatRotatorController::Config &config)
 {
     m_config = config;
+    const double azMin=std::isfinite(config.azimuthMinDeg)?config.azimuthMinDeg:0.0;
+    const double azMax=std::isfinite(config.azimuthMaxDeg)?qMax(azMin,config.azimuthMaxDeg):359.9;
+    const double elMin=config.useElevation && std::isfinite(config.elevationMinDeg)?config.elevationMinDeg:0.0;
+    const double elMax=config.useElevation && std::isfinite(config.elevationMaxDeg)?qMax(elMin,config.elevationMaxDeg):elMin;
+    m_spinAz->setRange(azMin,azMax);
+    m_sliderAz->setRange(qRound(azMin*10),qRound(azMax*10));
+    m_sliderAz->setValue(qRound(m_spinAz->value()*10));
+    m_spinEl->setRange(elMin,elMax);
+    m_sliderEl->setRange(qRound(elMin*10),qRound(elMax*10));
+    m_sliderEl->setValue(qRound(m_spinEl->value()*10));
+    m_spinEl->setEnabled(config.useElevation);
+    m_sliderEl->setEnabled(config.useElevation);
+    updateManualPresetButtons();
     refreshState();
+}
+
+QString CatRotatorPanel::presetKey(int slot) const
+{
+    return QStringLiteral("RotatorManualPresets/%1/%2").arg(m_config.profileIndex).arg(slot);
+}
+
+bool CatRotatorPanel::storeManualPreset(int slot, const QString &name)
+{
+    if(slot<0 || slot>=4 || name.trimmed().isEmpty())return false;
+    QSettings settings(m_presetSettingsFile,QSettings::IniFormat);
+    const QString key=presetKey(slot);
+    settings.setValue(key+QStringLiteral("/name"),name.trimmed().left(80));
+    settings.setValue(key+QStringLiteral("/az"),m_spinAz->value());
+    settings.setValue(key+QStringLiteral("/el"),m_spinEl->value());
+    settings.sync();
+    updateManualPresetButtons();
+    return settings.status()==QSettings::NoError;
+}
+
+bool CatRotatorPanel::recallManualPreset(int slot)
+{
+    if(slot<0 || slot>=4)return false;
+    QSettings settings(m_presetSettingsFile,QSettings::IniFormat);
+    const QString key=presetKey(slot);
+    bool azOk=false,elOk=false;
+    const double az=settings.value(key+QStringLiteral("/az")).toDouble(&azOk);
+    const double el=settings.value(key+QStringLiteral("/el")).toDouble(&elOk);
+    // A changed mechanical range must not silently point somewhere else.
+    if(!azOk || !elOk || !std::isfinite(az) || !std::isfinite(el)
+       || az<m_spinAz->minimum() || az>m_spinAz->maximum()
+       || el<m_spinEl->minimum() || el>m_spinEl->maximum())return false;
+    m_spinAz->setValue(az);
+    m_spinEl->setValue(el);
+    return true;
+}
+
+void CatRotatorPanel::editManualPreset(int slot)
+{
+    QSettings settings(m_presetSettingsFile,QSettings::IniFormat);
+    bool accepted=false;
+    const QString name=QInputDialog::getText(this,
+        MadModemI18n::text(QStringLiteral("Save rotator position")),
+        MadModemI18n::text(QStringLiteral("Position name (for example Japan):")),
+        QLineEdit::Normal,settings.value(presetKey(slot)+QStringLiteral("/name")).toString(),&accepted);
+    if(accepted && !name.trimmed().isEmpty() && !storeManualPreset(slot,name))
+        QMessageBox::warning(this,MadModemI18n::text(QStringLiteral("Save rotator position")),
+            MadModemI18n::text(QStringLiteral("Could not save the rotator position.")));
+}
+
+void CatRotatorPanel::updateManualPresetButtons()
+{
+    QSettings settings(m_presetSettingsFile,QSettings::IniFormat);
+    for(int slot=0;slot<4;++slot){
+        auto *button=m_presetButtons[slot];if(!button)continue;
+        const QString key=presetKey(slot);
+        const QString name=settings.value(key+QStringLiteral("/name")).toString();
+        const QString label=name.isEmpty()?QStringLiteral("%1 —").arg(slot+1):QStringLiteral("%1 %2").arg(slot+1).arg(name);
+        button->setText(button->fontMetrics().elidedText(label,Qt::ElideRight,qMax(20,button->width()-22)));
+        button->setAccessibleName(label);
+        button->setToolTip(name.isEmpty()?MadModemI18n::text(QStringLiteral("Save the current Set Az / Set El values here.")):
+            name+QStringLiteral("\n")+azElText(settings.value(key+QStringLiteral("/az")).toDouble(),settings.value(key+QStringLiteral("/el")).toDouble())+
+            QStringLiteral("\n")+MadModemI18n::text(QStringLiteral("Recall a position, then press Go. Right-click to save.")));
+    }
+}
+
+void CatRotatorPanel::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    // Wrapped labels need more height in a narrow sidebar. QLayout's plain
+    // minimumSize omits that extra height; preserve it so the scroll area
+    // scrolls instead of squeezing rows underneath the navball.
+    if(layout()){
+        const int required=qMax(layout()->minimumSize().height(),layout()->totalHeightForWidth(event->size().width()));
+        if(required>0 && minimumHeight()!=required)setMinimumHeight(required);
+    }
+    updateManualPresetButtons();
 }
 
 void CatRotatorPanel::updateQsoTarget(const CatRotatorController::QsoTarget &target)

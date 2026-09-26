@@ -1503,6 +1503,70 @@ for _key, _values in R8_TRANSLATIONS.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
 
+R9_TRANSLATIONS = {'text.recall_a_position_then_press_go_right_click_to_save': {'it': 'Richiama una posizione, poi premi Vai. '
+                                                                    'Clic destro per salvare.',
+                                                              'fr': 'Rappelez une position, puis cliquez sur '
+                                                                    'Aller. Clic droit pour enregistrer.',
+                                                              'de': 'Position abrufen, dann Start drücken. '
+                                                                    'Rechtsklick zum Speichern.',
+                                                              'no': 'Hent en posisjon, og trykk Gå. '
+                                                                    'Høyreklikk for å lagre.',
+                                                              'cs': 'Vyvolejte polohu a stiskněte Spustit. '
+                                                                    'Pravým tlačítkem uložíte.'},
+ 'text.rotator_position': {'it': 'Posizione rotore',
+                           'fr': 'Position du rotor',
+                           'de': 'Rotorposition',
+                           'no': 'Rotorposisjon',
+                           'cs': 'Poloha rotátoru'},
+ 'text.this_position_is_outside_the_configured_limits_save_a_new_position': {'it': 'Questa posizione supera '
+                                                                                   'i limiti configurati. '
+                                                                                   'Salva una nuova '
+                                                                                   'posizione.',
+                                                                             'fr': 'Cette position dépasse '
+                                                                                   'les limites configurées. '
+                                                                                   'Enregistrez une nouvelle '
+                                                                                   'position.',
+                                                                             'de': 'Diese Position liegt '
+                                                                                   'außerhalb der '
+                                                                                   'eingestellten Grenzen. '
+                                                                                   'Neue Position speichern.',
+                                                                             'no': 'Denne posisjonen er '
+                                                                                   'utenfor de angitte '
+                                                                                   'grensene. Lagre en ny '
+                                                                                   'posisjon.',
+                                                                             'cs': 'Tato poloha je mimo '
+                                                                                   'nastavené limity. Uložte '
+                                                                                   'novou polohu.'},
+ 'text.save_rotator_position': {'it': 'Salva posizione rotore',
+                                'fr': 'Enregistrer la position du rotor',
+                                'de': 'Rotorposition speichern',
+                                'no': 'Lagre rotorposisjon',
+                                'cs': 'Uložit polohu rotátoru'},
+ 'text.position_name_for_example_japan': {'it': 'Nome posizione (ad esempio Giappone):',
+                                          'fr': 'Nom de la position (par exemple Japon) :',
+                                          'de': 'Positionsname (zum Beispiel Japan):',
+                                          'no': 'Navn på posisjonen (for eksempel Japan):',
+                                          'cs': 'Název polohy (například Japonsko):'},
+ 'text.could_not_save_the_rotator_position': {'it': 'Impossibile salvare la posizione del rotore.',
+                                              'fr': 'Impossible d’enregistrer la position du rotor.',
+                                              'de': 'Rotorposition konnte nicht gespeichert werden.',
+                                              'no': 'Kunne ikke lagre rotorposisjonen.',
+                                              'cs': 'Polohu rotátoru se nepodařilo uložit.'},
+ 'text.save_the_current_set_az_set_el_values_here': {'it': 'Salva qui i valori impostati di azimut ed '
+                                                           'elevazione.',
+                                                     'fr': 'Enregistrez ici les valeurs actuelles d’azimut '
+                                                           'et d’élévation.',
+                                                     'de': 'Aktuelle Sollwerte für Azimut und Elevation hier '
+                                                           'speichern.',
+                                                     'no': 'Lagre de angitte verdiene for asimut og '
+                                                           'elevasjon her.',
+                                                     'cs': 'Zde uložíte nastavené hodnoty azimutu a '
+                                                           'elevace.'}}
+for _key, _values in R9_TRANSLATIONS.items():
+    for _lang, _value in _values.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

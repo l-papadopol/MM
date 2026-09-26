@@ -966,6 +966,8 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_test(NAME madmodem_window_rotator_regression COMMAND MadModem --window-rotator-regression)
+    set_tests_properties(madmodem_window_rotator_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME madmodem_runtime_workers_regression COMMAND MadModem --runtime-regression)
     set_tests_properties(madmodem_runtime_workers_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME madmodem_settings_ui_regression COMMAND MadModem --ui-regression)

@@ -32,6 +32,7 @@ void setSemanticRole(QWidget *widget, const QString &role);
 
 void applyCockpitTheme(QApplication &app);
 void installCockpitMainWindowChrome(QMainWindow *window);
+void showMainWindowMaximized(QWidget *window);
 void polishCockpitWidgetTree(QWidget *root);
 
 } // namespace MadModemUi

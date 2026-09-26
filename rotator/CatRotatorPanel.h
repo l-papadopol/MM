@@ -8,6 +8,8 @@
 class QLabel;
 class QPushButton;
 class QDoubleSpinBox;
+class QSlider;
+class QResizeEvent;
 class QLineEdit;
 class QComboBox;
 class QProgressBar;
@@ -22,7 +24,7 @@ class CatRotatorPanel final : public QWidget
 {
     Q_OBJECT
 public:
-    explicit CatRotatorPanel(CatRotatorController *controller, QWidget *parent = nullptr);
+    explicit CatRotatorPanel(CatRotatorController *controller, QWidget *parent = nullptr, const QString &presetSettingsFile = QString());
 
 signals:
     void requestDirectTarget(const QString &text);
@@ -31,9 +33,17 @@ public slots:
     void applyConfig(const CatRotatorController::Config &config);
     void updateQsoTarget(const CatRotatorController::QsoTarget &target);
     void refreshState();
+    bool storeManualPreset(int slot, const QString &name);
+    bool recallManualPreset(int slot);
+
+protected:
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void buildUi();
+    void editManualPreset(int slot);
+    void updateManualPresetButtons();
+    QString presetKey(int slot) const;
     QString azElText(double az, double el) const;
     QString friendlyStatusText() const;
     void updateStatusLabel();
@@ -59,6 +69,10 @@ private:
     QProgressBar *m_calibrationProgress = nullptr;
     QLineEdit *m_editDirectTarget = nullptr;
     QPushButton *m_btnDirectTarget = nullptr;
+    QString m_presetSettingsFile;
+    QPushButton *m_presetButtons[4]{};
+    QSlider *m_sliderAz = nullptr;
+    QSlider *m_sliderEl = nullptr;
     QDoubleSpinBox *m_spinAz = nullptr;
     QDoubleSpinBox *m_spinEl = nullptr;
     QLineEdit *m_editStep = nullptr;

@@ -95,6 +95,7 @@ public:
 
 #include "tests/SettingsUiRegression.h"
 #include "tests/RuntimeWorkersRegression.h"
+#include "tests/WindowRotatorRegression.h"
 
 int main(int argc, char *argv[])
 {
@@ -137,6 +138,8 @@ int main(int argc, char *argv[])
     const QCommandLineOption uiRegressionOption(QStringLiteral("ui-regression"),
         QStringLiteral("Check translated Settings layouts without connecting radio hardware."));
     const QCommandLineOption runtimeRegressionOption(QStringLiteral("runtime-regression"),QStringLiteral("Check RX worker and asynchronous CAT without radio hardware."));
+    const QCommandLineOption windowRegressionOption(QStringLiteral("window-rotator-regression"),QStringLiteral("Check main-window popups and manual rotator controls without radio hardware."));
+    commandLine.addOption(windowRegressionOption);
     commandLine.addOption(runtimeRegressionOption);
     commandLine.addOption(uiRegressionOption);
     commandLine.addOption(ftRegressionOption);
@@ -251,6 +254,7 @@ int main(int argc, char *argv[])
         return allOk ? 0 : 3;
     }
 
+    if (commandLine.isSet(windowRegressionOption)) return runWindowRotatorRegression(app);
     if (commandLine.isSet(runtimeRegressionOption)) return runRuntimeWorkersRegression(app);
     if (commandLine.isSet(uiRegressionOption)) return runSettingsUiRegression(app);
 
@@ -265,20 +269,9 @@ int main(int argc, char *argv[])
     // or a high-contrast outline, so live theme changes cannot leave behind a
     // native/custom hybrid title bar.
     MadModemUi::installCockpitMainWindowChrome(&window);
-    // Cockpit UI is intended to run like a radio console / fullscreen
-    // instrument panel.  Keep the custom minimize/maximize/close buttons in
-    // the in-app title bar, but hide the OS panel/taskbar.
-    auto forceMainWindowFullScreen = [&window]() {
-        if (!window.isVisible() || !window.isFullScreen()) {
-            window.setWindowState((window.windowState() & ~Qt::WindowMinimized) | Qt::WindowFullScreen);
-            window.showFullScreen();
-        }
-        window.raise();
-        window.activateWindow();
-    };
-    forceMainWindowFullScreen();
-    QTimer::singleShot(0, &window, forceMainWindowFullScreen);
-    QTimer::singleShot(250, &window, forceMainWindowFullScreen);
+    // A normal maximized window keeps native popup stacking on Windows.
+    // Never reassert fullscreen/activation from delayed startup callbacks.
+    MadModemUi::showMainWindowMaximized(&window);
 
     return app.exec();
 }

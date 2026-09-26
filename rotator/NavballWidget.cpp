@@ -15,12 +15,11 @@
 namespace mm {
 
 NavballWidget::NavballWidget(QWidget *parent)
-    : QOpenGLWidget(parent)
+    : QWidget(parent)
 {
     setMinimumSize(190, 190);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     setAutoFillBackground(false);
-    setUpdateBehavior(QOpenGLWidget::NoPartialUpdate);
 }
 
 void NavballWidget::set_talt(double talt)

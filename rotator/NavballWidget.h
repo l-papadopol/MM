@@ -5,13 +5,13 @@
 #include <QPointF>
 #include <QSize>
 #include <QString>
-#include <QOpenGLWidget>
+#include <QWidget>
 
 class QPainter;
 
 namespace mm {
 
-class NavballWidget final : public QOpenGLWidget
+class NavballWidget final : public QWidget
 {
     Q_OBJECT
 
