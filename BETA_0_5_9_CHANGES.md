@@ -24,4 +24,10 @@
 - Removed the stale UI audit requirement for the deleted `rtty_contest_macros` localization key.
 - Documentation audit now validates the current compact bilingual README instead of requiring the retired alpha-era overview sections.
 - Corrected the English README status from `alpha software` to `0.5.9-beta software`.
-- Source revision: `0.5.9-beta-source-r13-ci-guard-sync`.
+- Source revision: `0.5.9-beta-source-r14-rtty-multidecoder-api-fix`.
+
+
+## R14 build fix
+
+- Restored `RttyDecoder::setVisualizationEnabled(bool)`, which is required by `RttyMultiDecoder` to suppress per-track scope/visualization work.
+- The R13 cleanup accidentally removed this public API while leaving both the backing state and the multi-decoder call in place, causing Linux/macOS/Windows compilation to fail.

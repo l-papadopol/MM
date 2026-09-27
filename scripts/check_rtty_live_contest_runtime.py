@@ -75,8 +75,8 @@ for old in ['m_autoInvert', 'm_markRunSamples', 'm_spaceRunSamples', 'm_framingF
 # Contest turnaround and worked-call semantics are shared by RTTY/CW.  They
 # remain part of this consolidated UI/runtime audit rather than creating more
 # one-bug CTest entries.
-rtty_h=must(Path('modems/rtty/RttyDecoder.h'), ['resumeAfterLocalTransmit()'])
-rtty_multi=must(Path('modems/rtty/RttyMultiDecoder.cpp'), ['resumeAfterLocalTransmit()', 'track.decoder->resumeAfterLocalTransmit()', 'm_scanBuffer.clear()'])
+rtty_h=must(Path('modems/rtty/RttyDecoder.h'), ['resumeAfterLocalTransmit()', 'setVisualizationEnabled(bool enabled)'])
+rtty_multi=must(Path('modems/rtty/RttyMultiDecoder.cpp'), ['resumeAfterLocalTransmit()', 'track.decoder->resumeAfterLocalTransmit()', 'm_scanBuffer.clear()', 'track.decoder->setVisualizationEnabled(false)'])
 cw_h=must(Path('modems/cw/CwDecoder.h'), ['resumeAfterLocalTransmit()'])
 cw_tracker=must(Path('modems/cw/skimmer/SelectedToneCwTracker.cpp'),
                 ['resumeAfterLocalTransmit()', 'timingTask.reset(true)', 'discriminator.resumeAfterGap()'])

@@ -78,6 +78,14 @@ public:
      */
     void setReverse(bool reverse);
 
+    /**
+     * @brief Enables or disables decoder visualization output.
+     *
+     * Secondary RTTY decoders used by the multi-decoder keep this disabled so
+     * they do not generate scope/visualization work that is only needed for
+     * the operator-selected primary decoder.
+     */
+    void setVisualizationEnabled(bool enabled) { m_visualizationEnabled = enabled; }
 
     /**
      * @brief Returns baud rate.
