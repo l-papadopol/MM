@@ -325,9 +325,7 @@ AudioBlock DspConditioner::processBlock(const AudioBlock &block)
             double space = m_rttySpaceBp1.process(sample);
             space = m_rttySpaceBp2.process(space);
             const double combined = mark + space;
-            sample = m_config.rttyMarkSpaceEnhancerEnabled
-                         ? (0.85 * combined) + (0.15 * sample)
-                         : (0.65 * combined) + (0.35 * sample);
+            sample = combined;
         }
 
         if (m_config.adaptiveLineEnhancerEnabled) {
@@ -410,7 +408,10 @@ void DspConditioner::updateFilters(int sampleRate)
 
     const double markHz = safeFrequency(static_cast<double>(sampleRate), m_config.blackHz);
     const double spaceHz = safeFrequency(static_cast<double>(sampleRate), m_config.whiteHz);
-    const double rttyQ = m_config.rttyMatchedFilterEnabled ? 22.0 : 14.0;
+    // Contest RTTY: two steep narrow channels. At 2125/2295 Hz Q=28 gives
+    // roughly 75-82 Hz pass regions, leaving the 170 Hz Mark/Space centre
+    // strongly rejected while preserving normal 45.45/50 baud keying.
+    const double rttyQ = 28.0;
     m_rttyMarkBp1.setBandPass(static_cast<double>(sampleRate), markHz, rttyQ);
     m_rttyMarkBp2.setBandPass(static_cast<double>(sampleRate), markHz, rttyQ);
     m_rttySpaceBp1.setBandPass(static_cast<double>(sampleRate), spaceHz, rttyQ);

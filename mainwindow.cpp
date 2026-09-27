@@ -5563,7 +5563,7 @@ void MainWindow::setupRttyPage()
     m_spinRttyShiftHz = new QSpinBox(settingsGroup);
     m_spinRttyMarkHz = new QSpinBox(settingsGroup);
     m_chkRttyReverse = new QCheckBox("Reverse polarity", settingsGroup);
-    m_chkRttyAutoReverse = new QCheckBox("Auto polarity", settingsGroup);
+    m_chkRttyNarrowFilter = new QCheckBox("Narrow Mark/Space filter", settingsGroup);
     m_chkRttyAfc = new QCheckBox("AFC", settingsGroup);
     m_chkRttyWaterfallTextOverlay = new QCheckBox(
         uiText("rtty_waterfall_text_overlay", "Show decoded text on waterfall"),
@@ -5597,7 +5597,7 @@ void MainWindow::setupRttyPage()
     grid->addWidget(new QLabel("Mark", settingsGroup), 3, 0);
     grid->addWidget(m_spinRttyMarkHz, 3, 1, 1, 2);
     grid->addWidget(m_chkRttyReverse, 4, 0, 1, 3);
-    grid->addWidget(m_chkRttyAutoReverse, 5, 0, 1, 3);
+    grid->addWidget(m_chkRttyNarrowFilter, 5, 0, 1, 3);
     grid->addWidget(m_chkRttyAfc, 6, 0, 1, 1);
     grid->addWidget(new QLabel("AFC range", settingsGroup), 6, 1);
     grid->addWidget(m_spinRttyAfcRangeHz, 6, 2);
@@ -5909,7 +5909,7 @@ void MainWindow::loadRttySettingsToUi()
         m_spinRttyShiftHz == nullptr ||
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
-        m_chkRttyAutoReverse == nullptr ||
+        m_chkRttyNarrowFilter == nullptr ||
         m_chkRttyAfc == nullptr ||
         m_spinRttyAfcRangeHz == nullptr) {
         return;
@@ -5920,7 +5920,7 @@ void MainWindow::loadRttySettingsToUi()
     const QSignalBlocker blockShift(m_spinRttyShiftHz);
     const QSignalBlocker blockMark(m_spinRttyMarkHz);
     const QSignalBlocker blockReverse(m_chkRttyReverse);
-    const QSignalBlocker blockAutoReverse(m_chkRttyAutoReverse);
+    const QSignalBlocker blockNarrowFilter(m_chkRttyNarrowFilter);
     const QSignalBlocker blockAfc(m_chkRttyAfc);
     const QSignalBlocker blockAfcRange(m_spinRttyAfcRangeHz);
     const QSignalBlocker blockMulti(m_chkRttyMultiDecode);
@@ -5940,7 +5940,7 @@ void MainWindow::loadRttySettingsToUi()
     m_spinRttyShiftHz->setValue(qBound(50, customPreset ? m_settings.rttyShiftHz : preset.shiftHz, 1200));
     m_spinRttyMarkHz->setValue(qBound(300, preset.markHz, 3500));
     m_chkRttyReverse->setChecked(m_settings.rttyReverse);
-    m_chkRttyAutoReverse->setChecked(m_settings.rttyAutoReverseEnabled);
+    m_chkRttyNarrowFilter->setChecked(m_settings.rttyNarrowFilterEnabled);
     m_chkRttyAfc->setChecked(m_settings.rttyAfcEnabled);
     m_spinRttyAfcRangeHz->setValue(qBound(5, m_settings.rttyAfcRangeHz, 100));
     if (m_chkRttyMultiDecode != nullptr) m_chkRttyMultiDecode->setChecked(m_settings.rttyMultiDecodeEnabled);
@@ -8890,8 +8890,8 @@ void MainWindow::setupHelpTooltips()
         setHelpText(m_spinRttyShiftHz, "Frequency shift between mark and space tones. Common amateur narrow shift is 170 Hz; utility modes often use 425 or 850 Hz.");
         setHelpText(m_spinRttyMarkHz, "Audio mark tone in Hz. High-tone AFSK commonly uses 2125 Hz; low-tone AFSK often uses 1275 Hz. Waterfall click tuning sets this marker for the current session.");
         setHelpText(m_chkRttyReverse, "Invert mark/space logic. Enable when decoded text is garbage but the signal is otherwise strong and centered.");
-        if (m_chkRttyAutoReverse != nullptr) {
-            setHelpText(m_chkRttyAutoReverse, "Automatic RTTY polarity: CAT USB/LSB/RTTY mode supplies the initial orientation when available, then live normal/reverse ITA2 framing verifies it. Disable Auto to keep manual Reverse authoritative.");
+        if (m_chkRttyNarrowFilter != nullptr) {
+            setHelpText(m_chkRttyNarrowFilter, "Narrow dual-channel RTTY filter. Keeps only tight bands around Mark and Space and strongly rejects signals outside and between the two tones. Useful on crowded contest bands.");
         }
         setHelpText(m_chkRttyAfc, "Track a common RX offset around the RTTY markers. AFC preserves the selected shift and never changes the TX tones.");
         setHelpText(m_spinRttyAfcRangeHz, "Maximum AFC search window around each RTTY marker. Start with ±20 Hz; use smaller values for crowded contest bands.");
@@ -9214,8 +9214,7 @@ void MainWindow::setupProcessingConnections()
                 this, [this](const QString &modeName) {
                     m_lastRigModeName = modeName.trimmed().toUpper();
                     if (m_rttyDecoder != nullptr) {
-                        invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setCatModeHint, m_lastRigModeName);
-                    }
+                                        }
                     appendLog(m_lastRigModeName.isEmpty()
                                   ? QStringLiteral("CAT mode: unavailable")
                                   : QStringLiteral("CAT mode: %1").arg(m_lastRigModeName));
@@ -9279,41 +9278,6 @@ void MainWindow::setupProcessingConnections()
                 // the time/frequency history at the Mark/Space midpoint.
                 m_rttyWaterfallLiveText = text.right(256);
                 updateRttyWaterfallOverlays();
-            },
-            Qt::QueuedConnection);
-
-    connect(m_rttyDecoder, &RttyDecoder::polarityDecisionChanged,
-            this, [this](bool reverse, const QString &source, const QString &catMode, double normalScore, double reverseScore) {
-                Q_UNUSED(source)
-                Q_UNUSED(catMode)
-                Q_UNUSED(normalScore)
-                Q_UNUSED(reverseScore)
-                if (m_rttyScopeWidget != nullptr) {
-                    m_rttyScopeWidget->setReversePolarity(reverse);
-                }
-            },
-            Qt::QueuedConnection);
-
-    connect(m_rttyDecoder, &RttyDecoder::statusChanged,
-            this, &MainWindow::handleWeatherFaxStatus);
-
-    connect(m_rttyDecoder, &RttyDecoder::reversePolarityRequested,
-            this, [this](bool reverse) {
-                if (m_chkRttyAutoReverse == nullptr || !m_chkRttyAutoReverse->isChecked() ||
-                    m_chkRttyReverse == nullptr || m_chkRttyReverse->isChecked() == reverse) {
-                    return;
-                }
-                {
-                    const QSignalBlocker blockReverse(m_chkRttyReverse);
-                    m_chkRttyReverse->setChecked(reverse);
-                }
-                // Worker applies polarity without a GUI round trip.
-                m_settings.rttyReverse=reverse;
-                updateWaterfallMarkers();
-                updateTxPreview();
-                handleWeatherFaxStatus(reverse
-                                           ? QStringLiteral("RTTY: auto polarity selected REVERSE")
-                                           : QStringLiteral("RTTY: auto polarity selected NORMAL"));
             },
             Qt::QueuedConnection);
 
@@ -10431,8 +10395,8 @@ void MainWindow::setupUiConnections()
                 this, [this](bool) { applyRttySettings(); });
     }
 
-    if (m_chkRttyAutoReverse != nullptr) {
-        connect(m_chkRttyAutoReverse, &QCheckBox::toggled,
+    if (m_chkRttyNarrowFilter != nullptr) {
+        connect(m_chkRttyNarrowFilter, &QCheckBox::toggled,
                 this, [this](bool) { applyRttySettings(); });
     }
 
@@ -11403,7 +11367,6 @@ void MainWindow::applyPersistentSettingsToRuntime(const AppSettings *previousSet
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setTones, static_cast<double>(m_settings.rttyMarkHz),
                             static_cast<double>(m_settings.rttyMarkHz + m_settings.rttyShiftHz));
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setReverse, m_settings.rttyReverse);
-    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setAutoReverseEnabled, m_settings.rttyAutoReverseEnabled);
 
     invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setSymbolRate, bpskSymbolRateForVariant(m_settings.bpsk31Variant));
     invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setQpskMode, pskVariantIsQpsk(m_settings.bpsk31Variant));
@@ -14059,7 +14022,7 @@ void MainWindow::applyRttySettings()
         m_spinRttyShiftHz == nullptr ||
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
-        m_chkRttyAutoReverse == nullptr ||
+        m_chkRttyNarrowFilter == nullptr ||
         m_chkRttyAfc == nullptr ||
         m_spinRttyAfcRangeHz == nullptr) {
         return;
@@ -14073,7 +14036,7 @@ void MainWindow::applyRttySettings()
     const int markHz = m_spinRttyMarkHz->value();
     const int spaceHz = markHz + shiftHz;
     const bool reverse = m_chkRttyReverse->isChecked();
-    const bool autoReverse = (m_chkRttyAutoReverse != nullptr) ? m_chkRttyAutoReverse->isChecked() : true;
+    const bool narrowFilter = (m_chkRttyNarrowFilter != nullptr) ? m_chkRttyNarrowFilter->isChecked() : true;
     const bool afc = (m_chkRttyAfc != nullptr) ? m_chkRttyAfc->isChecked() : true;
     const int afcRangeHz = (m_spinRttyAfcRangeHz != nullptr) ? m_spinRttyAfcRangeHz->value() : 20;
     const bool multiDecode = (m_chkRttyMultiDecode != nullptr)
@@ -14098,15 +14061,16 @@ void MainWindow::applyRttySettings()
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setBaudRate, baud);
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setTones, static_cast<double>(markHz), static_cast<double>(spaceHz));
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setReverse, reverse);
-    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setAutoReverseEnabled, autoReverse);
-    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setCatModeHint, m_lastRigModeName);
+    if (m_rttyScopeWidget != nullptr) m_rttyScopeWidget->setReversePolarity(reverse);
 
     m_settings.rttyPreset = presetKey;
     m_settings.rttyBaudRate = baud;
     m_settings.rttyShiftHz = shiftHz;
     m_settings.rttyMarkHz = markHz;
     m_settings.rttyReverse = reverse;
-    m_settings.rttyAutoReverseEnabled = autoReverse;
+    m_settings.rttyNarrowFilterEnabled = narrowFilter;
+    m_settings.rttyMatchedFilterEnabled = narrowFilter;
+    m_settings.rttyMarkSpaceEnhancerEnabled = narrowFilter;
     m_settings.rttyAfcEnabled = afc;
     m_settings.rttyAfcRangeHz = afcRangeHz;
     m_settings.rttyMultiDecodeEnabled = multiDecode;
@@ -14131,6 +14095,7 @@ void MainWindow::applyRttySettings()
     }
 
     savePersistentSettings();
+    scheduleLiveRxConfig();
     updateCwDualRxStatusLabel();
     updateWaterfallMarkers();
     updateTxPreview();
@@ -14248,7 +14213,7 @@ void MainWindow::handleRttyPresetChanged(int index)
         m_spinRttyShiftHz == nullptr ||
         m_spinRttyMarkHz == nullptr ||
         m_chkRttyReverse == nullptr ||
-        m_chkRttyAutoReverse == nullptr ||
+        m_chkRttyNarrowFilter == nullptr ||
         m_chkRttyAfc == nullptr ||
         m_spinRttyAfcRangeHz == nullptr) {
         return;
@@ -20185,8 +20150,8 @@ DspConditioner::Config MainWindow::decoderConditionerConfig() const
         config.noiseReductionEnabled = m_settings.rttyNoiseReductionEnabled;
         config.agcEnabled = m_settings.rttyAgcEnabled;
         config.adaptiveLineEnhancerEnabled = m_settings.rttyAdaptiveLineEnhancerEnabled;
-        config.rttyMatchedFilterEnabled = m_settings.rttyMatchedFilterEnabled;
-        config.rttyMarkSpaceEnhancerEnabled = m_settings.rttyMarkSpaceEnhancerEnabled;
+        config.rttyMatchedFilterEnabled = m_settings.rttyNarrowFilterEnabled;
+        config.rttyMarkSpaceEnhancerEnabled = m_settings.rttyNarrowFilterEnabled;
         const double mark = (m_spinRttyMarkHz != nullptr) ? m_spinRttyMarkHz->value() : 2125.0;
         const double shift = (m_spinRttyShiftHz != nullptr) ? m_spinRttyShiftHz->value() : 170.0;
         config.blackHz = mark;

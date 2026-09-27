@@ -6,10 +6,6 @@ RxDecoderWorker::RxDecoderWorker(Graph graph,QObject *parent):QObject(parent),m_
         decoder->setParent(this);
     }
     connect(&m_queue,&BoundedAudioDispatcher::blocksAvailable,this,&RxDecoderWorker::drain,Qt::QueuedConnection);
-    connect(graph.rtty,&RttyDecoder::reversePolarityRequested,this,[this](bool reverse){
-        m_graph.rtty->setReverse(reverse);
-        m_graph.multi->setReverse(reverse);
-    },Qt::QueuedConnection);
     updateSnapshots(false);
 }
 void RxDecoderWorker::configure(const Config &config) {

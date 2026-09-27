@@ -1702,7 +1702,7 @@ private:
     QSpinBox *m_spinRttyShiftHz = nullptr;
     QSpinBox *m_spinRttyMarkHz = nullptr;
     QCheckBox *m_chkRttyReverse = nullptr;
-    QCheckBox *m_chkRttyAutoReverse = nullptr;
+    QCheckBox *m_chkRttyNarrowFilter = nullptr;
     QCheckBox *m_chkRttyAfc = nullptr;
     QSpinBox *m_spinRttyAfcRangeHz = nullptr;
     QCheckBox *m_chkRttyMultiDecode = nullptr;

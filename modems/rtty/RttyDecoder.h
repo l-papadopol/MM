@@ -78,31 +78,6 @@ public:
      */
     void setReverse(bool reverse);
 
-    /**
-     * @brief Enables decoder-driven polarity recommendation.
-     *
-     * When enabled, the decoder may ask the UI to flip Reverse polarity
-     * after detecting a stable carrier whose UART start/stop framing is
-     * consistently inverted.  The final switch is still performed by the UI
-     * so the user-visible Reverse checkbox remains the single manual state.
-     */
-    void setAutoReverseEnabled(bool enabled);
-    void setVisualizationEnabled(bool enabled) { m_visualizationEnabled = enabled; }
-
-    /**
-     * @brief Supplies the current CAT demodulation mode as an automatic-polarity prior.
-     *
-     * Direct Hamlib CAT polling reports modes such as LSB, USB, RTTY or RTTYR.
-     * The hint never overrides manual polarity: it is used only when Auto polarity
-     * is enabled, and the live dual-hypothesis UART probe may override it when
-     * the received framing/text strongly favours the opposite polarity.
-     */
-    void setCatModeHint(const QString &modeName);
-
-    /**
-     * @brief Returns whether automatic reverse-polarity requests are enabled.
-     */
-    bool autoReverseEnabled() const;
 
     /**
      * @brief Returns baud rate.
@@ -164,19 +139,6 @@ signals:
      */
     void tuningScopeTraceChanged(const QVector<QPointF> &tracePoints, double snrLike, bool locked);
 
-    /**
-     * @brief Requests that the UI flips the persistent Reverse polarity flag.
-     */
-    void reversePolarityRequested(bool reverse);
-
-    /**
-     * @brief Reports the current automatic polarity decision for the tuning scope.
-     */
-    void polarityDecisionChanged(bool reverse,
-                                 const QString &source,
-                                 const QString &catMode,
-                                 double normalScore,
-                                 double reverseScore);
 
 private:
     enum class RxState
@@ -187,28 +149,6 @@ private:
         StopBits
     };
 
-    enum class ProbeRxState
-    {
-        WaitingStart,
-        ValidateStart,
-        DataBits,
-        StopBits
-    };
-
-    struct PolarityProbe
-    {
-        ProbeRxState state = ProbeRxState::WaitingStart;
-        double samplesToNextDecision = 0.0;
-        int idleMarkSamples = 0;
-        int startSpaceSamples = 0;
-        int dataBitIndex = 0;
-        int currentCode = 0;
-        bool lettersShift = true;
-        int goodFrames = 0;
-        int badFrames = 0;
-        int plausibleChars = 0;
-        int weakChars = 0;
-    };
 
 private:
     /**
@@ -246,27 +186,12 @@ private:
      */
     void maybeEmitStatus();
 
-    void resetPolarityProbe(PolarityProbe &probe, bool keepStatistics = false);
-    void resetPolarityProbes();
-    void advancePolarityProbe(PolarityProbe &probe,
-                              bool bitIsMark,
-                              double bitQuality);
-    double polarityProbeScore(const PolarityProbe &probe) const;
-    void evaluateAutomaticPolarity();
-    int catPreferredReverse(const QString &modeName) const;
 
 private:
     double m_baudRate = 45.45;
     double m_markHz = 2125.0;
     double m_spaceHz = 2295.0;
     bool m_reverse = false;
-    bool m_autoReverseEnabled = true;
-    QString m_catModeHint;
-    int m_catReversePreference = -1; // -1 unknown, 0 normal, 1 reverse
-    QString m_polarityDecisionSource = QStringLiteral("signal");
-    PolarityProbe m_normalProbe;
-    PolarityProbe m_reverseProbe;
-    int m_polarityEvaluationCooldown = 0;
 
     int m_sampleRate = 0;
     double m_symbolSamples = 1056.0;
@@ -293,7 +218,6 @@ private:
     double m_samplesToNextDecision = 0.0;
     int m_idleMarkSamples = 0;
     int m_startSpaceSamples = 0;
-    bool m_autoReverseRequestPending = false;
     int m_dataBitIndex = 0;
     int m_currentCode = 0;
     bool m_lettersShift = true;

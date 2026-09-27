@@ -378,7 +378,7 @@ void AppSettings::load()
     rttyShiftHz = settings.value("RTTY/shiftHz", rttyShiftHz).toInt();
     rttyMarkHz = 2125;
     rttyReverse = settings.value("RTTY/reverse", rttyReverse).toBool();
-    rttyAutoReverseEnabled = settings.value("RTTY/autoReverse", rttyAutoReverseEnabled).toBool();
+    rttyNarrowFilterEnabled = settings.value("RTTY/narrowFilterEnabled", true).toBool();
     rttyAfcEnabled = settings.value("RTTY/afcEnabled", rttyAfcEnabled).toBool();
     rttyAfcRangeHz = settings.value("RTTY/afcRangeHz", rttyAfcRangeHz).toInt();
     rttyNoiseReductionEnabled = settings.value("RTTY/noiseReductionEnabled", rttyNoiseReductionEnabled).toBool();
@@ -822,7 +822,7 @@ bool AppSettings::save() const
     settings.setValue("RTTY/shiftHz", rttyShiftHz);
     settings.remove("RTTY/markHz");
     settings.setValue("RTTY/reverse", rttyReverse);
-    settings.setValue("RTTY/autoReverse", rttyAutoReverseEnabled);
+    settings.setValue("RTTY/narrowFilterEnabled", rttyNarrowFilterEnabled);
     settings.setValue("RTTY/afcEnabled", rttyAfcEnabled);
     settings.setValue("RTTY/afcRangeHz", rttyAfcRangeHz);
     settings.setValue("RTTY/noiseReductionEnabled", rttyNoiseReductionEnabled);

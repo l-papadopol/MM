@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION_FILE="$ROOT_DIR/MADMODEM_VERSION.txt"
 HEADER_FILE="$ROOT_DIR/MadModemVersion.h"
+REVISION_FILE="$ROOT_DIR/MADMODEM_SOURCE_REVISION.txt"
 
 if [[ ! -f "$VERSION_FILE" ]]; then
     echo "ERROR: missing MADMODEM_VERSION.txt" >&2
@@ -23,6 +24,17 @@ normalized_tag="${ref_name#v}"
 
 printf 'MadModem CI version guard\n'
 printf '  MADMODEM_VERSION.txt : %s\n' "$expected"
+if [[ -f "$REVISION_FILE" ]]; then
+    source_revision="$(tr -d '\r\n' < "$REVISION_FILE")"
+    printf '  SOURCE_REVISION      : %s\n' "$source_revision"
+    if [[ "$source_revision" != "$expected"-* ]]; then
+        echo "ERROR: source revision '$source_revision' does not belong to version '$expected'" >&2
+        exit 1
+    fi
+else
+    echo "ERROR: missing MADMODEM_SOURCE_REVISION.txt" >&2
+    exit 1
+fi
 printf '  GITHUB_REF_TYPE      : %s\n' "$ref_type"
 printf '  GITHUB_REF_NAME      : %s\n' "$ref_name"
 printf '  GITHUB_SHA           : %s\n' "$sha"

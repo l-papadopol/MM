@@ -1,6 +1,6 @@
 # MadModem changelog
 
-## 0.5.9-alpha — FT split-operation validation — 2026-08-25
+## 0.5.9-beta — FT split-operation validation — 2026-08-25
 
 ### Alpha r5 — real rotator peak tracking
 

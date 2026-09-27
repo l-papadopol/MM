@@ -48,6 +48,7 @@ private slots:
     void exportAllAdif();
     void exportSearchResultAdif();
     void exportSelectedAdif();
+    void exportCabrilloWizard();
     void copySelectedRowsCsv();
     void copySelectedRowsAdif();
     void saveSelectedRowsCsv();

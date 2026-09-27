@@ -1,8 +1,8 @@
-# MadModem 0.5.9-alpha — sorgenti R6
+# MadModem 0.5.9-beta — sorgenti R6
 
 23 settembre 2026. Base: archivio completo R5, revisione
-`0.5.9-alpha-source-r5-real-rotator-peak-tracking`.
-Revisione consegnata: `0.5.9-alpha-source-r6-runtime-ui-rotator-hardening`.
+`0.5.9-beta-source-r5-real-rotator-peak-tracking`.
+Revisione consegnata: `0.5.9-beta-source-r6-runtime-ui-rotator-hardening`.
 
 ## Correzioni
 

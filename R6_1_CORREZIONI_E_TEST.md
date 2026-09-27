@@ -1,6 +1,6 @@
 # R6.1 — Correzione layout Impostazioni e audit RTTY
 
-24 settembre 2026. Revisione: `0.5.9-alpha-source-r6.1-windows-settings-layout`.
+24 settembre 2026. Revisione: `0.5.9-beta-source-r6.1-windows-settings-layout`.
 
 ## Correzione del fallimento Windows
 

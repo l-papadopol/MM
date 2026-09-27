@@ -283,7 +283,7 @@ PTT OFF at application shutdown.
 
 
 
-### 0.5.9-alpha r2 — Hamlib 4.7 public-API split compile fix
+### 0.5.9-beta r2 — Hamlib 4.7 public-API split compile fix
 
 - Fixed the Linux/macOS/Windows compile break caused by direct `RIG::state` access. The bundled Hamlib 4.7.2 exposes only `state_addr` as private implementation data; application code must not dereference it.
 - FT Rig Split now uses only public Hamlib APIs: `rig_get_vfo()`, `rig_get_vfo_list()`, `rig_get_split_vfo()`, `rig_set_split_vfo()`, `rig_get_split_freq()`, `rig_set_split_freq()`, `rig_get_split_mode()` and `rig_set_split_mode()`.

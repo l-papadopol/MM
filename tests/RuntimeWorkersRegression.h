@@ -25,7 +25,7 @@ inline int runRuntimeWorkersRegression(QApplication &app)
     QObject::connect(&rxThread,&QThread::finished,worker,&QObject::deleteLater);
     rxThread.start();
     RxDecoderWorker::Config config;config.mode=RttyDecoder::modeName();config.enabled=true;config.filter.enabled=false;
-    QMetaObject::invokeMethod(worker,[&](){worker->configure(config);rtty->setAutoReverseEnabled(false);},Qt::BlockingQueuedConnection);
+    QMetaObject::invokeMethod(worker,[&](){worker->configure(config);},Qt::BlockingQueuedConnection);
     QString decoded;QMutex textMutex;std::atomic_bool wrongThread{false};std::atomic_int drops{0};
     QObject::connect(rtty,&RttyDecoder::characterReceived,worker,[&](const QString &s){
         if(QThread::currentThread()!=&rxThread)wrongThread=true;
@@ -63,8 +63,8 @@ inline int runRuntimeWorkersRegression(QApplication &app)
     }
     check(pump([&](){return decodedText()=="CQ";}),"RTTY decodes after overload and restart");
     {QMutexLocker lock(&textMutex);decoded.clear();}
-    QMetaObject::invokeMethod(worker,[&](){worker->beginCapture();rtty->setAutoReverseEnabled(true);rtty->setCatModeHint("RTTYR");},Qt::BlockingQueuedConnection);
-    QThread::msleep(20); // GUI stays blocked while worker applies automatic polarity.
+    QMetaObject::invokeMethod(worker,[&](){worker->beginCapture();rtty->setReverse(true);},Qt::BlockingQueuedConnection);
+    QThread::msleep(20); // GUI stays blocked while worker owns manual reverse state.
     RttyTransmitter reverseTx("REVERSE",48000,45.45,2125,2295,true);offset=0;
     while(!reverseTx.isFinished()){
         AudioBlock b;b.sampleRate=48000;b.captureGeneration=4;b.firstSampleIndex=offset;b.samples.resize(4096);b.samples.resize(reverseTx.generate(b.samples.data(),b.samples.size()));offset+=b.samples.size();
@@ -72,7 +72,7 @@ inline int runRuntimeWorkersRegression(QApplication &app)
     }
     blocked.restart();
     while(decodedText()!="REVERSE" && blocked.elapsed()<3000)QThread::msleep(5);
-    check(decodedText()=="REVERSE","RTTY automatic polarity does not depend on GUI callbacks");
+    check(decodedText()=="REVERSE","RTTY manual reverse decodes without GUI callbacks");
     std::atomic_int imageNotifications{0};
     worker->acknowledgeImages();
     QObject::connect(worker,&RxDecoderWorker::imagesAvailable,worker,[&](){++imageNotifications;},Qt::DirectConnection);

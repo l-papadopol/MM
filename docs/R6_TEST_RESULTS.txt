@@ -1,4 +1,4 @@
-MadModem 0.5.9-alpha R6 — validation, 2026-09-23
+MadModem 0.5.9-beta R6 — validation, 2026-09-23
 
 Environment: Ubuntu 24.04, x86_64; GCC 13.3.0; CMake 3.28.3;
 Qt 5.15.13; system Hamlib 4.5.5; Release, C++17, BUILD_TESTING=ON.

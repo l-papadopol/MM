@@ -17,7 +17,9 @@ scope_header=(root/'widgets/RttyScopeWidget.h').read_text(encoding='utf-8', erro
 for obsolete in ['polarityLine', 'm_polaritySource', 'm_catMode', ' · CAT ']:
     if obsolete in scope or obsolete in scope_header:
         errors.append(f'widgets/RttyScopeWidget: obsolete in-scope status text remains: {obsolete}')
-dec=must(Path('modems/rtty/RttyDecoder.cpp'), ['setCatModeHint(', 'advancePolarityProbe(m_normalProbe', 'advancePolarityProbe(m_reverseProbe'])
+dec=must(Path('modems/rtty/RttyDecoder.cpp'), ['setReverse(bool reverse)', 'rawBitIsMark', 'if (m_reverse)'])
+for obsolete in ['setCatModeHint(', 'advancePolarityProbe(', 'evaluateAutomaticPolarity(']:
+    if obsolete in dec: errors.append(f'modems/rtty/RttyDecoder.cpp: obsolete automatic polarity code remains: {obsolete}')
 must(Path('rig/HamlibController.cpp'), ['rig_get_mode(', 'rig_strrmode(', 'emit modeChanged(modeName)'])
 main=must(Path('mainwindow.cpp'), ['m_tabRttyContest', 'insertTab(insertIndex, m_tabRttyContest', 'updateRttyWaterfallOverlays()', 'live.verticalTrail = true', 'live.streamId = QStringLiteral("rtty-live")', 'markHz + (shiftHz * 0.5)', 'setReversePolarity(reverse)', 'm_chkRttyWaterfallTextOverlay', 'rttyWaterfallTextOverlayEnabled &&', 'clearTextOverlayStream(QStringLiteral("rtty-live"))', 'addQsoToLogFromForm(contestQsoForm())'])
 settings=must(Path('settings/AppSettings.cpp'), ['RTTY/waterfallTextOverlayEnabled'])
@@ -58,7 +60,7 @@ except Exception as e:
     errors.append(f'cw_rules parse failed: {e}')
 
 # All UI dictionaries must contain the new contest tab fields.
-keys=['rtty_contest_qso','rtty_contest_macros','qso_callsign','qso_mode','qso_rst_sent','qso_rst_received','qso_grid','qso_utc','qso_add_to_log','rtty_waterfall_text_overlay']
+keys=['rtty_contest_qso','qso_callsign','qso_mode','qso_rst_sent','qso_rst_received','qso_grid','qso_utc','qso_add_to_log','rtty_waterfall_text_overlay']
 for lang in ['en','it','fr','de','no','cs']:
     text=(root/f'translations/ui_{lang}.ini').read_text(encoding='utf-8', errors='replace')
     for key in keys:

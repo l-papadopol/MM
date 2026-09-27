@@ -1,6 +1,6 @@
 # R8 — Decoder RX fuori dalla GUI e CAT asincrono
 
-Revisione: `0.5.9-alpha-source-r8-rx-cat-workers`.
+Revisione: `0.5.9-beta-source-r8-rx-cat-workers`.
 Baseline: sorgenti completi R7. I rapporti R6/R6.1/R7 inclusi sono storici.
 
 ## Ricezione

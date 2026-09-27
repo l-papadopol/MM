@@ -127,7 +127,7 @@ public:
     int rttyShiftHz = 170;
     int rttyMarkHz = 2125;
     bool rttyReverse = false;
-    bool rttyAutoReverseEnabled = true;
+    bool rttyNarrowFilterEnabled = true;
     bool rttyAfcEnabled = true;
     int rttyAfcRangeHz = 20;
     bool rttyNoiseReductionEnabled = false;

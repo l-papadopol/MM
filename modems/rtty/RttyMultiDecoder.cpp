@@ -326,7 +326,6 @@ void RttyMultiDecoder::addOrRefreshTrack(const Candidate &candidate, qint64 samp
     track.decoder->setBaudRate(m_baud);
     track.decoder->setTones(candidate.markHz, candidate.spaceHz);
     track.decoder->setReverse(m_reverse);
-    track.decoder->setAutoReverseEnabled(false);
     track.decoder->setVisualizationEnabled(false);
 
     RttyDecoder *decoder = track.decoder;

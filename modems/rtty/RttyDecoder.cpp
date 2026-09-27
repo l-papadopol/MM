@@ -100,9 +100,6 @@ void RttyDecoder::reset()
     m_statusCounter = 0;
     m_scopeDecimator = 0;
     m_scopeTrace.clear();
-    m_autoReverseRequestPending = false;
-    resetPolarityProbes();
-    m_polarityEvaluationCooldown = 0;
     m_text.clear();
 
     if (m_sampleRate > 0) {
@@ -114,21 +111,15 @@ void RttyDecoder::reset()
     emit markersChanged(frequencyMarkers(m_markHz, m_spaceHz, m_reverse));
     emit tuningScopeChanged(0.0, 0.0, 0.0, false);
     emit tuningScopeTraceChanged(QVector<QPointF>(), 0.0, false);
-    emit polarityDecisionChanged(m_reverse,
-                                 m_autoReverseEnabled ? m_polarityDecisionSource : QStringLiteral("manual"),
-                                 m_catModeHint,
-                                 polarityProbeScore(m_normalProbe),
-                                 polarityProbeScore(m_reverseProbe));
 }
 
 void RttyDecoder::resumeAfterLocalTransmit()
 {
     // Audio capture is deliberately stopped while our transmitter is keyed.
     // Do not stitch a partially received Baudot frame across that hole, but
-    // retain the expensive signal/noise, polarity and LETTERS/FIGURES context
+    // retain the signal/noise and LETTERS/FIGURES context
     // learned immediately before TX.  This makes a contest reply decodable
-    // from its first complete start bit instead of after a fresh squelch/polarity
-    // acquisition lasting several characters.
+    // from its first complete start bit instead of after a fresh squelch acquisition lasting several characters.
     resetFrame();
     m_markI = 0.0;
     m_markQ = 0.0;
@@ -139,9 +130,7 @@ void RttyDecoder::resumeAfterLocalTransmit()
     m_idleMarkSamples = 0;
     m_scopeDecimator = 0;
     m_scopeTrace.clear();
-    m_autoReverseRequestPending = false;
-    m_polarityEvaluationCooldown = qMax(0, m_polarityEvaluationCooldown / 2);
-    emit statusChanged(QStringLiteral("RTTY: RX resumed after local TX; retained signal/polarity history"));
+    emit statusChanged(QStringLiteral("RTTY: RX resumed after local TX; retained signal history"));
 }
 
 void RttyDecoder::setBaudRate(double baud)
@@ -178,69 +167,7 @@ void RttyDecoder::setReverse(bool reverse)
         return;
     }
     m_reverse = reverse;
-    m_autoReverseRequestPending = false;
     reset();
-}
-
-void RttyDecoder::setAutoReverseEnabled(bool enabled)
-{
-    if (m_autoReverseEnabled == enabled) {
-        return;
-    }
-
-    m_autoReverseEnabled = enabled;
-    m_autoReverseRequestPending = false;
-    resetPolarityProbes();
-    m_polarityDecisionSource = enabled ? (m_catReversePreference >= 0 ? QStringLiteral("CAT")
-                                                                      : QStringLiteral("signal"))
-                                       : QStringLiteral("manual");
-    emit polarityDecisionChanged(m_reverse,
-                                 m_polarityDecisionSource,
-                                 m_catModeHint,
-                                 polarityProbeScore(m_normalProbe),
-                                 polarityProbeScore(m_reverseProbe));
-    if (enabled) {
-        evaluateAutomaticPolarity();
-    }
-}
-
-void RttyDecoder::setCatModeHint(const QString &modeName)
-{
-    const QString clean = modeName.trimmed().toUpper();
-    const int preference = catPreferredReverse(clean);
-    if (m_catModeHint == clean && m_catReversePreference == preference) {
-        return;
-    }
-
-    m_catModeHint = clean;
-    m_catReversePreference = preference;
-    resetPolarityProbes();
-    m_autoReverseRequestPending = false;
-    m_polarityEvaluationCooldown = 0;
-
-    if (!m_autoReverseEnabled) {
-        m_polarityDecisionSource = QStringLiteral("manual");
-        emit polarityDecisionChanged(m_reverse, m_polarityDecisionSource, m_catModeHint, 0.0, 0.0);
-        return;
-    }
-
-    if (preference >= 0) {
-        m_polarityDecisionSource = QStringLiteral("CAT");
-        const bool preferredReverse = preference != 0;
-        emit polarityDecisionChanged(preferredReverse, m_polarityDecisionSource, m_catModeHint, 0.0, 0.0);
-        if (preferredReverse != m_reverse) {
-            m_autoReverseRequestPending = true;
-            emit reversePolarityRequested(preferredReverse);
-        }
-    } else {
-        m_polarityDecisionSource = QStringLiteral("signal");
-        emit polarityDecisionChanged(m_reverse, m_polarityDecisionSource, m_catModeHint, 0.0, 0.0);
-    }
-}
-
-bool RttyDecoder::autoReverseEnabled() const
-{
-    return m_autoReverseEnabled;
 }
 
 double RttyDecoder::baudRate() const
@@ -373,21 +300,6 @@ void RttyDecoder::processAudioBlock(const AudioBlock &block)
         updateCarrierGate(sumEnergy, bitQuality);
 
         const bool rawBitIsMark = diffNorm >= 0.0;
-        if (m_autoReverseEnabled) {
-            if (m_carrierOpen) {
-                advancePolarityProbe(m_normalProbe, rawBitIsMark, bitQuality);
-                advancePolarityProbe(m_reverseProbe, !rawBitIsMark, bitQuality);
-                if (m_polarityEvaluationCooldown > 0) {
-                    --m_polarityEvaluationCooldown;
-                } else {
-                    evaluateAutomaticPolarity();
-                    m_polarityEvaluationCooldown = qMax(1, static_cast<int>(m_symbolSamples));
-                }
-            } else {
-                resetPolarityProbe(m_normalProbe, false);
-                resetPolarityProbe(m_reverseProbe, false);
-            }
-        }
 
         bool bitIsMark = rawBitIsMark;
         if (m_reverse) {
@@ -594,233 +506,6 @@ QString RttyDecoder::decodeCode(int code) const
 }
 
 
-void RttyDecoder::resetPolarityProbe(PolarityProbe &probe, bool keepStatistics)
-{
-    const bool lettersShift = probe.lettersShift;
-    const int goodFrames = probe.goodFrames;
-    const int badFrames = probe.badFrames;
-    const int plausibleChars = probe.plausibleChars;
-    const int weakChars = probe.weakChars;
-
-    probe = PolarityProbe();
-    if (keepStatistics) {
-        probe.lettersShift = lettersShift;
-        probe.goodFrames = goodFrames;
-        probe.badFrames = badFrames;
-        probe.plausibleChars = plausibleChars;
-        probe.weakChars = weakChars;
-    }
-}
-
-void RttyDecoder::resetPolarityProbes()
-{
-    m_normalProbe = PolarityProbe();
-    m_reverseProbe = PolarityProbe();
-}
-
-void RttyDecoder::advancePolarityProbe(PolarityProbe &probe,
-                                       bool bitIsMark,
-                                       double bitQuality)
-{
-    auto ageStatistics = [&probe]() {
-        if ((probe.goodFrames + probe.badFrames) > 64) {
-            probe.goodFrames /= 2;
-            probe.badFrames /= 2;
-            probe.plausibleChars /= 2;
-            probe.weakChars /= 2;
-        }
-    };
-
-    switch (probe.state) {
-    case ProbeRxState::WaitingStart:
-        if (bitIsMark) {
-            if (bitQuality >= kMinDataQuality) {
-                probe.idleMarkSamples = qMin(probe.idleMarkSamples + 1,
-                                             static_cast<int>(m_symbolSamples * 4.0));
-            }
-            probe.startSpaceSamples = 0;
-        } else {
-            ++probe.startSpaceSamples;
-            const bool hadStableIdle = probe.idleMarkSamples >= static_cast<int>(m_symbolSamples * 0.32);
-            const bool plausibleStart = hadStableIdle &&
-                                        bitQuality >= kMinStartQuality &&
-                                        probe.startSpaceSamples <= static_cast<int>(m_symbolSamples * 0.80);
-            if (plausibleStart) {
-                probe.state = ProbeRxState::ValidateStart;
-                probe.samplesToNextDecision = qMax(1.0,
-                                                   (m_symbolSamples * 0.50) - static_cast<double>(probe.startSpaceSamples));
-            } else if (probe.startSpaceSamples > static_cast<int>(m_symbolSamples * 1.20)) {
-                probe.idleMarkSamples = 0;
-                probe.startSpaceSamples = 0;
-            }
-        }
-        break;
-
-    case ProbeRxState::ValidateStart:
-        probe.samplesToNextDecision -= 1.0;
-        if (probe.samplesToNextDecision <= 0.0) {
-            if (!bitIsMark && bitQuality >= kMinStartQuality) {
-                probe.state = ProbeRxState::DataBits;
-                probe.samplesToNextDecision = m_symbolSamples;
-                probe.dataBitIndex = 0;
-                probe.currentCode = 0;
-            } else {
-                ++probe.badFrames;
-                ageStatistics();
-                resetPolarityProbe(probe, true);
-            }
-        }
-        break;
-
-    case ProbeRxState::DataBits:
-        probe.samplesToNextDecision -= 1.0;
-        if (probe.samplesToNextDecision <= 0.0) {
-            if (bitQuality < kMinDataQuality) {
-                ++probe.badFrames;
-                ageStatistics();
-                resetPolarityProbe(probe, true);
-                break;
-            }
-            if (bitIsMark) {
-                probe.currentCode |= (1 << probe.dataBitIndex);
-            }
-            ++probe.dataBitIndex;
-            probe.samplesToNextDecision += m_symbolSamples;
-            if (probe.dataBitIndex >= 5) {
-                probe.state = ProbeRxState::StopBits;
-                probe.samplesToNextDecision = m_symbolSamples;
-            }
-        }
-        break;
-
-    case ProbeRxState::StopBits:
-        probe.samplesToNextDecision -= 1.0;
-        if (probe.samplesToNextDecision <= 0.0) {
-            if (bitIsMark && bitQuality >= kMinStopQuality) {
-                ++probe.goodFrames;
-                const int code = probe.currentCode;
-                if (code == 31) {
-                    probe.lettersShift = true;
-                } else if (code == 27) {
-                    probe.lettersShift = false;
-                } else {
-                    const QString decoded = probe.lettersShift ? lettersForCode(code) : figuresForCode(code);
-                    if (!decoded.isEmpty()) {
-                        const QChar ch = decoded.at(0);
-                        if (ch.isLetterOrNumber() || ch == QLatin1Char('/') || ch == QLatin1Char('?') || ch == QLatin1Char('-')) {
-                            ++probe.plausibleChars;
-                        } else {
-                            ++probe.weakChars;
-                        }
-                    }
-                }
-                ageStatistics();
-                resetPolarityProbe(probe, true);
-                probe.idleMarkSamples = static_cast<int>(m_symbolSamples);
-            } else {
-                ++probe.badFrames;
-                ageStatistics();
-                resetPolarityProbe(probe, true);
-            }
-        }
-        break;
-    }
-}
-
-double RttyDecoder::polarityProbeScore(const PolarityProbe &probe) const
-{
-    return (static_cast<double>(probe.goodFrames) * 6.0) +
-           (static_cast<double>(probe.plausibleChars) * 2.0) +
-           (static_cast<double>(probe.weakChars) * 0.35) -
-           (static_cast<double>(probe.badFrames) * 2.25);
-}
-
-int RttyDecoder::catPreferredReverse(const QString &modeName) const
-{
-    QString key = modeName.trimmed().toUpper();
-    key.remove(QLatin1Char(' '));
-    key.remove(QLatin1Char('-'));
-    key.remove(QLatin1Char('_'));
-    if (key.isEmpty()) {
-        return -1;
-    }
-
-    // MM's normal AFSK convention is Mark=2125 Hz / Space=2295 Hz.  Traditional
-    // LSB/RTTY places Mark above Space in RF and therefore matches normal logic;
-    // USB and explicit reverse-RTTY modes invert the two logical tones.
-    if (key.contains(QStringLiteral("RTTYR")) ||
-        key.contains(QStringLiteral("RTTYREV")) ||
-        key.contains(QStringLiteral("PKTUSB")) ||
-        key.contains(QStringLiteral("DIGU")) ||
-        key == QStringLiteral("USB")) {
-        return 1;
-    }
-    if (key == QStringLiteral("RTTY") ||
-        key.contains(QStringLiteral("PKTLSB")) ||
-        key.contains(QStringLiteral("DIGL")) ||
-        key == QStringLiteral("LSB")) {
-        return 0;
-    }
-    if (key.contains(QStringLiteral("USB"))) {
-        return 1;
-    }
-    if (key.contains(QStringLiteral("LSB"))) {
-        return 0;
-    }
-    return -1;
-}
-
-void RttyDecoder::evaluateAutomaticPolarity()
-{
-    if (!m_autoReverseEnabled) {
-        return;
-    }
-
-    double normalScore = polarityProbeScore(m_normalProbe);
-    double reverseScore = polarityProbeScore(m_reverseProbe);
-    if (m_catReversePreference == 0) {
-        normalScore += 3.0;
-    } else if (m_catReversePreference == 1) {
-        reverseScore += 3.0;
-    }
-
-    const int observedFrames = qMax(m_normalProbe.goodFrames + m_normalProbe.badFrames,
-                                    m_reverseProbe.goodFrames + m_reverseProbe.badFrames);
-    if (observedFrames < 3) {
-        emit polarityDecisionChanged(m_reverse,
-                                     m_catReversePreference >= 0 ? QStringLiteral("CAT") : QStringLiteral("signal"),
-                                     m_catModeHint,
-                                     normalScore,
-                                     reverseScore);
-        return;
-    }
-
-    const double margin = qAbs(reverseScore - normalScore);
-    if (margin < 5.5) {
-        emit polarityDecisionChanged(m_reverse,
-                                     m_catReversePreference >= 0 ? QStringLiteral("CAT+signal") : QStringLiteral("signal"),
-                                     m_catModeHint,
-                                     normalScore,
-                                     reverseScore);
-        return;
-    }
-
-    const bool preferredReverse = reverseScore > normalScore;
-    const bool agreesWithCat = m_catReversePreference >= 0 && preferredReverse == (m_catReversePreference != 0);
-    m_polarityDecisionSource = agreesWithCat ? QStringLiteral("CAT+signal") : QStringLiteral("signal");
-    emit polarityDecisionChanged(preferredReverse,
-                                 m_polarityDecisionSource,
-                                 m_catModeHint,
-                                 normalScore,
-                                 reverseScore);
-
-    if (preferredReverse != m_reverse && !m_autoReverseRequestPending) {
-        m_autoReverseRequestPending = true;
-        emit reversePolarityRequested(preferredReverse);
-    }
-}
-
-
 void RttyDecoder::maybeEmitStatus()
 {
     if (!m_visualizationEnabled) return;
@@ -842,7 +527,7 @@ void RttyDecoder::maybeEmitStatus()
                            .arg(m_goodFrames)
                            .arg(m_badFrames)
                            .arg(m_decodedChars)
-                           .arg(m_autoReverseEnabled ? QStringLiteral(", auto-pol/%1").arg(m_polarityDecisionSource) : QString()));
+                           .arg(QString()));
     const bool scopeLocked = m_carrierOpen && (m_confidence > 0.20);
     emit tuningScopeChanged(markLevel, spaceLevel, m_energySnr, scopeLocked);
     emit tuningScopeTraceChanged(m_scopeTrace, m_energySnr, scopeLocked);
