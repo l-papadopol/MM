@@ -122,6 +122,7 @@
 #include <QTextCursor>
 #include <QTextDocument>
 #include <QTextCharFormat>
+#include <QTextEdit>
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QJsonArray>
@@ -1457,6 +1458,25 @@ MainWindow::MainWindow(QWidget *parent)
     });
     m_rxDecoderThread->start();
 
+    m_logbookIndexThread = new QThread(this);
+    m_logbookIndexWorker = new LogbookIndexWorker();
+    m_logbookIndexWorker->moveToThread(m_logbookIndexThread);
+    connect(m_logbookIndexThread, &QThread::finished, m_logbookIndexWorker, &QObject::deleteLater);
+    connect(m_logbookIndexWorker, &LogbookIndexWorker::lookupReady,
+            this, &MainWindow::handleLogbookLookupReady, Qt::QueuedConnection);
+    connect(m_logbookIndexWorker, &LogbookIndexWorker::indexError, this, [](const QString &message) {
+        qWarning().noquote() << message;
+    }, Qt::QueuedConnection);
+    m_logbookIndexThread->start();
+
+    m_textAssistThread = new QThread(this);
+    m_textAssistWorker = new TextAssistWorker();
+    m_textAssistWorker->moveToThread(m_textAssistThread);
+    connect(m_textAssistThread, &QThread::finished, m_textAssistWorker, &QObject::deleteLater);
+    connect(m_textAssistWorker, &TextAssistWorker::analysisReady,
+            this, &MainWindow::handleTextAssistAnalysisReady, Qt::QueuedConnection);
+    m_textAssistThread->start();
+
     setWindowIcon(QIcon(":/icons/madmodem.png"));
     if (ui->txtLog != nullptr) {
         ui->txtLog->setMaximumBlockCount(5000);
@@ -1580,6 +1600,16 @@ MainWindow::MainWindow(QWidget *parent)
 
     setupUiState();
     setupCustomWidgets();
+    for (QPlainTextEdit *terminal : {m_txtRttyRx, m_txtBpsk31Rx, m_txtMfskRx, m_txtCwRx, m_txtCwRxB}) {
+        if (terminal == nullptr || terminal->document() == nullptr) continue;
+        m_textTerminalGeneration.insert(terminal, 0);
+        connect(terminal->document(), &QTextDocument::contentsChange, this,
+                [this, terminal](int, int charsRemoved, int) {
+                    if (charsRemoved > 0) {
+                        m_textTerminalGeneration[terminal] = m_textTerminalGeneration.value(terminal, 0) + 1;
+                    }
+                });
+    }
     // Do not globally scale the QMainWindow. The v1.45-v1.50 reference-screen
     // scaler was too aggressive for the main workspace: it modified many
     // child minimum/maximum sizes after the UI had already been tuned for
@@ -1604,7 +1634,10 @@ MainWindow::MainWindow(QWidget *parent)
         const QSet<QPlainTextEdit *> pending = m_pendingTerminalHighlights;
         m_pendingTerminalHighlights.clear();
         for (QPlainTextEdit *terminal : pending) {
-            highlightCallsignsInTerminal(terminal);
+            // RX decoders can emit characters continuously for hours.  Live
+            // highlighting must therefore be proportional to the newly visible
+            // tail, not to the complete terminal history.
+            highlightCallsignsInTerminal(terminal, true);
         }
     });
     m_nativeWeakSignalTxTimer.setSingleShot(true);
@@ -1636,6 +1669,7 @@ MainWindow::MainWindow(QWidget *parent)
     applyPersistentSettingsToRuntime();
     updateWaterfallMarkers();
     updateTxPreview();
+    queueLogbookIndexRebuild();
 
     appendLog("MM started.");
     appendLog("Settings file: " + AppSettings::settingsFilePath());
@@ -1765,6 +1799,8 @@ void MainWindow::shutdownRuntime(const char *reason)
     if (m_cwDecoder != nullptr) disconnect(m_cwDecoder, nullptr, this, nullptr);
     if (m_msk144Decoder != nullptr) disconnect(m_msk144Decoder, nullptr, this, nullptr);
     if (m_q65Decoder != nullptr) disconnect(m_q65Decoder, nullptr, this, nullptr);
+    if (m_textAssistWorker != nullptr) disconnect(m_textAssistWorker, nullptr, this, nullptr);
+    if (m_logbookIndexWorker != nullptr) disconnect(m_logbookIndexWorker, nullptr, this, nullptr);
 
     endTextTxHighlight();
 
@@ -1822,6 +1858,8 @@ void MainWindow::shutdownRuntime(const char *reason)
         {m_ftSlotThread, QStringLiteral("FT slot scheduler")},
         {m_ft8RxThread, QStringLiteral("FT RX decoder")},
         {m_q65Thread, QStringLiteral("Q65 RX decoder")},
+        {m_textAssistThread, QStringLiteral("Text assistance")},
+        {m_logbookIndexThread, QStringLiteral("Logbook index")},
         {m_rigThread, QStringLiteral("CAT/Hamlib")},
         {m_dspThread, QStringLiteral("DSP")}
     };
@@ -1887,6 +1925,10 @@ void MainWindow::shutdownRuntime(const char *reason)
     m_ft8RxDecoder = nullptr;
     m_q65Thread = nullptr;
     m_q65Decoder = nullptr;
+    m_textAssistThread = nullptr;
+    m_textAssistWorker = nullptr;
+    m_logbookIndexThread = nullptr;
+    m_logbookIndexWorker = nullptr;
     m_rigThread = nullptr;
     m_rigController = nullptr;
     m_dspThread = nullptr;
@@ -2521,50 +2563,6 @@ void MainWindow::recordHeardStationForMaps(const QString &callsign,
     }
 }
 
-void MainWindow::scanTextForHeardStations(QPlainTextEdit *terminal, const QString &newText)
-{
-    if (terminal == nullptr || newText.trimmed().isEmpty()) {
-        return;
-    }
-    if (terminal != m_txtRttyRx && terminal != m_txtBpsk31Rx) {
-        return;
-    }
-
-    QsoFormWidgets *form = qsoFormForTerminal(terminal);
-    QString mode = QStringLiteral("RTTY");
-    if (terminal == m_txtBpsk31Rx) {
-        mode = (m_cmbBpsk31Variant != nullptr) ? m_cmbBpsk31Variant->currentData().toString().toUpper() : QStringLiteral("BPSK31");
-    }
-    const QString band = (form != nullptr && form->band != nullptr) ? form->band->text().trimmed().toLower() : QString();
-
-    QString tail = terminal->property("madmodemHeardScanTail").toString();
-    if (terminal->document() != nullptr && terminal->document()->characterCount() <= newText.size() + 1) {
-        tail.clear();
-    }
-    QString text = tail + newText;
-    if (text.size() > 1200) {
-        text = text.right(1200);
-    }
-    terminal->setProperty("madmodemHeardScanTail", text.right(256));
-    const QRegularExpression tokenRe(QStringLiteral("\\b([A-Z0-9/]{3,16})\\b"));
-    QRegularExpressionMatchIterator it = tokenRe.globalMatch(text.toUpper());
-    QStringList tokens;
-    while (it.hasNext()) {
-        tokens << it.next().captured(1);
-    }
-    for (int i = 0; i < tokens.size(); ++i) {
-        if (!isFt8CallsignToken(tokens.at(i))) {
-            continue;
-        }
-        for (int j = i + 1; j < tokens.size() && j <= i + 6; ++j) {
-            if (isFt8GridToken(tokens.at(j))) {
-                recordHeardStationForMaps(tokens.at(i), tokens.at(j), mode, band, QStringLiteral("RX text terminal"));
-                break;
-            }
-        }
-    }
-}
-
 void MainWindow::updateFtQsoMapModeFilter()
 {
     if (m_ftQsoMapWidget == nullptr || ui == nullptr || ui->cmbMode == nullptr) {
@@ -2928,7 +2926,6 @@ QWidget *MainWindow::createQsoFormPanel(QWidget *parent, const QString &modeLabe
         if (form != contestQsoForm()) return;
         for (auto *edit : m_rttyContestReceivedFieldEdits) if (edit) edit->clear();
         if (form->grid) form->grid->clear();
-        m_rttyContestLastRxLine.clear();
     });
 
     // A valid text-mode locator is also a precise rotator target.  Do not
@@ -3257,6 +3254,7 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
                              uiText("cannot_save_logbook", "Cannot save logbook: %1").arg(error));
         return false;
     }
+    queueLogbookIndexAdd(entry);
     broadcastLoggedQsoUdp(entry);
 
     appendLog(QStringLiteral("Logged QSO: %1 %2 %3 %4%5")
@@ -3265,7 +3263,7 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
                        entry.rstReceived,
                        entry.mode,
                        wasKnown ? QStringLiteral(" (worked before)") : QString()));
-    refreshLogbookHighlights();
+    refreshLogbookHighlights(true);
     refreshQsoMaps();
 
     if (contestProfile != nullptr) {
@@ -3296,7 +3294,6 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
     if (contestProfile != nullptr) {
         form->callsign->clear();
         for (auto *edit : m_rttyContestReceivedFieldEdits) if (edit) edit->clear();
-        m_rttyContestLastRxLine.clear();
         return true;
     }
     QMessageBox::information(this,
@@ -3455,151 +3452,311 @@ void MainWindow::sendSelectedRxTextToQsoField(QPlainTextEdit *terminal, const QS
     }
 }
 
-void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal)
+QString MainWindow::textAssistConsumerId(QPlainTextEdit *terminal) const
 {
-    if (terminal == nullptr || terminal->document() == nullptr) {
+    if (terminal == m_txtRttyRx) return QStringLiteral("RTTY");
+    if (terminal == m_txtBpsk31Rx) return QStringLiteral("PSK");
+    if (terminal == m_txtMfskRx) return QStringLiteral("MFSK");
+    if (terminal == m_txtCwRx) return QStringLiteral("CW_A");
+    if (terminal == m_txtCwRxB) return QStringLiteral("CW_B");
+    return QString();
+}
+
+QPlainTextEdit *MainWindow::textAssistTerminal(const QString &consumerId) const
+{
+    if (consumerId == QStringLiteral("RTTY")) return m_txtRttyRx;
+    if (consumerId == QStringLiteral("PSK")) return m_txtBpsk31Rx;
+    if (consumerId == QStringLiteral("MFSK")) return m_txtMfskRx;
+    if (consumerId == QStringLiteral("CW_A")) return m_txtCwRx;
+    if (consumerId == QStringLiteral("CW_B")) return m_txtCwRxB;
+    return nullptr;
+}
+
+QString MainWindow::textAssistMode(QPlainTextEdit *terminal) const
+{
+    if (terminal == m_txtRttyRx) return QStringLiteral("RTTY");
+    if (terminal == m_txtBpsk31Rx) {
+        const QString variant = m_cmbBpsk31Variant != nullptr ? m_cmbBpsk31Variant->currentData().toString().trimmed().toUpper() : QString();
+        return variant.isEmpty() ? QStringLiteral("BPSK31") : variant;
+    }
+    if (terminal == m_txtMfskRx) {
+        const QString variant = m_cmbMfskVariant != nullptr ? m_cmbMfskVariant->currentData().toString().trimmed().toUpper() : QString();
+        return variant.isEmpty() ? QStringLiteral("MFSK16") : variant;
+    }
+    if (terminal == m_txtCwRx || terminal == m_txtCwRxB) return QStringLiteral("CW");
+    return currentAdifMode();
+}
+
+bool MainWindow::textAssistContestEnabled(QPlainTextEdit *terminal) const
+{
+    if (m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked() || currentRttyContestProfile() == nullptr) return false;
+    if (contestContextIsCw()) return terminal == m_txtCwRx || terminal == m_txtCwRxB;
+    return terminal == m_txtRttyRx;
+}
+
+LogbookIndexWorker::ContestConfig MainWindow::currentLogbookContestConfig() const
+{
+    LogbookIndexWorker::ContestConfig config;
+    const RttyContestProfile *profile = currentRttyContestProfile();
+    if (profile == nullptr || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked()) return config;
+    config.active = true;
+    config.mode = contestModeForLog();
+    config.sessionId = m_rttyContestActiveSessionId;
+    config.ruleId = profile->id;
+    config.cabrilloId = profile->cabrilloId;
+    config.sessionAdifKey = contestAdifSessionKey();
+    config.ruleAdifKey = contestAdifRuleKey();
+    config.dupeScope = profile->dupeScope;
+    config.periods = profile->periods;
+    return config;
+}
+
+void MainWindow::queueLogbookIndexRebuild()
+{
+    if (m_logbookIndexWorker == nullptr) return;
+    const QString fileName = m_logbook.fileName();
+    const LogbookIndexWorker::ContestConfig config = currentLogbookContestConfig();
+    LogbookIndexWorker *worker = m_logbookIndexWorker;
+    QMetaObject::invokeMethod(worker, [worker, fileName, config]() {
+        worker->rebuildFromFile(fileName, config);
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::queueContestIndexRebuild()
+{
+    if (m_logbookIndexWorker == nullptr) return;
+    const QString fileName = m_logbook.fileName();
+    const LogbookIndexWorker::ContestConfig config = currentLogbookContestConfig();
+    LogbookIndexWorker *worker = m_logbookIndexWorker;
+    QMetaObject::invokeMethod(worker, [worker, fileName, config]() {
+        worker->setContestConfigFromFile(fileName, config);
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::queueLogbookIndexAdd(const LogbookEntry &entry)
+{
+    if (m_logbookIndexWorker == nullptr) return;
+    LogbookIndexWorker *worker = m_logbookIndexWorker;
+    QMetaObject::invokeMethod(worker, [worker, entry]() { worker->addEntry(entry); }, Qt::QueuedConnection);
+}
+
+void MainWindow::highlightCallsignsInTerminal(QPlainTextEdit *terminal, bool recentOnly)
+{
+    if (terminal == nullptr || terminal->document() == nullptr || m_textAssistWorker == nullptr) return;
+    const QString consumerId = textAssistConsumerId(terminal);
+    if (consumerId.isEmpty()) return;
+
+    const int documentEnd = safeDocumentEndPosition(terminal->document());
+    if (documentEnd <= 0) return;
+    constexpr int kLiveHighlightTailCharacters = 4096;
+    constexpr int kTokenBoundaryMargin = 64;
+    int scanStart = recentOnly ? qMax(0, documentEnd - kLiveHighlightTailCharacters) : 0;
+    if (recentOnly && scanStart > 0) scanStart = qMax(0, scanStart - kTokenBoundaryMargin);
+
+    QTextCursor readCursor(terminal->document());
+    if (!selectDocumentRange(readCursor, scanStart, documentEnd)) return;
+    QString text = readCursor.selectedText();
+    text.replace(QChar::ParagraphSeparator, QLatin1Char('\n'));
+    if (text.isEmpty()) return;
+
+    const quint64 requestId = ++m_textAssistRequestCounter;
+    m_textAssistLatestRequest.insert(terminal, requestId);
+    m_textAssistPendingTerminal.insert(requestId, terminal);
+    m_textAssistPendingGeneration.insert(requestId, m_textTerminalGeneration.value(terminal, 0));
+    m_textAssistPendingScanStart.insert(requestId, scanStart);
+    m_textAssistPendingScanEnd.insert(requestId, documentEnd);
+    const bool contestScoped = textAssistContestEnabled(terminal);
+    m_textAssistPendingContestScoped.insert(requestId, contestScoped);
+    QsoFormWidgets *form = qsoFormForTerminal(terminal);
+    m_textAssistPendingBand.insert(requestId, form != nullptr && form->band != nullptr ? form->band->text().trimmed().toLower() : QString());
+    const RttyContestProfile *profile = currentRttyContestProfile();
+    m_textAssistPendingPeriod.insert(requestId, profile != nullptr ? rttyContestPeriodId(*profile, QDateTime::currentDateTimeUtc()) : QString());
+
+    const QString mode = textAssistMode(terminal);
+    const QString ownCall = stationCallsign();
+    const RttyContestProfile profileCopy = profile != nullptr ? *profile : RttyContestProfile();
+    TextAssistWorker *worker = m_textAssistWorker;
+    QMetaObject::invokeMethod(worker,
+                              [worker, requestId, consumerId, text = std::move(text), scanStart, mode, ownCall, contestScoped, profileCopy]() {
+                                  worker->analyze(requestId, consumerId, text, scanStart, mode, ownCall, contestScoped, profileCopy);
+                              },
+                              Qt::QueuedConnection);
+}
+
+void MainWindow::handleTextAssistAnalysisReady(quint64 requestId,
+                                                const QString &consumerId,
+                                                const QVariantList &annotations,
+                                                const QVariantMap &contestCandidate,
+                                                const QVariantList &heardStations)
+{
+    QPlainTextEdit *terminal = textAssistTerminal(consumerId);
+    if (terminal == nullptr || m_textAssistLatestRequest.value(terminal) != requestId ||
+        m_textAssistPendingGeneration.value(requestId) != m_textTerminalGeneration.value(terminal, 0)) {
+        m_textAssistPendingTerminal.remove(requestId);
+        m_textAssistPendingGeneration.remove(requestId);
+        m_textAssistPendingScanStart.remove(requestId);
+        m_textAssistPendingScanEnd.remove(requestId);
+        m_textAssistPendingContestScoped.remove(requestId);
+        m_textAssistPendingBand.remove(requestId);
+        m_textAssistPendingPeriod.remove(requestId);
         return;
     }
 
-    const QString text = terminal->toPlainText();
-    if (text.isEmpty()) {
+    m_textAssistPendingAnnotations.insert(requestId, annotations);
+    m_textAssistPendingContest.insert(requestId, contestCandidate);
+    m_textAssistPendingHeard.insert(requestId, heardStations);
+
+    QStringList calls;
+    QSet<QString> unique;
+    for (const QVariant &item : annotations) {
+        const QVariantMap annotation = item.toMap();
+        if (annotation.value(QStringLiteral("kind")).toString() != QStringLiteral("call")) continue;
+        const QString call = AdifLogbook::normalizeCallsign(annotation.value(QStringLiteral("value")).toString());
+        if (!call.isEmpty() && !unique.contains(call)) {
+            unique.insert(call);
+            calls.push_back(call);
+        }
+    }
+
+    if (m_logbookIndexWorker == nullptr || calls.isEmpty()) {
+        applyTextAssistResult(requestId, QStringList());
         return;
     }
+    const bool contestScoped = m_textAssistPendingContestScoped.value(requestId, false);
+    const QString band = m_textAssistPendingBand.value(requestId);
+    const QString period = m_textAssistPendingPeriod.value(requestId);
+    LogbookIndexWorker *worker = m_logbookIndexWorker;
+    QMetaObject::invokeMethod(worker,
+                              [worker, requestId, consumerId, calls, contestScoped, band, period]() {
+                                  worker->lookup(requestId, consumerId, calls, contestScoped, band, period);
+                              },
+                              Qt::QueuedConnection);
+}
+
+void MainWindow::handleLogbookLookupReady(quint64 requestId,
+                                           const QString &consumerId,
+                                           const QStringList &workedCalls)
+{
+    Q_UNUSED(consumerId)
+    applyTextAssistResult(requestId, workedCalls);
+}
+
+void MainWindow::applyTextAssistContestCandidate(const QVariantMap &candidate)
+{
+    if (candidate.isEmpty() || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked()) return;
+    const RttyContestProfile *profile = currentRttyContestProfile();
+    QsoFormWidgets *form = contestQsoForm();
+    if (profile == nullptr || form == nullptr) return;
+
+    const QString dxCall = AdifLogbook::normalizeCallsign(candidate.value(QStringLiteral("dxCall")).toString());
+    if (!dxCall.isEmpty() && form->callsign != nullptr) {
+        const QString current = AdifLogbook::normalizeCallsign(form->callsign->text());
+        if (current.isEmpty() || current == dxCall) form->callsign->setText(dxCall);
+    }
+    const QVariantMap fields = candidate.value(QStringLiteral("fields")).toMap();
+    for (const RttyContestFieldRule &field : profile->receivedFields) {
+        if (field.type == QStringLiteral("call") || !fields.contains(field.id)) continue;
+        if (!rttyContestConditionMatches(field.when, nullptr, dxCall)) continue;
+        const QString value = fields.value(field.id).toString().trimmed().toUpper();
+        if (value.isEmpty()) continue;
+        if (field.type == QStringLiteral("rst") && form->rstReceived != nullptr) form->rstReceived->setText(value);
+        else if (field.type == QStringLiteral("locator") && form->grid != nullptr) form->grid->setText(value);
+        else if (m_rttyContestReceivedFieldEdits.contains(field.id) && m_rttyContestReceivedFieldEdits.value(field.id) != nullptr)
+            m_rttyContestReceivedFieldEdits.value(field.id)->setText(value);
+    }
+}
+
+void MainWindow::applyTextAssistResult(quint64 requestId, const QStringList &workedCalls)
+{
+    QPointer<QPlainTextEdit> terminal = m_textAssistPendingTerminal.value(requestId);
+    if (terminal.isNull() || m_textAssistLatestRequest.value(terminal.data()) != requestId ||
+        m_textAssistPendingGeneration.value(requestId) != m_textTerminalGeneration.value(terminal.data(), 0)) {
+        m_textAssistPendingTerminal.remove(requestId);
+        m_textAssistPendingGeneration.remove(requestId);
+        m_textAssistPendingScanStart.remove(requestId);
+        m_textAssistPendingScanEnd.remove(requestId);
+        m_textAssistPendingAnnotations.remove(requestId);
+        m_textAssistPendingContest.remove(requestId);
+        m_textAssistPendingHeard.remove(requestId);
+        m_textAssistPendingContestScoped.remove(requestId);
+        m_textAssistPendingBand.remove(requestId);
+        m_textAssistPendingPeriod.remove(requestId);
+        return;
+    }
+
+    const int scanStart = m_textAssistPendingScanStart.value(requestId, 0);
+    const int scanEnd = qMin(m_textAssistPendingScanEnd.value(requestId, 0), safeDocumentEndPosition(terminal->document()));
+    const QVariantList annotations = m_textAssistPendingAnnotations.value(requestId);
+    const QVariantMap contestCandidate = m_textAssistPendingContest.value(requestId);
+    const QVariantList heardStations = m_textAssistPendingHeard.value(requestId);
+    QSet<QString> workedSet;
+    for (const QString &call : workedCalls) workedSet.insert(AdifLogbook::normalizeCallsign(call));
 
     const int cursorPosition = terminal->textCursor().position();
-    QSignalBlocker block(terminal);
-
+    QSignalBlocker blocker(terminal.data());
     QTextCursor cursor(terminal->document());
     QTextCharFormat normal;
-    // Character formats live inside QTextDocument and therefore bypass QSS.
-    // Resolve them from the active theme instead of baking Avionica amber into
-    // terminals that may later become Qt Classic white.
     normal.setForeground(terminal->palette().color(QPalette::Text));
     normal.setFontUnderline(false);
     normal.setFontStrikeOut(false);
     normal.setUnderlineStyle(QTextCharFormat::NoUnderline);
-    cursor.select(QTextCursor::Document);
-    cursor.mergeCharFormat(normal);
+    if (scanEnd > scanStart && selectDocumentRange(cursor, scanStart, scanEnd)) cursor.mergeCharFormat(normal);
 
-    const bool rttyTerminal = terminal == m_txtRttyRx;
-    const bool cwTerminal = terminal == m_txtCwRx || terminal == m_txtCwRxB;
-    const bool contestTerminal = rttyTerminal || cwTerminal;
-    const bool contestMatchesTerminal =
-        m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked() &&
-        currentRttyContestProfile() != nullptr &&
-        ((rttyTerminal && !contestContextIsCw()) || (cwTerminal && contestContextIsCw()));
-
-    // In CW/RTTY a red/struck callsign has a precise contest meaning: it is a
-    // duplicate in the currently active contest session according to that
-    // contest's dupe_scope.  A station worked months ago in another mode or
-    // another contest must not be painted as a contest dupe.  Non-contest text
-    // modes retain the historical logbook highlighting behaviour.
-    const auto isCurrentContestDupe = [this, contestMatchesTerminal](const QString &call) {
-        if (!contestMatchesTerminal || m_rttyContestActiveSessionId.isEmpty()) return false;
-        const RttyContestProfile *profile = currentRttyContestProfile();
-        if (profile == nullptr) return false;
-
-        const QString normalized = AdifLogbook::normalizeCallsign(call);
-        QsoFormWidgets *form = contestQsoForm();
-        const QString currentBand = (form != nullptr && form->band != nullptr)
-            ? form->band->text().trimmed().toLower() : QString();
-        const QString currentPeriod = rttyContestPeriodId(*profile, QDateTime::currentDateTimeUtc());
-
-        for (const LogbookEntry &entry : m_logbook.records()) {
-            if (AdifLogbook::normalizeCallsign(entry.callsign) != normalized) continue;
-            if (entry.mode.compare(contestModeForLog(), Qt::CaseInsensitive) != 0) continue;
-            if (entry.adifFields.value(contestAdifSessionKey()).trimmed() != m_rttyContestActiveSessionId) continue;
-            const QString ruleId = entry.adifFields.value(contestAdifRuleKey()).trimmed().toLower();
-            const QString cabrillo = entry.adifFields.value(QStringLiteral("CONTEST_ID")).trimmed().toUpper();
-            if (ruleId != profile->id && (profile->cabrilloId.isEmpty() || cabrillo != profile->cabrilloId)) continue;
-
-            if (profile->dupeScope == QStringLiteral("band") &&
-                entry.band.trimmed().toLower() != currentBand) continue;
-            if (profile->dupeScope == QStringLiteral("period") &&
-                rttyContestPeriodId(*profile, entry.utc) != currentPeriod) continue;
-            if (profile->dupeScope == QStringLiteral("band_period") &&
-                (entry.band.trimmed().toLower() != currentBand ||
-                 rttyContestPeriodId(*profile, entry.utc) != currentPeriod)) continue;
-            return true;
-        }
-        return false;
-    };
-
-    const QRegularExpression re(QStringLiteral("(?<![A-Z0-9/])(?:[A-Z0-9]{1,4}/)?[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?(?![A-Z0-9/])"),
-                                QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatchIterator it = re.globalMatch(text);
-    while (it.hasNext()) {
-        const QRegularExpressionMatch match = it.next();
-        const QString call = AdifLogbook::normalizeCallsign(match.captured(0));
-        if (call.size() < 3) {
-            continue;
-        }
-
+    for (const QVariant &item : annotations) {
+        const QVariantMap annotation = item.toMap();
+        const QString kind = annotation.value(QStringLiteral("kind")).toString();
+        const int start = qBound(scanStart, annotation.value(QStringLiteral("start")).toInt(), scanEnd);
+        const int end = qBound(start, start + annotation.value(QStringLiteral("length")).toInt(), scanEnd);
+        if (end <= start || !selectDocumentRange(cursor, start, end)) continue;
         QTextCharFormat fmt;
-        const bool worked = contestTerminal
-            ? isCurrentContestDupe(call)
-            : m_logbook.containsCallsign(call);
-        const QColor callColor = MadModemUi::themeColor(worked
-            ? MadModemUi::ThemeColorRole::Negative
-            : MadModemUi::ThemeColorRole::Positive);
-        fmt.setForeground(callColor);
-        fmt.setFontUnderline(true);
-        fmt.setUnderlineColor(callColor);
-        fmt.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-        if (worked && m_settings.logbookStrikeWorkedCalls) {
-            fmt.setFontStrikeOut(true);
-        }
-
-        QTextCursor endCursor(terminal->document());
-        endCursor.movePosition(QTextCursor::End);
-        const int docEnd = qMax(0, endCursor.position());
-        const int start = qBound(0, match.capturedStart(), docEnd);
-        const int end = qBound(start, match.capturedEnd(), docEnd);
-        if (end <= start) {
+        if (kind == QStringLiteral("call")) {
+            const QString call = AdifLogbook::normalizeCallsign(annotation.value(QStringLiteral("value")).toString());
+            const bool worked = workedSet.contains(call);
+            const QColor color = MadModemUi::themeColor(worked ? MadModemUi::ThemeColorRole::Negative
+                                                               : MadModemUi::ThemeColorRole::Positive);
+            fmt.setForeground(color);
+            fmt.setFontUnderline(true);
+            fmt.setUnderlineColor(color);
+            fmt.setUnderlineStyle(QTextCharFormat::SingleUnderline);
+            if (worked && m_settings.logbookStrikeWorkedCalls) fmt.setFontStrikeOut(true);
+        } else if (kind == QStringLiteral("locator")) {
+            const QColor color = MadModemUi::themeColor(MadModemUi::ThemeColorRole::RxSecondary);
+            fmt.setForeground(color);
+            fmt.setFontUnderline(true);
+            fmt.setUnderlineColor(color);
+            fmt.setUnderlineStyle(QTextCharFormat::SingleUnderline);
+        } else {
             continue;
         }
-
-        if (selectDocumentRange(cursor, start, end)) {
-            cursor.mergeCharFormat(fmt);
-        }
+        cursor.mergeCharFormat(fmt);
     }
-
-    if (terminal == m_txtRttyRx && m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked() && currentRttyContestProfile() != nullptr) {
-        auto highlightPattern = [&](const QRegularExpression &pattern, const QColor &color) {
-            QRegularExpressionMatchIterator hit = pattern.globalMatch(text);
-            while (hit.hasNext()) {
-                const QRegularExpressionMatch match = hit.next();
-                QTextCharFormat fmt;
-                fmt.setForeground(color);
-                fmt.setFontUnderline(true);
-                fmt.setUnderlineColor(color);
-                fmt.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-                if (selectDocumentRange(cursor, match.capturedStart(), match.capturedEnd())) {
-                    cursor.mergeCharFormat(fmt);
-                }
-            }
-        };
-        highlightPattern(QRegularExpression(QStringLiteral("\\b[A-R]{2}\\d{2}(?:[A-X]{2})?\\b"),
-                                            QRegularExpression::CaseInsensitiveOption),
-                         MadModemUi::themeColor(MadModemUi::ThemeColorRole::RxSecondary));
-        for (auto fieldIt = m_rttyContestReceivedFieldEdits.cbegin(); fieldIt != m_rttyContestReceivedFieldEdits.cend(); ++fieldIt) {
-            if (fieldIt.value() == nullptr) continue;
-            const QString value = fieldIt.value()->text().trimmed();
-            if (value.isEmpty()) continue;
-            highlightPattern(QRegularExpression(QStringLiteral("\\b%1\\b").arg(QRegularExpression::escape(value)),
-                                                QRegularExpression::CaseInsensitiveOption),
-                             MadModemUi::themeColor(MadModemUi::ThemeColorRole::Warning));
-        }
-    }
-
-    recolorCwChannelPrefixes(terminal);
 
     QTextCursor restore(terminal->document());
-    const int restoreEnd = safeDocumentEndPosition(terminal->document());
-    const int safeCursorPosition = qBound(0, cursorPosition, restoreEnd);
-    moveCursorToDocumentPosition(restore, safeCursorPosition);
+    moveCursorToDocumentPosition(restore, qBound(0, cursorPosition, safeDocumentEndPosition(terminal->document())));
     terminal->setTextCursor(restore);
     terminal->ensureCursorVisible();
+
+    if (textAssistContestEnabled(terminal.data())) applyTextAssistContestCandidate(contestCandidate);
+    const QString band = m_textAssistPendingBand.value(requestId);
+    for (const QVariant &item : heardStations) {
+        const QVariantMap heard = item.toMap();
+        recordHeardStationForMaps(heard.value(QStringLiteral("call")).toString(),
+                                  heard.value(QStringLiteral("grid")).toString(),
+                                  heard.value(QStringLiteral("mode")).toString(),
+                                  band,
+                                  QStringLiteral("RX text terminal"));
+    }
+
+    m_textAssistPendingTerminal.remove(requestId);
+    m_textAssistPendingGeneration.remove(requestId);
+    m_textAssistPendingScanStart.remove(requestId);
+    m_textAssistPendingScanEnd.remove(requestId);
+    m_textAssistPendingAnnotations.remove(requestId);
+    m_textAssistPendingContest.remove(requestId);
+    m_textAssistPendingHeard.remove(requestId);
+    m_textAssistPendingContestScoped.remove(requestId);
+    m_textAssistPendingBand.remove(requestId);
+    m_textAssistPendingPeriod.remove(requestId);
 }
 
 void MainWindow::scheduleTerminalHighlight(QPlainTextEdit *terminal)
@@ -3667,13 +3824,13 @@ void MainWindow::refreshFt8DecodeWorkedHighlights()
     }
 }
 
-void MainWindow::refreshLogbookHighlights()
+void MainWindow::refreshLogbookHighlights(bool recentOnly)
 {
-    highlightCallsignsInTerminal(m_txtRttyRx);
-    highlightCallsignsInTerminal(m_txtBpsk31Rx);
-    highlightCallsignsInTerminal(m_txtMfskRx);
-    highlightCallsignsInTerminal(m_txtCwRx);
-    highlightCallsignsInTerminal(m_txtCwRxB);
+    highlightCallsignsInTerminal(m_txtRttyRx, recentOnly);
+    highlightCallsignsInTerminal(m_txtBpsk31Rx, recentOnly);
+    highlightCallsignsInTerminal(m_txtMfskRx, recentOnly);
+    highlightCallsignsInTerminal(m_txtCwRx, recentOnly);
+    highlightCallsignsInTerminal(m_txtCwRxB, recentOnly);
     refreshFt8DecodeWorkedHighlights();
 }
 
@@ -4731,9 +4888,12 @@ void MainWindow::refreshRttyContestUi()
     if (m_txtRttyQuickReply != nullptr) m_txtRttyQuickReply->setVisible(contestEnabled && !contestContextIsCw());
     if (m_btnRttyQuickReplySend != nullptr) m_btnRttyQuickReplySend->setVisible(contestEnabled && !contestContextIsCw());
     refreshTextMacroButtons();
+    queueContestIndexRebuild();
     if (m_txtRttyRx != nullptr) {
         highlightCallsignsInTerminal(m_txtRttyRx);
     }
+    if (m_txtCwRx != nullptr) highlightCallsignsInTerminal(m_txtCwRx);
+    if (m_txtCwRxB != nullptr) highlightCallsignsInTerminal(m_txtCwRxB);
 }
 
 void MainWindow::rebuildRttyContestFieldEditors()
@@ -4799,7 +4959,7 @@ void MainWindow::rebuildRttyContestFieldEditors()
         } else if (!sent) {
             connect(edit, &QLineEdit::textChanged, this, [this]() {
                 if (m_txtRttyRx != nullptr) {
-                    highlightCallsignsInTerminal(m_txtRttyRx);
+                    scheduleTerminalHighlight(m_txtRttyRx);
                 }
             });
         }
@@ -5159,102 +5319,6 @@ QString MainWindow::expandRttyContestTemplate(const QString &source) const
         replace(field.id + QStringLiteral("_RX"), rttyContestFieldValue(field, false));
     }
     return expanded;
-}
-
-void MainWindow::processRttyContestRxLine(const QString &line)
-{
-    const RttyContestProfile *profile = currentRttyContestProfile();
-    if (profile == nullptr || m_chkRttyContestMode == nullptr || !m_chkRttyContestMode->isChecked() || contestQsoForm() == nullptr) {
-        return;
-    }
-    const QString upper = line.simplified().toUpper();
-    const QString myCall = stationCallsign();
-    if (upper.isEmpty() || myCall.isEmpty() || !upper.split(QRegularExpression(QStringLiteral("[^A-Z0-9/]+")), Qt::SkipEmptyParts).contains(myCall.toUpper())) {
-        return; // Automatic fill is intentionally conservative; click-to-fill remains available on every line.
-    }
-
-    QString dxCall;
-    const QRegularExpression callRe(QStringLiteral("(?<![A-Z0-9/])(?:[A-Z0-9]{1,4}/)?[A-Z0-9]{1,3}[0-9][A-Z]{1,4}(?:/[A-Z0-9]{1,4})?(?![A-Z0-9/])"), QRegularExpression::CaseInsensitiveOption);
-    QRegularExpressionMatchIterator calls = callRe.globalMatch(upper);
-    while (calls.hasNext()) {
-        const QString call = AdifLogbook::normalizeCallsign(calls.next().captured(0));
-        if (!call.isEmpty() && call.compare(myCall, Qt::CaseInsensitive) != 0) {
-            dxCall = call;
-            break;
-        }
-    }
-    if (!dxCall.isEmpty() && contestQsoForm()->callsign != nullptr) {
-        const QString current = contestQsoForm()->callsign->text().trimmed().toUpper();
-        if (!current.isEmpty() && current != dxCall) return;
-        if (current != dxCall) contestQsoForm()->callsign->setText(dxCall);
-    }
-
-    QStringList tokens;
-    for (const QString &raw : upper.split(QRegularExpression(QStringLiteral("\\s+")), Qt::SkipEmptyParts)) {
-        const QString token = rttyContestCleanToken(raw);
-        if (!token.isEmpty()) tokens.push_back(token);
-    }
-    QSet<int> used;
-    auto findToken = [&](const RttyContestFieldRule &field) -> QString {
-        for (int i = 0; i < tokens.size(); ++i) {
-            if (used.contains(i)) continue;
-            if (field.id == QStringLiteral("QTH")) {
-                bool afterReport = false;
-                for (int index : used) if (index < i) afterReport = true;
-                if (!afterReport) continue;
-            }
-            const QString token = tokens.at(i);
-            if (token == myCall || token == dxCall) continue;
-            bool match = false;
-            if (!field.regex.isEmpty()) {
-                match = rttyContestRegexMatches(field.regex, token);
-            } else if (field.type == QStringLiteral("rst")) {
-                match = QRegularExpression(QStringLiteral("^[1-5][1-9][1-9]$")).match(token).hasMatch();
-            } else if (field.type == QStringLiteral("serial")) {
-                match = QRegularExpression(QStringLiteral("^\\d{1,6}$")).match(token).hasMatch();
-            } else if (field.type == QStringLiteral("locator")) {
-                match = QRegularExpression(QStringLiteral("^[A-R]{2}\\d{2}(?:[A-X]{2})?$")).match(token).hasMatch();
-            } else if (field.type == QStringLiteral("zone")) {
-                match = QRegularExpression(QStringLiteral("^\\d{1,2}$")).match(token).hasMatch();
-            } else if (field.type == QStringLiteral("year")) {
-                match = QRegularExpression(QStringLiteral("^(?:19|20)?\\d{2}$")).match(token).hasMatch();
-            } else if (field.type == QStringLiteral("time")) {
-                match = QRegularExpression(QStringLiteral("^\\d{4}$")).match(token).hasMatch();
-            } else if (field.type == QStringLiteral("age")) {
-                match = QRegularExpression(QStringLiteral("^\\d{1,3}$")).match(token).hasMatch();
-            } else if (field.type == QStringLiteral("name")) {
-                match = QRegularExpression(QStringLiteral("^[A-Z]{2,12}$")).match(token).hasMatch();
-            }
-            if (match) {
-                used.insert(i);
-                return token;
-            }
-        }
-        return QString();
-    };
-
-    for (const RttyContestFieldRule &field : profile->receivedFields) {
-        if (!rttyContestConditionMatches(field.when, nullptr, dxCall)) continue;
-        if (field.type == QStringLiteral("call")) continue;
-        const QString value = findToken(field);
-        if (value.isEmpty()) continue;
-        if (field.type == QStringLiteral("rst") && contestQsoForm()->rstReceived != nullptr) {
-            contestQsoForm()->rstReceived->setText(value);
-        } else if (field.type == QStringLiteral("locator") && contestQsoForm()->grid != nullptr) {
-            contestQsoForm()->grid->setText(value);
-        } else if (m_rttyContestReceivedFieldEdits.contains(field.id) && m_rttyContestReceivedFieldEdits.value(field.id) != nullptr) {
-            m_rttyContestReceivedFieldEdits.value(field.id)->setText(value);
-        }
-    }
-    if (m_lblRttyContestExchange != nullptr) {
-        m_lblRttyContestExchange->setText(uiText("rtty_contest_exchange_value", "Exchange: %1").arg(rttyContestExchange(true)));
-    }
-    if (contestContextIsCw()) {
-        highlightCallsignsInTerminal(m_txtCwRx);
-        highlightCallsignsInTerminal(m_txtCwRxB);
-    } else {
-        highlightCallsignsInTerminal(m_txtRttyRx);
-    }
 }
 
 bool MainWindow::fillRttyContestFieldFromClick(QPlainTextEdit *terminal, int clickPos, const QString &text)
@@ -5852,6 +5916,7 @@ void MainWindow::setupRttyPage()
     });
     connect(m_btnRttyContestNewSession, &QPushButton::clicked, this, [this]() {
         ensureRttyContestSession(true);
+        queueContestIndexRebuild();
         refreshRttyContestScore();
     });
 
@@ -9269,16 +9334,6 @@ void MainWindow::setupProcessingConnections()
 
     connect(m_rttyDecoder, &RttyDecoder::characterReceived,
             this, &MainWindow::handleRttyTextUpdated,
-            Qt::QueuedConnection);
-
-    connect(m_rttyDecoder, &RttyDecoder::textUpdated,
-            this, [this](const QString &text) {
-                // Keep only a bounded rolling tail. WaterfallWidget extracts
-                // the newly appended suffix and stamps those characters into
-                // the time/frequency history at the Mark/Space midpoint.
-                m_rttyWaterfallLiveText = text.right(256);
-                updateRttyWaterfallOverlays();
-            },
             Qt::QueuedConnection);
 
     connect(m_rttyDecoder, &RttyDecoder::tuningScopeChanged,
@@ -14181,21 +14236,17 @@ void MainWindow::handleRttyTextUpdated(const QString &text)
      */
     appendRxTextTerminal(m_txtRttyRx, text, true, &m_rttyPendingRxLineBreak);
 
-    if (m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked()) {
-        for (const QChar ch : text) {
-            if (ch == QLatin1Char('\r') || ch == QLatin1Char('\n')) {
-                if (!m_rttyContestLastRxLine.trimmed().isEmpty()) {
-                    processRttyContestRxLine(QString(m_rttyContestLastRxLine));
-                    m_rttyContestLastRxLine.clear();
-                }
-            } else if (ch.isPrint()) {
-                m_rttyContestLastRxLine.append(ch);
-                if (m_rttyContestLastRxLine.size() > 256) {
-                    m_rttyContestLastRxLine = m_rttyContestLastRxLine.right(256);
-                }
-            }
-        }
+    // Keep the waterfall text trail from the incremental character stream.
+    // The old textUpdated connection queued the decoder's complete growing
+    // history for every character, creating needless allocations/copies on the
+    // GUI thread during long RTTY sessions.
+    m_rttyWaterfallLiveText.append(text);
+    if (m_rttyWaterfallLiveText.size() > 256) {
+        m_rttyWaterfallLiveText = m_rttyWaterfallLiveText.right(256);
     }
+    updateRttyWaterfallOverlays();
+
+    // Contest parsing is handled asynchronously by TextAssistWorker.
 }
 
 void MainWindow::handleRttyPresetChanged(int index)
@@ -14635,21 +14686,7 @@ void MainWindow::appendCwDecoderText(const QString &channel, const QString &text
     if (lineOpen != nullptr) {
         *lineOpen = !normalized.endsWith(QLatin1Char('\n'));
     }
-    if (contestContextIsCw() && m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked()) {
-        QString &buffer = channel == QLatin1String("B") ? m_cwContestLastRxLineB : m_cwContestLastRxLineA;
-        for (const QChar ch : normalized) {
-            if (ch == QLatin1Char('\r') || ch == QLatin1Char('\n')) {
-                if (!buffer.trimmed().isEmpty()) processRttyContestRxLine(buffer);
-                buffer.clear();
-            } else if (ch.isPrint()) {
-                buffer.append(ch);
-                if (buffer.size() > 256) buffer = buffer.right(256);
-            }
-        }
-        // CW decoders often emit continuous text without CR/LF. The parser is
-        // conservative (requires our callsign), so incremental evaluation is safe.
-        if (!buffer.trimmed().isEmpty()) processRttyContestRxLine(buffer);
-    }
+    // Contest parsing is handled asynchronously by TextAssistWorker.
     scheduleTerminalHighlight(terminal);
 }
 
@@ -17702,10 +17739,11 @@ void MainWindow::autoLogFt8Qso(const QString &reason)
         appendLog("FT8 auto-log failed: " + error);
         return;
     }
+    queueLogbookIndexAdd(entry);
     broadcastLoggedQsoUdp(entry);
 
     m_ftSession.autoLogDone = true;
-    refreshLogbookHighlights();
+    refreshLogbookHighlights(true);
     refreshQsoMaps();
     appendLog(QString("FT8 auto-logged QSO: %1 %2/%3 %4%5")
                   .arg(entry.callsign,
@@ -19673,12 +19711,18 @@ void MainWindow::appendRxTextTerminal(QPlainTextEdit *terminal,
     // RTTY/CW can run for hours with few CR/LF characters, so bound the actual
     // document length as well to keep layout/highlighting cost constant.
     constexpr int kMaximumTerminalCharacters = 100000;
+    constexpr int kTerminalTrimChunk = 10000;
     const int excessCharacters = terminal->document()->characterCount() - kMaximumTerminalCharacters;
     if (excessCharacters > 0) {
+        // Trim in chunks.  Removing one leading character for every newly
+        // decoded character turns into repeated whole-document work once the
+        // terminal reaches its cap.
+        const int documentEnd = safeDocumentEndPosition(terminal->document());
+        const int trimCharacters = qMin(documentEnd, qMax(excessCharacters, kTerminalTrimChunk));
         QTextCursor trimCursor(terminal->document());
-        trimCursor.setPosition(0);
-        trimCursor.setPosition(excessCharacters, QTextCursor::KeepAnchor);
-        trimCursor.removeSelectedText();
+        if (selectDocumentRange(trimCursor, 0, trimCharacters)) {
+            trimCursor.removeSelectedText();
+        }
     }
     terminal->moveCursor(QTextCursor::End);
     terminal->ensureCursorVisible();
@@ -19740,20 +19784,23 @@ void MainWindow::appendTextTerminal(QPlainTextEdit *terminal, const QString &pre
     // RTTY/CW can run for hours with few CR/LF characters, so bound the actual
     // document length as well to keep layout/highlighting cost constant.
     constexpr int kMaximumTerminalCharacters = 100000;
+    constexpr int kTerminalTrimChunk = 10000;
     const int excessCharacters = terminal->document()->characterCount() - kMaximumTerminalCharacters;
     if (excessCharacters > 0) {
+        // Trim in chunks.  Removing one leading character for every newly
+        // decoded character turns into repeated whole-document work once the
+        // terminal reaches its cap.
+        const int documentEnd = safeDocumentEndPosition(terminal->document());
+        const int trimCharacters = qMin(documentEnd, qMax(excessCharacters, kTerminalTrimChunk));
         QTextCursor trimCursor(terminal->document());
-        trimCursor.setPosition(0);
-        trimCursor.setPosition(excessCharacters, QTextCursor::KeepAnchor);
-        trimCursor.removeSelectedText();
+        if (selectDocumentRange(trimCursor, 0, trimCharacters)) {
+            trimCursor.removeSelectedText();
+        }
     }
     terminal->moveCursor(QTextCursor::End);
     terminal->ensureCursorVisible();
     if (terminal == m_txtRttyRx || terminal == m_txtBpsk31Rx || terminal == m_txtMfskRx || terminal == m_txtCwRx || terminal == m_txtCwRxB) {
         scheduleTerminalHighlight(terminal);
-    }
-    if (terminal == m_txtRttyRx || terminal == m_txtBpsk31Rx) {
-        scanTextForHeardStations(terminal, chunk);
     }
 }
 
@@ -19794,6 +19841,7 @@ void MainWindow::resetTextTxHighlight(QPlainTextEdit *editor)
     }
 
     QSignalBlocker block(editor);
+    editor->setExtraSelections(QList<QTextEdit::ExtraSelection>());
 
     QTextCharFormat normalFormat;
     normalFormat.setForeground(editor->palette().color(QPalette::Text));
@@ -19829,44 +19877,41 @@ void MainWindow::updateTextTxHighlight(double progress)
     }
 
     const int wanted = qBound(0, static_cast<int>(qFloor(progress * safeLength + 0.5)), safeLength);
-
     if (wanted == m_textTxHighlightedChars) {
         return;
     }
 
-    QSignalBlocker block(m_activeTextTxEditor);
+    // Use ExtraSelection overlays instead of rewriting the QTextDocument on
+    // every audio progress callback.  This keeps the sent part visibly green
+    // even while the TX editor is read-only and avoids repeated whole-document
+    // format merges on the GUI thread.
+    QList<QTextEdit::ExtraSelection> selections;
 
-    QTextCharFormat pendingFormat;
-    pendingFormat.setForeground(m_activeTextTxEditor->palette().color(QPalette::Text));
-    pendingFormat.setFontUnderline(false);
-    pendingFormat.setUnderlineStyle(QTextCharFormat::NoUnderline);
-
-    QTextCharFormat sentFormat;
-    sentFormat.setForeground(MadModemUi::themeColor(MadModemUi::ThemeColorRole::Positive));
-    sentFormat.setFontUnderline(false);
-    sentFormat.setUnderlineStyle(QTextCharFormat::NoUnderline);
-
-    QTextCharFormat currentFormat;
-    const QColor currentColor = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Accent);
-    currentFormat.setForeground(currentColor);
-    currentFormat.setFontUnderline(true);
-    currentFormat.setUnderlineColor(currentColor);
-    currentFormat.setUnderlineStyle(QTextCharFormat::SingleUnderline);
-
-    QTextCursor cursor(m_activeTextTxEditor->document());
-
-    if (selectDocumentRange(cursor, 0, safeLength)) {
-        cursor.mergeCharFormat(pendingFormat);
+    if (wanted > 0) {
+        QTextEdit::ExtraSelection sentSelection;
+        sentSelection.format.setForeground(MadModemUi::themeColor(MadModemUi::ThemeColorRole::Positive));
+        QTextCursor sentCursor(m_activeTextTxEditor->document());
+        if (selectDocumentRange(sentCursor, 0, wanted)) {
+            sentSelection.cursor = sentCursor;
+            selections.append(sentSelection);
+        }
     }
 
-    if (wanted > 0 && selectDocumentRange(cursor, 0, wanted)) {
-        cursor.mergeCharFormat(sentFormat);
+    if (wanted < safeLength) {
+        QTextEdit::ExtraSelection currentSelection;
+        const QColor currentColor = MadModemUi::themeColor(MadModemUi::ThemeColorRole::Accent);
+        currentSelection.format.setForeground(currentColor);
+        currentSelection.format.setFontUnderline(true);
+        currentSelection.format.setUnderlineColor(currentColor);
+        currentSelection.format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
+        QTextCursor currentCursor(m_activeTextTxEditor->document());
+        if (selectDocumentRange(currentCursor, wanted, wanted + 1)) {
+            currentSelection.cursor = currentCursor;
+            selections.append(currentSelection);
+        }
     }
 
-    if (wanted < safeLength && selectDocumentRange(cursor, wanted, wanted + 1)) {
-        cursor.mergeCharFormat(currentFormat);
-    }
-
+    m_activeTextTxEditor->setExtraSelections(selections);
     m_textTxHighlightedChars = wanted;
 }
 
@@ -19911,7 +19956,6 @@ bool MainWindow::startTextModeTx(const QString &text)
         return false;
     }
 
-    m_rttyContestLastRxLine.clear();
     const QString expanded = expandTextTemplate(text);
 
     if (expanded.trimmed().isEmpty()) {
@@ -22029,6 +22073,7 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
                                  uiText("cannot_load_logbook", "Cannot load logbook:") + " " + loadError);
         } else {
             appendLog(uiText("logbook_file_changed", "Logbook file changed:") + " " + QDir::toNativeSeparators(newLogbookPath));
+            queueLogbookIndexRebuild();
         }
     }
 
@@ -22244,6 +22289,8 @@ void MainWindow::showLogbookDialog()
         QMessageBox::warning(this,
                              uiTextFromSource("text", "Logbook"),
                              uiTextFromSource("text", "Cannot load logbook:") + " " + error);
+    } else {
+        queueLogbookIndexRebuild();
     }
 
     LogbookDialog dialog(&m_logbook, &m_settings, this);
@@ -22253,6 +22300,7 @@ void MainWindow::showLogbookDialog()
     applyUiLanguageToObjectTree(&dialog);
     connect(&dialog, &LogbookDialog::logbookChanged,
             this, [this]() {
+                queueLogbookIndexRebuild();
                 refreshLogbookHighlights();
                 refreshQsoMaps();
                 appendLog(QString("Logbook updated: %1 QSOs.").arg(m_logbook.count()));
@@ -22369,8 +22417,10 @@ void MainWindow::appendRuntimeLogLine(const QString &line)
 {
     m_runtimeLogBuffer.append(line);
     constexpr int kMaximumRuntimeLogLines = 5000;
-    if (m_runtimeLogBuffer.size() > kMaximumRuntimeLogLines)
-        m_runtimeLogBuffer.removeFirst();
+    constexpr int kRuntimeLogRetainedAfterTrim = 4500;
+    if (m_runtimeLogBuffer.size() > kMaximumRuntimeLogLines) {
+        m_runtimeLogBuffer = m_runtimeLogBuffer.mid(m_runtimeLogBuffer.size() - kRuntimeLogRetainedAfterTrim);
+    }
     if (m_runtimeLogText != nullptr)
         m_runtimeLogText->appendPlainText(line);
 }

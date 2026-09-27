@@ -97,8 +97,31 @@ if 'm_fastResumeCwRttyRxPending' not in main or \
     errors.append('mainwindow.cpp: CW/RTTY fast TX-to-RX resume path is incomplete')
 if 'const int rxRestartDelayMs = (ftLowLatencyReturn || fastResumeCwRtty) ? 0 : 250;' not in main:
     errors.append('mainwindow.cpp: CW/RTTY fast resume is not immediate after PTT release')
-if 'contestTerminal' not in main or 'isCurrentContestDupe(call)' not in main:
-    errors.append('mainwindow.cpp: CW/RTTY worked highlighting is not scoped to the active contest')
+index_worker = (root/'runtime/LogbookIndexWorker.cpp').read_text(encoding='utf-8')
+text_worker = (root/'runtime/TextAssistWorker.cpp').read_text(encoding='utf-8')
+if 'textAssistContestEnabled' not in main or 'm_contestDupes.contains(contestKey(call, band, periodId))' not in index_worker:
+    errors.append('text assist: CW/RTTY worked highlighting is not scoped through the contest dupe index')
+
+# Long RTTY/CW sessions must not make GUI work grow with the complete terminal
+# history or logbook. Live highlighting is tail-bounded; parsing and dupe
+# membership run in dedicated workers and the GUI only paints returned ranges.
+if 'highlightCallsignsInTerminal(QPlainTextEdit *terminal, bool recentOnly)' not in main or \
+   'kLiveHighlightTailCharacters = 4096' not in main or \
+   'highlightCallsignsInTerminal(terminal, true)' not in main:
+    errors.append('mainwindow.cpp: live terminal highlighting is not tail-bounded')
+_highlight_body = main.split('void MainWindow::highlightCallsignsInTerminal', 1)[1].split('void MainWindow::scheduleTerminalHighlight', 1)[0]
+if 'm_logbook.records()' in _highlight_body or 'm_logbook.containsCallsign' in _highlight_body:
+    errors.append('mainwindow.cpp: terminal highlighter still accesses the logbook on the GUI thread')
+if 'QMetaObject::invokeMethod(worker' not in _highlight_body or 'worker->analyze(' not in _highlight_body:
+    errors.append('mainwindow.cpp: live text parsing is not delegated to TextAssistWorker')
+if 'm_byCall.contains(call)' not in index_worker or 'QHash<QString, int> m_byCall' not in (root/'runtime/LogbookIndexWorker.h').read_text(encoding='utf-8'):
+    errors.append('LogbookIndexWorker: worked-before lookup is not hash-indexed')
+if 'processRttyContestRxLine' in main or 'scanTextForHeardStations' in main:
+    errors.append('mainwindow.cpp: legacy GUI-thread text/contest parser is still present')
+if 'setExtraSelections(selections)' not in main or 'QTextEdit::ExtraSelection sentSelection' not in main:
+    errors.append('mainwindow.cpp: live TX progress no longer uses lightweight green ExtraSelection highlighting')
+if 'm_runtimeLogBuffer = m_runtimeLogBuffer.mid(' not in main:
+    errors.append('mainwindow.cpp: runtime log still prunes one line at a time after reaching its cap')
 if '#if defined(Q_OS_LINUX)' not in main or 'Qt::WindowStaysOnTopHint' not in main:
     errors.append('mainwindow.cpp: fullscreen popup workaround must remain Linux-only')
 

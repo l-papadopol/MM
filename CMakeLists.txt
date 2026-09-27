@@ -449,6 +449,10 @@ add_executable(MadModem
     modems/rtty/contest/RttyContestRules.h
     runtime/RxDecoderWorker.cpp
     runtime/RxDecoderWorker.h
+    runtime/LogbookIndexWorker.h
+    runtime/LogbookIndexWorker.cpp
+    runtime/TextAssistWorker.h
+    runtime/TextAssistWorker.cpp
     runtime/AsyncCatCommand.h
     modems/rtty/contest/RttyContestRules.cpp
     modems/bpsk31/Bpsk31Decoder.h
@@ -1162,4 +1166,15 @@ if(BUILD_TESTING)
     target_include_directories(madmodem_rtty_synthetic_bench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(madmodem_rtty_synthetic_bench PRIVATE ${QT}::Core ${QT}::Gui)
     add_test(NAME madmodem_rtty_synthetic_bench COMMAND madmodem_rtty_synthetic_bench)
+
+    add_executable(madmodem_text_assist_workers_regression
+        tests/TextAssistWorkersRegression.cpp
+        runtime/LogbookIndexWorker.h
+        runtime/LogbookIndexWorker.cpp
+        runtime/TextAssistWorker.h
+        runtime/TextAssistWorker.cpp
+        logbook/AdifLogbook.cpp)
+    target_include_directories(madmodem_text_assist_workers_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_text_assist_workers_regression PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_text_assist_workers_regression COMMAND madmodem_text_assist_workers_regression)
 endif()

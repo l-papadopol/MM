@@ -1,5 +1,7 @@
 #include "runtime/AsyncCatCommand.h"
 #include "runtime/RxDecoderWorker.h"
+#include "runtime/LogbookIndexWorker.h"
+#include "runtime/TextAssistWorker.h"
 #include "modems/rtty/RttyAfc.h"
 #include "audio/AudioContinuity.h"
 #ifndef MAINWINDOW_H
@@ -55,7 +57,10 @@
 #include <QList>
 #include <QPointF>
 #include <QHash>
+#include <QPointer>
 #include <QSet>
+#include <QVariantList>
+#include <QVariantMap>
 #include <QVector>
 #include <QMainWindow>
 #include <QStackedWidget>
@@ -1176,7 +1181,6 @@ private:
                                    const QString &mode,
                                    const QString &band = QString(),
                                    const QString &comment = QString());
-    void scanTextForHeardStations(QPlainTextEdit *terminal, const QString &newText);
 
     /**
      * @brief Updates the FT map filter when FT4/FT8 selection changes.
@@ -1227,10 +1231,30 @@ private:
     /**
      * @brief Highlights callsigns in one RX terminal using logbook duplicate state.
      */
-    void highlightCallsignsInTerminal(QPlainTextEdit *terminal);
+    /** Requests background text parsing/highlighting for one terminal snapshot. */
+    void highlightCallsignsInTerminal(QPlainTextEdit *terminal, bool recentOnly = false);
 
-    /** Coalesces high-frequency character updates before recolouring a terminal. */
+    /** Coalesces high-frequency character updates before queueing a background analysis. */
     void scheduleTerminalHighlight(QPlainTextEdit *terminal);
+
+    QString textAssistConsumerId(QPlainTextEdit *terminal) const;
+    QPlainTextEdit *textAssistTerminal(const QString &consumerId) const;
+    QString textAssistMode(QPlainTextEdit *terminal) const;
+    bool textAssistContestEnabled(QPlainTextEdit *terminal) const;
+    void handleTextAssistAnalysisReady(quint64 requestId,
+                                       const QString &consumerId,
+                                       const QVariantList &annotations,
+                                       const QVariantMap &contestCandidate,
+                                       const QVariantList &heardStations);
+    void handleLogbookLookupReady(quint64 requestId,
+                                  const QString &consumerId,
+                                  const QStringList &workedCalls);
+    void applyTextAssistResult(quint64 requestId, const QStringList &workedCalls);
+    void applyTextAssistContestCandidate(const QVariantMap &candidate);
+    void queueLogbookIndexRebuild();
+    void queueLogbookIndexAdd(const LogbookEntry &entry);
+    void queueContestIndexRebuild();
+    LogbookIndexWorker::ContestConfig currentLogbookContestConfig() const;
 
     // Data-driven contest mode shared by RTTY and CW. Contest-specific exchange,
     // macros and scoring stay in external runtime files (rtty_rules / cw_rules).
@@ -1260,7 +1284,6 @@ private:
     QString rttyContestFieldValue(const RttyContestFieldRule &field, bool sent) const;
     QString rttyContestExchange(bool sent) const;
     QString expandRttyContestTemplate(const QString &source) const;
-    void processRttyContestRxLine(const QString &line);
     bool fillRttyContestFieldFromClick(QPlainTextEdit *terminal, int clickPos, const QString &text);
     bool rttyContestConditionMatches(const QJsonObject &condition,
                                      const LogbookEntry *entry = nullptr,
@@ -1274,7 +1297,7 @@ private:
     /**
      * @brief Re-highlights all RX text terminals after logbook changes.
      */
-    void refreshLogbookHighlights();
+    void refreshLogbookHighlights(bool recentOnly = false);
 
     /**
      * @brief Extracts a plausible ham-radio callsign from arbitrary selected text.
@@ -1750,9 +1773,6 @@ private:
     QGridLayout *m_rttyContestFieldsLayout = nullptr;
     QHash<QString, QLineEdit *> m_rttyContestSentFieldEdits;
     QHash<QString, QLineEdit *> m_rttyContestReceivedFieldEdits;
-    QString m_rttyContestLastRxLine;
-    QString m_cwContestLastRxLineA;
-    QString m_cwContestLastRxLineB;
     QString m_rttyContestActiveSessionId;
     QDateTime m_rttyContestActiveSessionStartedUtc;
     int m_rttyContestSessionQsoCount = 0;
@@ -2246,6 +2266,23 @@ private:
     QTimer m_pttTestTimer;
     QTimer m_terminalHighlightTimer;
     QSet<QPlainTextEdit *> m_pendingTerminalHighlights;
+    QThread *m_logbookIndexThread = nullptr;
+    LogbookIndexWorker *m_logbookIndexWorker = nullptr;
+    QThread *m_textAssistThread = nullptr;
+    TextAssistWorker *m_textAssistWorker = nullptr;
+    quint64 m_textAssistRequestCounter = 0;
+    QHash<QPlainTextEdit *, quint64> m_textAssistLatestRequest;
+    QHash<QPlainTextEdit *, quint64> m_textTerminalGeneration;
+    QHash<quint64, QPointer<QPlainTextEdit>> m_textAssistPendingTerminal;
+    QHash<quint64, quint64> m_textAssistPendingGeneration;
+    QHash<quint64, int> m_textAssistPendingScanStart;
+    QHash<quint64, int> m_textAssistPendingScanEnd;
+    QHash<quint64, QVariantList> m_textAssistPendingAnnotations;
+    QHash<quint64, QVariantMap> m_textAssistPendingContest;
+    QHash<quint64, QVariantList> m_textAssistPendingHeard;
+    QHash<quint64, bool> m_textAssistPendingContestScoped;
+    QHash<quint64, QString> m_textAssistPendingBand;
+    QHash<quint64, QString> m_textAssistPendingPeriod;
 };
 
 #endif // MAINWINDOW_H

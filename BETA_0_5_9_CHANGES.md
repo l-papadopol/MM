@@ -42,3 +42,22 @@
 - RTTY V2 phase 1 implements one Mark/Space channelizer, baud-derived Butterworth filtering, optimized ATC-style threshold correction and a channel-domain carrier gate.
 - Shadow decoders used by `RttyMultiDecoder` automatically use the same channelized demodulator, while wideband signal discovery remains unchanged.
 - Prototyping against the deterministic synthetic model showed the largest gain under selective fading and strong off-frequency interference; the C++ CTest is the authoritative regression once CI builds it on Qt.
+
+
+## R16 — long-session UI latency + TX progress highlight
+
+- Restored the live green text-progress indication during RTTY/PSK/MFSK/Hell TX using `QTextEdit::ExtraSelection` overlays instead of repeatedly rewriting the TX document formatting.
+- Live RX callsign/contest highlighting now rescans only a bounded 4096-character tail (plus token margin) every 160 ms instead of the complete terminal history.
+- Contest duplicate lookup now snapshots the ADIF logbook once per highlighting pass and builds a dupe set, replacing the previous whole-logbook copy/scan for every callsign match.
+- Contest RX auto-fill changes are coalesced through the existing highlight timer instead of forcing immediate whole-terminal highlighting for every field update.
+- The RTTY waterfall text trail is now fed from the incremental `characterReceived` stream; the GUI no longer receives/copies the decoder's complete growing text history for every character.
+- Terminal history and runtime-log pruning now happen in chunks rather than deleting one oldest character/line on every new append after the cap is reached.
+- Added static regression checks so the live-tail/highlight and lightweight TX-overlay paths cannot silently regress.
+## R17 — text assistance and logbook indexes off the GUI thread
+
+- Added a dedicated `LogbookIndexWorker` thread as the single owner of worked-before and active-contest duplicate indexes. Live lookups are O(1) hash membership checks.
+- Exceptional index rebuilds receive only the ADIF path and parse it inside the worker; `MainWindow` no longer copies the complete logbook record vector for highlighting/dupe assistance. Normal QSO logging updates the index incrementally.
+- Added a dedicated `TextAssistWorker` thread for callsign/locator recognition and generic contest exchange candidate extraction from bounded RX text snapshots.
+- RTTY, CW RX A/B, PSK and MFSK now share this asynchronous path. The GUI only applies returned ranges/metadata; decoders remain unaware of logbook, contest parsing and widgets.
+- Added CTest/static regression coverage for worker ownership, O(1) lookups, contest band scope, incremental QSO updates and text/contest parsing.
+
