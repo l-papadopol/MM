@@ -1,109 +1,57 @@
-# MadModem 0.5.9-alpha
+# MadModem
 
-**Digital modes, station control and logging in one desktop application.**
+## 🇮🇹 Italiano
 
-MadModem is a free, cross-platform amateur-radio application built with Qt and
-C++. It brings digital-mode operation, a wideband waterfall, CAT/PTT, rotator
-control, logging and mapping into a single workspace for Linux, Windows and
-macOS.
+**MadModem (MM)** è un programma libero per radioamatori che riunisce in un'unica applicazione modi digitali, waterfall, controllo della radio, rotore e logbook.
 
-The interface is designed around the radio operator: decoding, replies, station
-controls and QSO information remain visible together, without switching among
-separate utilities.
+Il progetto nasce da un'esigenza molto semplice: quando faccio radio non voglio avere cinque o sei programmi aperti per decodificare un segnale, comandare il ricetrasmettitore, muovere le antenne e registrare un QSO. Volevo un ambiente unico, pratico e soprattutto aperto, che potessi modificare e sperimentare senza dipendere da software chiuso.
 
-## What you can do
+Mi chiamo **Lucian-Ioan Papadopol, IZ6NNH**. Sono radioamatore, appassionato di elettronica e informatica, e MadModem è nato prima di tutto per la mia stazione e per il piacere di sperimentare. Con il tempo il progetto è cresciuto parecchio e ho deciso di renderlo disponibile a chiunque abbia voglia di provarlo, usarlo e contribuire.
 
-- Work **FT8 and FT4** with live wideband decoding, standard messages, UTC slot
-  timing, QSO sequencing, caller queue and automatic logbook entry.
-- Use **MSK144** for meteor-scatter work, including 15/30 s periods, coherent
-  frame averaging, hashed short messages and first/second-period TX selection.
-- Operate **Q65A, Q65B, Q65C and Q65D** with native receive/transmit processing,
-  15/30/60/120 s periods, averaging, drift search, assisted QSO decoding and
-  UTC-aligned first/second-period transmission.
-- Receive and transmit **RTTY, BPSK/QPSK, MFSK and Feld Hell**, with macros and
-  a data-driven RTTY contest workspace.
-- Follow two signals at once in **CW**, using independent RX A/RX B markers,
-  AFC, adaptive speed tracking and diagnostic views.
-- Receive and transmit **SSTV** and **WEFAX/MeteoFax**, including direct WAV
-  analysis and image saving.
-- Control a radio through **Hamlib CAT/PTT**, keep the FT dial frequency aligned
-  with the selected band and use saved station settings at startup.
-- Control up to three rotator profiles, point by locator or DXCC, and use
-  low-wear signal-peak tracking with real Pattern Search, Golden Section or
-  Alt-Az Nelder-Mead optimisation inside configured mechanical limits.
-- Keep an **ADIF logbook**, inspect DXCC information and plot contacts on the
-  integrated QSO map.
-- Run receive-only **Radio Telescope** sky scans with rotator movement, timed
-  integration and CSV export.
+### Cosa c'è dentro
 
-## Operating views
+MadModem comprende oggi **FT8, FT4, MSK144, Q65, CW, RTTY, BPSK/QPSK, MFSK, Feld Hell, SSTV e WEFAX**, con ricezione e trasmissione secondo lo stato di sviluppo delle singole modalità.
 
-| Area | Highlights |
-| --- | --- |
-| FT4 / FT8 | Wideband decode table, QSO timeline, standard messages, slot clock, focused QSO priority |
-| MSK144 / Q65 | Native UTC-period RX/TX, first/second-period selection, frequency search, standard messages, averaging and weak-signal diagnostics |
-| CW | Two independent receivers, Auto-WPM, AFC, selectable bandwidth, soft-decision timing diagnostics |
-| RTTY | Live terminal, Mark/Space tuning scope, optional waterfall text, contest profiles and macros |
-| Image modes | SSTV and WEFAX receive/transmit, image preview, WAV analysis and PNG export |
-| Station | CAT/PTT, audio routing, rotators, scheduler, logbook, DXCC and map |
-| Radio Telescope | Receive-only Alt-Az scans, beam-sized sampling cells and CSV measurements |
+Attorno ai modem c'è tutto quello che normalmente serve in stazione: **waterfall**, gestione audio RX/TX, **CAT e PTT tramite Hamlib**, controllo dei **rotori**, logbook **ADIF**, informazioni DXCC, mappa dei QSO, macro e strumenti per contest RTTY. È presente anche una modalità **Radio Telescope** per effettuare scansioni del cielo con un sistema antenna/rotore.
 
-## Built for on-air operation
+L'idea non è quella di mettere insieme una collezione di finestre indipendenti: radio, segnali, decoder, TX, log e controlli di stazione devono lavorare nello stesso ambiente e rimanere a portata di mano durante il QSO.
 
-During a QSO, received messages, the selected reply, UTC timing, CAT frequency
-and waterfall remain in the same view. FT4/FT8 sequencing follows the selected
-transmit period and gives the active correspondent priority, helping the next
-reply remain inside the correct slot.
+MM è scritto in **C++/Qt**, è pensato per **Linux e Windows** e il codice sorgente è pubblicato sotto licenza **GNU GPL v3**.
 
-MSK144 and Q65 use one UTC scheduler for complete protocol frames. RX remains
-active while TX is armed; if a boundary is missed, MadModem waits for the next
-selected period instead of emitting a shortened frame.
+### Stato del progetto
 
-The full-band waterfall keeps weak and strong signals readable across the
-passband. Five complete themes provide consistent controls, tables, dialogs and
-maps, from the Avionica cockpit style to light, dark and high-contrast layouts.
+MadModem è ancora in versione **alpha**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
 
-## Station integration
+Per compilazione, configurazione e dettagli tecnici trovate la documentazione nella cartella [`docs`](docs/README.md).
 
-- Hamlib radio control over serial CAT, `rigctld` or supported TCP endpoints
-- CAT, serial RTS or serial DTR PTT routes
-- separate RX and TX audio-device selection
-- CAT-aware FT band changes and stored startup configuration
-- independent radio and rotator connections
-- ADIF import/export and atomic logbook saving
-- direct recording of the normalized RX stream as 16-bit PCM WAV
+**73 de IZ6NNH**  
+Lucian-Ioan Papadopol
 
-Before transmitting, verify the selected radio mode, PTT route, TX audio level,
-frequency and antenna. Before automatic movement, configure rotator limits,
-cable-wrap behaviour and an accessible emergency stop.
+---
 
-## Languages and help
+## 🇬🇧 English
 
-The runtime interface and embedded Qt Help are available in English, Italian,
-French, German, Norwegian and Czech. Language changes apply to the active
-interface without changing radio or decoder settings.
+**MadModem (MM)** is free software for amateur radio that brings digital modes, waterfall, radio control, rotator control and logging together in a single application.
 
-Start with **Help → MadModem Help** or open [`docs/README.md`](docs/README.md)
-for the documentation index.
+The project started from a very simple need: when I am on the radio I don't want five or six different programs open just to decode a signal, control the transceiver, move the antennas and log a QSO. I wanted one practical and open environment that I could modify and experiment with without depending on closed software.
 
-## Build from source
+My name is **Lucian-Ioan Papadopol, IZ6NNH**. I am a radio amateur with a passion for electronics and computing, and MadModem was originally created for my own station and for the fun of experimenting. Over time it grew considerably, so I decided to make it available to anyone who wants to try it, use it or contribute to it.
 
-The project requires CMake, a C++17 compiler, Qt 5 or Qt 6 development packages
-and the usual audio/serial development libraries. Hamlib enables radio and
-rotator control.
+### What's inside
 
-```bash
-./build_all.sh
-```
+MadModem currently includes **FT8, FT4, MSK144, Q65, CW, RTTY, BPSK/QPSK, MFSK, Feld Hell, SSTV and WEFAX**, with receive and transmit support according to the current development status of each mode.
 
-The repository includes build configurations for Linux, Windows and macOS.
+Around the modems there is the rest of what is normally useful in a station: a **waterfall**, RX/TX audio management, **CAT and PTT through Hamlib**, **rotator** control, an **ADIF** logbook, DXCC information, QSO mapping, macros and tools for RTTY contest operation. A **Radio Telescope** mode is also included for sky scans using an antenna/rotator system.
 
-See [`RELEASE_NOTES.md`](RELEASE_NOTES.md) for the current user-visible changes,
-[`CHANGELOG.md`](CHANGELOG.md) for development history and
-[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) for component provenance.
+The idea is not to build a collection of unrelated windows. Radio control, signals, decoders, TX, logging and station controls should work together and remain immediately accessible while making a QSO.
 
-## Author and licence
+MM is written in **C++/Qt**, targets **Linux and Windows**, and its source code is released under the **GNU GPL v3** licence.
 
-MadModem is developed by **Lucian-Ioan Papadopol, IZ6NNH** and released under
-the **GNU General Public License v3**. See [`LICENSE.md`](LICENSE.md) and
-[`COPYING`](COPYING).
+### Project status
+
+MadModem is still **alpha software**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
+
+Build instructions, configuration notes and technical information are available in the [`docs`](docs/README.md) directory.
+
+**73 de IZ6NNH**  
+Lucian-Ioan Papadopol
