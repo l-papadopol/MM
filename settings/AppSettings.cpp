@@ -384,8 +384,6 @@ void AppSettings::load()
     rttyNoiseReductionEnabled = settings.value("RTTY/noiseReductionEnabled", rttyNoiseReductionEnabled).toBool();
     rttyAgcEnabled = settings.value("RTTY/agcEnabled", rttyAgcEnabled).toBool();
     rttyAdaptiveLineEnhancerEnabled = settings.value("RTTY/adaptiveLineEnhancerEnabled", rttyAdaptiveLineEnhancerEnabled).toBool();
-    rttyMatchedFilterEnabled = settings.value("RTTY/matchedFilterEnabled", rttyMatchedFilterEnabled).toBool();
-    rttyMarkSpaceEnhancerEnabled = settings.value("RTTY/markSpaceEnhancerEnabled", rttyMarkSpaceEnhancerEnabled).toBool();
     rttyMultiDecodeEnabled = settings.value("RTTY/multiDecodeEnabled", rttyMultiDecodeEnabled).toBool();
     rttyOverlayCallsignsEnabled = settings.value("RTTY/overlayCallsignsEnabled", rttyOverlayCallsignsEnabled).toBool();
     rttyWaterfallTextOverlayEnabled = settings.value("RTTY/waterfallTextOverlayEnabled", rttyWaterfallTextOverlayEnabled).toBool();
@@ -828,8 +826,6 @@ bool AppSettings::save() const
     settings.setValue("RTTY/noiseReductionEnabled", rttyNoiseReductionEnabled);
     settings.setValue("RTTY/agcEnabled", rttyAgcEnabled);
     settings.setValue("RTTY/adaptiveLineEnhancerEnabled", rttyAdaptiveLineEnhancerEnabled);
-    settings.setValue("RTTY/matchedFilterEnabled", rttyMatchedFilterEnabled);
-    settings.setValue("RTTY/markSpaceEnhancerEnabled", rttyMarkSpaceEnhancerEnabled);
     settings.setValue("RTTY/multiDecodeEnabled", rttyMultiDecodeEnabled);
     settings.setValue("RTTY/overlayCallsignsEnabled", rttyOverlayCallsignsEnabled);
     settings.setValue("RTTY/waterfallTextOverlayEnabled", rttyWaterfallTextOverlayEnabled);

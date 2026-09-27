@@ -79,6 +79,15 @@ public:
     void setReverse(bool reverse);
 
     /**
+     * @brief Selects the tighter anti-QRM channel bandwidth.
+     *
+     * The decoder always uses separate Mark/Space baseband channels.  This
+     * option only narrows their baud-derived bandwidth; it does not introduce
+     * a second filtering path.
+     */
+    void setNarrowFilterEnabled(bool enabled);
+
+    /**
      * @brief Enables or disables decoder visualization output.
      *
      * Secondary RTTY decoders used by the multi-decoder keep this disabled so
@@ -159,10 +168,32 @@ private:
 
 
 private:
+    class LowPassBiquad
+    {
+    public:
+        void reset();
+        void setLowPass(double sampleRate, double cutoffHz, double q);
+        double process(double input);
+
+    private:
+        double m_b0 = 1.0;
+        double m_b1 = 0.0;
+        double m_b2 = 0.0;
+        double m_a1 = 0.0;
+        double m_a2 = 0.0;
+        double m_z1 = 0.0;
+        double m_z2 = 0.0;
+    };
+
     /**
-     * @brief Rebuilds oscillator increments after sample rate/tone changes.
+     * @brief Rebuilds oscillator increments and baud-derived channel filters.
      */
     void updateOscillators(int sampleRate);
+
+    /**
+     * @brief Clears only the live demodulator/filter state, preserving text.
+     */
+    void resetSignalPath();
 
     /**
      * @brief Updates tone-presence squelch from demodulator energies.
@@ -212,8 +243,17 @@ private:
     double m_markQ = 0.0;
     double m_spaceI = 0.0;
     double m_spaceQ = 0.0;
-    double m_energyAlpha = 0.006;
+    LowPassBiquad m_markILpf;
+    LowPassBiquad m_markQLpf;
+    LowPassBiquad m_spaceILpf;
+    LowPassBiquad m_spaceQLpf;
+    double m_markEnvelope = 0.0;
+    double m_spaceEnvelope = 0.0;
+    double m_markNoise = 0.0;
+    double m_spaceNoise = 0.0;
+    double m_qualityMean = 0.0;
     double m_confidence = 0.0;
+    bool m_narrowFilterEnabled = false;
 
     double m_inputPower = 0.0;
     double m_noiseFloor = 0.0;

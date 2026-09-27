@@ -11367,6 +11367,7 @@ void MainWindow::applyPersistentSettingsToRuntime(const AppSettings *previousSet
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setTones, static_cast<double>(m_settings.rttyMarkHz),
                             static_cast<double>(m_settings.rttyMarkHz + m_settings.rttyShiftHz));
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setReverse, m_settings.rttyReverse);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setNarrowFilterEnabled, m_settings.rttyNarrowFilterEnabled);
 
     invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setSymbolRate, bpskSymbolRateForVariant(m_settings.bpsk31Variant));
     invokeRxDecoder(m_bpsk31Decoder, &Bpsk31Decoder::setQpskMode, pskVariantIsQpsk(m_settings.bpsk31Variant));
@@ -11872,8 +11873,6 @@ void MainWindow::updateDspTabForMode(const QString &modeName)
     if (m_chkDspSoftwareAgc != nullptr) m_chkDspSoftwareAgc->setText(uiText("dsp_software_agc", "Software AGC"));
     if (m_chkDspNoiseReduction != nullptr) m_chkDspNoiseReduction->setText(uiText("dsp_noise_reduction", "Noise reduction"));
     if (m_chkDspAdaptiveLineEnhancer != nullptr) m_chkDspAdaptiveLineEnhancer->setText(uiText("dsp_adaptive_line_enhancer", "Adaptive line enhancer (LMS)"));
-    if (m_chkDspRttyMatchedFilter != nullptr) m_chkDspRttyMatchedFilter->setText(uiText("dsp_rtty_matched_filter", "Matched Mark/Space filters"));
-    if (m_chkDspRttyMarkSpaceEnhancer != nullptr) m_chkDspRttyMarkSpaceEnhancer->setText(uiText("dsp_rtty_mark_space_enhancer", "Adaptive Mark/Space enhancer"));
     if (m_chkRttyMultiDecode != nullptr) m_chkRttyMultiDecode->setText(uiText("rtty_multi_decode", "Multi-decode RTTY waterfall"));
     if (m_chkRttyOverlayCallsigns != nullptr) m_chkRttyOverlayCallsigns->setText(uiText("rtty_overlay_callsigns", "Show CQ/callsign labels on waterfall"));
     if (m_chkRttyWaterfallTextOverlay != nullptr) m_chkRttyWaterfallTextOverlay->setText(uiText("rtty_waterfall_text_overlay", "Show decoded text on waterfall"));
@@ -11899,8 +11898,6 @@ void MainWindow::updateDspTabForMode(const QString &modeName)
     const QSignalBlocker b0(m_chkDspSoftwareAgc);
     const QSignalBlocker b1(m_chkDspNoiseReduction);
     const QSignalBlocker b2(m_chkDspAdaptiveLineEnhancer);
-    const QSignalBlocker b3(m_chkDspRttyMatchedFilter);
-    const QSignalBlocker b4(m_chkDspRttyMarkSpaceEnhancer);
     const QSignalBlocker b5(m_chkRttyMultiDecode);
     const QSignalBlocker b6(m_chkRttyOverlayCallsigns);
     const QSignalBlocker b6a(m_chkRttyWaterfallTextOverlay);
@@ -11916,8 +11913,6 @@ void MainWindow::updateDspTabForMode(const QString &modeName)
         m_chkDspAdaptiveLineEnhancer->setChecked(cwMode ? m_settings.cwAdaptiveLineEnhancerEnabled
                                                          : (rttyMode ? m_settings.rttyAdaptiveLineEnhancerEnabled : false));
     }
-    if (m_chkDspRttyMatchedFilter != nullptr) m_chkDspRttyMatchedFilter->setChecked(m_settings.rttyMatchedFilterEnabled);
-    if (m_chkDspRttyMarkSpaceEnhancer != nullptr) m_chkDspRttyMarkSpaceEnhancer->setChecked(m_settings.rttyMarkSpaceEnhancerEnabled);
     if (m_chkRttyMultiDecode != nullptr) m_chkRttyMultiDecode->setChecked(m_settings.rttyMultiDecodeEnabled);
     if (m_chkRttyOverlayCallsigns != nullptr) m_chkRttyOverlayCallsigns->setChecked(m_settings.rttyOverlayCallsignsEnabled);
     if (m_chkRttyWaterfallTextOverlay != nullptr) m_chkRttyWaterfallTextOverlay->setChecked(m_settings.rttyWaterfallTextOverlayEnabled);
@@ -14061,6 +14056,7 @@ void MainWindow::applyRttySettings()
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setBaudRate, baud);
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setTones, static_cast<double>(markHz), static_cast<double>(spaceHz));
     invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setReverse, reverse);
+    invokeRxDecoder(m_rttyDecoder, &RttyDecoder::setNarrowFilterEnabled, narrowFilter);
     if (m_rttyScopeWidget != nullptr) m_rttyScopeWidget->setReversePolarity(reverse);
 
     m_settings.rttyPreset = presetKey;
@@ -14069,8 +14065,6 @@ void MainWindow::applyRttySettings()
     m_settings.rttyMarkHz = markHz;
     m_settings.rttyReverse = reverse;
     m_settings.rttyNarrowFilterEnabled = narrowFilter;
-    m_settings.rttyMatchedFilterEnabled = narrowFilter;
-    m_settings.rttyMarkSpaceEnhancerEnabled = narrowFilter;
     m_settings.rttyAfcEnabled = afc;
     m_settings.rttyAfcRangeHz = afcRangeHz;
     m_settings.rttyMultiDecodeEnabled = multiDecode;
@@ -20150,8 +20144,6 @@ DspConditioner::Config MainWindow::decoderConditionerConfig() const
         config.noiseReductionEnabled = m_settings.rttyNoiseReductionEnabled;
         config.agcEnabled = m_settings.rttyAgcEnabled;
         config.adaptiveLineEnhancerEnabled = m_settings.rttyAdaptiveLineEnhancerEnabled;
-        config.rttyMatchedFilterEnabled = m_settings.rttyNarrowFilterEnabled;
-        config.rttyMarkSpaceEnhancerEnabled = m_settings.rttyNarrowFilterEnabled;
         const double mark = (m_spinRttyMarkHz != nullptr) ? m_spinRttyMarkHz->value() : 2125.0;
         const double shift = (m_spinRttyShiftHz != nullptr) ? m_spinRttyShiftHz->value() : 170.0;
         config.blackHz = mark;

@@ -17,7 +17,7 @@ scope_header=(root/'widgets/RttyScopeWidget.h').read_text(encoding='utf-8', erro
 for obsolete in ['polarityLine', 'm_polaritySource', 'm_catMode', ' · CAT ']:
     if obsolete in scope or obsolete in scope_header:
         errors.append(f'widgets/RttyScopeWidget: obsolete in-scope status text remains: {obsolete}')
-dec=must(Path('modems/rtty/RttyDecoder.cpp'), ['setReverse(bool reverse)', 'rawBitIsMark', 'if (m_reverse)'])
+dec=must(Path('modems/rtty/RttyDecoder.cpp'), ['setReverse(bool reverse)', 'setNarrowFilterEnabled(bool enabled)', 'LowPassBiquad::setLowPass', 'kAtcBias', 'rawBitIsMark', 'if (m_reverse)'])
 for obsolete in ['setCatModeHint(', 'advancePolarityProbe(', 'evaluateAutomaticPolarity(']:
     if obsolete in dec: errors.append(f'modems/rtty/RttyDecoder.cpp: obsolete automatic polarity code remains: {obsolete}')
 must(Path('rig/HamlibController.cpp'), ['rig_get_mode(', 'rig_strrmode(', 'emit modeChanged(modeName)'])
@@ -28,6 +28,14 @@ waterfall=must(Path('widgets/WaterfallWidget.cpp'), ['appendVerticalTextTrail(ov
 if 'discardedVerticalTrail' in waterfall:
     errors.append('widgets/WaterfallWidget.cpp: live vertical trails are still discarded')
 cmake=must(Path('CMakeLists.txt'), ['install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules" DESTINATION "${CMAKE_INSTALL_BINDIR}")', 'install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/cw_rules" DESTINATION "${CMAKE_INSTALL_BINDIR}")'])
+conditioner=must(Path('dsp/common/DspConditioner.cpp'), ['case Profile::Rtty:'])
+conditioner_h=must(Path('dsp/common/DspConditioner.h'), ['Rtty'])
+for obsolete in ['rttyMatchedFilterEnabled', 'rttyMarkSpaceEnhancerEnabled', 'm_rttyMarkBp', 'm_rttySpaceBp']:
+    if obsolete in conditioner or obsolete in conditioner_h:
+        errors.append(f'DspConditioner still owns obsolete parallel RTTY filter state: {obsolete}')
+must(Path('tests/RttySyntheticBench.cpp'), ['mark_fade_-18_db', 'cw_plus20_db_offset300', 'noise_only'])
+if 'madmodem_rtty_synthetic_bench' not in cmake:
+    errors.append('CMakeLists.txt: RTTY synthetic bench is not registered with CTest')
 must(Path('scripts/build_linux_github.sh'), ['$INSTALL_DIR/bin/rtty_rules', '$INSTALL_DIR/bin/cw_rules'])
 must(Path('scripts/package_linux_github.sh'), ['$PACKAGE_DIR/bin/rtty_rules', '$PACKAGE_DIR/bin/cw_rules'])
 must(Path('scripts/package_macos.sh'), ['Contents/MacOS/rtty_rules', 'Contents/MacOS/cw_rules'])

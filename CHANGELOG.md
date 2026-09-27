@@ -1,5 +1,12 @@
 # MadModem changelog
 
+## 0.5.9-beta R15 — RTTY V2 phase 1 — 2026-09-27
+
+- Adds a deterministic RTTY synthetic CTest with AWGN, selective fading, CW interference, mistuning and noise-only cases.
+- Replaces the old wideband-power-sensitive RTTY slicer front end with independent Mark/Space baseband channels, baud-derived Butterworth filtering and selective-fading ATC.
+- Moves the Narrow Mark/Space option into that single decoder path (about 1.2 x baud versus 1.5 x baud normal) and removes the obsolete parallel RTTY band-pass bank from `DspConditioner`.
+- Keeps multi-decode discovery wideband while every shadow decoder now benefits from the same channelized RTTY core.
+
 ## 0.5.9-beta — FT split-operation validation — 2026-08-25
 
 ### Alpha r5 — real rotator peak tracking

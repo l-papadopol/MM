@@ -135,8 +135,6 @@ public:
     // changes Mark/Space balance during QSB. Keep it opt-in.
     bool rttyAgcEnabled = false;
     bool rttyAdaptiveLineEnhancerEnabled = false;
-    bool rttyMatchedFilterEnabled = false;
-    bool rttyMarkSpaceEnhancerEnabled = false;
     bool rttyMultiDecodeEnabled = false;
     bool rttyOverlayCallsignsEnabled = true;
     bool rttyWaterfallTextOverlayEnabled = false;

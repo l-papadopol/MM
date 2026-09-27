@@ -2038,8 +2038,6 @@ private:
     QCheckBox *m_chkDspSoftwareAgc = nullptr;
     QCheckBox *m_chkDspNoiseReduction = nullptr;
     QCheckBox *m_chkDspAdaptiveLineEnhancer = nullptr;
-    QCheckBox *m_chkDspRttyMatchedFilter = nullptr;
-    QCheckBox *m_chkDspRttyMarkSpaceEnhancer = nullptr;
     QCheckBox *m_chkDspBpskCoherentTracking = nullptr;
     QCheckBox *m_chkDspImageWaveletDenoise = nullptr;
     QWidget *m_tabFtDecodeDiagnostics = nullptr;

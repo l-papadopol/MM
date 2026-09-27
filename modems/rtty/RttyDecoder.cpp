@@ -9,8 +9,17 @@ constexpr double kTwoPi = 2.0 * M_PI;
 constexpr double kMinStartQuality = 0.075;
 constexpr double kMinDataQuality = 0.022;
 constexpr double kMinStopQuality = 0.055;
-constexpr double kOpenGate = 0.55;
-constexpr double kCloseGate = 0.22;
+constexpr double kOpenQuality = 0.42;
+constexpr double kCloseQuality = 0.30;
+constexpr double kAtcBias = 0.25;
+constexpr double kNormalBasebandCutoffBaud = 0.75; // 1.5 x baud full Mark/Space channel BW
+constexpr double kNarrowBasebandCutoffBaud = 0.60; // 1.2 x baud full channel BW
+
+double decayAverage(double current, double target, double timeSamples)
+{
+    const double alpha = 1.0 / qMax(1.0, timeSamples);
+    return ((1.0 - alpha) * current) + (alpha * target);
+}
 
 QString lettersForCode(int code)
 {
@@ -41,6 +50,40 @@ QString figuresForCode(int code)
 }
 
 } // namespace
+
+
+void RttyDecoder::LowPassBiquad::reset()
+{
+    m_z1 = 0.0;
+    m_z2 = 0.0;
+}
+
+void RttyDecoder::LowPassBiquad::setLowPass(double sampleRate, double cutoffHz, double q)
+{
+    if (sampleRate <= 0.0 || cutoffHz <= 0.0) {
+        m_b0 = 1.0; m_b1 = m_b2 = m_a1 = m_a2 = 0.0;
+        return;
+    }
+    const double safeCutoff = qBound(1.0, cutoffHz, sampleRate * 0.45);
+    const double omega = kTwoPi * safeCutoff / sampleRate;
+    const double cosine = qCos(omega);
+    const double sine = qSin(omega);
+    const double alpha = sine / (2.0 * qMax(0.05, q));
+    const double a0 = 1.0 + alpha;
+    m_b0 = ((1.0 - cosine) * 0.5) / a0;
+    m_b1 = (1.0 - cosine) / a0;
+    m_b2 = m_b0;
+    m_a1 = (-2.0 * cosine) / a0;
+    m_a2 = (1.0 - alpha) / a0;
+}
+
+double RttyDecoder::LowPassBiquad::process(double input)
+{
+    const double output = (m_b0 * input) + m_z1;
+    m_z1 = (m_b1 * input) - (m_a1 * output) + m_z2;
+    m_z2 = (m_b2 * input) - (m_a2 * output);
+    return output;
+}
 
 RttyDecoder::RttyDecoder(QObject *parent)
     : QObject(parent)
@@ -75,20 +118,8 @@ QVector<FrequencyMarker> RttyDecoder::frequencyMarkers(double markHz,
 
 void RttyDecoder::reset()
 {
-    m_markPhase = 0.0;
-    m_spacePhase = 0.0;
-    m_markI = 0.0;
-    m_markQ = 0.0;
-    m_spaceI = 0.0;
-    m_spaceQ = 0.0;
+    resetSignalPath();
     m_confidence = 0.0;
-
-    m_inputPower = 0.0;
-    m_noiseFloor = 0.0;
-    m_energySnr = 1.0;
-    m_toneRatio = 0.0;
-    m_gateScore = 0.0;
-    m_carrierOpen = false;
 
     resetFrame();
     m_lettersShift = true;
@@ -125,7 +156,12 @@ void RttyDecoder::resumeAfterLocalTransmit()
     m_markQ = 0.0;
     m_spaceI = 0.0;
     m_spaceQ = 0.0;
+    m_markILpf.reset();
+    m_markQLpf.reset();
+    m_spaceILpf.reset();
+    m_spaceQLpf.reset();
     m_carrierOpen = false;
+    m_qualityMean = 0.0;
     m_startSpaceSamples = 0;
     m_idleMarkSamples = 0;
     m_scopeDecimator = 0;
@@ -159,6 +195,26 @@ void RttyDecoder::retuneTones(double markHz, double spaceHz)
         updateOscillators(m_sampleRate);
     }
     emit markersChanged(frequencyMarkers(m_markHz, m_spaceHz, m_reverse));
+}
+
+void RttyDecoder::setNarrowFilterEnabled(bool enabled)
+{
+    if (m_narrowFilterEnabled == enabled) {
+        return;
+    }
+    m_narrowFilterEnabled = enabled;
+    if (m_sampleRate > 0) {
+        updateOscillators(m_sampleRate);
+    }
+    m_markILpf.reset();
+    m_markQLpf.reset();
+    m_spaceILpf.reset();
+    m_spaceQLpf.reset();
+    m_markEnvelope = m_spaceEnvelope = 0.0;
+    m_markNoise = m_spaceNoise = 0.0;
+    m_qualityMean = 0.0;
+    m_carrierOpen = false;
+    resetFrame();
 }
 
 void RttyDecoder::setReverse(bool reverse)
@@ -215,10 +271,13 @@ void RttyDecoder::processAudioBlock(const AudioBlock &block)
         const double spaceSin = qSin(m_spacePhase);
         const double spaceCos = qCos(m_spacePhase);
 
-        m_markI = ((1.0 - m_energyAlpha) * m_markI) + (m_energyAlpha * sample * markCos);
-        m_markQ = ((1.0 - m_energyAlpha) * m_markQ) + (m_energyAlpha * sample * markSin);
-        m_spaceI = ((1.0 - m_energyAlpha) * m_spaceI) + (m_energyAlpha * sample * spaceCos);
-        m_spaceQ = ((1.0 - m_energyAlpha) * m_spaceQ) + (m_energyAlpha * sample * spaceSin);
+        // RTTY V2 channelizer: translate Mark and Space independently to
+        // baseband, then low-pass each I/Q branch with a baud-derived
+        // Butterworth section.  No recombination into wideband audio occurs.
+        m_markI = m_markILpf.process(sample * markCos);
+        m_markQ = m_markQLpf.process(sample * markSin);
+        m_spaceI = m_spaceILpf.process(sample * spaceCos);
+        m_spaceQ = m_spaceQLpf.process(sample * spaceSin);
 
         m_markPhase += m_markInc;
         m_spacePhase += m_spaceInc;
@@ -232,8 +291,47 @@ void RttyDecoder::processAudioBlock(const AudioBlock &block)
         const double markEnergy = (m_markI * m_markI) + (m_markQ * m_markQ);
         const double spaceEnergy = (m_spaceI * m_spaceI) + (m_spaceQ * m_spaceQ);
         const double sumEnergy = markEnergy + spaceEnergy + 1.0e-14;
-        const double diffNorm = (markEnergy - spaceEnergy) / sumEnergy;
-        const double bitQuality = qAbs(diffNorm);
+        const double markMagnitude = qSqrt(markEnergy);
+        const double spaceMagnitude = qSqrt(spaceEnergy);
+        const double magnitudeSum = markMagnitude + spaceMagnitude + 1.0e-14;
+
+        // Fast-charge / slow-discharge envelopes follow selective fading but
+        // deliberately do not follow individual Baudot bits.  Independent
+        // slow noise estimators let the slicer remove the non-zero detector
+        // floor before applying automatic threshold correction (ATC).
+        if (m_markEnvelope <= 0.0) m_markEnvelope = markMagnitude;
+        if (m_spaceEnvelope <= 0.0) m_spaceEnvelope = spaceMagnitude;
+        if (m_markNoise <= 0.0) m_markNoise = markMagnitude;
+        if (m_spaceNoise <= 0.0) m_spaceNoise = spaceMagnitude;
+        m_markEnvelope = decayAverage(m_markEnvelope, markMagnitude,
+                                      markMagnitude > m_markEnvelope ? m_symbolSamples * 0.25
+                                                                      : m_symbolSamples * 16.0);
+        m_spaceEnvelope = decayAverage(m_spaceEnvelope, spaceMagnitude,
+                                       spaceMagnitude > m_spaceEnvelope ? m_symbolSamples * 0.25
+                                                                        : m_symbolSamples * 16.0);
+        m_markNoise = decayAverage(m_markNoise, markMagnitude,
+                                   markMagnitude < m_markNoise ? m_symbolSamples * 0.25
+                                                               : m_symbolSamples * 48.0);
+        m_spaceNoise = decayAverage(m_spaceNoise, spaceMagnitude,
+                                    spaceMagnitude < m_spaceNoise ? m_symbolSamples * 0.25
+                                                                  : m_symbolSamples * 48.0);
+
+        const double noiseFloor = qMin(m_markNoise, m_spaceNoise);
+        const double clippedMark = qBound(noiseFloor, markMagnitude, qMax(noiseFloor, m_markEnvelope));
+        const double clippedSpace = qBound(noiseFloor, spaceMagnitude, qMax(noiseFloor, m_spaceEnvelope));
+        const double markEnv = qMax(0.0, m_markEnvelope - noiseFloor);
+        const double spaceEnv = qMax(0.0, m_spaceEnvelope - noiseFloor);
+        const double atcNumerator =
+            ((clippedMark - noiseFloor) * markEnv) -
+            ((clippedSpace - noiseFloor) * spaceEnv) -
+            kAtcBias * ((markEnv * markEnv) - (spaceEnv * spaceEnv));
+        const double atcDenominator = (markEnv * markEnv) + (spaceEnv * spaceEnv) + 1.0e-14;
+        const double diffNorm = qBound(-1.0, atcNumerator / atcDenominator, 1.0);
+
+        // Framing quality intentionally uses raw channel separation, not the
+        // threshold-corrected metric.  This remains meaningful while one tone
+        // is selectively faded and avoids the old wideband-power desensitizer.
+        const double bitQuality = qBound(0.0, qAbs(markMagnitude - spaceMagnitude) / magnitudeSum, 1.0);
         if (m_visualizationEnabled && ++m_scopeDecimator >= 24) {
             m_scopeDecimator = 0;
 
@@ -328,41 +426,64 @@ void RttyDecoder::updateOscillators(int sampleRate)
     m_markInc = kTwoPi * m_markHz / static_cast<double>(sampleRate);
     m_spaceInc = kTwoPi * m_spaceHz / static_cast<double>(sampleRate);
 
-    const double lpSamples = qMax(12.0, m_symbolSamples * 0.38);
-    m_energyAlpha = qBound(0.0015, 1.0 / lpSamples, 0.0300);
+    const double cutoffMultiplier = m_narrowFilterEnabled
+                                      ? kNarrowBasebandCutoffBaud
+                                      : kNormalBasebandCutoffBaud;
+    const double cutoffHz = qMax(6.0, m_baudRate * cutoffMultiplier);
+    constexpr double butterworthQ = 0.7071067811865476;
+    m_markILpf.setLowPass(sampleRate, cutoffHz, butterworthQ);
+    m_markQLpf.setLowPass(sampleRate, cutoffHz, butterworthQ);
+    m_spaceILpf.setLowPass(sampleRate, cutoffHz, butterworthQ);
+    m_spaceQLpf.setLowPass(sampleRate, cutoffHz, butterworthQ);
+}
+
+void RttyDecoder::resetSignalPath()
+{
+    m_markPhase = 0.0;
+    m_spacePhase = 0.0;
+    m_markI = m_markQ = 0.0;
+    m_spaceI = m_spaceQ = 0.0;
+    m_markILpf.reset();
+    m_markQLpf.reset();
+    m_spaceILpf.reset();
+    m_spaceQLpf.reset();
+    m_markEnvelope = m_spaceEnvelope = 0.0;
+    m_markNoise = m_spaceNoise = 0.0;
+    m_qualityMean = 0.0;
+    m_inputPower = 0.0;
+    m_noiseFloor = 0.0;
+    m_energySnr = 1.0;
+    m_toneRatio = 0.0;
+    m_gateScore = 0.0;
+    m_carrierOpen = false;
 }
 
 void RttyDecoder::updateCarrierGate(double sumEnergy, double bitQuality)
 {
+    // The old gate divided Mark+Space energy by total wideband input power.
+    // A strong off-frequency contest signal could therefore close the RTTY
+    // squelch even after the Mark/Space filters had rejected that interferer.
+    // Gate on sustained separation of the two *channelized* branches instead.
+    const double qualityAlpha = 1.0 / qMax(1.0, m_symbolSamples * 6.0);
+    m_qualityMean = ((1.0 - qualityAlpha) * m_qualityMean) +
+                    (qualityAlpha * qBound(0.0, bitQuality, 1.0));
+
     if (m_noiseFloor <= 0.0) {
-        m_noiseFloor = qMax(sumEnergy, 1.0e-12);
-    }
-
-    if (!m_carrierOpen) {
-        const double attack = (sumEnergy < m_noiseFloor) ? 0.0200 : 0.0004;
-        m_noiseFloor = ((1.0 - attack) * m_noiseFloor) + (attack * sumEnergy);
+        m_noiseFloor = qMax(sumEnergy, 1.0e-14);
     } else if (sumEnergy < m_noiseFloor) {
-        m_noiseFloor = (0.9950 * m_noiseFloor) + (0.0050 * sumEnergy);
+        m_noiseFloor = (0.98 * m_noiseFloor) + (0.02 * sumEnergy);
     } else {
-        m_noiseFloor = (0.99998 * m_noiseFloor) + (0.00002 * sumEnergy);
+        m_noiseFloor = (0.9999 * m_noiseFloor) + (0.0001 * sumEnergy);
     }
+    m_energySnr = sumEnergy / qMax(m_noiseFloor, 1.0e-14);
+    m_toneRatio = sumEnergy / qMax(m_inputPower, 1.0e-14); // diagnostic only
+    m_gateScore = m_qualityMean;
 
-    m_energySnr = sumEnergy / qMax(m_noiseFloor, 1.0e-12);
-    m_toneRatio = sumEnergy / qMax(m_inputPower, 1.0e-12);
-
-    const bool enoughAudio = m_inputPower > 1.0e-8;
-    const bool strongTwoTonePresence = (m_toneRatio > 0.035 && bitQuality > 0.11);
-    const bool veryStrongNarrowTone = (m_toneRatio > 0.085 && bitQuality > 0.055);
-    const bool aboveNoiseFloor = (m_energySnr > 7.0 && bitQuality > 0.12);
-    const bool carrierCandidate = enoughAudio && (strongTwoTonePresence || veryStrongNarrowTone || aboveNoiseFloor);
-
-    const double target = carrierCandidate ? 1.0 : 0.0;
-    m_gateScore = (0.99925 * m_gateScore) + (0.00075 * target);
-
-    if (!m_carrierOpen && m_gateScore >= kOpenGate) {
+    const bool hasNarrowEnergy = sumEnergy > 1.0e-10;
+    if (!m_carrierOpen && hasNarrowEnergy && m_qualityMean >= kOpenQuality) {
         m_carrierOpen = true;
         resetFrame();
-    } else if (m_carrierOpen && m_gateScore <= kCloseGate) {
+    } else if (m_carrierOpen && m_qualityMean <= kCloseQuality) {
         m_carrierOpen = false;
         resetFrame();
     }
