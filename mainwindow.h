@@ -1547,6 +1547,8 @@ private:
      * @brief Expands and transmits one stored standard text macro.
      */
     void sendTextMacro(int index);
+    void editRttyMacros();
+    void sendRttyQuickReply();
 
     /**
      * @brief Expands and transmits one RTTY contest macro from the active rtty_rules profile.
@@ -1712,12 +1714,16 @@ private:
     RttyScopeWidget *m_rttyScopeWidget = nullptr;
     QPlainTextEdit *m_txtRttyRx = nullptr;
     QPlainTextEdit *m_txtRttyTx = nullptr;
+    QPlainTextEdit *m_txtRttyQuickReply = nullptr;
+    QPushButton *m_btnRttyQuickReplySend = nullptr;
+    QPushButton *m_btnRttyMacroEdit = nullptr;
+    QString m_rttyTxOverrideText;
+    QString m_pendingRttyQuickReply;
     QPushButton *m_btnRttyClearRx = nullptr;
     QPushButton *m_btnRttyLoadTxText = nullptr;
     QPushButton *m_btnRttyClearTx = nullptr;
     QPushButton *m_btnRttySend = nullptr;
     QList<QPushButton *> m_rttyMacroButtons;
-    QList<QPushButton *> m_rttyContestMacroButtons;
     QsoFormWidgets *m_rttyQsoForm = nullptr;
 
     // Shared RTTY/CW Contest Engine UI/state. Each mode has its own authoritative

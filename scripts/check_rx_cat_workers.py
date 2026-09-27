@@ -3,9 +3,9 @@
 from pathlib import Path
 import re
 root=Path(__file__).resolve().parents[1]
-main=(root/'mainwindow.cpp').read_text()
-worker=(root/'runtime/RxDecoderWorker.cpp').read_text()
-gate=(root/'runtime/AsyncCatCommand.h').read_text()
+main=(root/'mainwindow.cpp').read_text(encoding='utf-8')
+worker=(root/'runtime/RxDecoderWorker.cpp').read_text(encoding='utf-8')
+gate=(root/'runtime/AsyncCatCommand.h').read_text(encoding='utf-8')
 assert 'm_rxDecoderWorker->moveToThread(m_rxDecoderThread)' in main
 assert 'm_rxDecoderWorker->queue(),&BoundedAudioDispatcher::enqueue,Qt::DirectConnection' in main
 assert not re.search(r'm_(?:rtty|rttyMulti|cw|bpsk31|mfsk|hell|weatherFax|sstv|msk144)Decoder->',main), 'GUI must use queued commands or immutable snapshots'

@@ -47,10 +47,10 @@ checks = {
         and "padding-left: 4px" in contest
         and "setContentsMargins(4, 4, 4, 4)" in contest
     ),
-    "macro buttons have no forced horizontal minimum": (
-        "button->setMinimumWidth(0)" in contest
-        and "button->setMinimumHeight(24)" in contest
-        and "addWidget(button, i / 3, i % 3)" in contest
+    "contest page has no duplicate macro bank": (
+        "contestMacroBox" not in contest
+        and "m_rttyContestMacroButtons" not in MAIN
+        and "Contest macros use the single central RTTY macro bar" in contest
     ),
     "short tab caption is used": (
         'insertTab(insertIndex, m_tabRttyContest, uiText("rtty_contest", "Contest"))' in contest

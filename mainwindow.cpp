@@ -3692,6 +3692,31 @@ void MainWindow::setupTextTerminalPages()
                                                &m_btnRttySend,
                                                &m_rttyMacroButtons,
                                                &m_rttyQsoForm);
+    if (QVBoxLayout *rttyLayout = qobject_cast<QVBoxLayout *>(m_rttyDisplayPage->layout())) {
+        m_btnRttyMacroEdit = new QPushButton(uiText("edit_macros", "✎ Edit macros…"), m_rttyDisplayPage);
+        m_btnRttyMacroEdit->setFlat(true);
+        m_btnRttyMacroEdit->setCursor(Qt::PointingHandCursor);
+        m_btnRttyMacroEdit->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+        m_btnRttyMacroEdit->setToolTip(uiText("edit_macros_tooltip", "Edit the label and transmitted text of the active RTTY macro bank."));
+        rttyLayout->insertWidget(qMax(0, rttyLayout->count() - 1), m_btnRttyMacroEdit, 0, Qt::AlignRight);
+
+        QHBoxLayout *quickLayout = new QHBoxLayout();
+        quickLayout->setContentsMargins(0, 0, 0, 0);
+        quickLayout->setSpacing(6);
+        m_txtRttyQuickReply = new QPlainTextEdit(m_rttyDisplayPage);
+        m_txtRttyQuickReply->setMinimumHeight(42);
+        m_txtRttyQuickReply->setMaximumHeight(58);
+        m_txtRttyQuickReply->setPlaceholderText(uiText("rtty_quick_reply_placeholder", "Quick reply — writable while the main TX buffer is transmitting"));
+        m_btnRttyQuickReplySend = new QPushButton(QString::fromUtf8("➤"), m_rttyDisplayPage);
+        m_btnRttyQuickReplySend->setMinimumWidth(52);
+        m_btnRttyQuickReplySend->setMinimumHeight(42);
+        m_btnRttyQuickReplySend->setToolTip(uiText("rtty_quick_reply_send", "Transmit this quick reply. If TX is busy, queue it for the next transmission."));
+        quickLayout->addWidget(m_txtRttyQuickReply, 1);
+        quickLayout->addWidget(m_btnRttyQuickReplySend);
+        rttyLayout->addLayout(quickLayout);
+        m_txtRttyQuickReply->hide();
+        m_btnRttyQuickReplySend->hide();
+    }
     m_rttyDisplayPage = wrapTextDisplayPageWithMap(m_rttyDisplayPage, uiText("tab_rtty", "RTTY"), QStringLiteral("RTTY"));
     m_mainDisplayStack->addWidget(m_rttyDisplayPage);
 
@@ -4703,6 +4728,8 @@ void MainWindow::refreshRttyContestUi()
     }
     updateRttyContestBandFromCat();
     refreshRttyContestScore();
+    if (m_txtRttyQuickReply != nullptr) m_txtRttyQuickReply->setVisible(contestEnabled && !contestContextIsCw());
+    if (m_btnRttyQuickReplySend != nullptr) m_btnRttyQuickReplySend->setVisible(contestEnabled && !contestContextIsCw());
     refreshTextMacroButtons();
     if (m_txtRttyRx != nullptr) {
         highlightCallsignsInTerminal(m_txtRttyRx);
@@ -5786,25 +5813,7 @@ void MainWindow::setupRttyPage()
     });
     syncContestQsoMirrorFromActiveForm();
 
-    QGroupBox *contestMacroBox = new QGroupBox(uiText("rtty_contest_macros", "Contest macros"), contestContent);
-    QGridLayout *contestMacroLayout = new QGridLayout(contestMacroBox);
-    contestMacroLayout->setContentsMargins(6, 6, 6, 6);
-    contestMacroLayout->setHorizontalSpacing(4);
-    contestMacroLayout->setVerticalSpacing(4);
-    m_rttyContestMacroButtons.clear();
-    const int contestMacroCount = qMax(6, m_rttyMacroButtons.size());
-    for (int i = 0; i < contestMacroCount; ++i) {
-        QPushButton *button = new QPushButton(QStringLiteral("Macro %1").arg(i + 1), contestMacroBox);
-        button->setMinimumWidth(0);
-        button->setMinimumHeight(24);
-        button->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-        m_rttyContestMacroButtons.append(button);
-        contestMacroLayout->addWidget(button, i / 3, i % 3);
-    }
-    contestMacroLayout->setColumnStretch(0, 1);
-    contestMacroLayout->setColumnStretch(1, 1);
-    contestMacroLayout->setColumnStretch(2, 1);
-    contestPageLayout->addWidget(contestMacroBox);
+    // Contest macros use the single central RTTY macro bar; no duplicate bank here.
     contestPageLayout->addStretch(1);
     contestScroll->setWidget(contestContent);
     contestTabOuter->addWidget(contestScroll);
@@ -10471,17 +10480,17 @@ void MainWindow::setupUiConnections()
         connect(m_btnRttySend, &QPushButton::clicked,
                 this, &MainWindow::sendRttyTxText);
     }
+    if (m_btnRttyMacroEdit != nullptr) {
+        connect(m_btnRttyMacroEdit, &QPushButton::clicked, this, &MainWindow::editRttyMacros);
+    }
+    if (m_btnRttyQuickReplySend != nullptr) {
+        connect(m_btnRttyQuickReplySend, &QPushButton::clicked, this, &MainWindow::sendRttyQuickReply);
+    }
 
     for (int i = 0; i < m_rttyMacroButtons.size(); ++i) {
         QPushButton *button = m_rttyMacroButtons.at(i);
         connect(button, &QPushButton::clicked,
                 this, [this, i]() { sendTextMacro(i); });
-    }
-    for (int i = 0; i < m_rttyContestMacroButtons.size(); ++i) {
-        QPushButton *button = m_rttyContestMacroButtons.at(i);
-        if (button == nullptr) continue;
-        connect(button, &QPushButton::clicked,
-                this, [this, i]() { sendRttyContestMacro(i); });
     }
 
     if (m_txtRttyTx != nullptr) {
@@ -14926,6 +14935,72 @@ void MainWindow::sendHellTxText()
     startTextModeTx(text);
 }
 
+
+void MainWindow::editRttyMacros()
+{
+    const bool contestActive = m_chkRttyContestMode != nullptr && m_chkRttyContestMode->isChecked() &&
+                               !contestContextIsCw() && currentRttyContestProfile() != nullptr;
+    bool ok = false;
+    const int index = QInputDialog::getInt(this, uiText("edit_macros", "Edit macros"),
+                                           uiText("macro_number", "Macro number (1-6)"), 1, 1, 6, 1, &ok) - 1;
+    if (!ok) return;
+
+    if (contestActive) {
+        const RttyContestProfile *profile = currentRttyContestProfile();
+        if (profile == nullptr || index >= profile->macros.size()) return;
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        const QString base = contestSettingsRoot() + QStringLiteral("/macroOverrides/%1/%2/").arg(profile->id).arg(index);
+        const QString currentLabel = settings.value(base + QStringLiteral("label"), profile->macros.at(index).label).toString();
+        const QString currentText = settings.value(base + QStringLiteral("text"), profile->macros.at(index).text).toString();
+        const QString label = QInputDialog::getText(this, uiText("macro_label", "Macro label"), uiText("macro_label_prompt", "Button label"), QLineEdit::Normal, currentLabel, &ok);
+        if (!ok) return;
+        const QString text = QInputDialog::getMultiLineText(this, uiText("macro_text", "Macro text"), uiText("macro_text_prompt", "Text to transmit"), currentText, &ok);
+        if (!ok) return;
+        settings.setValue(base + QStringLiteral("label"), label);
+        settings.setValue(base + QStringLiteral("text"), text);
+    } else {
+        QStringList labels = m_settings.textMacroLabels;
+        QStringList texts = m_settings.textMacroTexts;
+        while (labels.size() < 6) labels << QStringLiteral("Macro %1").arg(labels.size() + 1);
+        while (texts.size() < 6) texts << QString();
+        const QString label = QInputDialog::getText(this, uiText("macro_label", "Macro label"), uiText("macro_label_prompt", "Button label"), QLineEdit::Normal, labels.at(index), &ok);
+        if (!ok) return;
+        const QString text = QInputDialog::getMultiLineText(this, uiText("macro_text", "Macro text"), uiText("macro_text_prompt", "Text to transmit"), texts.at(index), &ok);
+        if (!ok) return;
+        labels[index] = label;
+        texts[index] = text;
+        m_settings.textMacroLabels = labels;
+        m_settings.textMacroTexts = texts;
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("Text/macroLabels"), labels);
+        settings.setValue(QStringLiteral("Text/macroTexts"), texts);
+    }
+    refreshTextMacroButtons();
+}
+
+void MainWindow::sendRttyQuickReply()
+{
+    QString text = m_pendingRttyQuickReply;
+    if (text.isEmpty() && m_txtRttyQuickReply != nullptr) text = m_txtRttyQuickReply->toPlainText();
+    if (text.trimmed().isEmpty()) return;
+    if (m_txRunning || m_txPreparationPending) {
+        m_pendingRttyQuickReply = text;
+        appendLog("RTTY quick reply queued until current TX completes.");
+        return;
+    }
+    if (ui == nullptr || ui->cmbMode == nullptr || ui->cmbMode->currentText() != RttyDecoder::modeName()) return;
+    if (!ensureStationIdentityForTx(RttyDecoder::modeName())) return;
+    const QString expanded = expandTextTemplate(text);
+    m_pendingRttyQuickReply.clear();
+    m_rttyTxOverrideText = expanded;
+    appendTextTerminal(m_txtRttyRx, "TX> ", expanded);
+    startImageTx();
+    m_rttyTxOverrideText = QString();
+    if (m_txRunning) {
+        if (m_txtRttyQuickReply != nullptr) m_txtRttyQuickReply->clear();
+        updateTxPreview();
+    }
+}
 
 void MainWindow::sendRttyTxText()
 {
@@ -19476,10 +19551,14 @@ void MainWindow::refreshTextMacroButtons()
             if (button == nullptr) continue;
             if (contestProfile != nullptr && i < contestProfile->macros.size()) {
                 const RttyContestMacroRule &macro = contestProfile->macros.at(i);
+                QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+                const QString base = contestSettingsRoot() + QStringLiteral("/macroOverrides/%1/%2/").arg(contestProfile->id).arg(i);
+                const QString label = settings.value(base + QStringLiteral("label"), macro.label).toString();
+                const QString macroText = settings.value(base + QStringLiteral("text"), macro.text).toString();
                 button->setEnabled(true);
-                button->setText(macro.label);
-                const QString expanded = expandRttyContestTemplate(macro.text);
-                button->setToolTip(QStringLiteral("%1\n\n%2").arg(macro.label, expanded));
+                button->setText(label);
+                const QString expanded = expandRttyContestTemplate(macroText);
+                button->setToolTip(QStringLiteral("%1\n\n%2").arg(label, expanded));
                 button->setStatusTip(button->toolTip());
             } else {
                 button->setEnabled(false);
@@ -19489,19 +19568,15 @@ void MainWindow::refreshTextMacroButtons()
             }
         }
     };
-    // The normal RTTY macro bank always remains the user's standard macro bank.
-    // Contest mode owns a separate bank inside the Contest mode tab; never
-    // rewrite the standard buttons with contest labels/text.  While a contest
-    // is active the standard bank is disabled to keep the Contest mode tab the
-    // single operational surface for contest exchanges.
-    applyLabels(m_rttyMacroButtons);
-    for (QPushButton *button : m_rttyMacroButtons) {
-        if (button != nullptr) button->setEnabled(!rttyContestActive);
-    }
-
-    applyRttyContestLabels(m_rttyContestMacroButtons);
-    for (QPushButton *button : m_rttyContestMacroButtons) {
-        if (button != nullptr) button->setEnabled(contestActive && button->isEnabled());
+    // One RTTY macro bank only. Contest mode replaces the standard labels/text
+    // on the central bar instead of creating a second set in the side tab.
+    if (rttyContestActive) {
+        applyRttyContestLabels(m_rttyMacroButtons);
+    } else {
+        applyLabels(m_rttyMacroButtons);
+        for (QPushButton *button : m_rttyMacroButtons) {
+            if (button != nullptr) button->setEnabled(true);
+        }
     }
     applyLabels(m_bpsk31MacroButtons);
     applyLabels(m_mfskMacroButtons);
@@ -19635,6 +19710,17 @@ void MainWindow::appendRxTextTerminal(QPlainTextEdit *terminal,
 
     terminal->moveCursor(QTextCursor::End);
     terminal->insertPlainText(chunk);
+    // MaximumBlockCount limits paragraphs, not a continuous character stream.
+    // RTTY/CW can run for hours with few CR/LF characters, so bound the actual
+    // document length as well to keep layout/highlighting cost constant.
+    constexpr int kMaximumTerminalCharacters = 100000;
+    const int excessCharacters = terminal->document()->characterCount() - kMaximumTerminalCharacters;
+    if (excessCharacters > 0) {
+        QTextCursor trimCursor(terminal->document());
+        trimCursor.setPosition(0);
+        trimCursor.setPosition(excessCharacters, QTextCursor::KeepAnchor);
+        trimCursor.removeSelectedText();
+    }
     terminal->moveCursor(QTextCursor::End);
     terminal->ensureCursorVisible();
     scheduleTerminalHighlight(terminal);
@@ -19691,6 +19777,17 @@ void MainWindow::appendTextTerminal(QPlainTextEdit *terminal, const QString &pre
 
     terminal->moveCursor(QTextCursor::End);
     terminal->insertPlainText(chunk);
+    // MaximumBlockCount limits paragraphs, not a continuous character stream.
+    // RTTY/CW can run for hours with few CR/LF characters, so bound the actual
+    // document length as well to keep layout/highlighting cost constant.
+    constexpr int kMaximumTerminalCharacters = 100000;
+    const int excessCharacters = terminal->document()->characterCount() - kMaximumTerminalCharacters;
+    if (excessCharacters > 0) {
+        QTextCursor trimCursor(terminal->document());
+        trimCursor.setPosition(0);
+        trimCursor.setPosition(excessCharacters, QTextCursor::KeepAnchor);
+        trimCursor.removeSelectedText();
+    }
     terminal->moveCursor(QTextCursor::End);
     terminal->ensureCursorVisible();
     if (terminal == m_txtRttyRx || terminal == m_txtBpsk31Rx || terminal == m_txtMfskRx || terminal == m_txtCwRx || terminal == m_txtCwRxB) {
@@ -19987,6 +20084,15 @@ bool MainWindow::startTextModeTx(const QString &text)
 void MainWindow::sendTextMacro(int index)
 {
     const QString mode = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QString();
+    const bool rttyContestActive = mode == RttyDecoder::modeName() &&
+                                   m_chkRttyContestMode != nullptr &&
+                                   m_chkRttyContestMode->isChecked() &&
+                                   !contestContextIsCw() &&
+                                   currentRttyContestProfile() != nullptr;
+    if (rttyContestActive) {
+        sendRttyContestMacro(index);
+        return;
+    }
     const bool cwContestActive = mode == CwDecoder::modeName() &&
                                  m_chkRttyContestMode != nullptr &&
                                  m_chkRttyContestMode->isChecked() &&
@@ -20023,7 +20129,10 @@ void MainWindow::sendRttyContestMacro(int index)
             }
         }
     }
-    startTextModeTx(expandRttyContestTemplate(profile->macros.at(index).text));
+    QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+    const QString base = contestSettingsRoot() + QStringLiteral("/macroOverrides/%1/%2/").arg(profile->id).arg(index);
+    const QString macroText = settings.value(base + QStringLiteral("text"), profile->macros.at(index).text).toString();
+    startTextModeTx(expandRttyContestTemplate(macroText));
 }
 
 AudioBlock MainWindow::conditionAudioForWaterfall(const AudioBlock &block)
@@ -23206,9 +23315,9 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
     }
 
     if (modeName == RttyDecoder::modeName()) {
-        const QString text = (m_txtRttyTx != nullptr)
-                                 ? m_txtRttyTx->toPlainText()
-                                 : QString();
+        const QString text = !m_rttyTxOverrideText.isNull()
+                                 ? m_rttyTxOverrideText
+                                 : ((m_txtRttyTx != nullptr) ? m_txtRttyTx->toPlainText() : QString());
         return std::unique_ptr<TxModulator>(new RttyTransmitter(
             text,
             txSampleRate,
@@ -24582,6 +24691,11 @@ void MainWindow::handleTxStopped()
     m_returnToRxAfterTx = false;
     m_txFinishedNaturally = false;
     m_currentTxIsTextMode = false;
+
+    if (!m_pendingRttyQuickReply.isEmpty() && ui != nullptr && ui->cmbMode != nullptr &&
+        ui->cmbMode->currentText() == RttyDecoder::modeName()) {
+        QTimer::singleShot(0, this, &MainWindow::sendRttyQuickReply);
+    }
 
     if (naturalFinish) {
         appendLog("TX completed.");
