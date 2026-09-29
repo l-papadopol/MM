@@ -5,8 +5,10 @@
 #include "../modems/rtty/contest/RttyContestRules.h"
 
 #include <QObject>
+#include <QDateTime>
 #include <QHash>
 #include <QStringList>
+#include <QVariantList>
 
 /**
  * @brief Background owner of fast logbook membership/contest-dupe indexes.
@@ -45,10 +47,23 @@ public:
                 const QString &band,
                 const QString &periodId);
 
+    /**
+     * FT worked/needed lookup. Each query is a QVariantMap containing cacheKey,
+     * call, band, mode, dxcc, grid4 and optional recentHours /
+     * recentBandModeMinutes. Results preserve cacheKey and are served only from
+     * worker-owned hash indexes; no ADIF scan occurs here.
+     */
+    void lookupFt(quint64 requestId,
+                  const QString &consumerId,
+                  const QVariantList &queries);
+
 signals:
     void lookupReady(quint64 requestId,
                      const QString &consumerId,
                      const QStringList &workedCalls);
+    void ftLookupReady(quint64 requestId,
+                       const QString &consumerId,
+                       const QVariantList &results);
     void indexReady(int recordCount, int uniqueCalls, int contestKeys);
     void indexError(const QString &message);
 
@@ -60,12 +75,29 @@ private:
                        const QString &periodId) const;
     QString contestKeyForEntry(const LogbookEntry &entry) const;
     static QString normalizedBand(const QString &band);
+    static QString normalizedMode(const QString &mode);
+    static QString grid4(const QString &grid);
+    static QString compoundKey(const QString &a, const QString &b);
+    static QString compoundKey(const QString &a, const QString &b, const QString &c);
+    QString dxccForEntry(const LogbookEntry &entry) const;
+    void indexEntry(const LogbookEntry &entry);
+    void unindexEntry(const LogbookEntry &entry);
     static void increment(QHash<QString, int> *index, const QString &key);
     static void decrement(QHash<QString, int> *index, const QString &key);
 
     ContestConfig m_contest;
     QHash<QString, int> m_byCall;
     QHash<QString, int> m_contestDupes;
+
+    // FT lookup indexes. These live only in the worker thread.
+    QHash<QString, QDateTime> m_latestByCall;
+    QHash<QString, QDateTime> m_latestByCallBandMode;
+    QHash<QString, int> m_byDxcc;
+    QHash<QString, int> m_byDxccBand;
+    QHash<QString, int> m_byDxccMode;
+    QHash<QString, int> m_byGrid4;
+    QHash<QString, int> m_byGridBand;
+    QHash<QString, int> m_byGridMode;
 };
 
 #endif // LOGBOOKINDEXWORKER_H

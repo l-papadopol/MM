@@ -57,6 +57,29 @@ require('runtime/LogbookIndexWorker.cpp' in cmake and 'runtime/TextAssistWorker.
 require('madmodem_text_assist_workers_regression' in cmake and
         'tests/TextAssistWorkersRegression.cpp' in cmake,
         'text-assist worker C++ regression is not registered in CTest')
+
+# FT4/FT8 live GUI must use the same background index rather than scanning ADIF.
+require('void lookupFt(' in idx_h and 'void LogbookIndexWorker::lookupFt' in idx_cpp and
+        'ftLookupReady' in idx_h,
+        'LogbookIndexWorker is missing the asynchronous FT lookup path')
+require('m_byDxcc' in idx_h and 'm_byGrid4' in idx_h and
+        'm_latestByCall' in idx_h and 'm_latestByCallBandMode' in idx_h,
+        'FT worked/new-country/grid/recent metadata is not indexed in the worker')
+for begin, end_marker, label in [
+    ('void MainWindow::refreshFt8DecodeWorkedHighlights()', 'void MainWindow::refreshLogbookHighlights', 'FT table highlight'),
+    ('Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate', 'bool MainWindow::queueFt8FullAutoCqCandidate', 'FT AutoQSO priority'),
+    ('void MainWindow::autoLogFt8Qso', 'void MainWindow::handleFt8QsoHistoryDoubleClicked', 'FT auto-log'),
+    ('void MainWindow::handleFt8DecodeReady', 'void MainWindow::addFt8WaterfallOverlayForDecode', 'FT live decode UI'),
+]:
+    a = main.find(begin)
+    b = main.find(end_marker, a)
+    part = main[a:b] if a >= 0 and b > a else ''
+    require(bool(part), f'{label}: function body not found')
+    require('m_logbook.records()' not in part and 'm_logbook.containsCallsign' not in part,
+            f'{label}: synchronous GUI-thread logbook scan/lookup returned')
+require('worker->lookupFt(' in main and 'cachedFtLogbookStatus' in main,
+        'FT UI is not wired to the background logbook index/cache')
+
 for decoder in ['modems/rtty/RttyDecoder.cpp', 'modems/bpsk31/Bpsk31Decoder.cpp',
                 'modems/mfsk/MfskDecoder.cpp', 'modems/cw/CwDecoder.cpp']:
     text = (root / decoder).read_text(encoding='utf-8')

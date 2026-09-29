@@ -1464,6 +1464,8 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_logbookIndexThread, &QThread::finished, m_logbookIndexWorker, &QObject::deleteLater);
     connect(m_logbookIndexWorker, &LogbookIndexWorker::lookupReady,
             this, &MainWindow::handleLogbookLookupReady, Qt::QueuedConnection);
+    connect(m_logbookIndexWorker, &LogbookIndexWorker::ftLookupReady,
+            this, &MainWindow::handleFtLogbookLookupReady, Qt::QueuedConnection);
     connect(m_logbookIndexWorker, &LogbookIndexWorker::indexError, this, [](const QString &message) {
         qWarning().noquote() << message;
     }, Qt::QueuedConnection);
@@ -3513,6 +3515,7 @@ LogbookIndexWorker::ContestConfig MainWindow::currentLogbookContestConfig() cons
 
 void MainWindow::queueLogbookIndexRebuild()
 {
+    invalidateFtLogbookCache();
     if (m_logbookIndexWorker == nullptr) return;
     const QString fileName = m_logbook.fileName();
     const LogbookIndexWorker::ContestConfig config = currentLogbookContestConfig();
@@ -3535,6 +3538,7 @@ void MainWindow::queueContestIndexRebuild()
 
 void MainWindow::queueLogbookIndexAdd(const LogbookEntry &entry)
 {
+    invalidateFtLogbookCache();
     if (m_logbookIndexWorker == nullptr) return;
     LogbookIndexWorker *worker = m_logbookIndexWorker;
     QMetaObject::invokeMethod(worker, [worker, entry]() { worker->addEntry(entry); }, Qt::QueuedConnection);
@@ -3639,6 +3643,186 @@ void MainWindow::handleLogbookLookupReady(quint64 requestId,
 {
     Q_UNUSED(consumerId)
     applyTextAssistResult(requestId, workedCalls);
+}
+
+QVariantMap MainWindow::makeFtLogbookQuery(const QString &call,
+                                            const QString &band,
+                                            const QString &mode,
+                                            const QString &dxcc,
+                                            const QString &grid,
+                                            int recentHours,
+                                            int recentBandModeMinutes) const
+{
+    QVariantMap query;
+    const QString normalizedCall = AdifLogbook::normalizeCallsign(call);
+    const QString normalizedBand = band.trimmed().toLower();
+    const QString normalizedMode = mode.trimmed().toUpper();
+    const QString normalizedDxcc = dxcc.trimmed();
+    const QString normalizedGrid = ft8MaidenheadGrid4(grid);
+    const int boundedRecentHours = qBound(0, recentHours, 24 * 365);
+    const int boundedRecentBandModeMinutes = qBound(0, recentBandModeMinutes, 24 * 60 * 30);
+    const QString cacheKey = QStringLiteral("%1|%2|%3|%4|%5|%6|%7")
+                                 .arg(normalizedCall,
+                                      normalizedBand,
+                                      normalizedMode,
+                                      normalizedDxcc,
+                                      normalizedGrid,
+                                      QString::number(boundedRecentHours),
+                                      QString::number(boundedRecentBandModeMinutes));
+    query.insert(QStringLiteral("cacheKey"), cacheKey);
+    query.insert(QStringLiteral("generation"), QVariant::fromValue<qulonglong>(m_ftLogbookCacheGeneration));
+    query.insert(QStringLiteral("call"), normalizedCall);
+    query.insert(QStringLiteral("band"), normalizedBand);
+    query.insert(QStringLiteral("mode"), normalizedMode);
+    query.insert(QStringLiteral("dxcc"), normalizedDxcc);
+    query.insert(QStringLiteral("grid4"), normalizedGrid);
+    query.insert(QStringLiteral("recentHours"), boundedRecentHours);
+    query.insert(QStringLiteral("recentBandModeMinutes"), boundedRecentBandModeMinutes);
+    return query;
+}
+
+QVariantMap MainWindow::cachedFtLogbookStatus(const QVariantMap &query) const
+{
+    const QString key = query.value(QStringLiteral("cacheKey")).toString();
+    if (key.isEmpty()) return QVariantMap();
+    const QVariantMap status = m_ftLogbookStatusCache.value(key);
+    if (status.value(QStringLiteral("generation")).toULongLong() != m_ftLogbookCacheGeneration) return QVariantMap();
+    return status;
+}
+
+void MainWindow::queueFtLogbookQueries(const QVariantList &queries)
+{
+    if (m_logbookIndexWorker == nullptr || queries.isEmpty()) return;
+    QVariantList pending;
+    pending.reserve(queries.size());
+    for (const QVariant &item : queries) {
+        QVariantMap query = item.toMap();
+        const QString key = query.value(QStringLiteral("cacheKey")).toString();
+        if (key.isEmpty() || m_ftLogbookStatusCache.contains(key) || m_ftLogbookPendingKeys.contains(key)) continue;
+        query.insert(QStringLiteral("generation"), QVariant::fromValue<qulonglong>(m_ftLogbookCacheGeneration));
+        m_ftLogbookPendingKeys.insert(key);
+        pending.push_back(query);
+    }
+    if (pending.isEmpty()) return;
+    const quint64 requestId = ++m_ftLogbookRequestCounter;
+    LogbookIndexWorker *worker = m_logbookIndexWorker;
+    QMetaObject::invokeMethod(worker, [worker, requestId, pending]() {
+        worker->lookupFt(requestId, QStringLiteral("FT_CACHE"), pending);
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::queueFtLogbookQueriesForDecode(const Ft8RxDecoder::Decode &decode, bool retryAutoQso)
+{
+    const QString myCall = stationCallsign();
+    const ParsedFt8Message parsed = parseFt8MessageText(decode.message, myCall);
+    const QStringList calls = ft8HighlightCandidateCallsigns(parsed, myCall);
+    if (calls.isEmpty()) return;
+    const QString band = (m_cmbFt8Band != nullptr) ? m_cmbFt8Band->currentText().trimmed().toLower()
+                                                   : m_settings.ft8Band.trimmed().toLower();
+    const QString mode = currentAdifMode().trimmed().toUpper();
+    const int recentHours = qBound(1, m_settings.ftAutoQsoRecentHours, 168);
+    QVariantList queries;
+    QSet<QString> seen;
+    for (const QString &rawCall : calls) {
+        const QString call = AdifLogbook::normalizeCallsign(rawCall);
+        if (call.isEmpty() || seen.contains(call)) continue;
+        seen.insert(call);
+        QString grid;
+        if (FtDecodedText::callMatches(call, parsed.senderCall) || parsed.cq) grid = parsed.grid;
+        if (!FtDecodedText::isGrid(grid.left(4)) || FtDecodedText::isAckLikeGridTrap(grid.left(4))) {
+            grid = m_ftSession.knownGridFor(call);
+        }
+        const CtyCountryFile::LookupResult cty = CtyCountryFile::instance().lookupCallsign(call);
+        const QVariantMap query = makeFtLogbookQuery(call,
+                                                     band,
+                                                     mode,
+                                                     cty.valid ? cty.entity.dxcc : QString(),
+                                                     grid,
+                                                     recentHours,
+                                                     0);
+        queries.push_back(query);
+        if (retryAutoQso && parsed.cq && FtDecodedText::callMatches(call, ft8CqCallsignFromMessage(parsed))) {
+            const QString key = query.value(QStringLiteral("cacheKey")).toString();
+            if (!key.isEmpty() && cachedFtLogbookStatus(query).isEmpty()) {
+                QVector<Ft8RxDecoder::Decode> &waiting = m_ftPendingAutoQsoByKey[key];
+                bool duplicate = false;
+                for (const Ft8RxDecoder::Decode &queued : std::as_const(waiting)) {
+                    if (queued.slotStartUtcMs == decode.slotStartUtcMs &&
+                        queued.message.trimmed().compare(decode.message.trimmed(), Qt::CaseInsensitive) == 0 &&
+                        qAbs(queued.frequencyHz - decode.frequencyHz) <= 12) {
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) waiting.push_back(decode);
+            }
+        }
+    }
+    queueFtLogbookQueries(queries);
+}
+
+void MainWindow::handleFtLogbookLookupReady(quint64 requestId,
+                                             const QString &consumerId,
+                                             const QVariantList &results)
+{
+    if (consumerId == QStringLiteral("FT_AUTOLOG")) {
+        const PendingFtAutoLog pending = m_ftPendingAutoLogs.take(requestId);
+        m_ftAutoLogLookupPending = false;
+        if (pending.entry.callsign.isEmpty() || results.isEmpty()) return;
+        const QVariantMap status = results.constFirst().toMap();
+        if (status.value(QStringLiteral("generation")).toULongLong() != m_ftLogbookCacheGeneration) {
+            QVariantMap retryQuery = makeFtLogbookQuery(pending.entry.callsign,
+                                                        pending.entry.band,
+                                                        pending.entry.mode,
+                                                        pending.entry.adifFields.value(QStringLiteral("DXCC")),
+                                                        pending.entry.grid,
+                                                        0,
+                                                        10);
+            retryQuery.insert(QStringLiteral("referenceUtcMs"), pending.entry.utc.toUTC().toMSecsSinceEpoch());
+            retryQuery.insert(QStringLiteral("generation"), QVariant::fromValue<qulonglong>(m_ftLogbookCacheGeneration));
+            const quint64 retryId = ++m_ftLogbookRequestCounter;
+            m_ftPendingAutoLogs.insert(retryId, pending);
+            m_ftAutoLogLookupPending = true;
+            LogbookIndexWorker *worker = m_logbookIndexWorker;
+            const QVariantList retryQueries{retryQuery};
+            QMetaObject::invokeMethod(worker, [worker, retryId, retryQueries]() {
+                worker->lookupFt(retryId, QStringLiteral("FT_AUTOLOG"), retryQueries);
+            }, Qt::QueuedConnection);
+            return;
+        }
+        finishAutoLogFt8Qso(pending.entry, pending.reason, status);
+        return;
+    }
+
+    for (const QVariant &item : results) {
+        const QVariantMap status = item.toMap();
+        const QString key = status.value(QStringLiteral("cacheKey")).toString();
+        if (key.isEmpty()) continue;
+        m_ftLogbookPendingKeys.remove(key);
+        if (status.value(QStringLiteral("generation")).toULongLong() != m_ftLogbookCacheGeneration) continue;
+        m_ftLogbookStatusCache.insert(key, status);
+
+        const QVector<Ft8RxDecoder::Decode> waiting = m_ftPendingAutoQsoByKey.take(key);
+        for (const Ft8RxDecoder::Decode &decode : waiting) {
+            if (canStartFt8FullAutoQsoNow()) tryStartFt8FullAutoQso(decode, status);
+        }
+    }
+    if (!m_ftHighlightRefreshPending) {
+        m_ftHighlightRefreshPending = true;
+        QTimer::singleShot(0, this, [this]() {
+            m_ftHighlightRefreshPending = false;
+            refreshFt8DecodeWorkedHighlights();
+        });
+    }
+}
+
+void MainWindow::invalidateFtLogbookCache()
+{
+    ++m_ftLogbookCacheGeneration;
+    if (m_ftLogbookCacheGeneration == 0) m_ftLogbookCacheGeneration = 1;
+    m_ftLogbookStatusCache.clear();
+    m_ftLogbookPendingKeys.clear();
+    m_ftPendingAutoQsoByKey.clear();
 }
 
 void MainWindow::applyTextAssistContestCandidate(const QVariantMap &candidate)
@@ -3772,56 +3956,95 @@ void MainWindow::scheduleTerminalHighlight(QPlainTextEdit *terminal)
 
 void MainWindow::refreshFt8DecodeWorkedHighlights()
 {
-    if (m_tableFt8Rx == nullptr) {
-        return;
-    }
+    if (m_tableFt8Rx == nullptr) return;
+
     const QString myCall = stationCallsign();
+    const QString band = (m_cmbFt8Band != nullptr) ? m_cmbFt8Band->currentText().trimmed().toLower()
+                                                   : m_settings.ft8Band.trimmed().toLower();
+    const QString mode = currentAdifMode().trimmed().toUpper();
+    const int recentHours = qBound(1, m_settings.ftAutoQsoRecentHours, 168);
+    QVariantList missingQueries;
+    QSet<QString> queuedKeys;
+
     for (int row = 0; row < m_tableFt8Rx->rowCount(); ++row) {
         QTableWidgetItem *messageItem = m_tableFt8Rx->item(row, 4);
-        if (messageItem == nullptr) {
-            continue;
-        }
+        if (messageItem == nullptr) continue;
         const QString storedMessage = messageItem->data(kFtOriginalMessageRole).toString().trimmed().toUpper();
         const QString visibleMessage = messageItem->text().trimmed().toUpper();
         const ParsedFt8Message parsed = parseFt8MessageText(storedMessage.isEmpty() ? visibleMessage : storedMessage, myCall);
         const QStringList candidateCalls = ft8HighlightCandidateCallsigns(parsed, myCall);
+
         QString workedCall;
         QString neededCall;
-        for (const QString &call : candidateCalls) {
-            if (m_logbook.containsCallsign(call)) {
-                if (workedCall.isEmpty()) {
-                    workedCall = call;
+        bool allKnown = !candidateCalls.isEmpty();
+        QVariantMap primaryStatus;
+        QString primaryCountry;
+
+        for (const QString &rawCall : candidateCalls) {
+            const QString call = AdifLogbook::normalizeCallsign(rawCall);
+            if (call.isEmpty()) continue;
+            QString grid;
+            if (FtDecodedText::callMatches(call, parsed.senderCall) || parsed.cq) grid = parsed.grid;
+            if (!FtDecodedText::isGrid(grid.left(4)) || FtDecodedText::isAckLikeGridTrap(grid.left(4))) {
+                grid = m_ftSession.knownGridFor(call);
+            }
+            const CtyCountryFile::LookupResult cty = CtyCountryFile::instance().lookupCallsign(call);
+            const QVariantMap query = makeFtLogbookQuery(call,
+                                                         band,
+                                                         mode,
+                                                         cty.valid ? cty.entity.dxcc : QString(),
+                                                         grid,
+                                                         recentHours,
+                                                         0);
+            const QVariantMap status = cachedFtLogbookStatus(query);
+            if (status.isEmpty()) {
+                allKnown = false;
+                const QString key = query.value(QStringLiteral("cacheKey")).toString();
+                if (!key.isEmpty() && !queuedKeys.contains(key)) {
+                    queuedKeys.insert(key);
+                    missingQueries.push_back(query);
                 }
+                continue;
+            }
+            if (primaryStatus.isEmpty()) {
+                primaryStatus = status;
+                if (cty.valid) primaryCountry = cty.entity.name;
+            }
+            if (status.value(QStringLiteral("worked")).toBool()) {
+                if (workedCall.isEmpty()) workedCall = call;
             } else if (neededCall.isEmpty()) {
                 neededCall = call;
             }
         }
-        const bool worked = !workedCall.isEmpty() && neededCall.isEmpty();
-        const bool needed = !neededCall.isEmpty();
+
+        const bool worked = allKnown && !workedCall.isEmpty() && neededCall.isEmpty();
+        const bool needed = allKnown && !neededCall.isEmpty();
+        const bool newCountry = allKnown && m_settings.ftHighlightNewCountryEnabled &&
+                                !primaryStatus.isEmpty() &&
+                                !primaryStatus.value(QStringLiteral("countryWorkedAny")).toBool() &&
+                                !primaryCountry.isEmpty();
+
         for (int col = 0; col < m_tableFt8Rx->columnCount(); ++col) {
             QTableWidgetItem *it = m_tableFt8Rx->item(row, col);
-            if (it == nullptr) {
-                continue;
-            }
+            if (it == nullptr) continue;
             QFont f = it->font();
             f.setStrikeOut(worked && m_settings.logbookStrikeWorkedCalls);
             it->setFont(f);
-            const bool preserveNewCountryOutline = m_settings.ftHighlightNewCountryEnabled &&
-                                                   it->data(kFtRowRedOutlineRole).toBool() &&
-                                                   it->toolTip().startsWith(QStringLiteral("New DXCC country"));
-            // Do not draw the heavy red dashed outline for every merely-not-in-log station.
-            // That category is useful for AutoQSO/logbook logic, but red outline is reserved
-            // for high-priority new DXCC highlights so the FT table does not become all red.
-            it->setData(kFtRowRedOutlineRole, preserveNewCountryOutline);
-            if (worked) {
+            it->setData(kFtRowRedOutlineRole, newCountry);
+            if (newCountry) {
+                it->setToolTip(uiText("ft_new_dxcc_country_tooltip", "New DXCC country not present in logbook: %1").arg(primaryCountry));
+            } else if (worked) {
                 it->setToolTip(MadModemI18n::text(QStringLiteral("Worked before: %1 is already in the ADIF logbook")).arg(workedCall));
             } else if (needed) {
                 it->setToolTip(MadModemI18n::text(QStringLiteral("Needed station: %1 is not in the ADIF logbook yet. You can call it after the current QSO/73, even if this line is not CQ.")).arg(neededCall));
-            } else if (!preserveNewCountryOutline) {
+            } else if (allKnown) {
                 it->setToolTip(QString());
             }
         }
     }
+
+    queueFtLogbookQueries(missingQueries);
+    if (m_tableFt8Rx->viewport() != nullptr) m_tableFt8Rx->viewport()->update();
 }
 
 void MainWindow::refreshLogbookHighlights(bool recentOnly)
@@ -16735,7 +16958,8 @@ bool MainWindow::canStartFt8FullAutoQsoNow() const
     return !myCall.trimmed().isEmpty() && !myGrid.trimmed().isEmpty();
 }
 
-Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode) const
+Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode,
+                                                                    const QVariantMap &logbookStatus) const
 {
     Ft8FullAutoCqCandidate candidate;
     candidate.decode = decode;
@@ -16746,14 +16970,10 @@ Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate(const Ft8RxDecode
 
     const QString myCall = stationCallsign();
     const ParsedFt8Message parsed = parseFt8MessageText(decode.message, myCall);
-    if (!parsed.cq) {
-        return candidate;
-    }
+    if (!parsed.cq || logbookStatus.isEmpty()) return candidate;
 
     candidate.call = ft8CqCallsignFromMessage(parsed).trimmed().toUpper();
-    if (candidate.call.isEmpty() || FtDecodedText::callMatches(candidate.call, myCall)) {
-        return candidate;
-    }
+    if (candidate.call.isEmpty() || FtDecodedText::callMatches(candidate.call, myCall)) return candidate;
 
     if (isFtCallBlacklisted(candidate.call)) {
         candidate.priorityText = QStringLiteral("blacklisted");
@@ -16767,13 +16987,13 @@ Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate(const Ft8RxDecode
         return candidate;
     }
 
-    if (m_settings.ftAutoQsoDuplicatePolicy == QStringLiteral("never_worked") &&
-        m_logbook.containsCallsign(candidate.call)) {
+    candidate.workedCall = logbookStatus.value(QStringLiteral("worked")).toBool();
+    if (m_settings.ftAutoQsoDuplicatePolicy == QStringLiteral("never_worked") && candidate.workedCall) {
         candidate.priorityText = QStringLiteral("already in log");
         return candidate;
     }
     if (m_settings.ftAutoQsoDuplicatePolicy == QStringLiteral("recent") &&
-        ftCallWorkedWithinHours(candidate.call, qBound(1, m_settings.ftAutoQsoRecentHours, 168))) {
+        logbookStatus.value(QStringLiteral("recentWorked")).toBool()) {
         candidate.priorityText = QStringLiteral("recently worked");
         return candidate;
     }
@@ -16810,57 +17030,14 @@ Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate(const Ft8RxDecode
         candidate.distanceKm = ft8DistanceKm(homeLonLat, dxLonLat);
     }
 
-    candidate.workedCall = m_logbook.containsCallsign(candidate.call);
-
-    bool countryWorkedAny = false;
-    bool countryWorkedBand = false;
-    bool countryWorkedMode = false;
-    bool gridWorkedAny = false;
-    bool gridWorkedBand = false;
-    bool gridWorkedMode = false;
-
     const QString targetDxcc = candidate.dxcc.trimmed();
     const QString targetGrid = ft8MaidenheadGrid4(candidate.grid);
-    const QString currentBand = candidate.band.trimmed().toLower();
-    const QString currentMode = candidate.mode.trimmed().toUpper();
-
-    const QVector<LogbookEntry> records = m_logbook.records();
-    for (const LogbookEntry &entry : records) {
-        const QString entryBand = entry.band.trimmed().toLower();
-        const QString entryMode = entry.mode.trimmed().toUpper();
-
-        if (!targetDxcc.isEmpty()) {
-            QString entryDxcc = entry.adifFields.value(QStringLiteral("DXCC")).trimmed();
-            if (entryDxcc.isEmpty()) {
-                const CtyCountryFile::LookupResult entryCty = CtyCountryFile::instance().lookupCallsign(entry.callsign);
-                if (entryCty.valid) {
-                    entryDxcc = entryCty.entity.dxcc.trimmed();
-                }
-            }
-            if (!entryDxcc.isEmpty() && entryDxcc == targetDxcc) {
-                countryWorkedAny = true;
-                if (!currentBand.isEmpty() && entryBand == currentBand) {
-                    countryWorkedBand = true;
-                }
-                if (!currentMode.isEmpty() && entryMode == currentMode) {
-                    countryWorkedMode = true;
-                }
-            }
-        }
-
-        if (!targetGrid.isEmpty()) {
-            const QString entryGrid = ft8MaidenheadGrid4(entry.grid);
-            if (!entryGrid.isEmpty() && entryGrid == targetGrid) {
-                gridWorkedAny = true;
-                if (!currentBand.isEmpty() && entryBand == currentBand) {
-                    gridWorkedBand = true;
-                }
-                if (!currentMode.isEmpty() && entryMode == currentMode) {
-                    gridWorkedMode = true;
-                }
-            }
-        }
-    }
+    const bool countryWorkedAny = logbookStatus.value(QStringLiteral("countryWorkedAny")).toBool();
+    const bool countryWorkedBand = logbookStatus.value(QStringLiteral("countryWorkedBand")).toBool();
+    const bool countryWorkedMode = logbookStatus.value(QStringLiteral("countryWorkedMode")).toBool();
+    const bool gridWorkedAny = logbookStatus.value(QStringLiteral("gridWorkedAny")).toBool();
+    const bool gridWorkedBand = logbookStatus.value(QStringLiteral("gridWorkedBand")).toBool();
+    const bool gridWorkedMode = logbookStatus.value(QStringLiteral("gridWorkedMode")).toBool();
 
     candidate.newCountry = !targetDxcc.isEmpty() && !countryWorkedAny;
     candidate.newGrid = !targetGrid.isEmpty() && !gridWorkedAny;
@@ -16882,13 +17059,13 @@ Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate(const Ft8RxDecode
     return candidate;
 }
 
-bool MainWindow::queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode)
+bool MainWindow::queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus)
 {
     if (!canStartFt8FullAutoQsoNow()) {
         return false;
     }
 
-    Ft8FullAutoCqCandidate candidate = buildFt8FullAutoCqCandidate(decode);
+    Ft8FullAutoCqCandidate candidate = buildFt8FullAutoCqCandidate(decode, logbookStatus);
     if (!candidate.valid) {
         if (!candidate.call.isEmpty() && candidate.priorityText == QStringLiteral("fresh duplicate after completed QSO")) {
             appendLog(QString("FT Auto QSO priority: ignoring fresh duplicate CQ from %1 after completed QSO.")
@@ -16979,7 +17156,7 @@ void MainWindow::processFt8FullAutoCqCandidates()
     startFt8FullAutoQsoFromCandidate(best);
 }
 
-bool MainWindow::tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode)
+bool MainWindow::tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus)
 {
     // Evil/Auto QSO is a CQ responder only.  Do not ever start an unattended
     // sequence from ordinary directed traffic, reports, 73/RR73, or stations
@@ -16988,7 +17165,7 @@ bool MainWindow::tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode)
     if (!parsed.cq) {
         return false;
     }
-    return queueFt8FullAutoCqCandidate(decode);
+    return queueFt8FullAutoCqCandidate(decode, logbookStatus);
 }
 
 bool MainWindow::startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &candidate)
@@ -17711,29 +17888,44 @@ void MainWindow::autoLogFt8Qso(const QString &reason)
         return;
     }
 
-    // Guard against duplicate auto-log paths.  A completed FT QSO can be
-    // noticed both by the decode-driven sequencer and by the TX-finished path
-    // around the same slot boundary.  WSJT-X avoids double logging with a
-    // single QSO lifecycle; keep the same practical behaviour here.
-    const QVector<LogbookEntry> existingRecords = m_logbook.records();
-    for (const LogbookEntry &existing : existingRecords) {
-        if (AdifLogbook::normalizeCallsign(existing.callsign) != entry.callsign) {
-            continue;
-        }
-        if (existing.band.trimmed().compare(entry.band, Qt::CaseInsensitive) != 0 ||
-            existing.mode.trimmed().compare(entry.mode, Qt::CaseInsensitive) != 0) {
-            continue;
-        }
-        const qint64 dt = qAbs(existing.utc.toUTC().secsTo(entry.utc.toUTC()));
-        if (dt <= 10 * 60) {
-            m_ftSession.autoLogDone = true;
-            appendLog(QString("FT8 auto-log skipped duplicate QSO: %1 %2 %3 already in logbook within 10 minutes.")
-                          .arg(entry.callsign, entry.band, entry.mode));
-            return;
-        }
+
+    if (m_ftAutoLogLookupPending || m_logbookIndexWorker == nullptr) return;
+
+    QVariantMap query = makeFtLogbookQuery(entry.callsign,
+                                           entry.band,
+                                           entry.mode,
+                                           entry.adifFields.value(QStringLiteral("DXCC")),
+                                           entry.grid,
+                                           0,
+                                           10);
+    query.insert(QStringLiteral("referenceUtcMs"), entry.utc.toUTC().toMSecsSinceEpoch());
+    query.insert(QStringLiteral("generation"), QVariant::fromValue<qulonglong>(m_ftLogbookCacheGeneration));
+
+    const quint64 requestId = ++m_ftLogbookRequestCounter;
+    m_ftPendingAutoLogs.insert(requestId, PendingFtAutoLog{entry, reason});
+    m_ftAutoLogLookupPending = true;
+    LogbookIndexWorker *worker = m_logbookIndexWorker;
+    const QVariantList queries{query};
+    QMetaObject::invokeMethod(worker, [worker, requestId, queries]() {
+        worker->lookupFt(requestId, QStringLiteral("FT_AUTOLOG"), queries);
+    }, Qt::QueuedConnection);
+}
+
+void MainWindow::finishAutoLogFt8Qso(const LogbookEntry &entry,
+                                     const QString &reason,
+                                     const QVariantMap &logbookStatus)
+{
+    Q_UNUSED(reason)
+    if (m_ftSession.autoLogDone || entry.callsign.isEmpty()) return;
+
+    if (logbookStatus.value(QStringLiteral("recentBandMode")).toBool()) {
+        m_ftSession.autoLogDone = true;
+        appendLog(QString("FT8 auto-log skipped duplicate QSO: %1 %2 %3 already in logbook within 10 minutes.")
+                      .arg(entry.callsign, entry.band, entry.mode));
+        return;
     }
 
-    const bool wasKnown = m_logbook.containsCallsign(entry.callsign);
+    const bool wasKnown = logbookStatus.value(QStringLiteral("worked")).toBool();
     QString error;
     if (!m_logbook.append(entry, &error)) {
         appendLog("FT8 auto-log failed: " + error);
@@ -17752,7 +17944,6 @@ void MainWindow::autoLogFt8Qso(const QString &reason)
                        entry.band,
                        wasKnown ? QStringLiteral(" (worked before)") : QString()));
 }
-
 
 
 void MainWindow::handleFt8QsoHistoryDoubleClicked(QTableWidgetItem *item)
@@ -18450,55 +18641,6 @@ bool MainWindow::isFtCallWatched(const QString &call) const
     return false;
 }
 
-bool MainWindow::ftCountryAlreadyWorked(const QString &dxcc, const QString &countryName) const
-{
-    const QString targetDxcc = dxcc.trimmed();
-    const QString targetCountry = countryName.trimmed().toUpper();
-    if (targetDxcc.isEmpty() && targetCountry.isEmpty()) {
-        return false;
-    }
-    const QVector<LogbookEntry> records = m_logbook.records();
-    for (const LogbookEntry &entry : records) {
-        QString entryDxcc = entry.adifFields.value(QStringLiteral("DXCC")).trimmed();
-        QString entryCountry = entry.country.trimmed().toUpper();
-        if ((entryDxcc.isEmpty() || entryCountry.isEmpty()) && !entry.callsign.trimmed().isEmpty()) {
-            const CtyCountryFile::LookupResult cty = CtyCountryFile::instance().lookupCallsign(entry.callsign);
-            if (cty.valid) {
-                if (entryDxcc.isEmpty()) entryDxcc = cty.entity.dxcc.trimmed();
-                if (entryCountry.isEmpty()) entryCountry = cty.entity.name.trimmed().toUpper();
-            }
-        }
-        if (!targetDxcc.isEmpty() && !entryDxcc.isEmpty() && entryDxcc == targetDxcc) {
-            return true;
-        }
-        if (!targetCountry.isEmpty() && !entryCountry.isEmpty() && entryCountry == targetCountry) {
-            return true;
-        }
-    }
-    return false;
-}
-
-bool MainWindow::ftCallWorkedWithinHours(const QString &call, int hours) const
-{
-    const QString normalized = AdifLogbook::normalizeCallsign(call);
-    if (normalized.isEmpty()) {
-        return false;
-    }
-    const QDateTime now = QDateTime::currentDateTimeUtc();
-    const qint64 windowSecs = static_cast<qint64>(qBound(1, hours, 168)) * 3600;
-    const QVector<LogbookEntry> records = m_logbook.records();
-    for (const LogbookEntry &entry : records) {
-        if (AdifLogbook::normalizeCallsign(entry.callsign) != normalized) {
-            continue;
-        }
-        const QDateTime t = entry.utc.isValid() ? entry.utc.toUTC() : QDateTime();
-        if (t.isValid() && qAbs(t.secsTo(now)) <= windowSecs) {
-            return true;
-        }
-    }
-    return false;
-}
-
 void MainWindow::handleFt8DecodeBatchStarted(qint64 slotStartUtcMs, const QString &phase)
 {
     m_ft8DecodeBatchActive = true;
@@ -18698,14 +18840,38 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     if (workedCall.isEmpty() && !highlightCandidateCalls.isEmpty()) {
         workedCall = highlightCandidateCalls.constFirst();
     }
+    queueFtLogbookQueriesForDecode(decode, false);
+    const QString lookupBand = (m_cmbFt8Band != nullptr) ? m_cmbFt8Band->currentText().trimmed().toLower()
+                                                         : m_settings.ft8Band.trimmed().toLower();
+    const QString lookupMode = currentAdifMode().trimmed().toUpper();
+    const int lookupRecentHours = qBound(1, m_settings.ftAutoQsoRecentHours, 168);
     QString neededCall;
+    bool allCandidateStatusesKnown = !highlightCandidateCalls.isEmpty();
+    QVariantMap workedStatus;
     for (const QString &call : highlightCandidateCalls) {
-        if (!m_logbook.containsCallsign(call)) {
+        QString grid = FtDecodedText::callMatches(call, parsed.senderCall) || parsed.cq ? parsed.grid : QString();
+        if (!FtDecodedText::isGrid(grid.left(4)) || FtDecodedText::isAckLikeGridTrap(grid.left(4))) grid = m_ftSession.knownGridFor(call);
+        const CtyCountryFile::LookupResult cty = CtyCountryFile::instance().lookupCallsign(call);
+        const QVariantMap query = makeFtLogbookQuery(call,
+                                                     lookupBand,
+                                                     lookupMode,
+                                                     cty.valid ? cty.entity.dxcc : QString(),
+                                                     grid,
+                                                     lookupRecentHours,
+                                                     0);
+        const QVariantMap status = cachedFtLogbookStatus(query);
+        if (status.isEmpty()) {
+            allCandidateStatusesKnown = false;
+            continue;
+        }
+        if (status.value(QStringLiteral("worked")).toBool()) {
+            if (workedStatus.isEmpty() && FtDecodedText::callMatches(call, workedCall)) workedStatus = status;
+        } else if (neededCall.isEmpty()) {
             neededCall = call;
-            break;
         }
     }
-    const bool workedBefore = !workedCall.isEmpty() && m_logbook.containsCallsign(workedCall) && neededCall.isEmpty();
+    const bool workedBefore = allCandidateStatusesKnown && !workedCall.isEmpty() &&
+                              !workedStatus.isEmpty() && workedStatus.value(QStringLiteral("worked")).toBool() && neededCall.isEmpty();
     const QString primaryCallForDisplay = ft8PrimaryCallsignForDisplay(parsed, myCall);
     const Ft8DecodeDisplayInfo displayInfo = makeFt8DecodeDisplayInfo(parsed, myCall,
                                                                        primaryCallForDisplay.isEmpty() ? QString() : m_ftSession.knownGridFor(primaryCallForDisplay));
@@ -18724,7 +18890,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             watchedDecode = true;
         }
     }
-    const bool neededStationForLog = !blacklistedDecode && !neededCall.isEmpty() && !m_logbook.containsCallsign(neededCall);
+    const bool neededStationForLog = !blacklistedDecode && allCandidateStatusesKnown && !neededCall.isEmpty();
 
     if (blacklistedDecode) {
         ++m_ftDisplayDiagBlacklisted;
@@ -18735,10 +18901,24 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     }
 
     const QString dxccForDisplay = displayInfo.countryDxcc.trimmed();
+    QString primaryLookupGrid = (FtDecodedText::callMatches(primaryCallForDisplay, parsed.senderCall) || parsed.cq)
+        ? parsed.grid
+        : QString();
+    if (!FtDecodedText::isGrid(primaryLookupGrid.left(4)) || FtDecodedText::isAckLikeGridTrap(primaryLookupGrid.left(4)))
+        primaryLookupGrid = m_ftSession.knownGridFor(primaryCallForDisplay);
+    const QVariantMap primaryQuery = makeFtLogbookQuery(primaryCallForDisplay,
+                                                        lookupBand,
+                                                        lookupMode,
+                                                        dxccForDisplay,
+                                                        primaryLookupGrid,
+                                                        lookupRecentHours,
+                                                        0);
+    const QVariantMap primaryStatus = cachedFtLogbookStatus(primaryQuery);
     const bool newCountryForLog = !blacklistedDecode &&
                                   m_settings.ftHighlightNewCountryEnabled &&
                                   !dxccForDisplay.isEmpty() &&
-                                  !ftCountryAlreadyWorked(dxccForDisplay, displayInfo.country);
+                                  !primaryStatus.isEmpty() &&
+                                  !primaryStatus.value(QStringLiteral("countryWorkedAny")).toBool();
 
     QString bearingText = QStringLiteral("--");
     {
@@ -18767,7 +18947,14 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 
     considerFt8CallerForQueue(decode, blacklistedDecode);
 
-    const bool fullAutoStartedFromThisDecode = !blacklistedDecode && tryStartFt8FullAutoQso(decode);
+    bool fullAutoStartedFromThisDecode = false;
+    if (!blacklistedDecode && cqMessage) {
+        if (!primaryStatus.isEmpty()) {
+            fullAutoStartedFromThisDecode = tryStartFt8FullAutoQso(decode, primaryStatus);
+        } else {
+            queueFtLogbookQueriesForDecode(decode, true);
+        }
+    }
     Q_UNUSED(fullAutoStartedFromThisDecode);
 
     QString displayMessage = decode.message;
@@ -18880,7 +19067,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             messageItem->setData(kFtOriginalMessageRole, decode.message.trimmed().toUpper());
         }
         if (newCountryForLog) {
-            const QString neededTip = QStringLiteral("New DXCC country not present in logbook: %1").arg(displayInfo.country);
+            const QString neededTip = uiText("ft_new_dxcc_country_tooltip", "New DXCC country not present in logbook: %1").arg(displayInfo.country);
             for (QTableWidgetItem *item : items) {
                 item->setData(kFtRowRedOutlineRole, true);
                 item->setToolTip(neededTip);

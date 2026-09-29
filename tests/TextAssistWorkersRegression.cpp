@@ -31,7 +31,9 @@ int main(int argc, char **argv)
     first.callsign = QStringLiteral("K1ABC");
     first.band = QStringLiteral("20m");
     first.mode = QStringLiteral("RTTY");
+    first.grid = QStringLiteral("FN31AA");
     first.utc = QDateTime::fromString(QStringLiteral("2026-09-27T12:00:00Z"), Qt::ISODate);
+    first.adifFields.insert(QStringLiteral("DXCC"), QStringLiteral("291"));
     first.adifFields.insert(sessionKey, QStringLiteral("session-1"));
     first.adifFields.insert(ruleKey, QStringLiteral("cqww-rtty"));
     first.adifFields.insert(QStringLiteral("CONTEST_ID"), QStringLiteral("CQ-WW-RTTY"));
@@ -77,6 +79,33 @@ int main(int argc, char **argv)
     index.lookup(4, QStringLiteral("RTTY"), {QStringLiteral("DL1XYZ")}, true,
                  QStringLiteral("20m"), QString());
     check(lastWorked.contains(QStringLiteral("DL1XYZ")), "incremental index update");
+
+    QVariantList ftResults;
+    QObject::connect(&index, &LogbookIndexWorker::ftLookupReady,
+                     [&](quint64, const QString &, const QVariantList &results) { ftResults = results; });
+    QVariantMap ftQuery;
+    ftQuery.insert(QStringLiteral("cacheKey"), QStringLiteral("ft-k1abc"));
+    ftQuery.insert(QStringLiteral("generation"), 1);
+    ftQuery.insert(QStringLiteral("call"), QStringLiteral("K1ABC"));
+    ftQuery.insert(QStringLiteral("band"), QStringLiteral("20m"));
+    ftQuery.insert(QStringLiteral("mode"), QStringLiteral("RTTY"));
+    ftQuery.insert(QStringLiteral("dxcc"), QStringLiteral("291"));
+    ftQuery.insert(QStringLiteral("grid4"), QStringLiteral("FN31"));
+    ftQuery.insert(QStringLiteral("recentHours"), 24 * 365);
+    ftQuery.insert(QStringLiteral("recentBandModeMinutes"), 24 * 60 * 30);
+    ftQuery.insert(QStringLiteral("referenceUtcMs"), first.utc.toMSecsSinceEpoch());
+    index.lookupFt(5, QStringLiteral("FT_CACHE"), QVariantList{ftQuery});
+    check(ftResults.size() == 1, "FT batch lookup returns one result");
+    const QVariantMap ftStatus = ftResults.value(0).toMap();
+    check(ftStatus.value(QStringLiteral("worked")).toBool(), "FT worked-call index");
+    check(ftStatus.value(QStringLiteral("recentWorked")).toBool(), "FT recent-call index");
+    check(ftStatus.value(QStringLiteral("recentBandMode")).toBool(), "FT recent call-band-mode index");
+    check(ftStatus.value(QStringLiteral("countryWorkedAny")).toBool(), "FT DXCC any-band index");
+    check(ftStatus.value(QStringLiteral("countryWorkedBand")).toBool(), "FT DXCC band index");
+    check(ftStatus.value(QStringLiteral("countryWorkedMode")).toBool(), "FT DXCC mode index");
+    check(ftStatus.value(QStringLiteral("gridWorkedAny")).toBool(), "FT grid any-band index");
+    check(ftStatus.value(QStringLiteral("gridWorkedBand")).toBool(), "FT grid band index");
+    check(ftStatus.value(QStringLiteral("gridWorkedMode")).toBool(), "FT grid mode index");
 
     TextAssistWorker assist;
     QVariantList annotations;

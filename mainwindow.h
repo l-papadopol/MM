@@ -776,7 +776,7 @@ private slots:
     /**
      * @brief Starts a supervised WSJT-Z-style full-auto answer to a decoded CQ when enabled.
      */
-    bool tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode);
+    bool tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus);
 
 
     /**
@@ -917,6 +917,12 @@ private slots:
     void handleBandSchedulerTick();
 
 private:
+    struct PendingFtAutoLog
+    {
+        LogbookEntry entry;
+        QString reason;
+    };
+
     struct QsoFormWidgets
     {
         QWidget *container = nullptr;
@@ -939,12 +945,12 @@ private:
     /**
      * @brief Builds the worked-needed priority record for one decoded CQ.
      */
-    Ft8FullAutoCqCandidate buildFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode) const;
+    Ft8FullAutoCqCandidate buildFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus) const;
 
     /**
      * @brief Adds a decoded CQ to the short Auto QSO priority buffer.
      */
-    bool queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode);
+    bool queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus);
 
     /**
      * @brief Selects and starts the best buffered Auto QSO CQ candidate.
@@ -1251,6 +1257,26 @@ private:
                                   const QStringList &workedCalls);
     void applyTextAssistResult(quint64 requestId, const QStringList &workedCalls);
     void applyTextAssistContestCandidate(const QVariantMap &candidate);
+
+    // FT worked/needed metadata is resolved asynchronously by LogbookIndexWorker.
+    QVariantMap makeFtLogbookQuery(const QString &call,
+                                   const QString &band,
+                                   const QString &mode,
+                                   const QString &dxcc = QString(),
+                                   const QString &grid = QString(),
+                                   int recentHours = 0,
+                                   int recentBandModeMinutes = 0) const;
+    QVariantMap cachedFtLogbookStatus(const QVariantMap &query) const;
+    void queueFtLogbookQueries(const QVariantList &queries);
+    void queueFtLogbookQueriesForDecode(const Ft8RxDecoder::Decode &decode, bool retryAutoQso);
+    void handleFtLogbookLookupReady(quint64 requestId,
+                                    const QString &consumerId,
+                                    const QVariantList &results);
+    void invalidateFtLogbookCache();
+    void finishAutoLogFt8Qso(const LogbookEntry &entry,
+                             const QString &reason,
+                             const QVariantMap &logbookStatus);
+
     void queueLogbookIndexRebuild();
     void queueLogbookIndexAdd(const LogbookEntry &entry);
     void queueContestIndexRebuild();
@@ -1291,8 +1317,6 @@ private:
     void refreshFt8DecodeWorkedHighlights();
     bool isFtCallBlacklisted(const QString &call) const;
     bool isFtCallWatched(const QString &call) const;
-    bool ftCountryAlreadyWorked(const QString &dxcc, const QString &countryName = QString()) const;
-    bool ftCallWorkedWithinHours(const QString &call, int hours) const;
 
     /**
      * @brief Re-highlights all RX text terminals after logbook changes.
@@ -2268,6 +2292,14 @@ private:
     QSet<QPlainTextEdit *> m_pendingTerminalHighlights;
     QThread *m_logbookIndexThread = nullptr;
     LogbookIndexWorker *m_logbookIndexWorker = nullptr;
+    quint64 m_ftLogbookRequestCounter = 0;
+    quint64 m_ftLogbookCacheGeneration = 1;
+    QHash<QString, QVariantMap> m_ftLogbookStatusCache;
+    QSet<QString> m_ftLogbookPendingKeys;
+    QHash<QString, QVector<Ft8RxDecoder::Decode>> m_ftPendingAutoQsoByKey;
+    QHash<quint64, PendingFtAutoLog> m_ftPendingAutoLogs;
+    bool m_ftAutoLogLookupPending = false;
+    bool m_ftHighlightRefreshPending = false;
     QThread *m_textAssistThread = nullptr;
     TextAssistWorker *m_textAssistWorker = nullptr;
     quint64 m_textAssistRequestCounter = 0;

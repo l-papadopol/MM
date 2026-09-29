@@ -1173,8 +1173,11 @@ if(BUILD_TESTING)
         runtime/LogbookIndexWorker.cpp
         runtime/TextAssistWorker.h
         runtime/TextAssistWorker.cpp
-        logbook/AdifLogbook.cpp)
+        logbook/AdifLogbook.cpp
+        dxcc/CtyCountryFile.cpp)
     target_include_directories(madmodem_text_assist_workers_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(madmodem_text_assist_workers_regression PRIVATE ${QT}::Core)
+    add_custom_command(TARGET madmodem_text_assist_workers_regression POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cty.csv $<TARGET_FILE_DIR:madmodem_text_assist_workers_regression>/cty.csv)
     add_test(NAME madmodem_text_assist_workers_regression COMMAND madmodem_text_assist_workers_regression)
 endif()
