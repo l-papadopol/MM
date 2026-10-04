@@ -1,0 +1,16 @@
+"ID": "FT-991:/dev/ttyUSB0",
+"Time": 2023-05-05T04:32:47.834952-0000,
+"Sequence": 892,
+"VFOCurr": "VFOA",
+"VFOs": [
+{
+{
+,
+"Name": "VFOA",
+"Freq": 14086800,
+"Mode": "AM",
+"Width": 9000,
+"RX": True,
+"TX": False
+}
+

@@ -1420,7 +1420,7 @@ private:
     /**
      * @brief Builds the currently selected TX image modulator.
      */
-    std::unique_ptr<TxModulator> buildCurrentTxModulator();
+    std::unique_ptr<TxModulator> buildCurrentTxModulator(const QString &textSnapshot = QString());
 
     /**
      * @brief Updates the displayed TX preview after image/mode changes.
@@ -1766,6 +1766,8 @@ private:
     QPushButton *m_btnRttyQuickReplySend = nullptr;
     QPushButton *m_btnRttyMacroEdit = nullptr;
     QString m_rttyTxOverrideText;
+    QString m_pendingTextTxText;
+    QString m_pendingTextTxMode;
     QString m_pendingRttyQuickReply;
     QPushButton *m_btnRttyClearRx = nullptr;
     QPushButton *m_btnRttyLoadTxText = nullptr;

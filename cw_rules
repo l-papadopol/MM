@@ -1,0 +1,896 @@
+{
+  "schema": 1,
+  "updated_utc": "2026-08-19",
+  "description": "MadModem CW Contest Engine rules. Runtime-reloadable contest profiles; exchange, macros, serials, dupes and scoring are data, not hard-coded in the CW modem.",
+  "profiles": [
+    {
+      "id": "ari_40_80_cw",
+      "name": "ARI Contest 40/80 - CW",
+      "cabrillo_id": "ARI-40-80",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia",
+            "type": "text",
+            "source": "station_setting:PROVINCE",
+            "regex": "^[A-Z]{2}$"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia RX",
+            "type": "text",
+            "regex": "^[A-Z]{2}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ 40/80",
+          "text": "CQ TEST {MYCALL} {MYCALL} TEST "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "PR?",
+          "text": "PR? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} TEST "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "province",
+            "label": "Province",
+            "source": "field:PROVINCE",
+            "scope": "band"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://www.ari.it/contest-hf/contest-4080.html",
+        "note": "Profilo CW: RST + sigla automobilistica della provincia; CW vale 3 punti/QSO. Verificato sul regolamento ARI disponibile il 2026-08-19."
+      }
+    },
+    {
+      "id": "ari_international_cw",
+      "name": "ARI International DX - CW",
+      "cabrillo_id": "ARI-DX",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia",
+            "type": "text",
+            "source": "station_setting:PROVINCE",
+            "regex": "^[A-Z]{2}$",
+            "when": {
+              "own_primary_prefix_in": [
+                "I",
+                "IS",
+                "IT9"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial",
+            "when": {
+              "not_own_primary_prefix_in": [
+                "I",
+                "IS",
+                "IT9"
+              ]
+            }
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "PROVINCE",
+            "label": "Provincia RX",
+            "type": "text",
+            "regex": "^[A-Z]{2}$",
+            "when": {
+              "dx_primary_prefix_in": [
+                "I",
+                "IS",
+                "IT9"
+              ]
+            }
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$",
+            "when": {
+              "not_dx_primary_prefix_in": [
+                "I",
+                "IS",
+                "IT9"
+              ]
+            }
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ ARI",
+          "text": "CQ ARI TEST {MYCALL} "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "NR?",
+          "text": "NR? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} TEST "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "POINTS * MULTS",
+        "note": "Lo scoring ARI International dipende dalla classe geografica e dai moltiplicatori annuali; MadModem conserva exchange e log ma non mostra un totale potenzialmente fuorviante."
+      },
+      "source": {
+        "url": "https://www.ari.it/contest-hf/ari-international.html",
+        "note": "ARI International DX: stazioni italiane RST + provincia; stazioni non italiane RST + progressivo. Il totale resta N/A finché lo scoring geografico completo non è rappresentato senza approssimazioni."
+      }
+    },
+    {
+      "id": "cq_ww_cw",
+      "name": "CQ World Wide DX - CW",
+      "cabrillo_id": "CQ-WW-CW",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "ZONE",
+            "label": "CQ Zone",
+            "type": "zone",
+            "source": "my_cq_zone"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "ZONE",
+            "label": "CQ Zone RX",
+            "type": "zone",
+            "regex": "^(?:[1-9]|[1-3][0-9]|40)$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ WW",
+          "text": "CQ TEST {MYCALL} {MYCALL} "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "ZONE?",
+          "text": "ZONE? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} TEST "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 0
+          },
+          {
+            "when": {
+              "all": [
+                {
+                  "same_country": false
+                },
+                {
+                  "own_continent_in": [
+                    "NA"
+                  ]
+                },
+                {
+                  "dx_continent_in": [
+                    "NA"
+                  ]
+                }
+              ]
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "same_continent": true
+            },
+            "points": 1
+          },
+          {
+            "points": 3
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "dxcc",
+            "label": "DXCC",
+            "source": "dxcc",
+            "scope": "band"
+          },
+          {
+            "id": "cqzone",
+            "label": "CQ Zones",
+            "source": "field:ZONE",
+            "scope": "band"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://cqww.com/rules.htm",
+        "note": "CQ WW CW: RST + CQ Zone; same-country 0 points, same-continent 1 (North America exception 2), intercontinental 3; DXCC entities and CQ zones are per-band multipliers."
+      }
+    },
+    {
+      "id": "cq_wpx_cw",
+      "name": "CQ WPX - CW",
+      "cabrillo_id": "CQ-WPX-CW",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,5}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ WPX",
+          "text": "CQ WPX {MYCALL} {MYCALL} "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "NR?",
+          "text": "NR? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} WPX "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS * MULTS",
+        "qso_points": [
+          {
+            "when": {
+              "same_country": true
+            },
+            "points": 1
+          },
+          {
+            "when": {
+              "all": [
+                {
+                  "same_country": false
+                },
+                {
+                  "own_continent_in": [
+                    "NA"
+                  ]
+                },
+                {
+                  "dx_continent_in": [
+                    "NA"
+                  ]
+                },
+                {
+                  "band_in": [
+                    "160M",
+                    "80M",
+                    "40M"
+                  ]
+                }
+              ]
+            },
+            "points": 4
+          },
+          {
+            "when": {
+              "all": [
+                {
+                  "same_country": false
+                },
+                {
+                  "own_continent_in": [
+                    "NA"
+                  ]
+                },
+                {
+                  "dx_continent_in": [
+                    "NA"
+                  ]
+                }
+              ]
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "all": [
+                {
+                  "same_continent": false
+                },
+                {
+                  "band_in": [
+                    "160M",
+                    "80M",
+                    "40M"
+                  ]
+                }
+              ]
+            },
+            "points": 6
+          },
+          {
+            "when": {
+              "all": [
+                {
+                  "same_continent": true
+                },
+                {
+                  "band_in": [
+                    "160M",
+                    "80M",
+                    "40M"
+                  ]
+                }
+              ]
+            },
+            "points": 2
+          },
+          {
+            "when": {
+              "same_continent": false
+            },
+            "points": 3
+          },
+          {
+            "points": 1
+          }
+        ],
+        "multipliers": [
+          {
+            "id": "wpx",
+            "label": "WPX prefixes",
+            "source": "wpx_prefix",
+            "scope": "overall"
+          }
+        ]
+      },
+      "source": {
+        "url": "https://cqwpx.com/rules/",
+        "note": "CQ WPX CW: RST + progressive QSO number; low bands are 160/80/40 m; same-country QSOs are 1 point; unique worked prefixes are overall multipliers."
+      }
+    },
+    {
+      "id": "arrl_dx_cw",
+      "name": "ARRL International DX - CW",
+      "cabrillo_id": "ARRL-DX-CW",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "EXCHANGE",
+            "label": "State/Province or Power",
+            "type": "text",
+            "source": "station_setting:EXCHANGE"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "EXCHANGE",
+            "label": "State/Province or Power RX",
+            "type": "text",
+            "regex": "^[A-Z0-9]{1,5}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ ARRL DX",
+          "text": "CQ TEST {MYCALL} {MYCALL} "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "PWR/ST?",
+          "text": "PWR? ST? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} TEST "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "POINTS * MULTS",
+        "note": "Exchange is fully supported; multiplier meaning depends on whether the operator is W/VE or DX, so total scoring is intentionally not guessed."
+      },
+      "source": {
+        "url": "https://www.arrl.org/arrl-dx",
+        "note": "W/VE send state/province; DX stations send transmit power. Configure EXCHANGE accordingly."
+      }
+    },
+    {
+      "id": "iaru_hf_cw",
+      "name": "IARU HF World Championship - CW",
+      "cabrillo_id": "IARU-HF",
+      "status": "active",
+      "bands": [
+        "160m",
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": false
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "ZONEHQ",
+            "label": "ITU Zone / HQ",
+            "type": "text",
+            "source": "station_setting:ZONEHQ"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "ZONEHQ",
+            "label": "ITU Zone / HQ RX",
+            "type": "text",
+            "regex": "^(?:\\d{1,2}|[A-Z]{2,8})$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ IARU",
+          "text": "CQ TEST {MYCALL} "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "ZONE/HQ?",
+          "text": "ZONE? HQ? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} TEST "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "POINTS * MULTS",
+        "note": "HQ/AC station multipliers and ITU-zone scoring are preserved in the exchange; full IARU scoring is intentionally not approximated."
+      },
+      "source": {
+        "url": "https://www.arrl.org/iaru-hf-world-championship",
+        "note": "Normal stations exchange RST + ITU zone; IARU member-society HQ/official stations send their designator."
+      }
+    },
+    {
+      "id": "wae_dx_cw",
+      "name": "WAE DX Contest - CW",
+      "cabrillo_id": "WAE-DX-CW",
+      "status": "active",
+      "bands": [
+        "80m",
+        "40m",
+        "20m",
+        "15m",
+        "10m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,5}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ WAE",
+          "text": "CQ WAE {MYCALL} {MYCALL} "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "NR?",
+          "text": "NR? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} WAE "
+        }
+      ],
+      "scoring": {
+        "supported": false,
+        "formula": "POINTS * MULTS",
+        "note": "QSO exchange is supported. QTC traffic is a separate WAE mechanism and is not folded into the generic contest score."
+      },
+      "source": {
+        "url": "https://www.darc.de/der-club/referate/conteste/wae-dx-contest/en/",
+        "note": "CW WAE operational exchange RST + serial; QTC handling remains outside this generic macro engine."
+      }
+    },
+    {
+      "id": "marconi_144_cw",
+      "name": "Marconi Memorial 144 MHz - CW",
+      "cabrillo_id": "MARCONI-CW",
+      "status": "active",
+      "bands": [
+        "2m"
+      ],
+      "dupe_scope": "band",
+      "serial": {
+        "enabled": true,
+        "start": 1,
+        "width": 3,
+        "scope": "contest"
+      },
+      "exchange": {
+        "sent": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst",
+            "source": "rst_sent"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale",
+            "type": "serial",
+            "source": "serial"
+          },
+          {
+            "id": "GRID",
+            "label": "WWL",
+            "type": "locator",
+            "source": "station_setting:GRID6",
+            "regex": "^[A-R]{2}\\d{2}[A-X]{2}$"
+          }
+        ],
+        "received": [
+          {
+            "id": "RST",
+            "label": "RST",
+            "type": "rst"
+          },
+          {
+            "id": "SERIAL",
+            "label": "Seriale RX",
+            "type": "serial",
+            "regex": "^\\d{1,4}$"
+          },
+          {
+            "id": "GRID",
+            "label": "WWL RX",
+            "type": "locator",
+            "regex": "^[A-R]{2}\\d{2}[A-X]{2}$"
+          }
+        ]
+      },
+      "macros": [
+        {
+          "label": "CQ MMC",
+          "text": "CQ MMC {MYCALL} {MYCALL} "
+        },
+        {
+          "label": "Rispondi",
+          "text": "{CALL} {EXCHANGE_SENT} "
+        },
+        {
+          "label": "Exchange",
+          "text": "{EXCHANGE_SENT} "
+        },
+        {
+          "label": "AGN?",
+          "text": "AGN? "
+        },
+        {
+          "label": "NR/LOC?",
+          "text": "NR? LOC? "
+        },
+        {
+          "label": "TU / QRZ",
+          "text": "TU {MYCALL} MMC "
+        }
+      ],
+      "scoring": {
+        "supported": true,
+        "formula": "POINTS",
+        "qso_points": [
+          {
+            "method": "distance_km",
+            "same_grid_points": 1,
+            "band_factors": {
+              "2m": 1.0
+            }
+          }
+        ],
+        "multipliers": []
+      },
+      "source": {
+        "url": "https://www.ari.it/english-area/vhf/6495-48th-marconi-memorial-contest-vhf.html",
+        "note": "144 MHz A1A CW; exchange RST + serial + full WWL locator; one point per kilometre."
+      }
+    }
+  ]
+}

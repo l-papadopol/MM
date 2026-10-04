@@ -1,0 +1,5 @@
+[0/2] Re-checking globbed directories...
+[1/5] Copying localized MM HTML help files
+[2/5] Automatic MOC and UIC for target MadModem
+[3/4] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[4/4] Linking CXX executable MadModem

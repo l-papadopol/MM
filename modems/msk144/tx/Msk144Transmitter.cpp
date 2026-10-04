@@ -167,7 +167,7 @@ void Msk144Transmitter::buildWaveform()
     const qint64 maximumProtocolSamples =
         (static_cast<qint64>(maximumOutputSamples) * kInternalRate) / m_sampleRate;
     const qint64 completeProtocolSamples =
-        qMax<qint64>(frameSamples,
+        qMax<qint64>(static_cast<qint64>(frameSamples),
                      (maximumProtocolSamples / frameSamples) * frameSamples);
     const int totalSamples = static_cast<int>(
         (completeProtocolSamples * m_sampleRate) / kInternalRate);

@@ -1,0 +1,77 @@
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 137 offset 12
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 1024 offset 19
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 4096 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 137 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 1024 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 4096 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 137 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 1024 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 4096 offset 17
+PASS AFC common offset acquired
+PASS first capture
+PASS contiguous capture
+PASS unexpected gap resets
+PASS expected restart preserves decoder state
+PASS zone leading zero is not another multiplier
+PASS valid complete CQ WW QSO
+PASS score skips invalid/dupe and uses received zone
+PASS separate WAE countries and zones
+PASS Cabrillo received zone preserved
+PASS reject invalid zone
+PASS require US state
+PASS US state not Canadian province
+PASS export rejects absent frequency
+PASS export rejects practice date
+PASS export rejects mixed sessions
+PASS IG9 intercontinental despite shared DXCC
+PASS IT9 different contest country
+PASS Italian same contest country
+PASS geographical portable suffix
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+MULTI 48000 max_ms=14.0042 labels=CQ IZ6NNH|CQ DL1ABC
+PASS two stations decoded without duplicate callouts
+MULTI 96000 max_ms=29.7752 labels=CQ IZ6NNH|CQ DL1ABC
+PASS two stations decoded without duplicate callouts

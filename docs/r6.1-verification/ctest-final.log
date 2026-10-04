@@ -1,0 +1,42 @@
+Internal ctest changing into directory: /tmp/mm-r6_1-build
+Test project /tmp/mm-r6_1-build
+      Start  1: madmodem_settings_ui_regression
+ 1/18 Test  #1: madmodem_settings_ui_regression ........   Passed    7.02 sec
+      Start  2: madmodem_tx_pull_regression
+ 2/18 Test  #2: madmodem_tx_pull_regression ............   Passed    0.01 sec
+      Start  3: madmodem_i18n_regression
+ 3/18 Test  #3: madmodem_i18n_regression ...............   Passed    0.00 sec
+      Start  4: madmodem_rotator_coordinates
+ 4/18 Test  #4: madmodem_rotator_coordinates ...........   Passed    0.00 sec
+      Start  5: madmodem_antialias_regression
+ 5/18 Test  #5: madmodem_antialias_regression ..........   Passed    0.04 sec
+      Start  6: madmodem_resampler_streaming
+ 6/18 Test  #6: madmodem_resampler_streaming ...........   Passed    0.09 sec
+      Start  7: madmodem_logbook_regression
+ 7/18 Test  #7: madmodem_logbook_regression ............   Passed    0.01 sec
+      Start  8: madmodem_wav_reader_test
+ 8/18 Test  #8: madmodem_wav_reader_test ...............   Passed    0.00 sec
+      Start  9: madmodem_q65_native_regression
+ 9/18 Test  #9: madmodem_q65_native_regression .........   Passed    2.09 sec
+      Start 10: madmodem_msk144_native_regression
+10/18 Test #10: madmodem_msk144_native_regression ......   Passed    0.36 sec
+      Start 11: madmodem_architecture_guard
+11/18 Test #11: madmodem_architecture_guard ............   Passed    0.19 sec
+      Start 12: madmodem_ui_contest_guard
+12/18 Test #12: madmodem_ui_contest_guard ..............   Passed    0.16 sec
+      Start 13: madmodem_ft_runtime_guard
+13/18 Test #13: madmodem_ft_runtime_guard ..............   Passed    0.27 sec
+      Start 14: madmodem_release_audit
+14/18 Test #14: madmodem_release_audit .................   Passed    0.86 sec
+      Start 15: madmodem_cw_native_regression
+15/18 Test #15: madmodem_cw_native_regression ..........   Passed   16.82 sec
+      Start 16: madmodem_waterfall_native_regression
+16/18 Test #16: madmodem_waterfall_native_regression ...   Passed    1.12 sec
+      Start 17: madmodem_waterfall_integrity_guard
+17/18 Test #17: madmodem_waterfall_integrity_guard .....   Passed    0.05 sec
+      Start 18: madmodem_ft_sequencer
+18/18 Test #18: madmodem_ft_sequencer ..................   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 18
+
+Total Test time (real) =  29.10 sec

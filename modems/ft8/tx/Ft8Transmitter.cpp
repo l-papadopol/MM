@@ -107,7 +107,7 @@ bool Ft8Transmitter::prepareForPlayback(qint64 utcMs)
 {
     if (m_firstToneUtcMs <= 0) return true;
     if (utcMs > m_firstToneUtcMs + 20 || (m_stopUtcMs > 0 && utcMs >= m_stopUtcMs)) return false;
-    m_leadingSamples = int(qBound<qint64>(0, m_firstToneUtcMs - utcMs, 2000) * m_sampleRate / 1000);
+    m_leadingSamples = static_cast<int>(qBound<qint64>(qint64{0}, m_firstToneUtcMs - utcMs, qint64{2000}) * m_sampleRate / qint64{1000});
     if (m_stopUtcMs > 0) {
         const qint64 capacity = (m_stopUtcMs - utcMs) * m_sampleRate / 1000 - m_leadingSamples;
         if (capacity <= 0) return false;

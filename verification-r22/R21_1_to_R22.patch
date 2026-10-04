@@ -1,0 +1,448 @@
+--- a/runtime/AsyncCatCommand.h
++++ b/runtime/AsyncCatCommand.h
+@@ -34,11 +34,13 @@
+     explicit AsyncCatCommand(QObject *parent=nullptr):QObject(parent){}
+     bool busy() const {return m_busy;}
+     bool faulted() const {return m_faulted;}
+-    void cancel() {if(m_cancelled)m_cancelled->store(true);}
++    // A new TX plan or STOP may revoke key-up, never the mandatory key-down.
++    void cancel() {if(m_cancelled && !m_recoveryOnly)m_cancelled->store(true);}
+     void request(QObject *target,std::function<bool()> operation,
+                  std::function<bool()> rollback,std::function<void(bool)> completion,int timeoutMs=3000,bool recoveryOnly=false) {
+         if(m_busy || (m_faulted && !recoveryOnly) || !target || !target->thread()->isRunning()){completion(false);return;}
+         m_busy=true;
++        m_recoveryOnly=recoveryOnly;
+         m_cancelled=std::make_shared<std::atomic_bool>(false);
+         auto delivered=std::make_shared<bool>(false);
+         auto *job=new CatCommandJob;
+@@ -47,10 +49,10 @@
+         connect(target->thread(),&QThread::finished,job,&QObject::deleteLater);
+         auto *timer=new QTimer(this);timer->setSingleShot(true);
+         connect(timer,&QTimer::timeout,this,[this,delivered,completion](){
+-            cancel();
++            m_cancelled->store(true);
+             if(!*delivered){*delivered=true;completion(false);}
+         });
+-        connect(job,&CatCommandJob::done,this,[this,job,timer,delivered,completion](bool ok,bool recovered,bool compensated){
++        connect(job,&CatCommandJob::done,this,[this,job,timer,delivered,completion,recoveryOnly](bool ok,bool recovered,bool compensated){
+             if(ok && m_cancelled->load()){
+                 QMetaObject::invokeMethod(job,&CatCommandJob::compensate,Qt::QueuedConnection);
+                 return;
+@@ -58,10 +60,13 @@
+             job->deleteLater();
+             timer->stop();timer->deleteLater();m_busy=false;
+             m_faulted=!recovered;
+-            const bool accepted=ok && !m_cancelled->load();
++            const bool accepted=recoveryOnly ? (ok || recovered) : (ok && !m_cancelled->load());
++            m_recoveryOnly=false;
+             m_cancelled.reset();
++            // Publish confirmed safety recovery even after a timeout was delivered.
+             if(compensated)emit compensatedCommand(recovered);
+             if(!*delivered){*delivered=true;completion(accepted);}
++            if(!m_busy)emit settled();
+         });
+         timer->start(timeoutMs);
+         QMetaObject::invokeMethod(job,&CatCommandJob::run,Qt::QueuedConnection);
+@@ -69,7 +74,8 @@
+     ~AsyncCatCommand() override {cancel();}
+ signals:
+     void compensatedCommand(bool recovered);
++    void settled();
+ private:
+-    bool m_busy=false, m_faulted=false;
++    bool m_busy=false, m_faulted=false, m_recoveryOnly=false;
+     std::shared_ptr<std::atomic_bool> m_cancelled;
+ };
+--- a/mainwindow.cpp
++++ b/mainwindow.cpp
+@@ -1441,6 +1441,11 @@
+     ui->setupUi(this);
+     m_txWaveformPreparer = new WeakSignalTxPreparer(this);
+     m_catCommand=new AsyncCatCommand(this);
++    connect(m_catCommand, &AsyncCatCommand::settled, this, [this] {
++        if (!m_pendingRttyQuickReply.isEmpty() && !m_txRunning && !m_txPreparationPending &&
++            !m_shutdownInProgress && !m_ftSplitRestoreFailed)
++            QTimer::singleShot(0, this, &MainWindow::sendRttyQuickReply);
++    });
+     connect(m_catCommand,&AsyncCatCommand::compensatedCommand,this,[this](bool recovered){
+         m_ftSplitPreparedForTx=!recovered;
+         m_ftSplitRestoreFailed=!recovered;
+@@ -8752,7 +8757,8 @@
+     m_grpFt8UtcClock = clockGroup;
+     QVBoxLayout *clockLayout = new QVBoxLayout(clockGroup);
+     clockLayout->setContentsMargins(8, 8, 8, 8);
+-    clockLayout->setSpacing(4);
++    clockLayout->setSpacing(10);
++    clockLayout->setSizeConstraint(QLayout::SetMinimumSize);
+ 
+     m_ft8SlotClock = new Ft8SlotClockWidget(clockGroup);
+     m_lcdFt8UtcClock = new QLCDNumber(clockGroup);
+@@ -8760,13 +8766,10 @@
+     m_lcdFt8UtcClock->setSegmentStyle(QLCDNumber::Filled);
+     m_lcdFt8UtcClock->setMinimumHeight(40);
+     m_lcdFt8UtcClock->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+-    m_lblFt8WindowStatus = new QLabel(uiText("ft8_rx_window", "RX window"), clockGroup);
+-    m_lblFt8WindowStatus->setAlignment(Qt::AlignCenter);
+-    m_lblFt8WindowStatus->setStyleSheet("font-weight: 500; font-size: 9pt;");
+-
++    m_lblFt8WindowStatus = nullptr;
+     clockLayout->addWidget(m_ft8SlotClock, 0, Qt::AlignHCenter);
+     clockLayout->addWidget(m_lcdFt8UtcClock);
+-    clockLayout->addWidget(m_lblFt8WindowStatus);
++    clockGroup->setMinimumHeight(clockLayout->minimumSize().height());
+ 
+     QGroupBox *sequencerGroup = new QGroupBox(uiText("ft8_sequence_status", "FT8 sequence status"), m_pageFt8Settings);
+     QVBoxLayout *sequencerLayout = new QVBoxLayout(sequencerGroup);
+@@ -11485,7 +11488,7 @@
+             m_ftSplitPreparedForTx=!ok;m_ftSplitRestoreFailed=!ok;
+             appendLog(ok?QStringLiteral("FT Split: RX CAT state restored."):
+                 QStringLiteral("FT Split ERROR: CAT could not fully restore the pre-TX RX/split state; further FT TX is blocked until the CAT state is restored or the rig is reconnected."));
+-        });
++        },3000,true);
+ }
+ 
+ void MainWindow::invokeRigSetFrequency(double frequencyHz)
+@@ -15295,12 +15298,15 @@
+     if (ui == nullptr || ui->cmbMode == nullptr || ui->cmbMode->currentText() != RttyDecoder::modeName()) return;
+     if (!ensureStationIdentityForTx(RttyDecoder::modeName())) return;
+     const QString expanded = expandTextTemplate(text);
+-    m_pendingRttyQuickReply.clear();
++    if (m_catCommand->busy()) {
++        m_pendingRttyQuickReply = text;
++        return;
++    }
+     m_rttyTxOverrideText = expanded;
+-    appendTextTerminal(m_txtRttyRx, "TX> ", expanded);
+     startImageTx();
+     m_rttyTxOverrideText = QString();
+-    if (m_txRunning) {
++    if (m_txRunning || m_txPreparationPending) {
++        m_pendingRttyQuickReply.clear();
+         if (m_txtRttyQuickReply != nullptr) m_txtRttyQuickReply->clear();
+         updateTxPreview();
+     }
+@@ -20149,7 +20155,7 @@
+ 
+ bool MainWindow::startTextModeTx(const QString &text)
+ {
+-    if (m_txRunning) {
++    if (m_txRunning || m_txPreparationPending) {
+         appendLog("Text TX blocked: another TX is active.");
+         return false;
+     }
+@@ -20185,11 +20191,9 @@
+         }
+ 
+         m_txtRttyTx->setPlainText(expanded);
+-        beginTextTxHighlight(m_txtRttyTx);
+-        appendTextTerminal(m_txtRttyRx, "TX> ", expanded);
+         startImageTx();
+ 
+-        if (m_txRunning) {
++        if (m_txRunning || m_txPreparationPending) {
+             updateTxPreview();
+             return true;
+         }
+@@ -20205,11 +20209,9 @@
+         }
+ 
+         m_txtBpsk31Tx->setPlainText(expanded);
+-        beginTextTxHighlight(m_txtBpsk31Tx);
+-        appendTextTerminal(m_txtBpsk31Rx, "TX> ", expanded);
+         startImageTx();
+ 
+-        if (m_txRunning) {
++        if (m_txRunning || m_txPreparationPending) {
+             updateTxPreview();
+             return true;
+         }
+@@ -20225,11 +20227,9 @@
+         }
+ 
+         m_txtMfskTx->setPlainText(expanded);
+-        beginTextTxHighlight(m_txtMfskTx);
+-        appendTextTerminal(m_txtMfskRx, "TX> ", expanded);
+         startImageTx();
+ 
+-        if (m_txRunning) {
++        if (m_txRunning || m_txPreparationPending) {
+             updateTxPreview();
+             return true;
+         }
+@@ -20258,7 +20258,7 @@
+         m_textTxHighlightedChars = -1;
+         startImageTx();
+ 
+-        if (m_txRunning) {
++        if (m_txRunning || m_txPreparationPending) {
+             updateTxPreview();
+             return true;
+         }
+@@ -20278,14 +20278,9 @@
+          * movement instead of absolute QTextCursor::setPosition() calls, which
+          * avoids Qt out-of-range warnings when the document is edited or rebuilt.
+          */
+-        beginTextTxHighlight(m_txtHellTx);
+-        const HellschreiberDecoder::Variant variant = (m_cmbHellVariant != nullptr)
+-                                                         ? HellschreiberDecoder::variantFromKey(m_cmbHellVariant->currentData().toString())
+-                                                         : HellschreiberDecoder::Variant::FeldHell;
+-        appendLog(HellschreiberDecoder::variantName(variant) + " TX> " + expanded.left(96));
+         startImageTx();
+ 
+-        if (m_txRunning) {
++        if (m_txRunning || m_txPreparationPending) {
+             updateTxPreview();
+             return true;
+         }
+@@ -23492,7 +23487,7 @@
+ // TX image preparation
+ // -----------------------------------------------------------------------------
+ 
+-std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
++std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator(const QString &textSnapshot)
+ {
+     const QString modeName = ui->cmbMode->currentText();
+     const int txSampleRate = (m_settings.audioSampleRate == 44100 ||
+@@ -23534,7 +23529,7 @@
+     }
+ 
+     if (modeName == RttyDecoder::modeName()) {
+-        const QString text = !m_rttyTxOverrideText.isNull()
++        const QString text = !textSnapshot.isNull() ? textSnapshot : !m_rttyTxOverrideText.isNull()
+                                  ? m_rttyTxOverrideText
+                                  : ((m_txtRttyTx != nullptr) ? m_txtRttyTx->toPlainText() : QString());
+         return std::unique_ptr<TxModulator>(new RttyTransmitter(
+@@ -23549,7 +23544,7 @@
+     }
+ 
+     if (modeName == Bpsk31Decoder::modeName()) {
+-        const QString text = (m_txtBpsk31Tx != nullptr)
++        const QString text = !textSnapshot.isNull() ? textSnapshot : (m_txtBpsk31Tx != nullptr)
+                                  ? m_txtBpsk31Tx->toPlainText()
+                                  : QString();
+         const QString variant = (m_cmbBpsk31Variant != nullptr) ? m_cmbBpsk31Variant->currentData().toString() : QString("BPSK31");
+@@ -23565,7 +23560,7 @@
+     }
+ 
+     if (modeName == MfskDecoder::modeName()) {
+-        const QString text = (m_txtMfskTx != nullptr)
++        const QString text = !textSnapshot.isNull() ? textSnapshot : (m_txtMfskTx != nullptr)
+                                  ? m_txtMfskTx->toPlainText()
+                                  : QString();
+         const QString variantKey = (m_cmbMfskVariant != nullptr) ? m_cmbMfskVariant->currentData().toString() : QString("MFSK16");
+@@ -23578,7 +23573,7 @@
+     }
+ 
+     if (modeName == CwDecoder::modeName()) {
+-        const QString text = (m_txtCwTx != nullptr)
++        const QString text = !textSnapshot.isNull() ? textSnapshot : (m_txtCwTx != nullptr)
+                                  ? m_txtCwTx->toPlainText()
+                                  : QString();
+         return std::unique_ptr<TxModulator>(new CwTransmitter(
+@@ -23590,7 +23585,7 @@
+     }
+ 
+     if (modeName == HellschreiberDecoder::modeName()) {
+-        const QString text = (m_txtHellTx != nullptr)
++        const QString text = !textSnapshot.isNull() ? textSnapshot : (m_txtHellTx != nullptr)
+                                  ? m_txtHellTx->toPlainText()
+                                  : QString();
+         const HellschreiberDecoder::Variant variant = (m_cmbHellVariant != nullptr)
+@@ -24205,7 +24200,15 @@
+ 
+ void MainWindow::startImageTx()
+ {
+-    if(m_txPreparationPending || m_catCommand->busy() || m_ftSplitRestoreFailed)return;
++    if (m_txPreparationPending) return;
++    if (m_catCommand->busy()) {
++        appendLog("TX blocked: CAT/PTT recovery is still in progress. Retry after it completes.");
++        return;
++    }
++    if (m_ftSplitRestoreFailed || m_catCommand->faulted()) {
++        appendLog("TX blocked: CAT/PTT release was not confirmed. Press Stop to retry recovery.");
++        return;
++    }
+     if (m_shutdownInProgress || m_runtimeShutdownComplete) {
+         return;
+     }
+@@ -24257,7 +24260,7 @@
+         return;
+     }
+ 
+-    if (rttyMode && (m_txtRttyTx == nullptr || m_txtRttyTx->toPlainText().trimmed().isEmpty())) {
++    if (rttyMode && (m_rttyTxOverrideText.isNull() ? (m_txtRttyTx == nullptr || m_txtRttyTx->toPlainText().trimmed().isEmpty()) : m_rttyTxOverrideText.trimmed().isEmpty())) {
+         QMessageBox::information(this,
+                                  QStringLiteral("RTTY TX"),
+                                  MadModemI18n::text(QStringLiteral("Enter or load text before starting RTTY TX.")));
+@@ -24332,6 +24335,10 @@
+         m_fastResumeCwRttyMode = activeModeName;
+     }
+ 
++    QPlainTextEdit *textEditor = rttyMode ? m_txtRttyTx : bpskMode ? m_txtBpsk31Tx :
++        mfskMode ? m_txtMfskTx : cwMode ? m_txtCwTx : hellMode ? m_txtHellTx : nullptr;
++    const QString textSnapshot = rttyMode && !m_rttyTxOverrideText.isNull() ? m_rttyTxOverrideText :
++        textEditor ? textEditor->toPlainText() : QString();
+     const auto captureStopGeneration = m_txRequestGeneration;
+     const bool nativeBoundaryStart = (msk144Mode || q65Mode) && m_nativeWeakSignalTxBoundaryStart;
+     const qint64 nativeBoundaryUtcMs = m_nativeWeakSignalTxBoundaryUtcMs;
+@@ -24382,7 +24389,7 @@
+                 QStringLiteral("Unable to create a transmitter for the active mode.")));
+         }
+     } else {
+-        modulator = buildCurrentTxModulator();
++        modulator = buildCurrentTxModulator(textSnapshot);
+     }
+ 
+     if (!modulator) {
+@@ -24469,7 +24476,11 @@
+         return;
+     }
+ 
++    m_pendingTextTxText = textSnapshot;
++    m_pendingTextTxMode = activeModeName;
+     if (!m_txAudioEngine->startOutput(outputName, std::move(modulator))) {
++        m_pendingTextTxText.clear();
++        m_pendingTextTxMode.clear();
+         unkeyPttAfterTx();
+         const bool restartRx = m_returnToRxAfterTx;
+         m_txRunning = false;
+@@ -24486,12 +24497,6 @@
+         if (restartRx) {
+             QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this]() { startRx(); });
+         }
+-    } else if (hellMode && m_hellDecoder != nullptr && m_txtHellTx != nullptr) {
+-        const HellschreiberDecoder::Variant variant = (m_cmbHellVariant != nullptr)
+-                                                         ? HellschreiberDecoder::variantFromKey(m_cmbHellVariant->currentData().toString())
+-                                                         : HellschreiberDecoder::Variant::FeldHell;
+-        const QImage txRaster = HellschreiberTransmitter::transmitRasterImage(m_txtHellTx->toPlainText(), variant);
+-        invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::appendTransmitRaster, txRaster);
+     }
+     });
+     };
+@@ -24816,6 +24821,9 @@
+ 
+ void MainWindow::stopImageTx()
+ {
++    m_pendingRttyQuickReply.clear();
++    m_pendingTextTxText.clear();
++    m_pendingTextTxMode.clear();
+     if (m_txWaveformPreparer) m_txWaveformPreparer->cancel();
+     if(m_ftTxWorker)m_ftTxWorker->cancelPendingStart();
+     ++m_txRequestGeneration;m_catCommand->cancel();
+@@ -24845,6 +24853,8 @@
+     if (!m_txRunning &&
+         !m_ftTxWorkerRunning &&
+         (m_txAudioEngine == nullptr || !m_txAudioEngine->isRunning())) {
++        if (m_ftSplitRestoreFailed || m_catCommand->faulted() || m_ftSplitPreparedForTx)
++            unkeyPttAfterTx();
+         appendLog("TX already stopped.");
+         return;
+     }
+@@ -24864,6 +24874,29 @@
+ 
+ void MainWindow::handleTxStarted()
+ {
++    // Local TX rows describe audio actually handed to the output backend.
++    const QString text = std::exchange(m_pendingTextTxText, QString());
++    const QString mode = std::exchange(m_pendingTextTxMode, QString());
++    if (!text.isEmpty() && mode == ui->cmbMode->currentText()) {
++        QPlainTextEdit *editor = nullptr;
++        if (mode == RttyDecoder::modeName()) {
++            appendTextTerminal(m_txtRttyRx, "TX> ", text); editor = m_txtRttyTx;
++        } else if (mode == Bpsk31Decoder::modeName()) {
++            appendTextTerminal(m_txtBpsk31Rx, "TX> ", text); editor = m_txtBpsk31Tx;
++        } else if (mode == MfskDecoder::modeName()) {
++            appendTextTerminal(m_txtMfskRx, "TX> ", text); editor = m_txtMfskTx;
++        } else if (mode == HellschreiberDecoder::modeName()) {
++            editor = m_txtHellTx;
++            appendLog(mode + " TX> " + text.left(96));
++            if (m_hellDecoder) {
++                const auto variant = m_cmbHellVariant ? HellschreiberDecoder::variantFromKey(m_cmbHellVariant->currentData().toString()) : HellschreiberDecoder::Variant::FeldHell;
++                invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::appendTransmitRaster,
++                    HellschreiberTransmitter::transmitRasterImage(text, variant));
++            }
++        }
++        if (editor && editor->toPlainText() == text) beginTextTxHighlight(editor);
++    }
++
+     const bool ftTx = (ui != nullptr && ui->cmbMode != nullptr && Ft8Mode::isFamilyMode(ui->cmbMode->currentText()));
+     const int txSampleRate = (ftTx && m_ftTxWorkerRunning) ? 48000 : (m_txAudioEngine != nullptr ? m_txAudioEngine->sampleRate() : 48000);
+     appendLog(QString("TX audio started at %1 Hz%2.")
+@@ -24885,6 +24918,8 @@
+ 
+ void MainWindow::handleTxStopped()
+ {
++    m_pendingTextTxText.clear();
++    m_pendingTextTxMode.clear();
+     m_ftTxWorkerRunning = false;
+     unkeyPttAfterTx();
+ 
+@@ -25012,6 +25047,9 @@
+ 
+ void MainWindow::handleTxError(const QString &message)
+ {
++    m_pendingTextTxText.clear();
++    m_pendingTextTxMode.clear();
++    m_pendingRttyQuickReply.clear();
+     m_ftTxWorkerRunning = false;
+     m_txFinishedNaturally = false;
+     const bool ftModeAtError = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
+--- a/mainwindow.h
++++ b/mainwindow.h
+@@ -1420,7 +1420,7 @@
+     /**
+      * @brief Builds the currently selected TX image modulator.
+      */
+-    std::unique_ptr<TxModulator> buildCurrentTxModulator();
++    std::unique_ptr<TxModulator> buildCurrentTxModulator(const QString &textSnapshot = QString());
+ 
+     /**
+      * @brief Updates the displayed TX preview after image/mode changes.
+@@ -1766,6 +1766,8 @@
+     QPushButton *m_btnRttyQuickReplySend = nullptr;
+     QPushButton *m_btnRttyMacroEdit = nullptr;
+     QString m_rttyTxOverrideText;
++    QString m_pendingTextTxText;
++    QString m_pendingTextTxMode;
+     QString m_pendingRttyQuickReply;
+     QPushButton *m_btnRttyClearRx = nullptr;
+     QPushButton *m_btnRttyLoadTxText = nullptr;
+--- a/tests/RuntimeWorkersRegression.h
++++ b/tests/RuntimeWorkersRegression.h
+@@ -139,6 +139,36 @@
+     callbacks=0;
+     gate.request(target,[&](){keyed=true;return true;},[&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;});
+     check(pump([&](){return callbacks==1;}) && accepted && keyed,"successful CAT acknowledged before TX authorization");
++    // Natural FT completion queues PTT OFF, then arming RETRY calls cancel().
++    // Repeat for FT8/FT4-like plans: cleanup must succeed and permit the next ON.
++    for (int cycle=0;cycle<4;++cycle) {
++        callbacks=0; completed=false; releaseBackend=false;
++        gate.request(target,[&](){completed=true;while(!releaseBackend)QThread::msleep(1);keyed=false;return true;},
++            [&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;},3000,true);
++        check(pump([&](){return completed.load();}),"PTT OFF entered before next FT plan");
++        gate.cancel(); releaseBackend=true;
++        check(pump([&](){return !gate.busy();}) && accepted && !keyed && callbacks==1 && !gate.faulted(),
++              "next FT plan cannot cancel mandatory PTT OFF");
++        callbacks=0;
++        gate.request(target,[&](){keyed=true;return true;},[&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;});
++        check(pump([&](){return callbacks==1;}) && accepted && keyed,"next period may transmit after recovery");
++    }
++    callbacks=0;
++    gate.request(target,[](){return false;},[&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;},3000,true);
++    check(pump([&](){return callbacks==1;}) && accepted && !keyed && !gate.faulted(),
++          "successful PTT OFF fallback counts as confirmed recovery");
++    callbacks=0; releaseBackend=false;
++    bool safetyRecovered=false;
++    const auto recoveryConnection=QObject::connect(&gate,&AsyncCatCommand::compensatedCommand,&app,
++        [&](bool recovered){safetyRecovered=recovered;});
++    gate.request(target,[&](){while(!releaseBackend)QThread::msleep(1);keyed=false;return true;},
++        [&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;},20,true);
++    check(pump([&](){return callbacks==1;}) && !accepted && gate.busy(),"slow PTT OFF retains safety gate after timeout");
++    releaseBackend=true;
++    check(pump([&](){return !gate.busy();}) && safetyRecovered && !keyed && callbacks==1 && !gate.faulted(),
++          "late confirmed PTT OFF restores safety without a second completion");
++    QObject::disconnect(recoveryConnection);
++
+     callbacks=0;
+     gate.request(target,[](){return false;},[](){return false;},[&](bool ok){++callbacks;accepted=ok;});
+     check(pump([&](){return callbacks==1;}) && !accepted && gate.faulted(),"failed CAT recovery blocks further TX");

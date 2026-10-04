@@ -1,0 +1,93 @@
+MadModem consolidated guard suite: ui
+
+--- RUN scripts/check_rtty_contest_layout.py ---
+[OK] contest page follows the narrow viewport
+[OK] only vertical scrolling remains
+[OK] contest header is a two-column form
+[OK] service buttons keep text-sized width
+[OK] QSO editor is a single label-field column
+[OK] QSO controls may shrink inside 300 px
+[OK] contest chrome uses compact padding
+[OK] macro buttons have no forced horizontal minimum
+[OK] short tab caption is used
+RTTY contest narrow-layout audit passed.
+
+--- RUN scripts/check_rtty_live_contest_runtime.py ---
+RTTY live/contest/runtime audit OK (30 rule profiles)
+
+--- RUN scripts/check_cw_macro_ui.py ---
+[OK] CW macro layout exists
+[OK] CW macro bank is initialized once in its page
+[OK] CW macro bank contains six buttons
+[OK] CW macro buttons are retained
+[OK] CW macro row is visible above TX
+[OK] setup does not destroy CW macro bank
+[OK] CW macro buttons transmit shared text macros
+[OK] CW macro labels use shared macro settings
+[OK] CW macro bank remains available outside Contest
+[OK] CW macro bank switches to contest profile when Contest is active
+[OK] CW macro clicks route to contest macros only while CW Contest is active
+[OK] CW TX tone has a dedicated editable control
+[OK] CW TX tone is persisted independently
+[OK] CW waterfall exposes a red TX marker
+[OK] CW transmitter uses the dedicated TX tone
+[OK] CW enables opt-in waterfall chord detection
+[OK] CW TX chord is wired to the dedicated handler
+[OK] waterfall chord requires both left and right buttons
+[OK] CW single clicks are delayed only for chord disambiguation
+CW operator UI guard passed.
+
+--- RUN scripts/check_ui_theme_integrity.py ---
+PASS contrast avionica window text: 11.14:1
+PASS contrast avionica editor text: 11.47:1
+PASS contrast avionica button text: 10.60:1
+PASS contrast avionica selection text: 9.22:1
+PASS contrast avionica positive state: 15.26:1
+PASS contrast avionica negative state: 6.88:1
+PASS contrast avionica warning state: 12.67:1
+PASS contrast avionica muted text: 6.19:1
+PASS contrast avionica map text: 11.44:1
+PASS contrast avionica map muted text: 6.51:1
+PASS contrast qt_default window text: 14.30:1
+PASS contrast qt_default editor text: 16.29:1
+PASS contrast qt_default button text: 13.18:1
+PASS contrast qt_default selection text: 7.16:1
+PASS contrast qt_default positive state: 5.13:1
+PASS contrast qt_default negative state: 5.72:1
+PASS contrast qt_default warning state: 4.76:1
+PASS contrast qt_default muted text: 5.10:1
+PASS contrast qt_default map text: 13.81:1
+PASS contrast qt_default map muted text: 5.29:1
+PASS contrast hacker_green window text: 15.23:1
+PASS contrast hacker_green editor text: 15.98:1
+PASS contrast hacker_green button text: 13.42:1
+PASS contrast hacker_green selection text: 12.13:1
+PASS contrast hacker_green positive state: 13.43:1
+PASS contrast hacker_green negative state: 6.88:1
+PASS contrast hacker_green warning state: 13.76:1
+PASS contrast hacker_green muted text: 6.93:1
+PASS contrast hacker_green map text: 15.63:1
+PASS contrast hacker_green map muted text: 6.71:1
+PASS contrast classic_dark window text: 12.52:1
+PASS contrast classic_dark editor text: 15.01:1
+PASS contrast classic_dark button text: 10.49:1
+PASS contrast classic_dark selection text: 7.54:1
+PASS contrast classic_dark positive state: 8.19:1
+PASS contrast classic_dark negative state: 5.70:1
+PASS contrast classic_dark warning state: 9.48:1
+PASS contrast classic_dark muted text: 6.85:1
+PASS contrast classic_dark map text: 14.32:1
+PASS contrast classic_dark map muted text: 7.32:1
+PASS contrast high_contrast window text: 21.00:1
+PASS contrast high_contrast editor text: 21.00:1
+PASS contrast high_contrast button text: 19.91:1
+PASS contrast high_contrast selection text: 15.07:1
+PASS contrast high_contrast positive state: 15.97:1
+PASS contrast high_contrast negative state: 7.63:1
+PASS contrast high_contrast warning state: 15.07:1
+PASS contrast high_contrast muted text: 13.62:1
+PASS contrast high_contrast map text: 21.00:1
+PASS contrast high_contrast map muted text: 13.62:1
+UI theme integrity audit: PASS (5/5 complete themes)
+
+Consolidated ui suite PASSED: 4 check(s) run, 0 platform check(s) skipped.

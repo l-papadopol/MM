@@ -1,0 +1,7 @@
+PASS: preflight rejects multiline first argument, second/third literal arguments and LL suffix.
+ERROR: qint64 Qt min/max/bound calls still use bare integer literals; Qt6/AppleClang can make these overloads ambiguous.
+Use qint64{0}/qint64{1}/static_cast<qint64>(...) consistently.
+tests/MacosPortabilityProbe.cpp:1: bare qint64 argument: 0
+tests/MacosPortabilityProbe.cpp:3: bare qint64 argument: 1
+tests/MacosPortabilityProbe.cpp:4: bare qint64 argument: 60000
+tests/MacosPortabilityProbe.cpp:5: bare qint64 argument: 1LL

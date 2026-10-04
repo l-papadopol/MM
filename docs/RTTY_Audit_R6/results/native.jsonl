@@ -1,0 +1,51 @@
+{"case":"reference_clean","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":22.974221,"rate":44100,"samples":380842}
+{"case":"production_clean","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":22.390256,"rate":44100,"samples":373462}
+{"case":"conditioned","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":33.979116,"rate":44100,"samples":380842}
+{"case":"matched_and_enhancer","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":35.590384,"rate":44100,"samples":380842}
+{"case":"reference_clean","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":23.871891,"rate":48000,"samples":414521}
+{"case":"production_clean","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":24.173748,"rate":48000,"samples":406564}
+{"case":"conditioned","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":34.451757,"rate":48000,"samples":414521}
+{"case":"matched_and_enhancer","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":39.458234,"rate":48000,"samples":414521}
+{"case":"reference_clean","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":49.474857,"rate":96000,"samples":829043}
+{"case":"production_clean","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":50.818377,"rate":96000,"samples":813128}
+{"case":"conditioned","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":68.774723,"rate":96000,"samples":829043}
+{"case":"matched_and_enhancer","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":77.818192,"rate":96000,"samples":829043}
+{"case":"block_size_137","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":27.964114,"rate":48000,"samples":414521}
+{"case":"block_size_4096","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":26.429401,"rate":48000,"samples":414521}
+{"case":"offset_-100","decoded":"","edit_distance":38,"exact":false,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":28.718622,"rate":48000,"samples":414521}
+{"case":"offset_-60","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":26.792879,"rate":48000,"samples":414521}
+{"case":"offset_-30","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":24.24985,"rate":48000,"samples":414521}
+{"case":"offset_30","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":25.928513,"rate":48000,"samples":414521}
+{"case":"offset_60","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":23.416401,"rate":48000,"samples":414521}
+{"case":"offset_100","decoded":"","edit_distance":38,"exact":false,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":28.229792,"rate":48000,"samples":414521}
+{"case":"AWGN_broadband_dB_12","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":28.292345,"rate":48000,"samples":414521}
+{"case":"AWGN_broadband_dB_6","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":29.950207,"rate":48000,"samples":414521}
+{"case":"AWGN_broadband_dB_0","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":26.161523,"rate":48000,"samples":414521}
+{"case":"AWGN_broadband_dB_-6","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":26.4697,"rate":48000,"samples":414521}
+{"case":"AWGN_broadband_dB_-12","decoded":"","edit_distance":38,"exact":false,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":28.049311,"rate":48000,"samples":414521}
+{"case":"baud_actual_44.5","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":26.427047,"rate":48000,"samples":423371}
+{"case":"baud_actual_45","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":25.674972,"rate":48000,"samples":418667}
+{"case":"baud_actual_46","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":25.47158,"rate":48000,"samples":409565}
+{"case":"baud_actual_46.5","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":28.616521,"rate":48000,"samples":405161}
+{"case":"auto_reverse","decoded":"IEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":7,"exact":false,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":32.474297,"rate":48000,"samples":414521}
+{"case":"single_stop_bit","decoded":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","edit_distance":0,"exact":true,"expected":"CQ CQ TEST IZ6NNH IZ6NNH 599 15 TU CQ ","ms":22.647887,"rate":48000,"samples":389703}
+{"case":"consecutive_tx_after_figures","expected_second":"TEST","first":"599","second":"53'5"}
+{"case":"R6_fast_resume_generation","full_reset_triggered":true}
+{"bytes":85091,"case":"logbook_append","ms":13.267108,"ok":true,"records":1000}
+{"bytes":850091,"case":"logbook_append","ms":136.53398,"ok":true,"records":10000}
+{"case":"AFC_15Hz_offset","changes":11,"chunk":1024,"final_mark":2137,"final_space":2298,"max_shift":170,"min_shift":155,"rate":48000}
+{"case":"AFC_15Hz_offset","changes":59,"chunk":4096,"final_mark":2140,"final_space":2307,"max_shift":177,"min_shift":163,"rate":48000}
+{"case":"AFC_15Hz_offset","changes":3,"chunk":1024,"final_mark":2134,"final_space":2295,"max_shift":170,"min_shift":161,"rate":96000}
+{"case":"AFC_15Hz_offset","changes":34,"chunk":4096,"final_mark":2140,"final_space":2310,"max_shift":173,"min_shift":156,"rate":96000}
+{"audio_seconds":14.9065,"case":"multidecoder_two_stations","enhanced_secondpass":false,"labels":"CQ IZ6NNH | CQ DL1ABC | CQ IZ6NNH | CQ DL1ABC | CQ DL1ABC","max_block_ms":16.021509,"ms":658.839965,"rate":48000}
+{"audio_seconds":14.9065,"case":"multidecoder_two_stations","enhanced_secondpass":true,"labels":"CQ IZ6NNH | CQ DL1ABC | CQ DL1ABC | CQ IZ6NNH | CQ IZ6NNH | CQ DL1ABC","max_block_ms":106.324459,"ms":2591.810105,"rate":48000}
+{"audio_seconds":14.906489583333334,"case":"multidecoder_two_stations","enhanced_secondpass":false,"labels":"CQ DL1ABC | CQ DL1ABC | CQ DL1ABC | IZ6NNH","max_block_ms":14.028407,"ms":912.784522,"rate":96000}
+{"audio_seconds":14.906489583333334,"case":"multidecoder_two_stations","enhanced_secondpass":true,"labels":"CQ IZ6NNH","max_block_ms":110.641758,"ms":3055.011336,"rate":96000}
+{"call":"IZ6NNH","case":"cty_lookup","continent":"EU","country":"Italy","dxcc":"248","prefix":"I","zone":15}
+{"call":"IG9ABC","case":"cty_lookup","continent":"AF","country":"African Italy","dxcc":"248","prefix":"*IG9","zone":33}
+{"call":"IT9ABC","case":"cty_lookup","continent":"EU","country":"Sicily","dxcc":"248","prefix":"*IT9","zone":15}
+{"call":"K1ABC","case":"cty_lookup","continent":"NA","country":"United States","dxcc":"291","prefix":"K","zone":5}
+{"call":"K6ABC","case":"cty_lookup","continent":"NA","country":"United States","dxcc":"291","prefix":"K","zone":5}
+{"call":"IZ6NNH/MM","case":"cty_lookup","continent":"EU","country":"Italy","dxcc":"248","prefix":"I","zone":15}
+{"call":"IZ6NNH/EA8","case":"cty_lookup","continent":"EU","country":"Italy","dxcc":"248","prefix":"I","zone":15}
+{"case":"noise_only_30s","decoded":"","edit_distance":0,"exact":true,"expected":"","ms":80.199341,"rate":48000,"samples":1440000}

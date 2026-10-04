@@ -1,0 +1,181 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+This plugin does not support propagateSizeHints()
+PASS startup uses maximized window without fullscreen
+PASS custom maximize control exists
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+This plugin does not support raise()
+PASS combo popup remains available
+This plugin does not support propagateSizeHints()
+PASS startup uses maximized window without fullscreen
+PASS custom maximize control exists
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+This plugin does not support raise()
+PASS combo popup remains available
+This plugin does not support propagateSizeHints()
+PASS startup uses maximized window without fullscreen
+PASS custom maximize control exists
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+This plugin does not support raise()
+PASS combo popup remains available
+PASS isolated preset settings available
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+GEOMETRY navball bottom=311 az top=319 panel height=1121 minimum=1011
+AXIS localY=0 h=31 parentY=319 parentH=47 navY=72 navH=240 navMin=240
+PASS axis editor does not overlap navball
+PASS sliders set azimuth and elevation
+PASS numeric fields synchronize sliders including overlap
+PASS named positions persist
+PASS preset recalls both axes
+PASS editing and recalling never move the rotator
+PASS presets are isolated per rotator profile
+PASS out-of-range saved position is refused without clamping
+PASS azimuth-only rotators disable elevation

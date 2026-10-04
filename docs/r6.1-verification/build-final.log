@@ -1,0 +1,4 @@
+[0/2] Re-checking globbed directories...
+[1/3] Copying localized MM HTML help files
+[2/3] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[3/3] Linking CXX executable MadModem

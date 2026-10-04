@@ -1,0 +1,8 @@
+[0/2] Re-checking globbed directories...
+[1/7] Copying localized MM HTML help files
+[2/7] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/tests/RttyContestRegression.cpp.o
+[3/7] Building CXX object CMakeFiles/MadModem.dir/dsp/text/GoertzelToneBank.cpp.o
+[4/7] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookDialog.cpp.o
+[5/7] Linking CXX executable madmodem_rtty_contest_regression
+[6/7] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[7/7] Linking CXX executable MadModem

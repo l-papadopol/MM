@@ -1,0 +1,49 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS waterfall markers cross RX worker/GUI boundary
+PASS RTTY completes while GUI event loop is blocked
+PASS normal RX preserves every audio block
+PASS RX overload queue remains bounded
+PASS RX overload detected in worker
+PASS RTTY decodes after overload and restart
+PASS RTTY manual reverse decodes without GUI callbacks
+PASS RTTY AFC restores oscillator after a nominal retune without waiting for drift
+PASS disabling RTTY AFC restores the operator tone pair
+PASS image updates coalesce while GUI is blocked
+PASS GUI consumes latest image and receives subsequent updates
+PASS slow CAT times out without blocking GUI
+PASS timeout revokes TX while retaining CAT gate
+PASS late PTT completion compensated exactly once
+PASS cancel races with successful CAT acknowledgement safely
+PASS successful CAT acknowledged before TX authorization
+PASS PTT OFF entered before next FT plan
+PASS next FT plan cannot cancel mandatory PTT OFF
+PASS next period may transmit after recovery
+PASS PTT OFF entered before next FT plan
+PASS next FT plan cannot cancel mandatory PTT OFF
+PASS next period may transmit after recovery
+PASS PTT OFF entered before next FT plan
+PASS next FT plan cannot cancel mandatory PTT OFF
+PASS next period may transmit after recovery
+PASS PTT OFF entered before next FT plan
+PASS next FT plan cannot cancel mandatory PTT OFF
+PASS next period may transmit after recovery
+PASS successful PTT OFF fallback counts as confirmed recovery
+PASS slow PTT OFF retains safety gate after timeout
+PASS late confirmed PTT OFF restores safety without a second completion
+PASS failed CAT recovery blocks further TX
+PASS faulted CAT cannot authorize a new command
+PASS emergency PTT OFF can recover a faulted gate
+PASS late arm gives CAT time instead of immediate audio/cancel
+PASS no audio request before its revised opening time
+PASS one audio event per late FT plan
+PASS STOP cancels future slot events
+PASS old slot cannot start replacement early
+PASS replacement retains its exact token
+PASS late arm gives CAT time instead of immediate audio/cancel
+PASS no audio request before its revised opening time
+PASS one audio event per late FT plan
+PASS STOP cancels future slot events
+PASS old slot cannot start replacement early
+PASS replacement retains its exact token
+PASS STOP revokes queued audio before backend opens
+PASS expired audio request never opens backend

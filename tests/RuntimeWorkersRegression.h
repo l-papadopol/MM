@@ -139,6 +139,36 @@ inline int runRuntimeWorkersRegression(QApplication &app)
     callbacks=0;
     gate.request(target,[&](){keyed=true;return true;},[&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;});
     check(pump([&](){return callbacks==1;}) && accepted && keyed,"successful CAT acknowledged before TX authorization");
+    // Natural FT completion queues PTT OFF, then arming RETRY calls cancel().
+    // Repeat for FT8/FT4-like plans: cleanup must succeed and permit the next ON.
+    for (int cycle=0;cycle<4;++cycle) {
+        callbacks=0; completed=false; releaseBackend=false;
+        gate.request(target,[&](){completed=true;while(!releaseBackend)QThread::msleep(1);keyed=false;return true;},
+            [&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;},3000,true);
+        check(pump([&](){return completed.load();}),"PTT OFF entered before next FT plan");
+        gate.cancel(); releaseBackend=true;
+        check(pump([&](){return !gate.busy();}) && accepted && !keyed && callbacks==1 && !gate.faulted(),
+              "next FT plan cannot cancel mandatory PTT OFF");
+        callbacks=0;
+        gate.request(target,[&](){keyed=true;return true;},[&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;});
+        check(pump([&](){return callbacks==1;}) && accepted && keyed,"next period may transmit after recovery");
+    }
+    callbacks=0;
+    gate.request(target,[](){return false;},[&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;},3000,true);
+    check(pump([&](){return callbacks==1;}) && accepted && !keyed && !gate.faulted(),
+          "successful PTT OFF fallback counts as confirmed recovery");
+    callbacks=0; releaseBackend=false;
+    bool safetyRecovered=false;
+    const auto recoveryConnection=QObject::connect(&gate,&AsyncCatCommand::compensatedCommand,&app,
+        [&](bool recovered){safetyRecovered=recovered;});
+    gate.request(target,[&](){while(!releaseBackend)QThread::msleep(1);keyed=false;return true;},
+        [&](){keyed=false;return true;},[&](bool ok){++callbacks;accepted=ok;},20,true);
+    check(pump([&](){return callbacks==1;}) && !accepted && gate.busy(),"slow PTT OFF retains safety gate after timeout");
+    releaseBackend=true;
+    check(pump([&](){return !gate.busy();}) && safetyRecovered && !keyed && callbacks==1 && !gate.faulted(),
+          "late confirmed PTT OFF restores safety without a second completion");
+    QObject::disconnect(recoveryConnection);
+
     callbacks=0;
     gate.request(target,[](){return false;},[](){return false;},[&](bool ok){++callbacks;accepted=ok;});
     check(pump([&](){return callbacks==1;}) && !accepted && gate.faulted(),"failed CAT recovery blocks further TX");

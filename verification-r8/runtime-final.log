@@ -1,0 +1,16 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS RTTY completes while GUI event loop is blocked
+PASS normal RX preserves every audio block
+PASS RX overload queue remains bounded
+PASS RX overload detected in worker
+PASS RTTY decodes after overload and restart
+PASS RTTY automatic polarity does not depend on GUI callbacks
+PASS image updates coalesce while GUI is blocked
+PASS GUI consumes latest image and receives subsequent updates
+PASS slow CAT times out without blocking GUI
+PASS timeout revokes TX while retaining CAT gate
+PASS late PTT completion compensated exactly once
+PASS cancel races with successful CAT acknowledgement safely
+PASS successful CAT acknowledged before TX authorization
+PASS failed CAT recovery blocks further TX
+PASS faulted CAT cannot authorize a new command
