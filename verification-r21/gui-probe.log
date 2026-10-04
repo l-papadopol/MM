@@ -1,0 +1,101 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+PASS STOP blocks legacy scheduled retry at the common entry
+Audio diagnostic: requested backend="nonexistent-regression-device", requested format=48000 Hz, mono, signed 16-bit PCM.
+PASS recent policy expires while static worked status stays cached
+PASS obsolete index reply cannot clear a new pending query
+Audio diagnostic: requested input backend was not found; automatic device fallback is disabled.
+PASS old autolog saves completed QSO without marking new session logged
+PASS completed current session cannot discard an earlier pending QSO
+PASS Tune after STOP waits for busy CAT with fresh preparation state
+QNativeSocketEngine::writeDatagram() was called not in QAbstractSocket::BoundState or QAbstractSocket::ConnectedState
+QNativeSocketEngine::writeDatagram() was called not in QAbstractSocket::BoundState or QAbstractSocket::ConnectedState
+PASS STOP invalidates Tune retry while CAT was busy
+PASS contest autofill cannot mix exchange from another correspondent
+PASS contest autofill still accepts the selected correspondent
+PASS capture worker paused for transport race test
+PASS GUI records pending capture start without waiting for worker
+PASS RX transport Stop cancels an input that is still opening
+PASS capture stop acknowledgement settles GUI without a stale start
+PASS obsolete capture acknowledgement is ignored by GUI
+PASS capture worker paused before RTTY TX transition
+PASS RTTY TX waits asynchronously for confirmed capture stop
+PASS Stop invalidates RTTY continuation before capture stop acknowledgement
+PASS early RX stop acknowledgement cannot change mode while FT TX worker is active
+PASS mode change completes after both audio directions have stopped
+PASS mode change cancels preparation through common TX stop and completes
+[shutdown] begin (destructor)
+[shutdown] disconnecting queued UI callbacks
+[shutdown] detaching CatRotator backend for process exit
+[shutdown] stopping RX audio
+[shutdown] stopping TX audio
+[shutdown] requesting thread stop: Live RX decoders
+[shutdown] requesting thread stop: RX audio recorder
+[shutdown] requesting thread stop: FT TX
+[shutdown] requesting thread stop: FT slot scheduler
+[shutdown] requesting thread stop: FT RX decoder
+[shutdown] requesting thread stop: Q65 RX decoder
+[shutdown] requesting thread stop: Text assistance
+[shutdown] requesting thread stop: Logbook index
+[shutdown] requesting thread stop: DSP
+[shutdown] done in 12 ms
+[shutdown] deleting UI
+[shutdown] MainWindow destructor done

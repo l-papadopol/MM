@@ -171,7 +171,9 @@ void RttyDecoder::resumeAfterLocalTransmit()
 
 void RttyDecoder::setBaudRate(double baud)
 {
-    m_baudRate = qBound(10.0, baud, 300.0);
+    const double boundedBaud = qBound(10.0, baud, 300.0);
+    if (qAbs(m_baudRate - boundedBaud) < 1.0e-9) return;
+    m_baudRate = boundedBaud;
     if (m_sampleRate > 0) {
         updateOscillators(m_sampleRate);
     }

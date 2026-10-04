@@ -2,6 +2,7 @@
 #include "Ft8Mode.h"
 #include "../../dsp/cpu/CpuFeatures.h"
 #include "../../utils/SystemResourceManager.h"
+#include "../../runtime/FtDecodeWorkerPool.h"
 #include "../../audio/WavFileReader.h"
 #include "../weak_signal/WeakSignalCodecLock.h"
 
@@ -245,141 +246,7 @@ struct Gf2Matrix83x174
 };
 
 
-/*
- * Process-wide adaptive FT worker pool.
- *
- * The pool is persistent, sized from the processors actually available to the
- * process, and receives per-job concurrency budgets from SystemResourceManager.
- * It is deliberately separate from Qt's global pool so audio, GUI, waterfall
- * and CAT work cannot be consumed by a boundary decode burst.
- */
-class FtDecodeWorkerPool
-{
-public:
-    static FtDecodeWorkerPool &instance()
-    {
-        static FtDecodeWorkerPool pool;
-        return pool;
-    }
 
-    int recommendedWorkerCount(MadModemRuntime::WorkClass workClass, int itemCount) const
-    {
-        return MadModemRuntime::SystemResourceManager::instance().recommendedWorkers(workClass, itemCount);
-    }
-
-    void parallelFor(int itemCount, int requestedTasks, const std::function<void(int, int)> &fn)
-    {
-        if (itemCount <= 0) {
-            return;
-        }
-        const int taskCount = qBound(1, requestedTasks, itemCount);
-        if (taskCount <= 1 || m_workers.empty() || t_insideFtPool) {
-            fn(0, itemCount);
-            return;
-        }
-
-        struct Batch
-        {
-            std::mutex mutex;
-            std::condition_variable done;
-            int remaining = 0;
-            std::exception_ptr exception;
-        };
-
-        auto batch = std::make_shared<Batch>();
-        batch->remaining = taskCount;
-
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            const int chunk = (itemCount + taskCount - 1) / taskCount;
-            for (int task = 0; task < taskCount; ++task) {
-                const int begin = task * chunk;
-                const int end = qMin(itemCount, begin + chunk);
-                if (begin >= end) {
-                    std::lock_guard<std::mutex> batchLock(batch->mutex);
-                    --batch->remaining;
-                    continue;
-                }
-                m_tasks.emplace_back([batch, fn, begin, end]() {
-                    try {
-                        fn(begin, end);
-                    } catch (...) {
-                        std::lock_guard<std::mutex> lock(batch->mutex);
-                        if (!batch->exception) {
-                            batch->exception = std::current_exception();
-                        }
-                    }
-                    {
-                        std::lock_guard<std::mutex> lock(batch->mutex);
-                        --batch->remaining;
-                    }
-                    batch->done.notify_one();
-                });
-            }
-        }
-        m_cv.notify_all();
-
-        std::unique_lock<std::mutex> waitLock(batch->mutex);
-        batch->done.wait(waitLock, [&batch]() { return batch->remaining <= 0; });
-        if (batch->exception) {
-            std::rethrow_exception(batch->exception);
-        }
-    }
-
-private:
-    FtDecodeWorkerPool()
-    {
-        const int count = qMax(1, MadModemRuntime::SystemResourceManager::instance().poolCapacity());
-        m_workers.reserve(static_cast<size_t>(count));
-        for (int i = 0; i < count; ++i) {
-            m_workers.emplace_back([this, i]() { workerLoop(i); });
-        }
-    }
-
-    ~FtDecodeWorkerPool()
-    {
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            m_stopping = true;
-        }
-        m_cv.notify_all();
-        for (std::thread &worker : m_workers) {
-            if (worker.joinable()) {
-                worker.join();
-            }
-        }
-    }
-
-    void workerLoop(int workerIndex)
-    {
-        MadModemRuntime::SystemResourceManager::instance().configureCurrentWorkerThread(workerIndex);
-        t_insideFtPool = true;
-        for (;;) {
-            std::function<void()> task;
-            {
-                std::unique_lock<std::mutex> lock(m_mutex);
-                m_cv.wait(lock, [this]() { return m_stopping || !m_tasks.empty(); });
-                if (m_stopping && m_tasks.empty()) {
-                    break;
-                }
-                task = std::move(m_tasks.front());
-                m_tasks.pop_front();
-            }
-            task();
-        }
-        t_insideFtPool = false;
-    }
-
-    static thread_local bool t_insideFtPool;
-
-    mutable std::mutex m_mutex;
-    std::condition_variable m_cv;
-    std::deque<std::function<void()>> m_tasks;
-    std::vector<std::thread> m_workers;
-    bool m_stopping = false;
-};
-
-thread_local bool FtDecodeWorkerPool::t_insideFtPool = false;
 
 #if defined(MADMODEM_FT8_HAVE_AVX2_TARGET)
 __attribute__((target("avx2,fma")))
@@ -1351,7 +1218,7 @@ void Ft8RxDecoder::setMyCall(const QString &call)
 {
     std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_myCall = call.trimmed().toUpper();
-    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+    std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_myCall, 0);
 }
@@ -1360,7 +1227,7 @@ void Ft8RxDecoder::setDxCall(const QString &call)
 {
     std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     m_dxCall = call.trimmed().toUpper();
-    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+    std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_dxCall, 1);
 }
@@ -4867,7 +4734,7 @@ void Ft8RxDecoder::subtractDecodedSignal(QVector<double> &samples, const Candida
     int reconstructedTones[100];
     std::fill(reconstructedTones, reconstructedTones + 100, 0);
     {
-        std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+        std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
         GenFt8 toneGenerator(false);
         toneGenerator.pack77_make_c77_i4tone(decode.message.trimmed().toUpper(), reconstructedTones);
     }
@@ -6371,7 +6238,7 @@ std::array<double, 4> Ft8RxDecoder::ft4SymbolToneEnergies4(const QVector<double>
 
 QString Ft8RxDecoder::unpackFt4Message77(const std::array<int, 174> &bits)
 {
-    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+    std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     bool c77[100];
     for (bool &b : c77) {
@@ -7026,7 +6893,7 @@ bool Ft8RxDecoder::crc14Ok(const std::array<int, 174> &bits) const
 
 QString Ft8RxDecoder::unpackMessage77(const std::array<int, 174> &bits)
 {
-    std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+    std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     bool c77[100];
     for (bool &b : c77) {

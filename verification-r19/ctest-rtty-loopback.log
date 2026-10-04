@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /workspace/scratch/568f9cc8dc74/verification-r19/build
+Test project /workspace/scratch/568f9cc8dc74/verification-r19/build
+    Start 21: madmodem_rtty_contest_regression
+1/1 Test #21: madmodem_rtty_contest_regression ...   Passed    6.57 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   6.57 sec

@@ -99,6 +99,8 @@ int main(int argc, char **argv)
     const QVariantMap ftStatus = ftResults.value(0).toMap();
     check(ftStatus.value(QStringLiteral("worked")).toBool(), "FT worked-call index");
     check(ftStatus.value(QStringLiteral("recentWorked")).toBool(), "FT recent-call index");
+    check(ftStatus.value(QStringLiteral("latestCallUtc")).toDateTime() == first.utc,
+          "FT cache receives timestamp for time-dependent policy refresh");
     check(ftStatus.value(QStringLiteral("recentBandMode")).toBool(), "FT recent call-band-mode index");
     check(ftStatus.value(QStringLiteral("countryWorkedAny")).toBool(), "FT DXCC any-band index");
     check(ftStatus.value(QStringLiteral("countryWorkedBand")).toBool(), "FT DXCC band index");

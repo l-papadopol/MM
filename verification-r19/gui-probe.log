@@ -1,0 +1,114 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+QObject::connect: Cannot queue arguments of type 'QVector<FrequencyMarker>'
+(Make sure 'QVector<FrequencyMarker>' is registered using qRegisterMetaType().)
+QObject::connect: Cannot queue arguments of type 'QVector<QPointF>'
+(Make sure 'QVector<QPointF>' is registered using qRegisterMetaType().)
+QObject::connect: Cannot queue arguments of type 'QVector<FrequencyMarker>'
+(Make sure 'QVector<FrequencyMarker>' is registered using qRegisterMetaType().)
+QObject::connect: Cannot queue arguments of type 'QVector<FrequencyMarker>'
+(Make sure 'QVector<FrequencyMarker>' is registered using qRegisterMetaType().)
+QObject::connect: Cannot queue arguments of type 'QVector<FrequencyMarker>'
+(Make sure 'QVector<FrequencyMarker>' is registered using qRegisterMetaType().)
+QObject::connect: Cannot queue arguments of type 'QVector<FrequencyMarker>'
+(Make sure 'QVector<FrequencyMarker>' is registered using qRegisterMetaType().)
+PASS old scheduler idle notification cannot revoke new plan
+PASS audio due waits for CAT acknowledgement instead of cancelling slot
+PASS CAT wait does not invent TX row
+PASS failed physical slot is consumed once
+Audio diagnostic: requested backend="default", requested format=48000 Hz, mono, signed 16-bit PCM.
+Audio diagnostic: selected backend="" (default requested); available inputs=0.
+Audio diagnostic: requested mono S16LE format unsupported; Qt5 nearest-format fallback requested.
+Audio diagnostic: rejected negotiated format=-1 Hz, -1 channel(s), -1-bit Unknown LittleEndian, codec=.
+PASS STOP suppresses queued retry and pending preparation
+PASS retry selection cannot reuse failed slot
+PASS old scheduler idle notification cannot revoke new plan
+PASS audio due waits for CAT acknowledgement instead of cancelling slot
+PASS CAT wait does not invent TX row
+PASS failed physical slot is consumed once
+Audio diagnostic: requested backend="default", requested format=48000 Hz, mono, signed 16-bit PCM.
+Audio diagnostic: selected backend="" (default requested); available inputs=0.
+Audio diagnostic: requested mono S16LE format unsupported; Qt5 nearest-format fallback requested.
+Audio diagnostic: rejected negotiated format=-1 Hz, -1 channel(s), -1-bit Unknown LittleEndian, codec=.
+PASS STOP suppresses queued retry and pending preparation
+PASS retry selection cannot reuse failed slot
+This plugin does not support propagateSizeHints()
+This plugin does not support raise()
+PASS runtime log is a normal non-modal window
+PASS runtime log stays visible after deactivation
+[shutdown] begin (destructor)
+[shutdown] disconnecting queued UI callbacks
+[shutdown] detaching CatRotator backend for process exit
+[shutdown] stopping RX audio
+[shutdown] stopping TX audio
+[shutdown] requesting thread stop: Live RX decoders
+[shutdown] requesting thread stop: RX audio recorder
+[shutdown] requesting thread stop: RX audio capture
+[shutdown] requesting thread stop: FT TX
+[shutdown] requesting thread stop: FT slot scheduler
+[shutdown] requesting thread stop: FT RX decoder
+[shutdown] requesting thread stop: Q65 RX decoder
+[shutdown] requesting thread stop: Text assistance
+[shutdown] requesting thread stop: Logbook index
+[shutdown] requesting thread stop: DSP
+[shutdown] done in 13 ms
+[shutdown] deleting UI
+[shutdown] MainWindow destructor done

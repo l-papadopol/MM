@@ -12,6 +12,8 @@
 #include <array>
 #include <cmath>
 #include <mutex>
+#include <thread>
+#include <chrono>
 
 namespace {
 constexpr int kProtocolRate = 12000;
@@ -53,12 +55,14 @@ Q65Transmitter::Q65Transmitter(const QString &message,
                                int sampleRate,
                                int periodSeconds,
                                Q65Mode::Submode submode,
-                               double txFrequencyHz)
+                               double txFrequencyHz,
+                               std::function<bool()> cancelled)
     : m_message(cleanMessage(message)),
       m_sampleRate(qBound(8000, sampleRate, 96000)),
       m_periodSeconds((periodSeconds == 15 || periodSeconds == 30 || periodSeconds == 60 || periodSeconds == 120) ? periodSeconds : 60),
       m_submode(submode),
-      m_txFrequencyHz(qBound(300.0, txFrequencyHz, 2700.0))
+      m_txFrequencyHz(qBound(300.0, txFrequencyHz, 2700.0)),
+      m_cancelled(std::move(cancelled))
 {
     buildWaveform();
 }
@@ -113,7 +117,8 @@ void Q65Transmitter::buildWaveform()
 
     std::array<int, kSymbols> tones{};
     {
-        std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
+        WeakSignalCodecLock::TxGuard guard(m_cancelled);
+        if (!guard) { m_error = QStringLiteral("Cancelled"); return; }
         GenQ65 generator(false);
         generator.resetGeneratorHashState();
         generator.genq65itone(m_message, tones.data(), true);
@@ -148,6 +153,7 @@ void Q65Transmitter::buildWaveform()
     const int rampSamples = qMax(1, m_sampleRate / 200); // 5 ms cosine edge.
     double phase = 0.0;
     for (int i = 0; i < transmittedSamples; ++i) {
+        if ((i & 4095) == 0 && m_cancelled && m_cancelled()) { m_samples.clear(); m_error = QStringLiteral("Cancelled"); return; }
         const int symbol = qBound(0, static_cast<int>(i / samplesPerSymbol), kSymbols - 1);
         const double frequency = m_txFrequencyHz + spacing * baud * tones[static_cast<std::size_t>(symbol)];
         phase += kTwoPi * frequency / static_cast<double>(m_sampleRate);

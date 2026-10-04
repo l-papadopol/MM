@@ -14,8 +14,8 @@
  * @brief Background owner of fast logbook membership/contest-dupe indexes.
  *
  * The GUI and modem threads never scan the ADIF record vector for live text
- * assistance. Exceptional rebuilds receive only an ADIF file path and parse it
- * inside this worker thread; the GUI never copies the full record vector. Normal
+ * assistance. Rebuilds receive committed, implicitly shared record snapshots;
+ * subsequent incremental updates cannot race a newer file revision. Normal
  * QSO updates are incremental. All hot-path lookups are O(1) hash operations.
  */
 class LogbookIndexWorker final : public QObject
@@ -36,6 +36,8 @@ public:
 
     explicit LogbookIndexWorker(QObject *parent = nullptr);
 
+    void rebuildFromRecords(const QVector<LogbookEntry> &records, const ContestConfig &contest);
+    void setContestConfigFromRecords(const QVector<LogbookEntry> &records, const ContestConfig &contest);
     void rebuildFromFile(const QString &fileName, const ContestConfig &contest);
     void setContestConfigFromFile(const QString &fileName, const ContestConfig &contest);
     void addEntry(const LogbookEntry &entry);

@@ -35,7 +35,7 @@ require('rebuildFromFile' in idx_h + idx_cpp and 'setContestConfigFromFile' in i
 rebuild_start = main.find('void MainWindow::queueLogbookIndexRebuild()')
 rebuild_end = main.find('void MainWindow::queueLogbookIndexAdd', rebuild_start)
 rebuild_body = main[rebuild_start:rebuild_end] if rebuild_start >= 0 and rebuild_end > rebuild_start else ''
-require('m_logbook.records()' not in rebuild_body and 'rebuildFromFile' in rebuild_body,
+require('const auto records = m_logbook.records()' in rebuild_body and 'rebuildFromRecords(records, config)' in rebuild_body,
         'GUI must not copy the whole logbook when rebuilding indexes')
 require('worker->analyze(' in main and 'analysisReady' in txt_h and 'lookupReady' in idx_h,
         'text parse -> logbook lookup pipeline is incomplete')

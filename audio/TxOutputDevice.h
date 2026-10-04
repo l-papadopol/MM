@@ -5,6 +5,8 @@
 #include <QMetaObject>
 #include <QtMath>
 #include <atomic>
+#include <functional>
+#include <QDateTime>
 
 /**
  * @brief Pull-device used by Qt audio output to read generated PCM samples.
@@ -33,7 +35,24 @@ public:
      */
     bool exhausted() const { return m_exhausted.load(std::memory_order_acquire); }
 
-    bool atEnd() const override { return exhausted(); }
+    bool atEnd() const override { return exhausted() && QIODevice::bytesAvailable() == 0; }
+
+    qint64 bytesAvailable() const override
+    {
+        // Generated audio has no input buffer. Pull backends (notably Windows)
+        // still query availability before calling read(); returning the base
+        // class zero alone leaves a valid stream permanently silent.
+        return QIODevice::bytesAvailable() +
+            (isOpen() && !exhausted() ? qMax(1, m_sampleRate / 10) * qint64(2) : 0);
+    }
+
+    void setStartGuard(qint64 latestStartUtcMs, std::function<bool()> authorized) {
+        m_latestStartUtcMs = latestStartUtcMs;
+        m_authorized = std::move(authorized);
+    }
+    bool aborted() const { return m_aborted.load(std::memory_order_acquire); }
+
+    qint64 samplesProduced() const { return m_produced.load(std::memory_order_acquire); }
 
     bool isSequential() const override
     {
@@ -46,11 +65,14 @@ public:
     bool start()
     {
         m_totalSamples = 0;
+        m_produced.store(0,std::memory_order_release);
         m_finishQueued = false;
+        m_firstRead = true;
+        m_aborted.store(false, std::memory_order_release);
         m_tailSamplesRemaining = -1;
         m_samplesSinceRttyStateEmit = 0;
         m_exhausted.store(false, std::memory_order_release);
-        return open(QIODevice::ReadOnly);
+        return open(QIODevice::ReadOnly | QIODevice::Unbuffered);
     }
 
     void setVolumePercent(int percent)
@@ -81,6 +103,21 @@ protected:
             return 0;
         }
 
+        // The device may open slowly or pull in another thread. Enforce STOP
+        // and the first-PCM deadline here, not just before opening the backend.
+        if ((m_authorized && !m_authorized()) ||
+            (m_firstRead && m_latestStartUtcMs > 0 &&
+             QDateTime::currentMSecsSinceEpoch() > m_latestStartUtcMs)) {
+            m_aborted.store(true, std::memory_order_release);
+            m_exhausted.store(true, std::memory_order_release);
+            return 0;
+        }
+        if (m_firstRead && !m_modulator->prepareForPlayback(QDateTime::currentMSecsSinceEpoch())) {
+            m_aborted.store(true, std::memory_order_release);
+            m_exhausted.store(true, std::memory_order_release);
+            return 0;
+        }
+        m_firstRead = false;
         QVector<float> samples(requestedSamples, 0.0f);
         int generatedSamples = 0;
 
@@ -136,6 +173,7 @@ protected:
             QMetaObject::invokeMethod(this, "finished", Qt::QueuedConnection);
         }
 
+        m_produced.fetch_add(returnedSamples,std::memory_order_release);
         return static_cast<qint64>(returnedSamples) * 2;
     }
 
@@ -156,6 +194,11 @@ private:
     int m_samplesSinceRttyStateEmit = 0;
     bool m_finishQueued = false;
     int m_tailSamplesRemaining = -1;
+    bool m_firstRead = true;
+    qint64 m_latestStartUtcMs = 0;
+    std::function<bool()> m_authorized;
+    std::atomic<bool> m_aborted{false};
+    std::atomic<qint64> m_produced{0};
     std::atomic<int> m_volumePercent{100};
     std::atomic<bool> m_exhausted{false};
 };

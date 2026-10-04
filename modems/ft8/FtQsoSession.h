@@ -46,9 +46,7 @@ public:
     int retryRemaining = 0;
 
     int activeTxRow = -1;
-    QString lastTxMessage;
-    QString lastTxTag;
-    bool lastTxWasTune = false;
+    FtTxPlan lastTxPlan; // Updated only after the audio backend acknowledges progress.
 
     bool haveLastSnr = false;
     int lastSnrDb = 0;

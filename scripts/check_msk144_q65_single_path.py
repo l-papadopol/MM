@@ -22,6 +22,8 @@ q65_generator = read("third_party/mshv_gpl/port/HvGenQ65/gen_q65.cpp")
 msk = read("modems/msk144/Msk144Decoder.cpp")
 msk_tx = read("modems/msk144/tx/Msk144Transmitter.cpp")
 weak_lock = read("modems/weak_signal/WeakSignalCodecLock.cpp")
+weak_header = read("modems/weak_signal/WeakSignalCodecLock.h")
+assert "m_owned(mutex().lockTx(cancelled))" in weak_header and "mutex().unlock()" in weak_header
 ft_rx = read("modems/ft8/Ft8RxDecoder.cpp")
 ft_tx = read("modems/ft8/tx/Ft8Transmitter.cpp")
 q65_test = read("tests/Q65NativeRegression.cpp")
@@ -61,8 +63,8 @@ checks = {
     ),
     "Q65 RX and TX serialize the one codec workspace": (
         "WeakSignalCodecLock::mutex()" in q65_engine
-        and "WeakSignalCodecLock::mutex()" in q65_tx
-        and "static std::mutex codecMutex" in weak_lock
+        and "WeakSignalCodecLock::TxGuard" in q65_tx
+        and "static Mutex codecMutex" in weak_lock
         and q65_codec.count("static bool codec_initialized") == 1
         and "static int first=1" not in q65_codec[q65_codec.find("static q65_codec_ds codec"):]
     ),
@@ -94,10 +96,11 @@ checks = {
         "decodeMsk40Frame" in msk
         and "bpdecode40" in msk
         and "hash_msk40" in msk
-        and "shortMessages, txHz" in main
+        and "shortMessage, currentQ65Submode(), hz" in main
+        and "std::make_unique<Msk144Transmitter>(message, sampleRate, period, shortMessage, hz" in read("runtime/WeakSignalTxPreparer.h")
         and "buildFallbackMskLikeWaveform" not in msk_tx
         and "WeakSignalCodecLock::mutex()" in msk
-        and "WeakSignalCodecLock::mutex()" in msk_tx
+        and "WeakSignalCodecLock::TxGuard" in msk_tx
         and "estimateSyncPhase" in msk
         and "frameSyncMetricAt" in msk
         and "gen.save_hash_call_my_his_r1_r2(m_myCall, 0)" in msk
@@ -121,7 +124,7 @@ checks = {
     ),
     "FT4 FT8 MSK144 and Q65 serialize the shared message codec": (
         "WeakSignalCodecLock::mutex()" in ft_rx
-        and "WeakSignalCodecLock::mutex()" in ft_tx
+        and "WeakSignalCodecLock::TxGuard" in ft_tx
         and "WeakSignalCodecLock::mutex()" in msk
         and "WeakSignalCodecLock::mutex()" in q65_engine
     ),
@@ -135,7 +138,9 @@ checks = {
         "scheduleNativeWeakSignalPeriodTx" in main
         and "handleNativeWeakSignalPeriodTxDue" in main
         and "m_nativeWeakSignalTxBoundaryStart" in main
-        and "m_nativeWeakSignalPreparedModulator = buildCurrentTxModulator()" in main
+        and "m_txWaveformPreparer->prepareNative(" in main
+        and "new Q65Transmitter(" not in main
+        and "new Msk144Transmitter(" not in main
         and "std::move(m_nativeWeakSignalPreparedModulator)" in main
         and "m_chkMsk144TxFirst" in main
         and "m_chkQ65TxFirst" in main

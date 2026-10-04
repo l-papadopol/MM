@@ -12,6 +12,8 @@
 #include <cmath>
 #include <memory>
 #include <mutex>
+#include <thread>
+#include <chrono>
 
 namespace {
 constexpr int kInternalRate = 12000;
@@ -42,12 +44,14 @@ Msk144Transmitter::Msk144Transmitter(const QString &message,
                                      int sampleRate,
                                      int periodSeconds,
                                      bool shortMessage,
-                                     double txFrequencyHz)
+                                     double txFrequencyHz,
+                               std::function<bool()> cancelled)
     : m_message(cleanMessage(message)),
       m_sampleRate(qBound(8000, sampleRate, 96000)),
       m_periodSeconds(periodSeconds == 30 ? 30 : 15),
       m_shortMessage(shortMessage),
-      m_txFrequencyHz(qBound(600.0, txFrequencyHz, 2700.0))
+      m_txFrequencyHz(qBound(600.0, txFrequencyHz, 2700.0)),
+      m_cancelled(std::move(cancelled))
 {
     buildWaveform();
 }
@@ -111,7 +115,8 @@ void Msk144Transmitter::buildWaveform()
     QByteArray msgBytes = m_message.leftJustified(50, ' ', true).toLatin1();
     int frameSamples = 0;
     {
-        std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
+        WeakSignalCodecLock::TxGuard guard(m_cancelled);
+        if (!guard) { m_error = QStringLiteral("Cancelled"); return; }
         GenMsk generator(false);
         frameSamples = generator.genmsk(msgBytes.data(),
                                         1.0,
@@ -172,6 +177,7 @@ void Msk144Transmitter::buildWaveform()
     const int rampSamples = qMax(1, m_sampleRate / 200); // 5 ms cosine edge.
     double phase = 0.0;
     for (int i = 0; i < totalSamples; ++i) {
+        if ((i & 4095) == 0 && m_cancelled && m_cancelled()) { m_samples.clear(); m_error = QStringLiteral("Cancelled"); return; }
         const double framePosition = std::fmod(
             static_cast<double>(i) * protocolSamplesPerOutputSample,
             static_cast<double>(frameSamples));

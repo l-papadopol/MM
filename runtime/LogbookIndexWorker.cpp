@@ -202,7 +202,11 @@ void LogbookIndexWorker::rebuildFromFile(const QString &fileName,
         return;
     }
 
-    const QVector<LogbookEntry> records = logbook.records();
+    rebuildFromRecords(logbook.records(), contest);
+}
+
+void LogbookIndexWorker::rebuildFromRecords(const QVector<LogbookEntry> &records, const ContestConfig &contest)
+{
     m_contest = contest;
     m_byCall.clear();
     m_contestDupes.clear();
@@ -240,7 +244,11 @@ void LogbookIndexWorker::setContestConfigFromFile(const QString &fileName,
         return;
     }
 
-    const QVector<LogbookEntry> records = logbook.records();
+    setContestConfigFromRecords(logbook.records(), contest);
+}
+
+void LogbookIndexWorker::setContestConfigFromRecords(const QVector<LogbookEntry> &records, const ContestConfig &contest)
+{
     m_contest = contest;
     m_contestDupes.clear();
     if (m_contest.active) {
@@ -322,6 +330,8 @@ void LogbookIndexWorker::lookupFt(quint64 requestId,
             recentWorked = latest.isValid() && qAbs(latest.secsTo(referenceUtc)) <= static_cast<qint64>(recentHours) * 3600;
         }
         result.insert(QStringLiteral("recentWorked"), recentWorked);
+        result.insert(QStringLiteral("latestCallUtc"), m_latestByCall.value(call));
+        result.insert(QStringLiteral("latestBandModeUtc"), m_latestByCallBandMode.value(compoundKey(call, band, mode)));
 
         bool recentBandMode = false;
         if (!call.isEmpty() && recentBandModeMinutes > 0) {

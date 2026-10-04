@@ -91,7 +91,7 @@ require("statusTabLayout->insertWidget" not in clock_setup,
 require("m_lblFt8PeriodStatus" not in main + main_h and "utcCaption" not in clock_setup,
         "redundant I/II range and UTC caption labels removed from the FT clock")
 
-require("m_pendingFt8TxTag.trimmed().toUpper() == txTag" not in main,
+require("m_pendingFt8TxPlan.tag.trimmed().toUpper() == txTag" not in main,
         "TX/SEQ/RETRY tag is metadata, not pending-plan identity")
 
 print("FT linear sequencer source audit: PASS")

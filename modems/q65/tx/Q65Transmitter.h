@@ -6,6 +6,7 @@
 
 #include <QImage>
 #include <QString>
+#include <functional>
 #include <QVector>
 
 class Q65Transmitter final : public TxModulator
@@ -15,7 +16,8 @@ public:
                    int sampleRate,
                    int periodSeconds,
                    Q65Mode::Submode submode,
-                   double txFrequencyHz = 1500.0);
+                   double txFrequencyHz = 1500.0,
+                   std::function<bool()> cancelled = {});
 
     int sampleRate() const override;
     int generate(float *output, int sampleCount) override;
@@ -45,6 +47,7 @@ private:
     QVector<float> m_samples;
     int m_position = 0;
     bool m_ok = false;
+    std::function<bool()> m_cancelled;
 };
 
 #endif // Q65TRANSMITTER_H

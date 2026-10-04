@@ -46,11 +46,11 @@ for ok, message in checks:
     if not ok:
         errors.append(message)
 
-# There are intentionally exactly two direct runtime append sites: manual/text
-# modes and FT auto-log.  Each must notify only after append succeeds.
+# Manual/text and FT use the single writer; notifications belong inside its
+# committed completion callback, behind a positive inserted-record count.
 append_positions = []
 start = 0
-needle = "if (!m_logbook.append(entry, &error))"
+needle = "m_logbookStore->append(entry,"
 while True:
     pos = main.find(needle, start)
     if pos < 0:
@@ -58,13 +58,18 @@ while True:
     append_positions.append(pos)
     start = pos + len(needle)
 if len(append_positions) != 2:
-    errors.append(f"expected exactly two direct QSO append paths, found {len(append_positions)}")
+    errors.append(f"expected exactly two asynchronous QSO append paths, found {len(append_positions)}")
 else:
     for index, pos in enumerate(append_positions, 1):
         call = main.find("broadcastLoggedQsoUdp(entry);", pos)
         next_append = append_positions[index] if index < len(append_positions) else len(main)
-        if call < 0 or call >= next_append:
+        success = main.find("if (count > 0)", pos)
+        failure = main.find("if (count < 0)", pos)
+        if call < 0 or call >= next_append or not (pos < failure < success < call):
             errors.append(f"QSO append path {index} does not broadcast after successful append")
+
+if "m_logbook.append(" in main:
+    errors.append("GUI must not write the logbook directly")
 
 helper_pos = main.find("void MainWindow::broadcastLoggedQsoUdp(const LogbookEntry &entry)")
 if helper_pos < 0:

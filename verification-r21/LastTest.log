@@ -1,0 +1,1173 @@
+Start testing: Oct 04 07:29 CEST
+----------------------------------------------------------
+1/24 Testing: madmodem_async_architecture_regression
+1/24 Test: madmodem_async_architecture_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/MadModem" "--architecture-regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_async_architecture_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS FT pool creates no unused threads
+PASS FT pool starts only requested workers and covers uneven batches
+PASS FT pool grows within capacity; nested parallel work cannot deadlock
+PASS FT worker exception reaches caller only after all batch tasks complete
+PASS concurrent batches stay within FT pool capacity after an exception
+PASS RX waiter registered
+PASS TX waiter registered
+PASS TX waiter registered
+PASS TX waiter registered
+PASS TX waiter registered
+PASS TX waiter registered
+PASS TX waiter registered
+PASS TX gets priority and waiting RX is admitted after four TX jobs
+PASS cancellable waiter registered
+PASS cancelled TX leaves the queue without acquiring held codec
+PASS cancellation removes its waiter
+PASS audio backend is opening asynchronously
+PASS GUI keeps processing events during slow input open
+PASS Stop during input open compensates stale start before acknowledging stop
+PASS second slow capture open entered
+PASS audio request storm opens only the active and latest requested devices
+PASS latest capture stops cleanly
+PASS GUI remains responsive while codec mutex is held
+PASS cancel and destruction interrupt queued/blocked FT preparation
+PASS only latest FT preparation can publish a waveform
+PASS 5000 superseded TX requests cannot grow the pending mailbox
+PASS request storm publishes only the latest waveform
+PASS Q65 codec wait leaves GUI responsive
+PASS Q65 preparation cancels while codec is locked
+PASS MSK144 codec wait leaves GUI responsive
+PASS MSK144 preparation cancels while codec is locked
+PASS playback window accepts first pull before target
+PASS first pull computes 25 ms lead and 100 ms waveform cutoff without stale GUI silence
+PASS late first pull rejects the entire FT waveform
+PASS temporary logbook directory available
+PASS serialized FT dedupe plus commit preserves distinct QSOs and delivers GUI acknowledgments
+PASS idle notification follows committed disk and mirror state
+PASS delete and next append share ownership and rebuild duplicate indexes
+PASS failed write is retained without a false success or speculative mirror row
+PASS retry after reload saves retained QSO exactly once
+PASS shutdown drain commits all accepted QSO writes
+<end of output>
+Test time =   0.19 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_async_architecture_regression" end time: Oct 04 07:29 CEST
+"madmodem_async_architecture_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/24 Testing: madmodem_window_rotator_regression
+2/24 Test: madmodem_window_rotator_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/MadModem" "--window-rotator-regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_window_rotator_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+This plugin does not support propagateSizeHints()
+PASS startup uses maximized window without fullscreen
+PASS custom maximize control exists
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+This plugin does not support raise()
+PASS combo popup remains available
+This plugin does not support propagateSizeHints()
+PASS startup uses maximized window without fullscreen
+PASS custom maximize control exists
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+This plugin does not support raise()
+PASS combo popup remains available
+This plugin does not support propagateSizeHints()
+PASS startup uses maximized window without fullscreen
+PASS custom maximize control exists
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS restore/maximize never enters fullscreen
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+PASS menu bar receives pointer through decorative chrome
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+PASS menu opens and owns popup focus
+PASS menu item can be selected
+This plugin does not support raise()
+This plugin does not support grabbing the keyboard
+This plugin does not support raise()
+PASS combo popup remains available
+PASS isolated preset settings available
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+GEOMETRY navball bottom=311 az top=319 panel height=1121 minimum=1011
+AXIS localY=0 h=31 parentY=319 parentH=47 navY=72 navH=240 navMin=240
+PASS axis editor does not overlap navball
+PASS sliders set azimuth and elevation
+PASS numeric fields synchronize sliders including overlap
+PASS named positions persist
+PASS preset recalls both axes
+PASS editing and recalling never move the rotator
+PASS presets are isolated per rotator profile
+PASS out-of-range saved position is refused without clamping
+PASS azimuth-only rotators disable elevation
+<end of output>
+Test time =   0.13 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_window_rotator_regression" end time: Oct 04 07:29 CEST
+"madmodem_window_rotator_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/24 Testing: madmodem_runtime_workers_regression
+3/24 Test: madmodem_runtime_workers_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/MadModem" "--runtime-regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_runtime_workers_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS waterfall markers cross RX worker/GUI boundary
+PASS RTTY completes while GUI event loop is blocked
+PASS normal RX preserves every audio block
+PASS RX overload queue remains bounded
+PASS RX overload detected in worker
+PASS RTTY decodes after overload and restart
+PASS RTTY manual reverse decodes without GUI callbacks
+PASS RTTY AFC restores oscillator after a nominal retune without waiting for drift
+PASS disabling RTTY AFC restores the operator tone pair
+PASS image updates coalesce while GUI is blocked
+PASS GUI consumes latest image and receives subsequent updates
+PASS slow CAT times out without blocking GUI
+PASS timeout revokes TX while retaining CAT gate
+PASS late PTT completion compensated exactly once
+PASS cancel races with successful CAT acknowledgement safely
+PASS successful CAT acknowledged before TX authorization
+PASS failed CAT recovery blocks further TX
+PASS faulted CAT cannot authorize a new command
+PASS emergency PTT OFF can recover a faulted gate
+PASS late arm gives CAT time instead of immediate audio/cancel
+PASS no audio request before its revised opening time
+PASS one audio event per late FT plan
+PASS STOP cancels future slot events
+PASS old slot cannot start replacement early
+PASS replacement retains its exact token
+PASS late arm gives CAT time instead of immediate audio/cancel
+PASS no audio request before its revised opening time
+PASS one audio event per late FT plan
+PASS STOP cancels future slot events
+PASS old slot cannot start replacement early
+PASS replacement retains its exact token
+PASS STOP revokes queued audio before backend opens
+PASS expired audio request never opens backend
+<end of output>
+Test time =   0.57 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_runtime_workers_regression" end time: Oct 04 07:29 CEST
+"madmodem_runtime_workers_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/24 Testing: madmodem_settings_ui_regression
+4/24 Test: madmodem_settings_ui_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/MadModem" "--ui-regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_settings_ui_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS Settings geometry/buttons Windows 9pt en
+PASS Settings geometry/buttons Windows 9pt it
+PASS Settings geometry/buttons Windows 9pt de
+PASS Settings geometry/buttons Windows 9pt fr
+PASS Settings geometry/buttons Windows 9pt no
+PASS Settings geometry/buttons Windows 9pt cs
+PASS Settings geometry/buttons Windows 14pt en
+PASS Settings geometry/buttons Windows 14pt it
+PASS Settings geometry/buttons Windows 14pt de
+PASS Settings geometry/buttons Windows 14pt fr
+PASS Settings geometry/buttons Windows 14pt no
+PASS Settings geometry/buttons Windows 14pt cs
+PASS Settings geometry/buttons Fusion 9pt en
+PASS Settings geometry/buttons Fusion 9pt it
+PASS Settings geometry/buttons Fusion 9pt de
+PASS Settings geometry/buttons Fusion 9pt fr
+PASS Settings geometry/buttons Fusion 9pt no
+PASS Settings geometry/buttons Fusion 9pt cs
+PASS Settings geometry/buttons Fusion 14pt en
+PASS Settings geometry/buttons Fusion 14pt it
+PASS Settings geometry/buttons Fusion 14pt de
+PASS Settings geometry/buttons Fusion 14pt fr
+PASS Settings geometry/buttons Fusion 14pt no
+PASS Settings geometry/buttons Fusion 14pt cs
+<end of output>
+Test time =   2.41 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_settings_ui_regression" end time: Oct 04 07:29 CEST
+"madmodem_settings_ui_regression" time elapsed: 00:00:02
+----------------------------------------------------------
+
+5/24 Testing: madmodem_tx_pull_regression
+5/24 Test: madmodem_tx_pull_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_tx_pull_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_tx_pull_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS finite TX source, tail=0, bytes=8192
+PASS finite TX source, tail=17, bytes=8226
+PASS finite TX source, tail=16000, bytes=40192
+PASS expired first pull produces no PCM
+PASS STOP revokes subsequent PCM pulls
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_tx_pull_regression" end time: Oct 04 07:29 CEST
+"madmodem_tx_pull_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/24 Testing: madmodem_i18n_regression
+6/24 Test: madmodem_i18n_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_i18n_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_i18n_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS translated labels containing slash
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_i18n_regression" end time: Oct 04 07:29 CEST
+"madmodem_i18n_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/24 Testing: madmodem_rotator_coordinates
+7/24 Test: madmodem_rotator_coordinates
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_rotator_coordinates"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_rotator_coordinates" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS rotator coordinate domains and overlap
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_rotator_coordinates" end time: Oct 04 07:29 CEST
+"madmodem_rotator_coordinates" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/24 Testing: madmodem_antialias_regression
+8/24 Test: madmodem_antialias_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_antialias_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_antialias_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS 44100 Hz, tone 1000, gain 1.00001
+PASS 44100 Hz, tone 11000, gain 3.03152e-06
+PASS 48000 Hz, tone 1000, gain 0.999988
+PASS 48000 Hz, tone 11000, gain 5.26858e-06
+PASS 96000 Hz, tone 1000, gain 0.999993
+PASS 96000 Hz, tone 11000, gain 5.29338e-06
+<end of output>
+Test time =   0.04 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_antialias_regression" end time: Oct 04 07:29 CEST
+"madmodem_antialias_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/24 Testing: madmodem_resampler_streaming
+9/24 Test: madmodem_resampler_streaming
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_resampler_streaming"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_resampler_streaming" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS 44100 split/reset/delay
+PASS 48000 split/reset/delay
+PASS 96000 split/reset/delay
+<end of output>
+Test time =   0.09 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_resampler_streaming" end time: Oct 04 07:29 CEST
+"madmodem_resampler_streaming" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/24 Testing: madmodem_logbook_regression
+10/24 Test: madmodem_logbook_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_logbook_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_logbook_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS EOH inside headerless COMMENT
+PASS missing date stays missing
+PASS preserve repeated spaces
+PASS length-aware padded header delimiter
+PASS temporary directory
+PASS load empty snapshots
+PASS first append
+PASS stale writer rejected
+PASS existing QSO retained
+PASS reload and append
+PASS oversized field rejected without overflow
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_logbook_regression" end time: Oct 04 07:29 CEST
+"madmodem_logbook_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/24 Testing: madmodem_wav_reader_test
+11/24 Test: madmodem_wav_reader_test
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_wav_reader_test"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_wav_reader_test" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS: valid PCM WAV parses
+PASS: valid PCM frames convert safely
+PASS: undersized blockAlign is rejected
+PASS: partial audio frame is rejected
+PASS: data chunk beyond RIFF bounds is rejected
+PASS: declared RIFF size beyond file is rejected
+PASS: float32 WAV container parses
+PASS: non-finite float sample is rejected
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_wav_reader_test" end time: Oct 04 07:29 CEST
+"madmodem_wav_reader_test" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/24 Testing: madmodem_q65_native_regression
+12/24 Test: madmodem_q65_native_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_q65_native_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_q65_native_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS Q65A offset/frequency round-trip: CQ IZ6NNH JN61
+PASS Q65B offset/frequency round-trip: CQ IZ6NNH JN61
+PASS Q65C offset/frequency round-trip: CQ IZ6NNH JN61
+PASS Q65D offset/frequency round-trip: CQ IZ6NNH JN61
+<end of output>
+Test time =   1.86 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_q65_native_regression" end time: Oct 04 07:29 CEST
+"madmodem_q65_native_regression" time elapsed: 00:00:01
+----------------------------------------------------------
+
+13/24 Testing: madmodem_msk144_native_regression
+13/24 Test: madmodem_msk144_native_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_msk144_native_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_msk144_native_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS MSK144 full-frame round-trip
+PASS MSK40 short-frame round-trip
+<end of output>
+Test time =   0.32 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_msk144_native_regression" end time: Oct 04 07:29 CEST
+"madmodem_msk144_native_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/24 Testing: madmodem_architecture_guard
+14/24 Test: madmodem_architecture_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R21/scripts/run_guard_suite.py" "architecture" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_architecture_guard" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: architecture
+
+--- RUN scripts/check_runtime_hardening.py ---
+[OK] one strict WAV reader rejects malformed layouts
+[OK] bounded UI audio relay
+[OK] audio capture has its own thread
+[OK] FT input still bypasses MainWindow
+[OK] FT worker configuration lock cannot self-deadlock
+[OK] audio buffer removal is batched
+[OK] configured RX/TX devices never fall back silently
+[OK] CAT route is fail closed
+[OK] CAT disconnect never invents a PTT-OFF acknowledgement
+[OK] Q65 RX has one always-built native path
+[OK] ADIF persistence is atomic
+[OK] offline image WAV loop is non-reentrant
+[OK] OSM TLS remains verified
+[OK] OSM tile responses are bounded
+[OK] Hamlib configure has no default build side effect
+Runtime hardening audit passed.
+
+--- RUN scripts/check_rx_cat_workers.py ---
+PASS: independent RX queue, serialized decoder ownership, CAT acknowledgements and late-cancel compensation
+
+--- RUN scripts/check_cat_ft_band_sync.py ---
+[OK] startup applies saved CAT settings
+[OK] saved CAT settings auto-connect when enabled
+[OK] FT band selector commands a CAT QSY
+[OK] CAT frequency always synchronizes the FT band
+[OK] obsolete optional CAT-to-band gate is absent
+[OK] QSY publishes actual Hamlib readback
+[OK] QSY publishes actual HRD readback
+[OK] CAT remains open and is polled
+[OK] FT split setting is persisted and exposed in Radio/CAT UI
+[OK] FT split keeps actual TX AF in the 1500..2000 Hz corridor
+[OK] FT split CAT transaction is prepared before PTT and restored after PTT
+[OK] Fake It transient CAT frequency is hidden from ordinary CAT polling
+[OK] Rig split follows Hamlib/WSJT-X logical VFO abstraction with no non-split fallback
+[OK] Rig split TX mode changes are fail-closed unless the previous split mode is restorable
+[OK] Split is opt-in and the stable default CAT path remains unchanged
+CAT/FT band sync audit passed.
+
+--- RUN scripts/check_msk144_q65_single_path.py ---
+[OK] Q65 native engine is mandatory
+[OK] Q65 wrapper owns only the native engine
+[OK] Q65 RX performs complete protocol validation
+[OK] Q65 QRA symbols map to transmitted tones 1 through 64
+[OK] Q65 RX and TX serialize the one codec workspace
+[OK] Q65 TX uses direct native-rate synthesis
+[OK] Q65 full AP list spans the protocol report range
+[OK] Q65 regression covers A B C D
+[OK] MSK144 candidate budget covers the complete period
+[OK] MSK40 RX and real short-message TX are wired
+[OK] MSK144 target contains every 77-bit protocol primitive
+[OK] shared message primitives are compiled exactly once
+[OK] FT4 FT8 MSK144 and Q65 serialize the shared message codec
+[OK] MSK144 and Q65 use one process-wide codec lock
+[OK] MSK144 and Q65 share one complete-frame UTC TX scheduler
+[OK] native modem regressions are registered
+[OK] native modem targets carry their thread runtime
+MSK144/Q65 single-path audit passed.
+
+--- RUN scripts/check_qso_udp_logging.py ---
+QSO UDP logging guard passed.
+
+--- RUN scripts/check_rotator_peak_tracking.py ---
+Rotator peak tracking guard passed: 3 real stateful algorithms, async FFT-reuse QSO metric, low-wear probes and TX interlock are intact.
+
+--- RUN scripts/check_text_assist_workers.py ---
+Text assistance worker architecture passed.
+
+Consolidated architecture suite PASSED: 7 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.21 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_architecture_guard" end time: Oct 04 07:29 CEST
+"madmodem_architecture_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/24 Testing: madmodem_ui_contest_guard
+15/24 Test: madmodem_ui_contest_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R21/scripts/run_guard_suite.py" "ui" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_ui_contest_guard" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: ui
+
+--- RUN scripts/check_rtty_contest_layout.py ---
+[OK] contest page follows the narrow viewport
+[OK] only vertical scrolling remains
+[OK] contest header is a two-column form
+[OK] service buttons keep text-sized width
+[OK] QSO editor is a single label-field column
+[OK] QSO controls may shrink inside 300 px
+[OK] contest chrome uses compact padding
+[OK] contest page has no duplicate macro bank
+[OK] short tab caption is used
+RTTY contest narrow-layout audit passed.
+
+--- RUN scripts/check_rtty_live_contest_runtime.py ---
+RTTY live/contest/runtime audit OK (30 rule profiles)
+
+--- RUN scripts/check_cw_macro_ui.py ---
+[OK] CW macro layout exists
+[OK] CW macro bank is initialized once in its page
+[OK] CW macro bank contains six buttons
+[OK] CW macro buttons are retained
+[OK] CW macro row is visible above TX
+[OK] setup does not destroy CW macro bank
+[OK] CW macro buttons transmit shared text macros
+[OK] CW macro labels use shared macro settings
+[OK] CW macro bank remains available outside Contest
+[OK] CW macro bank switches to contest profile when Contest is active
+[OK] CW macro clicks route to contest macros only while CW Contest is active
+[OK] CW TX tone has a dedicated editable control
+[OK] CW TX tone is persisted independently
+[OK] CW waterfall exposes a red TX marker
+[OK] CW transmitter uses the dedicated TX tone
+[OK] CW enables opt-in waterfall chord detection
+[OK] CW TX chord is wired to the dedicated handler
+[OK] waterfall chord requires both left and right buttons
+[OK] CW single clicks are delayed only for chord disambiguation
+CW operator UI guard passed.
+
+--- RUN scripts/check_ui_theme_integrity.py ---
+PASS contrast avionica window text: 11.14:1
+PASS contrast avionica editor text: 11.47:1
+PASS contrast avionica button text: 10.60:1
+PASS contrast avionica selection text: 9.22:1
+PASS contrast avionica positive state: 15.26:1
+PASS contrast avionica negative state: 6.88:1
+PASS contrast avionica warning state: 12.67:1
+PASS contrast avionica muted text: 6.19:1
+PASS contrast avionica map text: 11.44:1
+PASS contrast avionica map muted text: 6.51:1
+PASS contrast qt_default window text: 14.30:1
+PASS contrast qt_default editor text: 16.29:1
+PASS contrast qt_default button text: 13.18:1
+PASS contrast qt_default selection text: 7.16:1
+PASS contrast qt_default positive state: 5.13:1
+PASS contrast qt_default negative state: 5.72:1
+PASS contrast qt_default warning state: 4.76:1
+PASS contrast qt_default muted text: 5.10:1
+PASS contrast qt_default map text: 13.81:1
+PASS contrast qt_default map muted text: 5.29:1
+PASS contrast hacker_green window text: 15.23:1
+PASS contrast hacker_green editor text: 15.98:1
+PASS contrast hacker_green button text: 13.42:1
+PASS contrast hacker_green selection text: 12.13:1
+PASS contrast hacker_green positive state: 13.43:1
+PASS contrast hacker_green negative state: 6.88:1
+PASS contrast hacker_green warning state: 13.76:1
+PASS contrast hacker_green muted text: 6.93:1
+PASS contrast hacker_green map text: 15.63:1
+PASS contrast hacker_green map muted text: 6.71:1
+PASS contrast classic_dark window text: 12.52:1
+PASS contrast classic_dark editor text: 15.01:1
+PASS contrast classic_dark button text: 10.49:1
+PASS contrast classic_dark selection text: 7.54:1
+PASS contrast classic_dark positive state: 8.19:1
+PASS contrast classic_dark negative state: 5.70:1
+PASS contrast classic_dark warning state: 9.48:1
+PASS contrast classic_dark muted text: 6.85:1
+PASS contrast classic_dark map text: 14.32:1
+PASS contrast classic_dark map muted text: 7.32:1
+PASS contrast high_contrast window text: 21.00:1
+PASS contrast high_contrast editor text: 21.00:1
+PASS contrast high_contrast button text: 19.91:1
+PASS contrast high_contrast selection text: 15.07:1
+PASS contrast high_contrast positive state: 15.97:1
+PASS contrast high_contrast negative state: 7.63:1
+PASS contrast high_contrast warning state: 15.07:1
+PASS contrast high_contrast muted text: 13.62:1
+PASS contrast high_contrast map text: 21.00:1
+PASS contrast high_contrast map muted text: 13.62:1
+UI theme integrity audit: PASS (5/5 complete themes)
+
+--- RUN scripts/check_window_rotator_ui.py ---
+PASS: normal maximized startup, transparent chrome, profile-specific presets, no motion during recall
+
+Consolidated ui suite PASSED: 5 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.17 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ui_contest_guard" end time: Oct 04 07:29 CEST
+"madmodem_ui_contest_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/24 Testing: madmodem_ft_runtime_guard
+16/24 Test: madmodem_ft_runtime_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R21/scripts/run_guard_suite.py" "ft" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_ft_runtime_guard" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: ft
+
+--- RUN scripts/check_ft_atomic_tx_lifecycle.py ---
+PASS: atomic decode-batch decision retained
+PASS: 1181 ms late operator request starts an intact FT8 frame now
+PASS: mode-specific current-slot window guarantees full-frame fit
+PASS: automatic too-late requests defer intact frames
+PASS: manual +6.2 s request emits a bounded current-period visual burst
+PASS: manual late burst preserves frame prefix and stops before slot flip
+PASS: CAT/PTT pre-arms before the UTC boundary
+PASS: TX start never blocks behind the FT decoder thread
+PASS: one immutable boundary drives delay, token and watchdog
+PASS: TX arm token has a monotonic generation
+PASS: stale boundary-only recovery removed
+PASS: expired slot is rejected before local TX row and PTT
+
+--- RUN scripts/check_ft_caller_queue_waterfall_restore.py ---
+PASS: caller queue setting exists
+PASS: caller queue setting loads
+PASS: caller queue setting saves
+PASS: caller queue checkbox exists
+PASS: session QSO counter exists
+PASS: FIFO uses first queued caller
+PASS: queue feeds normal sequencer
+PASS: queue uses shared opposite-period selector
+PASS: terminal acks do not resurrect queued QSO
+PASS: queued direct callers outrank Auto QSO CQ
+PASS: legacy parked late-reply fallback removed
+PASS: waterfall detects minimized top-level
+PASS: waterfall drops hidden/minimized display rows
+PASS: waterfall preserves GL history on restore
+PASS: waterfall resize does not recreate GL history
+PASS: waterfall drains queued FFT rows with fixed time geometry
+PASS: translations ui_cs.ini include queue/session keys without duplicates
+PASS: translations ui_de.ini include queue/session keys without duplicates
+PASS: translations ui_en.ini include queue/session keys without duplicates
+PASS: translations ui_fr.ini include queue/session keys without duplicates
+PASS: translations ui_it.ini include queue/session keys without duplicates
+PASS: translations ui_no.ini include queue/session keys without duplicates
+PASS: translation key parity ui_cs.ini
+PASS: translation key parity ui_de.ini
+PASS: translation key parity ui_en.ini
+PASS: translation key parity ui_fr.ini
+PASS: translation key parity ui_it.ini
+PASS: translation key parity ui_no.ini
+FT caller queue + stable waterfall source audit: PASS
+
+--- RUN scripts/check_ft_linear_sequencer.py ---
+PASS: AutoQSO reclaim/fallback path removed
+PASS: QSO activity/history selection cannot arm TX
+PASS: QSO activity/history selection explicitly requires TX
+PASS: terminal decode can interrupt an obsolete active FT frame
+PASS: final 73 cannot create another 73 retry
+PASS: sequencer regression covers late RR73 during TX
+PASS: sequencer regression covers repeated terminal decode
+PASS: FT decoder owns an explicit live-input gate
+PASS: AudioEngine routes FT blocks through a bounded decoder-thread queue
+PASS: MainWindow no longer duplicates FT audio transport
+PASS: generated FT TX audio is not injected into the RX waterfall
+PASS: generic TX monitor also freezes for FT family modes
+PASS: adaptive live-worker controller and mutable target removed
+PASS: live worker budget uses the proven topology while telemetry continues
+PASS: default CAT TX route does not query/restore rig mode
+PASS: rig mode is restored only when MadModem actually changed it
+PASS: FT8/FT4 period clock is embedded under the sequencer
+PASS: FT period clock is no longer placed in the Status tab
+PASS: redundant I/II range and UTC caption labels removed from the FT clock
+PASS: TX/SEQ/RETRY tag is metadata, not pending-plan identity
+FT linear sequencer source audit: PASS
+
+--- RUN scripts/check_ft_qso_deadline_priority.py ---
+PASS: candidate carries an explicit QSO-priority classification
+PASS: priority admission is restricted to the live gate
+PASS: priority admission requires an active QSO
+PASS: QSO search is bounded around the tracked correspondent
+PASS: QSO candidate work has a hard upper bound
+PASS: only the reserved QSO quota receives the lower sync floor
+PASS: reserved candidates do not consume the normal wideband quota
+PASS: QSO candidates enter LDPC before the general wideband candidates
+PASS: the bounded QSO set receives metric recovery
+PASS: the ordinary live gate keeps its established fast policy
+PASS: early completion validates both correspondent and local calls
+PASS: a recovered QSO reply returns without waiting for wideband LDPC
+PASS: no competing decoder path was introduced
+PASS: MainWindow propagates QSO lifecycle and callsign context
+PASS: the decoder receives the tracked correspondent frequency
+FT8 QSO deadline priority source audit: PASS
+
+--- RUN scripts/check_ft4_adaptive_runtime.sh ---
+FT4 active-QSO-first deadline runtime source audit: PASS
+
+--- RUN scripts/check_ft_wideband_sensitivity.sh ---
+FT8/FT4 wideband algorithm audit: PASS
+FT sensitivity regression source audit: PASS
+
+Consolidated ft suite PASSED: 6 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.23 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ft_runtime_guard" end time: Oct 04 07:29 CEST
+"madmodem_ft_runtime_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/24 Testing: madmodem_release_audit
+17/24 Test: madmodem_release_audit
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R21/scripts/run_guard_suite.py" "release" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_release_audit" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: release
+
+--- RUN scripts/check_operator_ui_copy.py ---
+Operator UI copy guard passed: compact FT state and runtime localization are enforced.
+
+--- RUN tools/audit_localization.py ---
+Canonical keys: 1870
+en: 1870 keys; canonical source dictionary
+it: 1870 keys; 1462 localized values; 408 shared technical terms or coherent English fallbacks
+fr: 1870 keys; 1409 localized values; 461 shared technical terms or coherent English fallbacks
+de: 1870 keys; 1419 localized values; 451 shared technical terms or coherent English fallbacks
+no: 1870 keys; 1387 localized values; 483 shared technical terms or coherent English fallbacks
+cs: 1870 keys; 1422 localized values; 448 shared technical terms or coherent English fallbacks
+Translation audit PASSED: structure, placeholders, reviewed operator text and semantic-mixing checks are clean.
+
+--- RUN tools/audit_documentation.py ---
+Documentation audit PASSED: version 0.5.9-beta, 72 localized HTML pages and six Qt Help projects are consistent.
+
+--- RUN tools/audit_rtty_rules.py ---
+rtty_rules: 30 profiles, 29 active, schema=1, updated=2026-08-15
+PASS: 0 errors, 0 warning(s)
+
+--- RUN tools/audit_rtty_rules.py ---
+cw_rules: 8 profiles, 8 active, schema=1, updated=2026-08-19
+PASS: 0 errors, 0 warning(s)
+
+--- RUN scripts/ci_release_version_guard.sh ---
+MadModem CI version guard
+  MADMODEM_VERSION.txt : 0.5.9-beta
+  SOURCE_REVISION      : 0.5.9-beta-source-r21-thread-scheduling
+  GITHUB_REF_TYPE      : manual
+  GITHUB_REF_NAME      : manual
+  GITHUB_SHA           : manual
+  status               : OK
+
+Consolidated release suite PASSED: 6 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.81 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_release_audit" end time: Oct 04 07:29 CEST
+"madmodem_release_audit" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/24 Testing: madmodem_cw_native_regression
+18/24 Test: madmodem_cw_native_regression
+Command: "/usr/bin/bash" "/workspace/scratch/568f9cc8dc74/MadModem_R21/scripts/run_cw_native_regression.sh" "/workspace/scratch/568f9cc8dc74/verification-r21/build/tests-cw"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_cw_native_regression" start time: Oct 04 07:29 CEST
+Output:
+----------------------------------------------------------
+PASS relative-pair-human-ratio: CQ
+PASS relative-pair-lock
+PASS same-lane-abrupt-speed-change: CQQTH
+PASS same-lane-new-temporal-epoch
+PASS same-lane-slow-clock-installed
+PASS provisional-epoch-rebase: CQ CQ CQ
+PASS provisional-epoch-new-clock
+PASS malformed-established-clock-rebase: C
+PASS malformed-established-new-epoch
+PASS adaptive-beam-no-premature-first-mark: 
+PASS adaptive-beam-replay-first-dash: C
+PASS adaptive-beam-pattern-exact
+PASS stretched-element-gap-callsign: HB9DOM
+PASS bayesian-posterior-text: C
+PASS bayesian-posterior-range
+PASS bayesian-beam-bounded
+PASS micro-run-storm-bootstrap: CQ
+PASS micro-run-storm-track
+PASS micro-run-storm-no-text: 
+PASS micro-run-storm-clock-retained
+PASS auto-wpm-ceiling-50
+PASS duplicate-tone-no-reset
+PASS real-tone-change-one-reset
+PASS mid-stream-reset-produces-run
+PASS mid-stream-reset-live-start
+PASS discriminator-posterior-export
+PASS segmental-fixed-lag-single-mark
+PASS segmental-fixed-lag-mark-duration
+PASS segmental-fixed-lag-causal-delay
+PASS first-sample-rate-no-extra-restart
+PASS real-sample-rate-change-restarts
+PASS commit-pattern-character
+PASS commit-pattern-exact
+PASS local-tx-resume-clock-learned
+PASS local-tx-resume-clock-retained
+PASS local-tx-resume-not-clean-restart
+PASS clean-20: CQ CQ DE IZ6NNH 599
+PASS clean-35-wrong-hint: CQ CQ DE TEST
+PASS live-30-long-word-gap: CQ CQ OG50YL OG50YL CQ CQ OG50YL
+PASS fast-farnsworth-11-dit: CQ CQ DE TEST
+PASS clean-12-wrong-hint: CQ DE IZ6NNH
+PASS awgn: CQ CQ DE IZ6NNH
+PASS weak-coherent-structure
+PASS weak-coherent-edit-similarity
+PASS weak-coherent-awgn: RQ CQ DE SZ6NNH similarity=0.866667
+PASS qsb: CQ CQ DE TEST
+PASS human-relative: CQ CQ DE IZ6NNH
+PASS adjacent-carrier-plus-70: CQ CQ DE IZ6NNH
+PASS message-then-broad-noise-tail: CQ CQ DE TEST
+PASS noise-tail-carrier-gate-closes
+PASS noise-tail-wpm-frozen
+PASS live-same-lane-two-operators: CQ CQ QTH ROMA
+PASS live-same-lane-epoch-log
+PASS noise-only: 
+All carrier-gated relative-timing CW regressions passed.
+<end of output>
+Test time =  15.23 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_cw_native_regression" end time: Oct 04 07:30 CEST
+"madmodem_cw_native_regression" time elapsed: 00:00:15
+----------------------------------------------------------
+
+19/24 Testing: madmodem_waterfall_native_regression
+19/24 Test: madmodem_waterfall_native_regression
+Command: "/usr/bin/bash" "/workspace/scratch/568f9cc8dc74/MadModem_R21/scripts/run_waterfall_leveler_regression.sh" "/workspace/scratch/568f9cc8dc74/verification-r21/build/tests-waterfall"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_waterfall_native_regression" start time: Oct 04 07:30 CEST
+Output:
+----------------------------------------------------------
+WFREG	quiet-edges-strong-signal-keeps-full-width	OK	A=0.00	B=55.81
+WFREG	receiver-agc-step-cancelled-next-row	OK	A=17.00	B=0.00
+WFREG	broad-receiver-slope-flattened	OK	A=0.49	B=-85.17
+WFREG	narrow-carrier-does-not-lift-baseline	OK	A=42.82	B=1.15
+WFREG	steep-passband-edges-not-artificially-hot	OK	A=0.70	B=-0.08
+WFREG	asymmetric-one-sided-edges-anchored	OK	A=1.01	B=35.94
+<end of output>
+Test time =   1.10 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_waterfall_native_regression" end time: Oct 04 07:30 CEST
+"madmodem_waterfall_native_regression" time elapsed: 00:00:01
+----------------------------------------------------------
+
+20/24 Testing: madmodem_waterfall_integrity_guard
+20/24 Test: madmodem_waterfall_integrity_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/568f9cc8dc74/MadModem_R21/scripts/run_guard_suite.py" "waterfall" "--with-unix-checks"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_waterfall_integrity_guard" start time: Oct 04 07:30 CEST
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: waterfall
+
+--- RUN scripts/check_waterfall_wsjtx_flattening.sh ---
+WSJT-X-style waterfall flattening source audit: PASS
+
+Consolidated waterfall suite PASSED: 1 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_waterfall_integrity_guard" end time: Oct 04 07:30 CEST
+"madmodem_waterfall_integrity_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+21/24 Testing: madmodem_ft_sequencer
+21/24 Test: madmodem_ft_sequencer
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/MadModemFtSequencerSelfTest"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_ft_sequencer" start time: Oct 04 07:30 CEST
+Output:
+----------------------------------------------------------
+FtSequencerSelfTest: all regression cases passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ft_sequencer" end time: Oct 04 07:30 CEST
+"madmodem_ft_sequencer" time elapsed: 00:00:00
+----------------------------------------------------------
+
+22/24 Testing: madmodem_rtty_contest_regression
+22/24 Test: madmodem_rtty_contest_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_rtty_contest_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_rtty_contest_regression" start time: Oct 04 07:30 CEST
+Output:
+----------------------------------------------------------
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 137 offset 12
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 1024 offset 19
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 44100 chunk 4096 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 137 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 1024 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 48000 chunk 4096 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 137 offset 16
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 1024 offset 17
+PASS AFC common offset acquired
+PASS initial FIGS
+PASS new TX restores LTRS after FIGS and RX resume
+PASS independent encoder clean
+AFC 96000 chunk 4096 offset 17
+PASS AFC common offset acquired
+PASS first capture
+PASS contiguous capture
+PASS unexpected gap resets
+PASS expected restart preserves decoder state
+PASS zone leading zero is not another multiplier
+PASS valid complete CQ WW QSO
+PASS score skips invalid/dupe and uses received zone
+PASS separate WAE countries and zones
+PASS Cabrillo received zone preserved
+PASS reject invalid zone
+PASS require US state
+PASS US state not Canadian province
+PASS export rejects absent frequency
+PASS export rejects practice date
+PASS export rejects mixed sessions
+PASS IG9 intercontinental despite shared DXCC
+PASS IT9 different contest country
+PASS Italian same contest country
+PASS geographical portable suffix
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+PASS UDP bind
+PASS UDP send
+PASS UDP format emits expected notifications
+MULTI 48000 max_ms=12.206 labels=CQ IZ6NNH|CQ DL1ABC
+PASS two stations decoded without duplicate callouts
+MULTI 96000 max_ms=27.065 labels=CQ IZ6NNH|CQ DL1ABC
+PASS two stations decoded without duplicate callouts
+<end of output>
+Test time =   5.19 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_rtty_contest_regression" end time: Oct 04 07:30 CEST
+"madmodem_rtty_contest_regression" time elapsed: 00:00:05
+----------------------------------------------------------
+
+23/24 Testing: madmodem_rtty_synthetic_bench
+23/24 Test: madmodem_rtty_synthetic_bench
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_rtty_synthetic_bench"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_rtty_synthetic_bench" start time: Oct 04 07:30 CEST
+Output:
+----------------------------------------------------------
+{"cer":0,"decoded_chars":114,"edit_distance":0,"expected_chars":114,"narrow":false,"scenario":"clean"}
+PASS clean 45.45/170 decode
+{"cer":0,"decoded_chars":114,"edit_distance":0,"expected_chars":114,"narrow":false,"scenario":"awgn_-6_db"}
+PASS AWGN -6 dB CER <= 10%
+{"cer":0,"decoded_chars":114,"edit_distance":0,"expected_chars":114,"narrow":false,"scenario":"mark_fade_-18_db"}
+PASS Mark selective fade -18 dB
+{"cer":0,"decoded_chars":114,"edit_distance":0,"expected_chars":114,"narrow":false,"scenario":"space_fade_-18_db"}
+PASS Space selective fade -18 dB
+{"cer":0,"decoded_chars":114,"edit_distance":0,"expected_chars":114,"narrow":false,"scenario":"cw_plus20_db_offset300"}
+PASS CW +20 dB at +300 Hz
+{"cer":0,"decoded_chars":114,"edit_distance":0,"expected_chars":114,"narrow":false,"scenario":"cw_plus30_db_offset400"}
+PASS CW +30 dB at +400 Hz
+{"cer":0.8947368421052632,"decoded_chars":22,"edit_distance":102,"expected_chars":114,"narrow":false,"scenario":"close_cw_normal"}
+{"cer":0.017543859649122806,"decoded_chars":112,"edit_distance":2,"expected_chars":114,"narrow":true,"scenario":"close_cw_narrow"}
+PASS narrow channel handles +10 dB CW at +150 Hz
+PASS narrow channel improves close-CW case
+{"cer":0,"decoded_chars":114,"edit_distance":0,"expected_chars":114,"narrow":false,"scenario":"afc_retuned_plus15_hz"}
+PASS retuned channels follow +15 Hz offset
+{"cer":0,"decoded_chars":0,"edit_distance":0,"expected_chars":0,"narrow":false,"scenario":"noise_only"}
+PASS noise-only produces no characters
+<end of output>
+Test time =   1.13 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_rtty_synthetic_bench" end time: Oct 04 07:30 CEST
+"madmodem_rtty_synthetic_bench" time elapsed: 00:00:01
+----------------------------------------------------------
+
+24/24 Testing: madmodem_text_assist_workers_regression
+24/24 Test: madmodem_text_assist_workers_regression
+Command: "/workspace/scratch/568f9cc8dc74/verification-r21/build/madmodem_text_assist_workers_regression"
+Directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+"madmodem_text_assist_workers_regression" start time: Oct 04 07:30 CEST
+Output:
+----------------------------------------------------------
+PASS temporary directory
+PASS load empty logbook
+PASS append indexed contest QSO
+PASS global worked-before hash lookup
+PASS contest dupe on matching band
+PASS contest dupe scope rejects another band
+PASS incremental index update
+PASS FT batch lookup returns one result
+PASS FT worked-call index
+PASS FT recent-call index
+PASS FT cache receives timestamp for time-dependent policy refresh
+PASS FT recent call-band-mode index
+PASS FT DXCC any-band index
+PASS FT DXCC band index
+PASS FT DXCC mode index
+PASS FT grid any-band index
+PASS FT grid band index
+PASS FT grid mode index
+PASS text worker recognizes callsign
+PASS text worker preserves document offsets
+PASS contest candidate selects correspondent
+PASS contest parser extracts RST
+PASS contest parser extracts serial after RST
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_text_assist_workers_regression" end time: Oct 04 07:30 CEST
+"madmodem_text_assist_workers_regression" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 04 07:30 CEST

@@ -10,6 +10,7 @@
 #include <QVector>
 #include <QtGlobal>
 #include <atomic>
+#include <mutex>
 
 class QIODevice;
 
@@ -44,12 +45,20 @@ public:
      * - Falls back to the closest supported format when possible.
      * - Emits errorOccurred(...) if the device cannot be opened.
      */
-    bool startInput(const QString &deviceName, int requestedSampleRate = 48000);
+    virtual bool startInput(const QString &deviceName, int requestedSampleRate = 48000);
 
     /**
      * @brief Stops audio capture and clears pending buffers.
      */
-    void stopInput();
+    virtual void stopInput();
+
+    // Thread-safe, latest-request mailbox. Backends run only on this object's
+    // thread; the GUI receives an acknowledgement instead of blocking on QAudio.
+    quint64 requestStartInput(const QString &deviceName, int sampleRate);
+    quint64 requestStopInput();
+    void invalidateInputRequests();
+    quint64 latestInputRequest() const { return m_inputRequestGeneration.load(); }
+
 
     /**
      * @brief Returns true when audio capture is running.
@@ -82,6 +91,7 @@ public:
     int inputVolumePercent() const;
 
 signals:
+    void inputRequestFinished(quint64 request, bool startRequested, bool success);
     void audioBlockReady(const AudioBlock &block);
     void levelChanged(int percent, double db, double rms);
     void errorOccurred(const QString &message);
@@ -170,6 +180,18 @@ private:
     qint64 m_diagnosticLastCallbackFrames = 0;
     int m_diagnosticLastRemainderBytes = 0;
 
+    struct InputRequest {
+        quint64 id = 0;
+        bool start = false;
+        QString device;
+        int rate = 48000;
+    };
+    quint64 enqueueInputRequest(bool start, const QString &device, int rate);
+    void processInputRequests();
+    std::atomic<quint64> m_inputRequestGeneration{0};
+    std::mutex m_inputRequestMutex;
+    InputRequest m_pendingInputRequest;
+    bool m_inputRequestScheduled = false;
     std::atomic<bool> m_running{false};
 };
 

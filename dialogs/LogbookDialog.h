@@ -22,6 +22,7 @@ class QToolBar;
 class QResizeEvent;
 class QProgressDialog;
 class AppSettings;
+class AsyncLogbook;
 
 /**
  * @brief Separate window for browsing, advanced searching, importing,
@@ -33,6 +34,7 @@ class LogbookDialog : public QDialog
 
 public:
     explicit LogbookDialog(AdifLogbook *logbook, AppSettings *settings = nullptr, QWidget *parent = nullptr);
+    void setStore(AsyncLogbook *store) { m_store = store; }
     void setTextTranslator(std::function<QString(const QString &)> translator);
 
 protected:
@@ -62,6 +64,7 @@ private slots:
     void configureVisibleFields();
 
 private:
+    AsyncLogbook *m_store = nullptr;
     LogbookSearchCriteria currentCriteria() const;
     QVector<LogbookEntry> selectedRecords() const;
     bool exportRecords(const QVector<LogbookEntry> &records,

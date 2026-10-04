@@ -70,7 +70,7 @@ for needle in ('handleFt8DecodeBatchStarted', 'handleFt8DecodeBatchFinished',
     assert needle in CPP, needle
 
 # Every arm is a distinct generation. Old queued signals cannot impersonate it.
-assert 'm_pendingFt8SlotBoundaryUtcMs - armNowUtcMs' in CPP
+assert 'm_pendingFt8TxPlan.slotBoundaryUtcMs - armNowUtcMs' in CPP
 assert '++m_ft8TxArmGeneration' in CPP
 assert 'quint64 m_ft8TxArmGeneration = 0;' in HDR
 assert 'exact token match=' in CPP
@@ -86,17 +86,21 @@ assert '"setLiveInputEnabled",\n                                      Qt::Queued
 assert '"noteTransmitStarting",\n                                      Qt::QueuedConnection' in start_tx
 assert 'Qt::BlockingQueuedConnection' not in start_tx
 assert 'scheduleFt8SequencerMessage(autoTxMessage, QStringLiteral("SEQ"), true)' in CPP
-assert 'm_pendingFt8LatePartial' in CPP and 'truncateTotalMilliseconds' in CPP
-assert 'bool m_pendingFt8LatePartial = false;' in HDR
+assert 'm_pendingFt8TxPlan.latePartial' in CPP and 'ft->setPlaybackWindow(' in CPP
+assert 'bool Ft8Transmitter::prepareForPlayback(qint64 utcMs)' in TX_CPP
+assert 'm_stopUtcMs - utcMs' in TX_CPP
+assert 'm_samples.resize(int(capacity))' in TX_CPP
+assert 'bool latePartial = false;' in (ROOT / 'modems/ft8/FtTxPlan.h').read_text(encoding='utf-8')
 assert 'void truncateTotalMilliseconds(int milliseconds);' in TX_HDR
 assert 'void Ft8Transmitter::truncateTotalMilliseconds(int milliseconds)' in TX_CPP
 assert 'm_samples.resize(maximumSamples);' in TX_CPP
 
-# Deadline is checked before the local TX row and before PTT.
-pre_guard = CPP.index('slot expired by %1 ms before PTT')
-append_row = CPP.index('appendFt8LocalTxRow(m_pendingFt8TxMessage', pre_guard)
-prearm = CPP.index('prearmFtPreparedSlotTransmit();', append_row)
-assert pre_guard < append_row < prearm
+# A pre-arm is not a transmitted row. The sink must first confirm progress.
+prearm_body = CPP[CPP.index('void MainWindow::beginScheduledFt8Transmit()'):CPP.index('void MainWindow::stopFt8Shell()')]
+started_body = CPP[CPP.index('void MainWindow::handleTxStarted()'):CPP.index('void MainWindow::handleTxStopped()')]
+assert 'appendFt8LocalTxRow(' not in prearm_body
+assert 'appendFt8LocalTxRow(' in started_body
+assert 'deferPendingFtTx(' in prearm_body
 
 print('PASS: atomic decode-batch decision retained')
 print('PASS: 1181 ms late operator request starts an intact FT8 frame now')

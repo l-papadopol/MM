@@ -1,3 +1,5 @@
+#include "../logbook/AsyncLogbook.h"
+#include <QPointer>
 #include "../logbook/CqWwRtty.h"
 #include "../logbook/GenericCabrillo.h"
 #include <QWizard>
@@ -752,16 +754,20 @@ void LogbookDialog::importAdif()
         return;
     }
 
-    int imported = 0;
-    QString error;
-    if (!m_logbook->importAdif(fileName, &imported, &error)) {
-        QMessageBox::warning(this, L("Import ADIF"), L("Import failed:") + " " + error);
-        return;
-    }
-
-    refreshTable();
-    emit logbookChanged();
-    QMessageBox::information(this, L("Import ADIF"), L("Imported %1 QSO records.").arg(imported));
+    if (!m_store) return;
+    setEnabled(false);
+    QPointer<LogbookDialog> self(this);
+    m_store->importFile(fileName, [self](int imported, const QString &error) {
+        if (!self) return;
+        self->setEnabled(true);
+        if (imported < 0) {
+            QMessageBox::warning(self, self->L("Import ADIF"), self->L("Import failed:") + " " + error);
+            return;
+        }
+        self->refreshTable();
+        emit self->logbookChanged();
+        QMessageBox::information(self, self->L("Import ADIF"), self->L("Imported %1 QSO records.").arg(imported));
+    });
 }
 
 QVector<LogbookEntry> LogbookDialog::selectedRecords() const
@@ -1291,13 +1297,14 @@ void LogbookDialog::exportCabrilloWizard()
     auto *p2=new QWizardPage; p2->setTitle(L("2. Contest and exchange")); auto *f2=new QFormLayout(p2);
     auto *profile=new QComboBox(p2); profile->addItems({QStringLiteral("CQ WW RTTY"),QStringLiteral("Generic Cabrillo 3.0")});
     auto *contest=new QLineEdit(QStringLiteral("CQ-WW-RTTY"),p2); auto *sent=new QComboBox(p2); auto *recv=new QComboBox(p2);
+    contest->setEnabled(false); sent->setEnabled(false); recv->setEnabled(false);
     sent->addItems({"RST_SENT","SERIAL_SENT","EXCH_SENT","STX","STX_STRING"}); recv->addItems({"RST_RCVD","SERIAL_RCVD","EXCH_RCVD","SRX","SRX_STRING"});
     auto *op=new QComboBox(p2);op->addItems({"SINGLE-OP","MULTI-OP","CHECKLOG"}); auto *power=new QComboBox(p2);power->addItems({"LOW","HIGH","QRP"});
     auto *assisted=new QComboBox(p2);assisted->addItems({"NON-ASSISTED","ASSISTED"}); auto *band=new QComboBox(p2);band->addItems({"ALL","80M","40M","20M","15M","10M"});
     auto *name=new QLineEdit(p2);auto *email=new QLineEdit(p2);
     f2->addRow(L("Profile"),profile);f2->addRow(QStringLiteral("CONTEST"),contest);f2->addRow(L("Sent exchange ADIF field"),sent);f2->addRow(L("Received exchange ADIF field"),recv);f2->addRow(QStringLiteral("CATEGORY-OPERATOR"),op);f2->addRow(QStringLiteral("CATEGORY-POWER"),power);f2->addRow(QStringLiteral("CATEGORY-ASSISTED"),assisted);f2->addRow(QStringLiteral("CATEGORY-BAND"),band);f2->addRow(QStringLiteral("NAME"),name);f2->addRow(QStringLiteral("EMAIL"),email);w.addPage(p2);
     auto *p3=new QWizardPage; p3->setTitle(L("3. Validate and save")); auto *v3=new QVBoxLayout(p3); auto *preview=new QPlainTextEdit(p3);preview->setReadOnly(true);v3->addWidget(preview);w.addPage(p3);
-    auto records=[&](){ if(all->isChecked()) return m_logbook->records(); if(selected->isChecked()){auto r=selectedRecords(); if(!r.isEmpty()) return r;} return m_displayedRecords; };
+    auto records=[&](){ if(all->isChecked()) return m_logbook->records(); if(selected->isChecked()) return selectedRecords(); return m_displayedRecords; };
     QByteArray generated; QString genError;
     connect(&w,&QWizard::currentIdChanged,&w,[&](int id){ if(id!=2)return; auto r=records(); genError.clear(); if(profile->currentIndex()==0){CqWwRtty::CabrilloOptions o;o.operatorCategory=op->currentText();o.power=power->currentText();o.assisted=assisted->currentText();o.band=band->currentText();o.name=name->text();o.email=email->text();generated=CqWwRtty::cabrillo(r,o,&genError);}else{GenericCabrillo::Options o;o.contestId=contest->text();o.categoryOperator=op->currentText();o.categoryPower=power->currentText();o.categoryAssisted=assisted->currentText();o.categoryBand=band->currentText();o.sentExchangeField=sent->currentText();o.receivedExchangeField=recv->currentText();o.name=name->text();o.email=email->text();generated=GenericCabrillo::cabrillo(r,o,&genError);} preview->setPlainText(generated.isEmpty()?L("Validation failed:")+" "+genError:QString::fromUtf8(generated)); });
     connect(profile,QOverload<int>::of(&QComboBox::currentIndexChanged),&w,[&](int i){const bool generic=i==1;contest->setEnabled(generic);sent->setEnabled(generic);recv->setEnabled(generic);if(!generic){ const QString cqId=QStringLiteral("CQ-WW-RTTY"); contest->setText(cqId); }});
@@ -1354,20 +1361,20 @@ void LogbookDialog::deleteSelectedRecords()
         return;
     }
 
-    QString error;
-    const int removed = m_logbook->removeEntries(records, &error);
-    if (removed < 0) {
-        QMessageBox::warning(this, L("Delete selected QSOs"), L("Delete failed:") + " " + error);
-        return;
-    }
-    if (removed == 0) {
-        QMessageBox::information(this, L("Delete selected QSOs"), L("No matching QSO records were removed."));
-        return;
-    }
-
-    refreshTable();
-    emit logbookChanged();
-    QMessageBox::information(this, L("Delete selected QSOs"), L("Deleted %1 QSO record(s).").arg(removed));
+    if (!m_store) return;
+    setEnabled(false);
+    QPointer<LogbookDialog> self(this);
+    m_store->remove(records, [self](int removed, const QString &error) {
+        if (!self) return;
+        self->setEnabled(true);
+        if (removed < 0) {
+            QMessageBox::warning(self, self->L("Delete selected QSOs"), self->L("Delete failed:") + " " + error);
+            return;
+        }
+        self->refreshTable();
+        emit self->logbookChanged();
+        QMessageBox::information(self, self->L("Delete selected QSOs"), self->L("Deleted %1 QSO record(s).").arg(removed));
+    });
 }
 
 QVector<LogbookEntry> LogbookDialog::chooseOutputRecords(const QString &dialogTitle,

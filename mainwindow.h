@@ -885,6 +885,7 @@ private slots:
      * @brief Minimal low-latency FT TX path used by the UTC scheduler.
      */
     void prearmFtPreparedSlotTransmit();
+    void deferPendingFtTx(const QString &reason);
 
     /**
      * @brief Starts the already pre-armed FT audio worker at the scheduled waveform time.
@@ -917,12 +918,6 @@ private slots:
     void handleBandSchedulerTick();
 
 private:
-    struct PendingFtAutoLog
-    {
-        LogbookEntry entry;
-        QString reason;
-    };
-
     struct QsoFormWidgets
     {
         QWidget *container = nullptr;
@@ -1451,8 +1446,9 @@ private:
      * @brief Returns the active audio output backend name.
      */
     QString selectedAudioOutputName() const;
-    bool startAudioInputBlocking(const QString &deviceName, int sampleRate);
+    bool requestAudioInputStart(const QString &deviceName, int sampleRate);
     void stopAudioInputBlocking();
+    void requestAudioInputStop(std::function<void()> completion = {});
 
     /**
      * @brief Returns the active audio output display label.
@@ -1643,6 +1639,10 @@ private:
 
     AppSettings m_settings;
     AdifLogbook m_logbook;
+    class AsyncLogbook *m_logbookStore = nullptr;
+    QSet<QsoFormWidgets *> m_pendingLogForms;
+    QSet<QString> m_pendingFtLogKeys;
+    bool m_closeAwaitingLogbook = false;
     QTimer m_qsoUtcTimer;
     bool m_shutdownInProgress = false;
     bool m_runtimeShutdownComplete = false;
@@ -1670,6 +1670,7 @@ private:
     FtTxWorker *m_ftTxWorker = nullptr;
     QThread *m_ftTxThread = nullptr;
     bool m_ftTxWorkerRunning = false;
+    quint64 m_ftTxActiveRequest = 0;
     DspEngine *m_dspEngine = nullptr;
     BoundedAudioDispatcher *m_dspAudioDispatcher = nullptr;
     QThread *m_dspThread = nullptr;
@@ -2156,24 +2157,16 @@ private:
     bool m_ft8PendingTxArmed = false;
     QString m_ft8PendingTxToken;
     quint64 m_ft8TxArmGeneration = 0;
-    QString m_pendingFt8TxMessage;
-    QString m_pendingFt8TxTag;
-    bool m_pendingFt8Tune = false;
-    bool m_pendingFt8LatePartial = false;
-    int m_pendingFt8PreSilenceMs = 0;
-    qint64 m_pendingFt8SlotBoundaryUtcMs = 0;
-    int m_pendingFt8AudioTargetDelayMs = 0;
-    int m_pendingFt8PttLeadMs = 0;
+    bool m_ft8AudioStartRequested = false;
+    qint64 m_ft8LastAttemptedSlotBoundaryUtcMs = 0;
     bool m_pendingFt8PttPrearmed = false;
     bool m_pendingFt8PttKeyed = false;
     bool m_ftSplitPreparedForTx = false;
     bool m_ftSplitRestoreFailed = false;
     std::unique_ptr<TxModulator> m_pendingFt8PreparedModulator;
+    class WeakSignalTxPreparer *m_txWaveformPreparer = nullptr;
     FtTxPlan m_pendingFt8TxPlan;
-    FtTxPlan m_lastFt8TxPlan;
     bool m_hasDeferredFt8TxPlan = false;
-    QString m_deferredFt8TxMessage;
-    QString m_deferredFt8TxTag;
     FtTxPlan m_deferredFt8TxPlan;
     FtQsoSession m_ftSession;
     QString m_lastCompletedFt8Call;
@@ -2253,11 +2246,16 @@ private:
     QString m_nativeWeakSignalTxMode;
     qint64 m_nativeWeakSignalTxBoundaryUtcMs = 0;
     std::unique_ptr<TxModulator> m_nativeWeakSignalPreparedModulator;
+    quint64 m_nativeTxPreparationGeneration = 0;
     QPlainTextEdit *m_activeTextTxEditor = nullptr;
     int m_activeTextTxLength = 0;
     int m_textTxHighlightedChars = -1;
 
     bool m_rxRunning = false;
+    bool m_rxStartPending = false;
+    bool m_rxStopPending = false;
+    quint64 m_audioInputRequest = 0;
+    std::function<void()> m_audioStopCompletion;
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;
     AsyncCatCommand *m_catCommand = nullptr;
@@ -2297,8 +2295,6 @@ private:
     QHash<QString, QVariantMap> m_ftLogbookStatusCache;
     QSet<QString> m_ftLogbookPendingKeys;
     QHash<QString, QVector<Ft8RxDecoder::Decode>> m_ftPendingAutoQsoByKey;
-    QHash<quint64, PendingFtAutoLog> m_ftPendingAutoLogs;
-    bool m_ftAutoLogLookupPending = false;
     bool m_ftHighlightRefreshPending = false;
     QThread *m_textAssistThread = nullptr;
     TextAssistWorker *m_textAssistWorker = nullptr;

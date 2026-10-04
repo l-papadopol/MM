@@ -1,0 +1,24 @@
+[0/2] Re-checking globbed directories...
+[1/8] Copying localized MM HTML help files
+[2/8] Generating localized MM Qt Help manuals (.qch, optional)
+CMake Warning at /workspace/scratch/568f9cc8dc74/MadModem_R20/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/568f9cc8dc74/verification-r20/build/docs/help/qhelpgenerator.log
+
+
+[3/8] Automatic MOC and UIC for target MadModem
+[4/8] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtQsoSession.cpp.o
+[5/8] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/mocs_compilation.cpp.o
+[6/8] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[7/8] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[8/8] Linking CXX executable MadModem

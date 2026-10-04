@@ -14,6 +14,8 @@
 #include <cmath>
 #include <memory>
 #include <mutex>
+#include <thread>
+#include <chrono>
 
 namespace {
 
@@ -52,11 +54,13 @@ Ft8Transmitter::Ft8Transmitter(const QString &modeName,
                                const QString &message,
                                int sampleRate,
                                double frequencyHz,
-                               int leadingSilenceMs)
+                               int leadingSilenceMs,
+                               std::function<bool()> cancelled)
     : m_sampleRate(kFtSampleRate),
       m_frequencyHz(qBound(100.0, frequencyHz, 3000.0)),
       m_modeName(cleanModeName(modeName)),
-      m_message(cleanFtMessage(message))
+      m_message(cleanFtMessage(message)),
+      m_cancelled(std::move(cancelled))
 {
     Q_UNUSED(sampleRate)
     buildMessageWaveform(m_message, m_frequencyHz);
@@ -93,29 +97,53 @@ int Ft8Transmitter::sampleRate() const
     return m_sampleRate;
 }
 
+void Ft8Transmitter::setPlaybackWindow(qint64 firstToneUtcMs, qint64 stopUtcMs)
+{
+    m_firstToneUtcMs = firstToneUtcMs;
+    m_stopUtcMs = stopUtcMs;
+}
+
+bool Ft8Transmitter::prepareForPlayback(qint64 utcMs)
+{
+    if (m_firstToneUtcMs <= 0) return true;
+    if (utcMs > m_firstToneUtcMs + 20 || (m_stopUtcMs > 0 && utcMs >= m_stopUtcMs)) return false;
+    m_leadingSamples = int(qBound<qint64>(0, m_firstToneUtcMs - utcMs, 2000) * m_sampleRate / 1000);
+    if (m_stopUtcMs > 0) {
+        const qint64 capacity = (m_stopUtcMs - utcMs) * m_sampleRate / 1000 - m_leadingSamples;
+        if (capacity <= 0) return false;
+        if (capacity < m_samples.size()) m_samples.resize(int(capacity));
+    }
+    return true;
+}
+
 int Ft8Transmitter::generate(float *output, int sampleCount)
 {
     if (output == nullptr || sampleCount <= 0 || isFinished()) {
         return 0;
     }
 
+    const int silence = qMin(sampleCount, m_leadingSamples);
+    std::fill_n(output, silence, 0.0f);
+    m_leadingSamples -= silence;
+    output += silence;
+    sampleCount -= silence;
     const int remaining = m_samples.size() - m_position;
     const int n = qBound(0, sampleCount, remaining);
 
     if (n <= 0) {
-        return 0;
+        return silence;
     }
 
     std::copy(m_samples.constData() + m_position,
               m_samples.constData() + m_position + n,
               output);
     m_position += n;
-    return n;
+    return n + silence;
 }
 
 bool Ft8Transmitter::isFinished() const
 {
-    return m_position >= m_samples.size();
+    return m_leadingSamples == 0 && m_position >= m_samples.size();
 }
 
 double Ft8Transmitter::progress() const
@@ -253,7 +281,8 @@ void Ft8Transmitter::buildFt8MessageWaveform(const QString &message, double freq
     const QString neutralOtp = QStringLiteral("0#0");
     int generated = 0;
     {
-        std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+        WeakSignalCodecLock::TxGuard codecLock(m_cancelled);
+        if (!codecLock) { m_error = QStringLiteral("Cancelled"); return; }
         GenFt8 generator(false); // f_dec_gen=false: generator-side hash tables.
         generated = generator.genft8(message,
                                      iwave.get(),
@@ -331,7 +360,8 @@ void Ft8Transmitter::buildFt4MessageWaveform(const QString &message, double freq
     // the MSHV source tree just as FT8 already uses GenFt8.
     int generated = 0;
     {
-        std::lock_guard<std::mutex> codecLock(WeakSignalCodecLock::mutex());
+        WeakSignalCodecLock::TxGuard codecLock(m_cancelled);
+        if (!codecLock) { m_error = QStringLiteral("Cancelled"); return; }
         GenFt4 generator(false); // f_dec_gen=false: generator-side hash tables.
         generated = generator.genft4(message,
                                      iwave.get(),

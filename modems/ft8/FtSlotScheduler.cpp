@@ -5,8 +5,8 @@
 #include <QTime>
 #include <QtGlobal>
 
-FtSlotScheduler::FtSlotScheduler(QObject *parent)
-    : QObject(parent)
+FtSlotScheduler::FtSlotScheduler(QObject *parent, std::function<qint64()> utcClock)
+    : QObject(parent), m_utcClock(std::move(utcClock))
 {
 }
 
@@ -88,7 +88,7 @@ void FtSlotScheduler::cancelTransmission()
 
 qint64 FtSlotScheduler::nowUtcMs() const
 {
-    return QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+    return m_utcClock ? m_utcClock() : QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
 }
 
 void FtSlotScheduler::emitSlotSnapshot(qint64 nowMs, bool force)
@@ -142,7 +142,8 @@ void FtSlotScheduler::tick()
     // FT4 300 ms). Do the same here: the scheduler wakes the audio path at the
     // selected boundary and Ft8Transmitter inserts only the remaining silence.
     // An expired boundary is never repaired by skipping protocol samples.
-    const qint64 audioDueMs = boundary;
+    const int nominalDelay = Ft8Mode::profileForMode(m_modeName).shortLabel == QStringLiteral("FT4") ? 300 : 500;
+    const qint64 audioDueMs = qMax(boundary, boundary + audioDelay - nominalDelay);
 
     if (!m_prearmEmitted && nowMs >= pttDueMs) {
         m_prearmEmitted = true;

@@ -22,6 +22,7 @@ void FtTxWorker::ensureEngine()
 
     m_engine = new TxAudioEngine(this);
 
+    connect(m_engine, &TxAudioEngine::logMessage, this, &FtTxWorker::logMessage);
     connect(m_engine, &TxAudioEngine::audioBlockReady,
             this, &FtTxWorker::audioBlockReady);
     connect(m_engine, &TxAudioEngine::rttyToneStateChanged,
@@ -38,21 +39,21 @@ void FtTxWorker::ensureEngine()
             this, &FtTxWorker::handleError);
 }
 
-void FtTxWorker::startOutput(const QString &deviceName, TxModulator *modulator)
+void FtTxWorker::startOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs)
 {
     std::unique_ptr<TxModulator> owned(modulator);
 
     if (!owned) {
-        emit errorOccurred(QStringLiteral("FT TX worker start failed: no modulator."));
-        emit stopped();
+        emit errorOccurred(m_activeRequest, QStringLiteral("FT TX worker start failed: no modulator."));
+        emit stopped(m_activeRequest);
         return;
     }
 
     ensureEngine();
 
     if (m_engine == nullptr) {
-        emit errorOccurred(QStringLiteral("FT TX worker start failed: audio engine unavailable."));
-        emit stopped();
+        emit errorOccurred(m_activeRequest, QStringLiteral("FT TX worker start failed: audio engine unavailable."));
+        emit stopped(m_activeRequest);
         return;
     }
 
@@ -61,18 +62,29 @@ void FtTxWorker::startOutput(const QString &deviceName, TxModulator *modulator)
     }
 
     emit logMessage(QStringLiteral("FT TX worker: starting dedicated low-latency audio output."));
-    m_running = m_engine->startOutput(deviceName, std::move(owned));
+    const auto request = m_activeRequest;
+    m_running = m_engine->startOutput(deviceName, std::move(owned), latestStartUtcMs,
+        [this, request]() { return request == m_authorizedRequest.load(); });
 
 }
 
-void FtTxWorker::startScheduledOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs)
+void FtTxWorker::startScheduledOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs, quint64 requestId)
 {
-    if (latestStartUtcMs > 0 && QDateTime::currentMSecsSinceEpoch() > latestStartUtcMs) {
+    if (requestId != m_authorizedRequest.load()) {
         delete modulator;
-        emit errorOccurred(QStringLiteral("FT TX cancelled: worker audio-start deadline expired."));
+        emit stopped(requestId);
         return;
     }
-    startOutput(deviceName, modulator);
+    // Complete the previous sink under its own id before installing the new id.
+    if (m_engine && m_engine->isRunning()) m_engine->stopOutput();
+    m_activeRequest = requestId;
+    if (latestStartUtcMs > 0 && QDateTime::currentMSecsSinceEpoch() > latestStartUtcMs) {
+        delete modulator;
+        emit errorOccurred(m_activeRequest, QStringLiteral("FT TX cancelled: worker audio-start deadline expired."));
+        return;
+    }
+    startOutput(deviceName, modulator, latestStartUtcMs);
+    if (requestId != m_authorizedRequest.load()) stopOutput();
 }
 
 void FtTxWorker::stopOutput()
@@ -85,29 +97,31 @@ void FtTxWorker::stopOutput()
 
     if (m_running) {
         m_running = false;
-        emit stopped();
+        emit stopped(m_activeRequest);
     }
 }
 
 void FtTxWorker::handleStarted()
 {
+    if (m_activeRequest != m_authorizedRequest.load()) {stopOutput();return;}
     m_running = true;
-    emit started();
+    emit started(m_activeRequest);
 }
 
 void FtTxWorker::handleStopped()
 {
     m_running = false;
-    emit stopped();
+    emit stopped(m_activeRequest);
 }
 
 void FtTxWorker::handleFinished()
 {
-    emit finished();
+    emit finished(m_activeRequest);
 }
 
 void FtTxWorker::handleError(const QString &message)
 {
     m_running = false;
-    emit errorOccurred(message);
+    if (m_activeRequest != m_authorizedRequest.load()) emit stopped(m_activeRequest);
+    else emit errorOccurred(m_activeRequest, message);
 }

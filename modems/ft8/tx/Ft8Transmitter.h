@@ -5,6 +5,7 @@
 
 #include <QImage>
 #include <QString>
+#include <functional>
 #include <QVector>
 
 /**
@@ -26,7 +27,8 @@ public:
                    const QString &message,
                    int sampleRate,
                    double frequencyHz,
-                   int leadingSilenceMs = 0);
+                   int leadingSilenceMs = 0,
+                   std::function<bool()> cancelled = {});
 
     Ft8Transmitter(int sampleRate,
                    double frequencyHz,
@@ -40,6 +42,8 @@ public:
                    bool tuneMode);
 
     int sampleRate() const override;
+    void setPlaybackWindow(qint64 firstToneUtcMs, qint64 stopUtcMs = 0);
+    bool prepareForPlayback(qint64 utcMs) override;
     int generate(float *output, int sampleCount) override;
     bool isFinished() const override;
     double progress() const override;
@@ -74,8 +78,12 @@ private:
     QString m_error;
     QVector<float> m_samples;
     int m_position = 0;
+    qint64 m_firstToneUtcMs = 0;
+    qint64 m_stopUtcMs = 0;
+    int m_leadingSamples = 0;
     bool m_tuneMode = false;
     bool m_ok = false;
+    std::function<bool()> m_cancelled;
 };
 
 #endif // FT8TRANSMITTER_H

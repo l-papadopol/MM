@@ -6,6 +6,8 @@
 #include <QElapsedTimer>
 #include <QTextStream>
 #include <thread>
+#include "../modems/ft8/FtSlotScheduler.h"
+#include "../audio/FtTxWorker.h"
 
 inline int runRuntimeWorkersRegression(QApplication &app)
 {
@@ -24,7 +26,19 @@ inline int runRuntimeWorkersRegression(QApplication &app)
     worker->moveToThread(&rxThread);
     QObject::connect(&rxThread,&QThread::finished,worker,&QObject::deleteLater);
     rxThread.start();
+    QObject markerReceiver;
+    bool markersDelivered = false;
+    QObject::connect(rtty, &RttyDecoder::markersChanged, &markerReceiver,
+        [&](const QVector<FrequencyMarker> &markers) {
+            markersDelivered = markers.size() == 1 && markers.front().frequencyHz == 2125;
+        }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(rtty, [rtty] {
+        FrequencyMarker marker; marker.frequencyHz = 2125;
+        emit rtty->markersChanged({marker});
+    }, Qt::QueuedConnection);
+    check(pump([&] { return markersDelivered; }), "waterfall markers cross RX worker/GUI boundary");
     RxDecoderWorker::Config config;config.mode=RttyDecoder::modeName();config.enabled=true;config.filter.enabled=false;
+    config.filter.blackHz=2125; config.filter.whiteHz=2295;
     QMetaObject::invokeMethod(worker,[&](){worker->configure(config);},Qt::BlockingQueuedConnection);
     QString decoded;QMutex textMutex;std::atomic_bool wrongThread{false};std::atomic_int drops{0};
     QObject::connect(rtty,&RttyDecoder::characterReceived,worker,[&](const QString &s){
@@ -73,6 +87,28 @@ inline int runRuntimeWorkersRegression(QApplication &app)
     blocked.restart();
     while(decodedText()!="REVERSE" && blocked.elapsed()<3000)QThread::msleep(5);
     check(decodedText()=="REVERSE","RTTY manual reverse decodes without GUI callbacks");
+    // Hold a stable +12 Hz tone pair until the real worker AFC acquires it.
+    QMetaObject::invokeMethod(worker,[&](){
+        config.afc=true;config.afcRange=20;worker->configure(config);worker->beginCapture();
+        rtty->setReverse(false);
+    },Qt::BlockingQueuedConnection);
+    qint64 afcIndex=0;
+    auto afcBlock=[&](int count) {
+        AudioBlock b;b.sampleRate=48000;b.captureGeneration=5;b.firstSampleIndex=afcIndex;b.samples.resize(count);
+        for(int i=0;i<count;++i,++afcIndex)
+            b.samples[i]=0.2f*(qSin(2*M_PI*2137*afcIndex/48000.0)+qSin(2*M_PI*2307*afcIndex/48000.0));
+        worker->queue()->enqueue(b);
+        QMetaObject::invokeMethod(worker,[](){},Qt::BlockingQueuedConnection);
+    };
+    for(int i=0;i<32;++i) afcBlock(4096);
+    double acquired=0,restored=0,disabled=0;
+    QMetaObject::invokeMethod(worker,[&](){acquired=rtty->markHz();rtty->setTones(2125,2295);},Qt::BlockingQueuedConnection);
+    afcBlock(64); // not enough samples for another estimator update
+    QMetaObject::invokeMethod(worker,[&](){restored=rtty->markHz();config.afc=false;worker->configure(config);},Qt::BlockingQueuedConnection);
+    afcBlock(64);
+    QMetaObject::invokeMethod(worker,[&](){disabled=rtty->markHz();},Qt::BlockingQueuedConnection);
+    check(acquired>2130 && qAbs(restored-acquired)<0.1,"RTTY AFC restores oscillator after a nominal retune without waiting for drift");
+    check(disabled==2125,"disabling RTTY AFC restores the operator tone pair");
     std::atomic_int imageNotifications{0};
     worker->acknowledgeImages();
     QObject::connect(worker,&RxDecoderWorker::imagesAvailable,worker,[&](){++imageNotifications;},Qt::DirectConnection);
@@ -109,6 +145,49 @@ inline int runRuntimeWorkersRegression(QApplication &app)
     bool executed=false;
     gate.request(target,[&](){executed=true;return true;},[](){return true;},[&](bool ok){accepted=ok;});
     check(!executed && !accepted && !gate.busy(),"faulted CAT cannot authorize a new command");
+    callbacks=0;
+    gate.request(target,[&](){keyed=false;return true;},[](){return true;},
+                 [&](bool ok){++callbacks;accepted=ok;},3000,true);
+    check(pump([&](){return callbacks==1;}) && accepted && !keyed && !gate.faulted(),
+          "emergency PTT OFF can recover a faulted gate");
+
+    for(const QString &mode:{QStringLiteral("FT8"),QStringLiteral("FT4")}) {
+        qint64 now=1000000;
+        FtSlotScheduler scheduler(nullptr,[&](){return now;});scheduler.configure(mode,true);
+        int prearms=0,starts=0;QString startedToken;
+        QObject::connect(&scheduler,&FtSlotScheduler::txPttPrearmDue,&app,[&](const QString &,qint64,int,int,qint64){++prearms;});
+        QObject::connect(&scheduler,&FtSlotScheduler::txAudioStartDue,&app,[&](const QString &token,qint64,int,int,qint64){++starts;startedToken=token;});
+        const int nominal=mode==QStringLiteral("FT4")?300:500;
+        scheduler.armTransmission("late",now-1600,2300,650);
+        check(prearms==1 && starts==0,"late arm gives CAT time instead of immediate audio/cancel");
+        now+=700-nominal-1;QMetaObject::invokeMethod(&scheduler,"tick",Qt::DirectConnection);
+        check(starts==0,"no audio request before its revised opening time");
+        now+=1;QMetaObject::invokeMethod(&scheduler,"tick",Qt::DirectConnection);
+        QMetaObject::invokeMethod(&scheduler,"tick",Qt::DirectConnection);
+        check(starts==1 && startedToken=="late","one audio event per late FT plan");
+        const qint64 boundary=now+2000;
+        scheduler.armTransmission("cancelled",boundary,nominal,650);scheduler.cancelTransmission();
+        now=boundary+500;QMetaObject::invokeMethod(&scheduler,"tick",Qt::DirectConnection);
+        check(starts==1,"STOP cancels future slot events");
+        scheduler.armTransmission("old",now+2000,nominal,650);
+        scheduler.armTransmission("replacement",now+4000,nominal,650);
+        now+=2000;QMetaObject::invokeMethod(&scheduler,"tick",Qt::DirectConnection);
+        check(starts==1,"old slot cannot start replacement early");
+        now+=4000;QMetaObject::invokeMethod(&scheduler,"tick",Qt::DirectConnection);
+        check(starts==2 && startedToken=="replacement","replacement retains its exact token");
+    }
+    {
+        FtTxWorker txWorker;int starts=0,stops=0,errors=0;
+        QObject::connect(&txWorker,&FtTxWorker::started,&app,[&](quint64){++starts;});
+        QObject::connect(&txWorker,&FtTxWorker::stopped,&app,[&](quint64){++stops;});
+        QObject::connect(&txWorker,&FtTxWorker::errorOccurred,&app,[&](quint64,const QString &){++errors;});
+        const auto id=txWorker.newRequest();txWorker.cancelPendingStart();
+        txWorker.startScheduledOutput("must-not-open",new RttyTransmitter("TEST",48000,45.45,2125,2295,false),0,id);
+        check(starts==0 && stops==1 && errors==0,"STOP revokes queued audio before backend opens");
+        const auto nextId=txWorker.newRequest();
+        txWorker.startScheduledOutput("must-not-open",new RttyTransmitter("TEST",48000,45.45,2125,2295,false),1,nextId);
+        check(starts==0 && errors==1,"expired audio request never opens backend");
+    }
     heartbeat.stop();catThread.quit();catThread.wait();
     return passed?0:1;
 }

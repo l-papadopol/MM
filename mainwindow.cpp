@@ -1,3 +1,5 @@
+#include "logbook/AsyncLogbook.h"
+#include "runtime/WeakSignalTxPreparer.h"
 #include "logbook/CqWwRtty.h"
 #include "mainwindow.h"
 #include "MadModemVersion.h"
@@ -1437,6 +1439,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_rigThread(new QThread(this))
 {
     ui->setupUi(this);
+    m_txWaveformPreparer = new WeakSignalTxPreparer(this);
     m_catCommand=new AsyncCatCommand(this);
     connect(m_catCommand,&AsyncCatCommand::compensatedCommand,this,[this](bool recovered){
         m_ftSplitPreparedForTx=!recovered;
@@ -1587,10 +1590,15 @@ MainWindow::MainWindow(QWidget *parent)
                               ? AdifLogbook::defaultPath()
                               : configuredLogbookPath);
 
-    QString logbookError;
-    if (!m_logbook.load(&logbookError)) {
-        appendLog("Logbook load failed: " + logbookError);
-    }
+    m_logbookStore = new AsyncLogbook(&m_logbook, this);
+    m_logbookStore->setResetHandler([this] {
+        queueLogbookIndexRebuild();
+        refreshLogbookHighlights(true);
+        refreshQsoMaps();
+    });
+    m_logbookStore->reload(m_logbook.fileName(), [this](int count, const QString &error) {
+        if (count < 0) appendLog(QStringLiteral("Logbook load failed: ") + error);
+    });
 
     // Load language before creating dynamic pages/tooltips.
     // A large part of the Mode tab is built in C++ with uiText(), so doing this
@@ -1684,6 +1692,8 @@ MainWindow::~MainWindow()
     m_terminalHighlightTimer.stop();
     m_pendingTerminalHighlights.clear();
     shutdownRuntime("destructor");
+    delete m_logbookStore; m_logbookStore = nullptr;
+    delete m_txWaveformPreparer; m_txWaveformPreparer = nullptr;
     // The form wrappers are plain bookkeeping structs. Their QWidget members
     // remain owned by Qt's parent hierarchy and are destroyed with the UI.
     delete m_rttyQsoForm;
@@ -1708,6 +1718,27 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
+    if (m_logbookStore && !m_runtimeShutdownComplete &&
+        (m_logbookStore->busy() || m_logbookStore->hasUnsaved())) {
+        if (event) event->ignore();
+        if (m_closeAwaitingLogbook) return;
+        m_closeAwaitingLogbook = true;
+        m_ft8OperatorStopLatched = true;
+        stopImageTx();
+        setEnabled(false);
+        m_logbookStore->retryFailed();
+        m_logbookStore->whenIdle([this] {
+            m_closeAwaitingLogbook = false;
+            setEnabled(true);
+            if (m_logbookStore->hasUnsaved()) {
+                QMessageBox::warning(this, QStringLiteral("Logbook"),
+                    QStringLiteral("Some QSOs could not be saved. Check the logbook path and disk, then close again to retry. The application will remain open."));
+                return;
+            }
+            close();
+        });
+        return;
+    }
     if (event != nullptr) {
         event->accept();
     }
@@ -1743,7 +1774,9 @@ void MainWindow::shutdownRuntime(const char *reason)
         shutdownLog(QStringLiteral("recursive shutdown ignored"));
         return;
     }
+    if (m_logbookStore) m_logbookStore->drain();
     m_shutdownInProgress = true;
+    if (m_txWaveformPreparer) m_txWaveformPreparer->cancel();
 
     QElapsedTimer shutdownTimer;
     shutdownTimer.start();
@@ -1809,7 +1842,11 @@ void MainWindow::shutdownRuntime(const char *reason)
     if (m_audioEngine != nullptr) {
         shutdownLog(QStringLiteral("stopping RX audio"));
         disconnect(m_audioEngine, nullptr, this, nullptr);
-        stopAudioInputBlocking();
+        m_audioEngine->invalidateInputRequests();
+        QMetaObject::invokeMethod(m_audioEngine, [engine = m_audioEngine] {
+            engine->stopInput();
+            QThread::currentThread()->quit();
+        }, Qt::QueuedConnection);
     }
     if (m_rxUiAudioDispatcher != nullptr) {
         disconnect(m_rxUiAudioDispatcher, nullptr, this, nullptr);
@@ -1825,6 +1862,7 @@ void MainWindow::shutdownRuntime(const char *reason)
     }
     if (m_ftTxWorker != nullptr) {
         disconnect(m_ftTxWorker, nullptr, this, nullptr);
+        m_ftTxWorker->cancelPendingStart();
         invokeStopQueued(m_ftTxWorker, "stopOutput");
     }
 
@@ -1875,7 +1913,7 @@ void MainWindow::shutdownRuntime(const char *reason)
         }
         shutdownLog(QStringLiteral("requesting thread stop: %1").arg(worker.name));
         worker.thread->requestInterruption();
-        if(worker.thread!=m_rigThread)worker.thread->quit();
+        if(worker.thread!=m_rigThread && worker.thread!=m_audioThread)worker.thread->quit();
     }
 
     constexpr qint64 kGracefulShutdownBudgetMs = 5000;
@@ -3141,7 +3179,11 @@ void MainWindow::updateQsoUtcFields()
 
 bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
 {
-    if (form == nullptr || form->callsign == nullptr) {
+    if (m_pendingLogForms.contains(form)) {
+        if (!m_logbookStore->busy()) m_logbookStore->retryFailed();
+        return false;
+    }
+    if (m_closeAwaitingLogbook || form == nullptr || form->callsign == nullptr) {
         return false;
     }
 
@@ -3249,62 +3291,70 @@ bool MainWindow::addQsoToLogFromForm(QsoFormWidgets *form)
         }
     }
     const bool wasKnown = m_logbook.containsCallsign(entry.callsign);
-    QString error;
-    if (!m_logbook.append(entry, &error)) {
-        QMessageBox::warning(this,
-                             uiText("add_qso_to_log", "Add QSO to log"),
-                             uiText("cannot_save_logbook", "Cannot save logbook: %1").arg(error));
-        return false;
+    const QString sessionId = m_rttyContestActiveSessionId;
+    const QString profileId = contestProfile ? contestProfile->id : QString();
+    const bool contest = contestProfile != nullptr;
+    const int sentSerial = entry.adifFields.value(QStringLiteral("STX")).toInt();
+    const QString serialSettingsKey = contestSettingsRoot() + QStringLiteral("/serial/%1").arg(profileId);
+    const QString receivedExchange = entry.adifFields.value(QStringLiteral("SRX_STRING"));
+    if (contest && sentSerial > 0 && m_spinRttyContestSerial && m_spinRttyContestSerial->value() <= sentSerial) {
+        const QSignalBlocker blocker(m_spinRttyContestSerial);
+        m_spinRttyContestSerial->setValue(sentSerial + 1);
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(serialSettingsKey, sentSerial + 1);
+        refreshTextMacroButtons();
     }
-    queueLogbookIndexAdd(entry);
-    broadcastLoggedQsoUdp(entry);
-
-    appendLog(QStringLiteral("Logged QSO: %1 %2 %3 %4%5")
-                  .arg(entry.callsign,
-                       entry.rstSent,
-                       entry.rstReceived,
-                       entry.mode,
-                       wasKnown ? QStringLiteral(" (worked before)") : QString()));
-    refreshLogbookHighlights(true);
-    refreshQsoMaps();
-
-    if (contestProfile != nullptr) {
-        ++m_rttyContestSessionQsoCount;
-        bool serialWasPartOfThisExchange = false;
-        if (contestProfile->serialEnabled) {
-            for (const RttyContestFieldRule &field : contestProfile->sentFields) {
-                if (field.id.compare(QStringLiteral("SERIAL"), Qt::CaseInsensitive) == 0 &&
-                    rttyContestConditionMatches(field.when, &entry, entry.callsign)) {
-                    serialWasPartOfThisExchange = true;
-                    break;
-                }
-            }
+    m_pendingLogForms.insert(form);
+    if (form->addButton) form->addButton->setEnabled(false);
+    m_logbookStore->append(entry, [this, form, entry, wasKnown, sessionId, profileId, contest,
+                                  sentSerial, serialSettingsKey, receivedExchange](int count, const QString &error) {
+        if (form->addButton) form->addButton->setEnabled(true);
+        if (count < 0) {
+            appendLog(QStringLiteral("QSO save failed: ") + error);
+            QMessageBox::warning(this, uiText("add_qso_to_log", "Add QSO to log"),
+                                 uiText("cannot_save_logbook", "Cannot save logbook: %1").arg(error));
+            return;
         }
-        if (serialWasPartOfThisExchange && m_spinRttyContestSerial != nullptr) {
-            const int nextSerial = m_spinRttyContestSerial->value() + 1;
-            {
+        m_pendingLogForms.remove(form);
+        if (count > 0) {
+            queueLogbookIndexAdd(entry);
+            broadcastLoggedQsoUdp(entry);
+        }
+        appendLog(QStringLiteral("Logged QSO: %1 %2 %3 %4%5")
+            .arg(entry.callsign, entry.rstSent, entry.rstReceived, entry.mode,
+                 wasKnown ? QStringLiteral(" (worked before)") : QString()));
+        refreshLogbookHighlights(true);
+        refreshQsoMaps();
+        const auto *currentProfile = currentRttyContestProfile();
+        const bool sameContest = contest && sessionId == m_rttyContestActiveSessionId &&
+            currentProfile && currentProfile->id == profileId;
+        if (contest && sentSerial > 0) {
+            QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+            const int nextSerial = qMax(sentSerial + 1, settings.value(serialSettingsKey, 1).toInt());
+            settings.setValue(serialSettingsKey, nextSerial);
+            if (sameContest && m_spinRttyContestSerial && m_spinRttyContestSerial->value() <= sentSerial) {
                 const QSignalBlocker blocker(m_spinRttyContestSerial);
                 m_spinRttyContestSerial->setValue(nextSerial);
             }
-            QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-            settings.setValue(contestSettingsRoot() + QStringLiteral("/serial/%1").arg(contestProfile->id), nextSerial);
         }
-        refreshRttyContestScore();
-        refreshTextMacroButtons();
-    }
-
-    if (contestProfile != nullptr) {
-        form->callsign->clear();
-        for (auto *edit : m_rttyContestReceivedFieldEdits) if (edit) edit->clear();
-        return true;
-    }
-    QMessageBox::information(this,
-                             uiText("add_qso_to_log", "Add QSO to log"),
-                             uiText("qso_saved_to_adif", "QSO with %1 saved to ADIF logbook.%2")
-                                 .arg(entry.callsign,
-                                      wasKnown ? uiText("qso_already_present_suffix", "\nThis callsign was already present in the log.") : QString()));
-    return true;
+        if (sameContest) {
+            if (count > 0) ++m_rttyContestSessionQsoCount;
+            // Do not erase a new correspondent/exchange typed while disk I/O ran.
+            if (AdifLogbook::normalizeCallsign(form->callsign->text()) == entry.callsign &&
+                rttyContestExchange(false) == receivedExchange) {
+                form->callsign->clear();
+                for (auto *edit : m_rttyContestReceivedFieldEdits) if (edit) edit->clear();
+            }
+            refreshRttyContestScore();
+            refreshTextMacroButtons();
+        }
+        if (!contest && !m_closeAwaitingLogbook)
+            QMessageBox::information(this, uiText("add_qso_to_log", "Add QSO to log"),
+                uiText("qso_saved_to_adif", "QSO with %1 saved to ADIF logbook.%2").arg(entry.callsign, QString()));
+    });
+    return true; // accepted; success is reported only after durable commit
 }
+
 
 QString MainWindow::extractCallsignFromText(const QString &text) const
 {
@@ -3517,22 +3567,22 @@ void MainWindow::queueLogbookIndexRebuild()
 {
     invalidateFtLogbookCache();
     if (m_logbookIndexWorker == nullptr) return;
-    const QString fileName = m_logbook.fileName();
+    const auto records = m_logbook.records(); // Qt implicit sharing: no GUI record-vector copy.
     const LogbookIndexWorker::ContestConfig config = currentLogbookContestConfig();
     LogbookIndexWorker *worker = m_logbookIndexWorker;
-    QMetaObject::invokeMethod(worker, [worker, fileName, config]() {
-        worker->rebuildFromFile(fileName, config);
+    QMetaObject::invokeMethod(worker, [worker, records, config]() {
+        worker->rebuildFromRecords(records, config);
     }, Qt::QueuedConnection);
 }
 
 void MainWindow::queueContestIndexRebuild()
 {
     if (m_logbookIndexWorker == nullptr) return;
-    const QString fileName = m_logbook.fileName();
+    const auto records = m_logbook.records(); // Qt implicit sharing: no GUI record-vector copy.
     const LogbookIndexWorker::ContestConfig config = currentLogbookContestConfig();
     LogbookIndexWorker *worker = m_logbookIndexWorker;
-    QMetaObject::invokeMethod(worker, [worker, fileName, config]() {
-        worker->setContestConfigFromFile(fileName, config);
+    QMetaObject::invokeMethod(worker, [worker, records, config]() {
+        worker->setContestConfigFromRecords(records, config);
     }, Qt::QueuedConnection);
 }
 
@@ -3685,8 +3735,16 @@ QVariantMap MainWindow::cachedFtLogbookStatus(const QVariantMap &query) const
 {
     const QString key = query.value(QStringLiteral("cacheKey")).toString();
     if (key.isEmpty()) return QVariantMap();
-    const QVariantMap status = m_ftLogbookStatusCache.value(key);
-    if (status.value(QStringLiteral("generation")).toULongLong() != m_ftLogbookCacheGeneration) return QVariantMap();
+    QVariantMap status = m_ftLogbookStatusCache.value(key);
+    if (status.isEmpty() || status.value(QStringLiteral("generation")).toULongLong() != m_ftLogbookCacheGeneration) return QVariantMap();
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    const auto recent = [&now](const QDateTime &latest, qint64 seconds) {
+        return seconds > 0 && latest.isValid() && qAbs(latest.secsTo(now)) <= seconds;
+    };
+    status.insert(QStringLiteral("recentWorked"), recent(status.value(QStringLiteral("latestCallUtc")).toDateTime(),
+        query.value(QStringLiteral("recentHours")).toLongLong() * 3600));
+    status.insert(QStringLiteral("recentBandMode"), recent(status.value(QStringLiteral("latestBandModeUtc")).toDateTime(),
+        query.value(QStringLiteral("recentBandModeMinutes")).toLongLong() * 60));
     return status;
 }
 
@@ -3765,41 +3823,15 @@ void MainWindow::handleFtLogbookLookupReady(quint64 requestId,
                                              const QString &consumerId,
                                              const QVariantList &results)
 {
-    if (consumerId == QStringLiteral("FT_AUTOLOG")) {
-        const PendingFtAutoLog pending = m_ftPendingAutoLogs.take(requestId);
-        m_ftAutoLogLookupPending = false;
-        if (pending.entry.callsign.isEmpty() || results.isEmpty()) return;
-        const QVariantMap status = results.constFirst().toMap();
-        if (status.value(QStringLiteral("generation")).toULongLong() != m_ftLogbookCacheGeneration) {
-            QVariantMap retryQuery = makeFtLogbookQuery(pending.entry.callsign,
-                                                        pending.entry.band,
-                                                        pending.entry.mode,
-                                                        pending.entry.adifFields.value(QStringLiteral("DXCC")),
-                                                        pending.entry.grid,
-                                                        0,
-                                                        10);
-            retryQuery.insert(QStringLiteral("referenceUtcMs"), pending.entry.utc.toUTC().toMSecsSinceEpoch());
-            retryQuery.insert(QStringLiteral("generation"), QVariant::fromValue<qulonglong>(m_ftLogbookCacheGeneration));
-            const quint64 retryId = ++m_ftLogbookRequestCounter;
-            m_ftPendingAutoLogs.insert(retryId, pending);
-            m_ftAutoLogLookupPending = true;
-            LogbookIndexWorker *worker = m_logbookIndexWorker;
-            const QVariantList retryQueries{retryQuery};
-            QMetaObject::invokeMethod(worker, [worker, retryId, retryQueries]() {
-                worker->lookupFt(retryId, QStringLiteral("FT_AUTOLOG"), retryQueries);
-            }, Qt::QueuedConnection);
-            return;
-        }
-        finishAutoLogFt8Qso(pending.entry, pending.reason, status);
-        return;
-    }
+    Q_UNUSED(requestId)
+    Q_UNUSED(consumerId)
 
     for (const QVariant &item : results) {
         const QVariantMap status = item.toMap();
         const QString key = status.value(QStringLiteral("cacheKey")).toString();
         if (key.isEmpty()) continue;
-        m_ftLogbookPendingKeys.remove(key);
         if (status.value(QStringLiteral("generation")).toULongLong() != m_ftLogbookCacheGeneration) continue;
+        m_ftLogbookPendingKeys.remove(key);
         m_ftLogbookStatusCache.insert(key, status);
 
         const QVector<Ft8RxDecoder::Decode> waiting = m_ftPendingAutoQsoByKey.take(key);
@@ -3833,10 +3865,11 @@ void MainWindow::applyTextAssistContestCandidate(const QVariantMap &candidate)
     if (profile == nullptr || form == nullptr) return;
 
     const QString dxCall = AdifLogbook::normalizeCallsign(candidate.value(QStringLiteral("dxCall")).toString());
-    if (!dxCall.isEmpty() && form->callsign != nullptr) {
-        const QString current = AdifLogbook::normalizeCallsign(form->callsign->text());
-        if (current.isEmpty() || current == dxCall) form->callsign->setText(dxCall);
-    }
+    if (dxCall.isEmpty() || form->callsign == nullptr) return;
+    const QString current = AdifLogbook::normalizeCallsign(form->callsign->text());
+    // An exchange from another caller must never populate the selected QSO.
+    if (!current.isEmpty() && current != dxCall) return;
+    form->callsign->setText(dxCall);
     const QVariantMap fields = candidate.value(QStringLiteral("fields")).toMap();
     for (const RttyContestFieldRule &field : profile->receivedFields) {
         if (field.type == QStringLiteral("call") || !fields.contains(field.id)) continue;
@@ -9409,6 +9442,7 @@ void MainWindow::setupProcessingConnections()
             },
             Qt::QueuedConnection);
 
+    connect(m_txAudioEngine, &TxAudioEngine::logMessage, this, &MainWindow::appendLog);
     connect(m_txAudioEngine, &TxAudioEngine::started,
             this, &MainWindow::handleTxStarted);
 
@@ -9438,22 +9472,27 @@ void MainWindow::setupProcessingConnections()
                 },
                 Qt::QueuedConnection);
         connect(m_ftTxWorker, &FtTxWorker::started,
-                this, [this]() {
+                this, [this](quint64 requestId) {
+                    if(requestId!=m_ftTxActiveRequest || m_ft8OperatorStopLatched)return;
                     m_ftTxWorkerRunning = true;
                     handleTxStarted();
                 },
                 Qt::QueuedConnection);
         connect(m_ftTxWorker, &FtTxWorker::stopped,
-                this, [this]() {
+                this, [this](quint64 requestId) {
+                    if(requestId!=m_ftTxActiveRequest)return;
                     m_ftTxWorkerRunning = false;
                     handleTxStopped();
                 },
                 Qt::QueuedConnection);
         connect(m_ftTxWorker, &FtTxWorker::finished,
-                this, &MainWindow::handleTxFinished,
+                this, [this](quint64 requestId){
+                    if(requestId==m_ftTxActiveRequest && !m_ft8OperatorStopLatched)handleTxFinished();
+                },
                 Qt::QueuedConnection);
         connect(m_ftTxWorker, &FtTxWorker::errorOccurred,
-                this, [this](const QString &message) {
+                this, [this](quint64 requestId,const QString &message) {
+                    if(requestId!=m_ftTxActiveRequest)return;
                     m_ftTxWorkerRunning = false;
                     handleTxError(message);
                 },
@@ -11206,11 +11245,21 @@ void MainWindow::setupUiConnections()
     connect(m_audioEngine, &AudioEngine::levelChanged,
             this, &MainWindow::handleAudioLevel);
 
-    connect(m_audioEngine, &AudioEngine::started,
-            this, &MainWindow::handleAudioStarted);
-
-    connect(m_audioEngine, &AudioEngine::stopped,
-            this, &MainWindow::handleAudioStopped);
+    connect(m_audioEngine, &AudioEngine::inputRequestFinished, this,
+            [this](quint64 request, bool starting, bool success) {
+                if (request != m_audioInputRequest || m_shutdownInProgress) return;
+                m_rxStartPending = false;
+                m_rxStopPending = false;
+                if (starting) {
+                    if (success) handleAudioStarted();
+                    else { setReceiverRunning(false); appendLog("RX start failed."); }
+                } else {
+                    auto completion = std::move(m_audioStopCompletion);
+                    m_audioStopCompletion = {};
+                    handleAudioStopped();
+                    if (completion) completion();
+                }
+            });
 
     connect(m_audioEngine, &AudioEngine::errorOccurred,
             this, &MainWindow::handleAudioError);
@@ -11376,7 +11425,7 @@ void MainWindow::requestRigPtt(bool enabled, std::function<void(bool)> completio
     if(m_shutdownInProgress || m_runtimeShutdownComplete){completion(false);return;}
     auto *controller=m_rigController;
     m_catCommand->request(controller,[controller,enabled](){return controller->setPtt(enabled);},
-        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},std::move(completion));
+        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},std::move(completion),3000,!enabled);
 }
 
 QString MainWindow::ftSplitOperationKey() const
@@ -11449,28 +11498,36 @@ void MainWindow::invokeRigSetFrequency(double frequencyHz)
     }, Qt::QueuedConnection);
 }
 
-bool MainWindow::startAudioInputBlocking(const QString &deviceName, int sampleRate)
+bool MainWindow::requestAudioInputStart(const QString &deviceName, int sampleRate)
 {
-    if (m_audioEngine == nullptr) {
-        return false;
+    if (!m_audioEngine || !m_audioEngine->thread() || !m_audioEngine->thread()->isRunning()) return false;
+    if (m_rxUiAudioDispatcher) m_rxUiAudioDispatcher->clear();
+    if (m_dspAudioDispatcher) m_dspAudioDispatcher->clear();
+    m_audioStopCompletion = {};
+    m_rxStartPending = true;
+    m_rxStopPending = false;
+    m_audioInputRequest = m_audioEngine->requestStartInput(deviceName, sampleRate);
+    updateMainStateButton();
+    return true;
+}
+
+void MainWindow::requestAudioInputStop(std::function<void()> completion)
+{
+    m_rxStartPending = false;
+    m_rxStopPending = true;
+    m_audioStopCompletion = std::move(completion);
+    if (!m_audioEngine) {
+        m_rxStopPending = false;
+        auto done = std::move(m_audioStopCompletion);
+        m_audioStopCompletion = {};
+        handleAudioStopped();
+        if (done) done();
+        return;
     }
-    if (m_rxUiAudioDispatcher != nullptr) {
-        m_rxUiAudioDispatcher->clear();
-    }
-    if (m_dspAudioDispatcher != nullptr) {
-        m_dspAudioDispatcher->clear();
-    }
-    bool started = false;
-    if (m_audioEngine->thread() == QThread::currentThread()) {
-        started = m_audioEngine->startInput(deviceName, sampleRate);
-    } else if (m_audioEngine->thread() != nullptr && m_audioEngine->thread()->isRunning()) {
-        QMetaObject::invokeMethod(m_audioEngine,
-                                  [engine = m_audioEngine, deviceName, sampleRate, &started]() {
-                                      started = engine->startInput(deviceName, sampleRate);
-                                  },
-                                  Qt::BlockingQueuedConnection);
-    }
-    return started;
+    m_audioInputRequest = m_audioEngine->requestStopInput();
+    if (m_rxUiAudioDispatcher) m_rxUiAudioDispatcher->clear();
+    if (m_dspAudioDispatcher) m_dspAudioDispatcher->clear();
+    updateMainStateButton();
 }
 
 void MainWindow::stopAudioInputBlocking()
@@ -11478,6 +11535,11 @@ void MainWindow::stopAudioInputBlocking()
     if (m_audioEngine == nullptr) {
         return;
     }
+    m_audioEngine->invalidateInputRequests();
+    m_audioInputRequest = m_audioEngine->latestInputRequest();
+    m_rxStartPending = false;
+    m_rxStopPending = false;
+    m_audioStopCompletion = {};
     if (m_audioEngine->thread() == QThread::currentThread()) {
         m_audioEngine->stopInput();
     } else if (m_audioEngine->thread() != nullptr && m_audioEngine->thread()->isRunning()) {
@@ -12748,8 +12810,8 @@ void MainWindow::setReceiverRunning(bool running)
 
     if (m_spinFt8RxFreq != nullptr) {
         const bool ft8Pending = m_ft8PendingTxArmed;
-        const bool ft8TuneActive = m_pendingFt8Tune ||
-                                   (m_ftSession.lastTxWasTune && (m_txRunning || m_ftTxWorkerRunning)) ||
+        const bool ft8TuneActive = m_pendingFt8TxPlan.tune ||
+                                   (m_ftSession.lastTxPlan.tune && (m_txRunning || m_ftTxWorkerRunning)) ||
                                    (m_pendingFt8PttKeyed && !m_txRunning && !m_ftTxWorkerRunning);
         m_spinFt8RxFreq->setEnabled(configurable && !ft8Pending);
         m_spinFt8TxFreq->setEnabled(configurable && !ft8Pending);
@@ -12825,7 +12887,7 @@ void MainWindow::updateMainStateButton()
         return;
     }
 
-    if (m_rxRunning) {
+    if (m_rxRunning || m_rxStartPending) {
         ui->btnStartRx->setText(uiText("button.transport_rx_stop", "■ RX"));
         ui->btnStartRx->setEnabled(true);
         return;
@@ -12846,9 +12908,10 @@ bool MainWindow::prepareForOfflineAnalysis(const QString &label)
         return false;
     }
 
-    if (m_audioEngine != nullptr && m_audioEngine->isRunning()) {
+    if (m_audioEngine != nullptr && (m_rxStartPending || m_audioEngine->isRunning())) {
         appendLog(label + ": stopping live RX first.");
         stopAudioInputBlocking();
+        handleAudioStopped();
     }
 
     m_rxRunning = false;
@@ -12868,7 +12931,7 @@ void MainWindow::requestModeChange(const QString &modeName)
     const QString currentMode = ui->cmbMode->currentText();
     const bool txActive = m_txPreparationPending || m_txRunning ||
                           (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning());
-    const bool rxActive = m_rxRunning ||
+    const bool rxActive = m_rxStartPending || m_rxStopPending || m_rxRunning ||
                           (m_audioEngine != nullptr && m_audioEngine->isRunning());
 
     if (m_offlineAnalysisActive) {
@@ -12903,17 +12966,18 @@ void MainWindow::requestModeChange(const QString &modeName)
         m_returnToRxAfterTx = false;
         m_txFinishedNaturally = false;
 
-        if (m_txAudioEngine != nullptr) {
-            m_txAudioEngine->stopOutput();
-        } else {
-            m_txRunning = false;
-            finishPendingModeChange();
+        stopImageTx();
+        if (m_pendingModeName.isEmpty()) return;
+        m_returnToRxAfterTx = false;
+        if (!m_txRunning && !m_ftTxWorkerRunning) {
+            if (rxActive) requestAudioInputStop();
+            else finishPendingModeChange();
         }
         return;
     }
 
     if (rxActive && m_audioEngine != nullptr) {
-        stopAudioInputBlocking();
+        requestAudioInputStop();
         return;
     }
 
@@ -12926,6 +12990,14 @@ void MainWindow::finishPendingModeChange()
         return;
     }
 
+    // RX and TX acknowledge independently. An early capture-stop reply must
+    // not switch the decoder/UI while a TX worker is still releasing output.
+    if (m_txRunning || m_ftTxWorkerRunning || m_txPreparationPending) return;
+    if (m_rxStartPending || m_rxStopPending ||
+        (m_audioEngine && m_audioEngine->isRunning())) {
+        if (!m_rxStopPending) requestAudioInputStop();
+        return;
+    }
     const QString targetMode = m_pendingModeName;
     const bool restartRx = m_pendingModeRestartRx;
 
@@ -13712,11 +13784,11 @@ void MainWindow::stopMsk144Shell()
         cancelNativeWeakSignalPeriodTx(QStringLiteral("operator STOP"));
         return;
     }
-    if (m_txRunning) {
+    if (m_txRunning || m_txPreparationPending) {
         stopImageTx();
         return;
     }
-    if (m_rxRunning) {
+    if (m_rxRunning || m_rxStartPending) {
         stopRx();
     }
     if (m_msk144Decoder != nullptr) {
@@ -13962,8 +14034,8 @@ void MainWindow::stopQ65Shell()
         cancelNativeWeakSignalPeriodTx(QStringLiteral("operator STOP"));
         return;
     }
-    if (m_txRunning) { stopImageTx(); return; }
-    if (m_rxRunning) stopRx();
+    if (m_txRunning || m_txPreparationPending) { stopImageTx(); return; }
+    if (m_rxRunning || m_rxStartPending) stopRx();
     if (m_q65Decoder != nullptr) {
         QMetaObject::invokeMethod(m_q65Decoder, "flushPeriod", Qt::QueuedConnection);
     }
@@ -13981,24 +14053,6 @@ void MainWindow::scheduleNativeWeakSignalPeriodTx()
     const bool msk144 = Msk144Mode::isMode(modeName);
     const bool q65 = Q65Mode::isFamilyMode(modeName);
     if (!msk144 && !q65) return;
-
-    // Encode and synthesize before the UTC boundary. In particular, Q65 RX may
-    // still be validating the preceding period on its decoder thread at the
-    // boundary and owns the same serialized QRA workspace. Preparing here
-    // removes that codec lock and all waveform allocation from the timed path.
-    if (!m_nativeWeakSignalPreparedModulator) {
-        m_nativeWeakSignalPreparedModulator = buildCurrentTxModulator();
-        if (!m_nativeWeakSignalPreparedModulator) {
-            appendLog(MadModemI18n::text(
-                QStringLiteral("Unable to create a transmitter for the active mode.")));
-            QMessageBox::warning(
-                this,
-                QStringLiteral("TX"),
-                MadModemI18n::text(QStringLiteral("Unable to create a transmitter for the active mode.")));
-            return;
-        }
-        m_txPreparedImage = m_nativeWeakSignalPreparedModulator->previewImage();
-    }
 
     const int periodSeconds = msk144
         ? ((m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15)
@@ -14021,6 +14075,33 @@ void MainWindow::scheduleNativeWeakSignalPeriodTx()
     m_nativeWeakSignalTxMode = modeName;
     m_nativeWeakSignalTxBoundaryUtcMs = targetPeriod * periodMs;
     m_nativeWeakSignalTxPending = true;
+    if (!m_nativeWeakSignalPreparedModulator) {
+        auto *table = msk144 ? m_tableMsk144TxMessages : m_tableQ65TxMessages;
+        const int row = table ? qMax(0, table->currentRow()) : 0;
+        const auto *item = table ? table->item(row, 1) : nullptr;
+        QString message = item ? item->text().trimmed() : QString();
+        if (message.isEmpty()) message = QStringLiteral("CQ %1 %2").arg(stationCallsign(), stationLocator().left(4)).trimmed();
+        const int sampleRate = (m_settings.audioSampleRate == 44100 || m_settings.audioSampleRate == 48000 ||
+                                m_settings.audioSampleRate == 96000) ? m_settings.audioSampleRate : 48000;
+        auto *frequency = msk144 ? m_spinMsk144TxFreq : m_spinQ65TxFreq;
+        const double hz = frequency ? frequency->value() : 1500;
+        const bool shortMessage = msk144 && m_chkMsk144ShortMessages && m_chkMsk144ShortMessages->isChecked();
+        const auto generation = ++m_nativeTxPreparationGeneration;
+        m_txWaveformPreparer->prepareNative(msk144, message, sampleRate, periodSeconds,
+            shortMessage, currentQ65Submode(), hz,
+            [this, generation, modeName](std::unique_ptr<TxModulator> waveform, const QString &error) {
+                if (m_shutdownInProgress || generation != m_nativeTxPreparationGeneration ||
+                    !m_nativeWeakSignalTxPending || modeName != m_nativeWeakSignalTxMode) return;
+                if (!waveform) {
+                    appendLog(QStringLiteral("Weak-signal waveform preparation failed: ") + error);
+                    cancelNativeWeakSignalPeriodTx(error);
+                    return;
+                }
+                m_nativeWeakSignalPreparedModulator = std::move(waveform);
+                m_txPreparedImage = m_nativeWeakSignalPreparedModulator->previewImage();
+            });
+    }
+
     const qint64 delayMs = qBound<qint64>(
         1LL,
         m_nativeWeakSignalTxBoundaryUtcMs - nowMs,
@@ -14048,6 +14129,8 @@ void MainWindow::scheduleNativeWeakSignalPeriodTx()
 void MainWindow::cancelNativeWeakSignalPeriodTx(const QString &reason)
 {
     Q_UNUSED(reason)
+    ++m_nativeTxPreparationGeneration;
+    if (m_nativeWeakSignalTxPending && m_txWaveformPreparer) m_txWaveformPreparer->cancel();
     const bool wasPending = m_nativeWeakSignalTxPending;
     const QString mode = m_nativeWeakSignalTxMode;
     m_nativeWeakSignalTxTimer.stop();
@@ -14087,7 +14170,7 @@ void MainWindow::handleNativeWeakSignalPeriodTxDue()
     // is moved to the next selected period. The transmitters retain a larger
     // end guard for CAT/PTT and audio-stream startup latency.
     constexpr qint64 kMaximumBoundaryLatenessMs = 100;
-    if (-remainingMs > kMaximumBoundaryLatenessMs) {
+    if (-remainingMs > kMaximumBoundaryLatenessMs || !m_nativeWeakSignalPreparedModulator) {
         appendLog(MadModemI18n::text(
             QStringLiteral("Weak-signal TX boundary missed by %1 ms; complete frame deferred."))
                       .arg(-remainingMs));
@@ -14100,13 +14183,15 @@ void MainWindow::handleNativeWeakSignalPeriodTxDue()
 
     m_nativeWeakSignalTxPending = false;
     m_nativeWeakSignalTxMode.clear();
-    m_nativeWeakSignalTxBoundaryUtcMs = 0;
     m_nativeWeakSignalTxBoundaryStart = true;
     updateTxControlState();
     startImageTx();
     m_nativeWeakSignalTxBoundaryStart = false;
-    // A pre-boundary validation failure must not leave a stale waveform armed.
-    m_nativeWeakSignalPreparedModulator.reset();
+    // Preserve a newly deferred period; only discard an unconsumed old plan.
+    if (!m_nativeWeakSignalTxPending) {
+        m_nativeWeakSignalTxBoundaryUtcMs = 0;
+        m_nativeWeakSignalPreparedModulator.reset();
+    }
 }
 
 void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
@@ -15723,7 +15808,7 @@ void MainWindow::handleFtSlotUpdated(const QString &modeLabel,
                            .arg(modeLabel, txFirst ? QStringLiteral("I") : QStringLiteral("II"));
         if (m_ft8PendingTxArmed) {
             text += QStringLiteral(" · ") + uiText("ft_state_armed_short", "armed");
-        } else if (!m_pendingFt8TxMessage.trimmed().isEmpty() && !m_pendingFt8Tune) {
+        } else if (!m_pendingFt8TxPlan.message.trimmed().isEmpty() && !m_pendingFt8TxPlan.tune) {
             text += QStringLiteral(" · ") + uiText("ft_state_waiting_short", "waiting");
         }
         m_lblFt8SlotStatus->setText(text);
@@ -15747,12 +15832,10 @@ void MainWindow::handleFtScheduledPttPrearmDue(const QString &token,
         appendLog("FT timing: stale scheduler PTT pre-arm event ignored.");
         return;
     }
-    m_pendingFt8SlotBoundaryUtcMs = slotBoundaryUtcMs;
-    m_pendingFt8AudioTargetDelayMs = qMax(0, audioTargetDelayMs);
-    m_pendingFt8PttLeadMs = qMax(0, pttLeadMs);
     m_pendingFt8TxPlan.slotBoundaryUtcMs = slotBoundaryUtcMs;
-    m_pendingFt8TxPlan.audioTargetDelayMs = m_pendingFt8AudioTargetDelayMs;
-    m_pendingFt8TxPlan.pttLeadMs = m_pendingFt8PttLeadMs;
+    m_pendingFt8TxPlan.audioTargetDelayMs = qMax(0, audioTargetDelayMs);
+    m_pendingFt8TxPlan.pttLeadMs = qMax(0, pttLeadMs);
+    m_pendingFt8TxPlan.slotBoundaryUtcMs = slotBoundaryUtcMs;
     beginScheduledFt8Transmit();
 }
 
@@ -15764,7 +15847,7 @@ void MainWindow::handleFtScheduledTxDue(const QString &token,
 {
     Q_UNUSED(nowUtcMs);
 
-    const bool havePendingMessage = !m_pendingFt8TxMessage.trimmed().isEmpty();
+    const bool havePendingMessage = !m_pendingFt8TxPlan.message.trimmed().isEmpty();
     const bool exactTokenMatch = (!m_ft8PendingTxToken.isEmpty() &&
                                   token == m_ft8PendingTxToken);
 
@@ -15775,33 +15858,20 @@ void MainWindow::handleFtScheduledTxDue(const QString &token,
         return;
     }
 
-    m_ft8PendingTxArmed = false;
-    m_pendingFt8SlotBoundaryUtcMs = slotBoundaryUtcMs;
-    m_pendingFt8AudioTargetDelayMs = qMax(0, audioTargetDelayMs);
-    m_pendingFt8PttLeadMs = qMax(0, pttLeadMs);
+    m_ft8AudioStartRequested = true;
     m_pendingFt8TxPlan.slotBoundaryUtcMs = slotBoundaryUtcMs;
-    m_pendingFt8TxPlan.audioTargetDelayMs = m_pendingFt8AudioTargetDelayMs;
-    m_pendingFt8TxPlan.pttLeadMs = m_pendingFt8PttLeadMs;
+    m_pendingFt8TxPlan.audioTargetDelayMs = qMax(0, audioTargetDelayMs);
+    m_pendingFt8TxPlan.pttLeadMs = qMax(0, pttLeadMs);
+    m_pendingFt8TxPlan.slotBoundaryUtcMs = slotBoundaryUtcMs;
     startFtPreparedSlotTransmit();
 }
 
 void MainWindow::handleFtSchedulerPendingChanged(bool pending, qint64 slotBoundaryUtcMs)
 {
-    m_ft8PendingTxArmed = pending;
-    if (!pending) {
-        // Do not clear m_ft8PendingTxToken here while a message is still waiting
-        // for the same slot.  The scheduler emits pending=false immediately after
-        // txAudioStartDue; across queued threads this signal may be processed
-        // before the audio-start handler on some systems, making a valid TX look
-        // stale.  The token is cleared when the TX starts/stops or when the plan
-        // is explicitly cancelled/replaced.
-        if (m_pendingFt8TxMessage.trimmed().isEmpty() || m_txRunning || m_ftTxWorkerRunning) {
-            m_ft8PendingTxToken.clear();
-        }
-    }
-    if (pending && slotBoundaryUtcMs > 0) {
-        m_pendingFt8SlotBoundaryUtcMs = slotBoundaryUtcMs;
-    }
+    Q_UNUSED(pending);
+    Q_UNUSED(slotBoundaryUtcMs);
+    // The GUI owns plan state. An untagged cancel/consumed notification from
+    // an older arm must never disarm a newer one or revoke CAT acknowledgement.
     updateTxControlState();
     updateFt8SequencerUi();
 }
@@ -15976,13 +16046,13 @@ void MainWindow::updateFt8TxBannerUi()
             .toString(QStringLiteral("HH:mm:ss 'UTC'"));
     };
 
-    const bool onAir = (m_txRunning || m_ftTxWorkerRunning) && !m_ftSession.lastTxWasTune && !m_ftSession.lastTxMessage.trimmed().isEmpty();
-    const bool schedulerArmed = m_ft8PendingTxArmed && !m_pendingFt8TxMessage.trimmed().isEmpty() && !m_pendingFt8Tune;
-    const bool sequencerReady = !schedulerArmed && !m_pendingFt8TxMessage.trimmed().isEmpty() && !m_pendingFt8Tune;
+    const bool onAir = (m_txRunning || m_ftTxWorkerRunning) && !m_ftSession.lastTxPlan.tune && !m_ftSession.lastTxPlan.message.trimmed().isEmpty();
+    const bool schedulerArmed = m_ft8PendingTxArmed && !m_pendingFt8TxPlan.message.trimmed().isEmpty() && !m_pendingFt8TxPlan.tune;
+    const bool sequencerReady = !schedulerArmed && !m_pendingFt8TxPlan.message.trimmed().isEmpty() && !m_pendingFt8TxPlan.tune;
     const Ft8Mode::Profile activeFtProfile = Ft8Mode::profileForMode(activeModeName);
     const QDateTime bannerNowUtc = QDateTime::currentDateTimeUtc();
-    const qint64 schedulerWaitMs = (m_pendingFt8SlotBoundaryUtcMs > 0)
-        ? qMax<qint64>(qint64{0}, m_pendingFt8SlotBoundaryUtcMs - bannerNowUtc.toMSecsSinceEpoch())
+    const qint64 schedulerWaitMs = (m_pendingFt8TxPlan.slotBoundaryUtcMs > 0)
+        ? qMax<qint64>(qint64{0}, m_pendingFt8TxPlan.slotBoundaryUtcMs - bannerNowUtc.toMSecsSinceEpoch())
         : qint64{0};
     const int bannerSlotMs = qMax(1000, activeFtProfile.slotMs);
     const int bannerCycleMs = qMax(bannerSlotMs * 2, activeFtProfile.cycleMs);
@@ -16003,25 +16073,25 @@ void MainWindow::updateFt8TxBannerUi()
     QString toolTip;
 
     if (onAir) {
-        const QString row = rowLabelForMessage(m_ftSession.lastTxMessage);
-        const QString tag = m_ftSession.lastTxTag.trimmed().isEmpty() ? QStringLiteral("TX") : m_ftSession.lastTxTag.trimmed().toUpper();
+        const QString row = rowLabelForMessage(m_ftSession.lastTxPlan.message);
+        const QString tag = m_ftSession.lastTxPlan.tag.trimmed().isEmpty() ? QStringLiteral("TX") : m_ftSession.lastTxPlan.tag.trimmed().toUpper();
         text = QStringLiteral("<b>%1</b> · %2%3<br><span style='font-size:13pt;'>%4</span>")
                    .arg(htmlEscaped(uiText("ft_tx_banner_on_air", "ON AIR")),
                         htmlEscaped(tag),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
-                        htmlEscaped(m_ftSession.lastTxMessage));
+                        htmlEscaped(m_ftSession.lastTxPlan.message));
         bannerState = QStringLiteral("tx");
         toolTip = uiText("ft_tx_banner_on_air_tip", "The FT transmitter is on air now. This is the exact message currently being sent.");
     } else if (schedulerArmed) {
-        const QString row = rowLabelForMessage(m_pendingFt8TxMessage);
-        const QString tag = m_pendingFt8TxTag.trimmed().isEmpty() ? QStringLiteral("TX") : m_pendingFt8TxTag.trimmed().toUpper();
-        const QString when = utcTextForBoundary(m_pendingFt8SlotBoundaryUtcMs);
+        const QString row = rowLabelForMessage(m_pendingFt8TxPlan.message);
+        const QString tag = m_pendingFt8TxPlan.tag.trimmed().isEmpty() ? QStringLiteral("TX") : m_pendingFt8TxPlan.tag.trimmed().toUpper();
+        const QString when = utcTextForBoundary(m_pendingFt8TxPlan.slotBoundaryUtcMs);
         text = QStringLiteral("<b>%1</b> · %2%3 · %4<br><span style='font-size:13pt;'>%5</span>")
                    .arg(htmlEscaped(uiText("ft_tx_banner_armed", "NEXT TX")),
                         htmlEscaped(tag),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(when),
-                        htmlEscaped(m_pendingFt8TxMessage));
+                        htmlEscaped(m_pendingFt8TxPlan.message));
         if (immediateSelectedPeriodMissed) {
             text += QStringLiteral("<br><span style='font-size:9pt;'>%1</span>")
                         .arg(htmlEscaped(uiText("ft_tx_banner_next_valid",
@@ -16031,23 +16101,23 @@ void MainWindow::updateFt8TxBannerUi()
         bannerState = QStringLiteral("armed");
         toolTip = uiText("ft_tx_banner_armed_tip", "The TX scheduler is armed: PTT/audio will become mutex with RX only at the selected UTC transmit boundary.");
     } else if (sequencerReady) {
-        const QString row = rowLabelForMessage(m_pendingFt8TxMessage);
-        const QString tag = m_pendingFt8TxTag.trimmed().isEmpty() ? QStringLiteral("TX") : m_pendingFt8TxTag.trimmed().toUpper();
-        const QString when = utcTextForBoundary(m_pendingFt8SlotBoundaryUtcMs);
+        const QString row = rowLabelForMessage(m_pendingFt8TxPlan.message);
+        const QString tag = m_pendingFt8TxPlan.tag.trimmed().isEmpty() ? QStringLiteral("TX") : m_pendingFt8TxPlan.tag.trimmed().toUpper();
+        const QString when = utcTextForBoundary(m_pendingFt8TxPlan.slotBoundaryUtcMs);
         text = QStringLiteral("<b>%1</b> · %2%3 · %4<br><span style='font-size:13pt;'>%5</span>")
                    .arg(htmlEscaped(uiText("ft_tx_banner_seq_ready", "WAITING FOR SLOT")),
                         htmlEscaped(tag),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
                         htmlEscaped(when),
-                        htmlEscaped(m_pendingFt8TxMessage));
+                        htmlEscaped(m_pendingFt8TxPlan.message));
         bannerState = QStringLiteral("ready");
         toolTip = uiText("ft_tx_banner_seq_ready_tip", "The QSO sequencer has selected the next message, but the TX scheduler is intentionally not armed yet; RX continues to collect and decode the current slot.");
-    } else if (!m_ftSession.lastTxMessage.trimmed().isEmpty() && !m_ftSession.lastTxWasTune) {
-        const QString row = rowLabelForMessage(m_ftSession.lastTxMessage);
+    } else if (!m_ftSession.lastTxPlan.message.trimmed().isEmpty() && !m_ftSession.lastTxPlan.tune) {
+        const QString row = rowLabelForMessage(m_ftSession.lastTxPlan.message);
         text = QStringLiteral("<b>%1</b>%2<br><span style='font-size:12pt;'>%3</span>")
                    .arg(htmlEscaped(uiText("ft_tx_banner_rx_monitor", "RX · LAST TX")),
                         row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
-                        htmlEscaped(m_ftSession.lastTxMessage));
+                        htmlEscaped(m_ftSession.lastTxPlan.message));
         bannerState = QStringLiteral("monitor");
         toolTip = uiText("ft_tx_banner_rx_last_tip", "Receiver is active. The banner shows the last completed FT transmission.");
     } else {
@@ -16478,6 +16548,8 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
                                              const QString &tag,
                                              bool allowManualLatePartial)
 {
+    if (m_ft8OperatorStopLatched || m_shutdownInProgress || m_runtimeShutdownComplete ||
+        !Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) return;
     const QString txMessage = message.trimmed().toUpper();
     const QString txTag = tag.trimmed().isEmpty() ? QStringLiteral("TX") : tag.trimmed().toUpper();
     if (txMessage.isEmpty()) {
@@ -16507,9 +16579,9 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
         // the next slot must not be lost.  Keep a deferred TX plan and arm it as
         // soon as the active FT worker stops, before any old retry logic runs.
         m_hasDeferredFt8TxPlan = true;
-        m_deferredFt8TxMessage = txMessage;
-        m_deferredFt8TxTag = txTag;
-        m_deferredFt8TxPlan = m_ftStandardMessages.makePlanForMessage(txMessage, m_deferredFt8TxTag);
+        m_deferredFt8TxPlan.message = txMessage;
+        m_deferredFt8TxPlan.tag = txTag;
+        m_deferredFt8TxPlan = m_ftStandardMessages.makePlanForMessage(txMessage, m_deferredFt8TxPlan.tag);
         if (m_deferredFt8TxPlan.audioFrequencyHz <= 0) {
             m_deferredFt8TxPlan.audioFrequencyHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz;
         }
@@ -16524,15 +16596,15 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
         ? m_spinFt8TxFreq->value()
         : m_settings.ft8TxFrequencyHz;
     const bool sameValidArm = m_ft8PendingTxArmed &&
-                              m_pendingFt8TxMessage.trimmed().toUpper() == txMessage &&
-                              m_pendingFt8SlotBoundaryUtcMs > armCheckNowMs + 25 &&
+                              m_pendingFt8TxPlan.message.trimmed().toUpper() == txMessage &&
+                              m_pendingFt8TxPlan.slotBoundaryUtcMs > armCheckNowMs + 25 &&
                               m_pendingFt8TxPlan.audioFrequencyHz == requestedTxHz;
     if (sameValidArm) {
         // The message/boundary/frequency identify the physical TX plan.  The
         // source tag is metadata only; an explicit operator TX may take
         // ownership of an already armed identical retry without creating a
         // second timer or skipping to another slot.
-        m_pendingFt8TxTag = txTag;
+        m_pendingFt8TxPlan.tag = txTag;
         m_pendingFt8TxPlan.tag = txTag;
         updateFt8TxBannerUi();
         updateTxControlState();
@@ -16549,17 +16621,18 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
     if (m_pendingFt8PttKeyed && !m_txRunning && !m_ftTxWorkerRunning) {
         unkeyPttAfterTx();
     }
+    m_txPreparationPending = false;
     m_ft8PendingTxArmed = false;
     m_ft8PendingTxToken.clear();
     m_pendingFt8PttPrearmed = false;
     m_pendingFt8PttKeyed = false;
+    m_ft8AudioStartRequested = false;
 
-    m_pendingFt8Tune = false;
-    m_pendingFt8LatePartial = false;
-    m_pendingFt8PreSilenceMs = 0;
-    m_pendingFt8TxMessage = txMessage;
-    m_pendingFt8TxTag = txTag;
-    m_pendingFt8TxPlan = m_ftStandardMessages.makePlanForMessage(txMessage, m_pendingFt8TxTag);
+    m_pendingFt8TxPlan.tune = false;
+    m_pendingFt8TxPlan.latePartial = false;
+    m_pendingFt8TxPlan.message = txMessage;
+    m_pendingFt8TxPlan.tag = txTag;
+    m_pendingFt8TxPlan = m_ftStandardMessages.makePlanForMessage(txMessage, m_pendingFt8TxPlan.tag);
     if (m_pendingFt8TxPlan.audioFrequencyHz <= 0) {
         m_pendingFt8TxPlan.audioFrequencyHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz;
     }
@@ -16581,14 +16654,14 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
         }
     }
 
-    if (m_pendingFt8TxTag != QStringLiteral("RETRY") &&
-        m_pendingFt8TxTag != QStringLiteral("CQ") &&
-        m_pendingFt8TxTag != QStringLiteral("TUNE")) {
+    if (m_pendingFt8TxPlan.tag != QStringLiteral("RETRY") &&
+        m_pendingFt8TxPlan.tag != QStringLiteral("CQ") &&
+        m_pendingFt8TxPlan.tag != QStringLiteral("TUNE")) {
         // Keep the current exchange sticky, but not forever.  Count the first
         // transmission plus automatic retries; if the DX never answers, MM must
         // return to RX standby instead of calling the same station indefinitely.
         m_ftSession.retryMessage = txMessage;
-        m_ftSession.retryTag = m_pendingFt8TxTag;
+        m_ftSession.retryTag = m_pendingFt8TxPlan.tag;
         m_ftSession.retryRemaining = qBound(1, m_settings.ft8NoResponseRetryCount, 12);
     }
 
@@ -16598,11 +16671,10 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
     // Select the boundary once and derive every timer from that immutable arm
     // target. Calling the selector twice near the safe-window threshold could
     // otherwise produce a delay for one slot and a token for the next one.
-    m_pendingFt8SlotBoundaryUtcMs = selectedFt8TxSlotBoundaryUtcMs(allowManualLatePartial);
+    m_pendingFt8TxPlan.slotBoundaryUtcMs = selectedFt8TxSlotBoundaryUtcMs(allowManualLatePartial);
     const qint64 armNowUtcMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
     const int delayMs = static_cast<int>(qBound<qint64>(
-        qint64{0}, m_pendingFt8SlotBoundaryUtcMs - armNowUtcMs, qint64{60000}));
-    m_pendingFt8TxPlan.slotBoundaryUtcMs = m_pendingFt8SlotBoundaryUtcMs;
+        qint64{0}, m_pendingFt8TxPlan.slotBoundaryUtcMs - armNowUtcMs, qint64{60000}));
     // Keep one immutable boundary, but give an operator request made after that
     // boundary a new audio target in the same slot. Automatic plans are admitted
     // only while a complete frame fits. An explicit TX/double-click may instead
@@ -16610,13 +16682,13 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
     const bool ft4Timing = (profile.shortLabel.compare(QStringLiteral("FT4"), Qt::CaseInsensitive) == 0);
     const int normalAudioTargetDelayMs = ft4Timing ? 300 : 500;
     const qint64 elapsedAfterBoundaryMs = qMax<qint64>(
-        0, armNowUtcMs - m_pendingFt8SlotBoundaryUtcMs);
-    m_pendingFt8LatePartial = allowManualLatePartial &&
+        0, armNowUtcMs - m_pendingFt8TxPlan.slotBoundaryUtcMs);
+    m_pendingFt8TxPlan.latePartial = allowManualLatePartial &&
                               elapsedAfterBoundaryMs > latestFtFullFrameArmMs(profile) &&
                               elapsedAfterBoundaryMs <= latestFtManualPartialArmMs(profile);
-    m_pendingFt8AudioTargetDelayMs = normalAudioTargetDelayMs;
+    m_pendingFt8TxPlan.audioTargetDelayMs = normalAudioTargetDelayMs;
     if (elapsedAfterBoundaryMs > 0) {
-        m_pendingFt8AudioTargetDelayMs = static_cast<int>(qMin<qint64>(
+        m_pendingFt8TxPlan.audioTargetDelayMs = static_cast<int>(qMin<qint64>(
             profile.slotMs,
             elapsedAfterBoundaryMs + kFtLateStartPreparationMs));
     }
@@ -16624,36 +16696,35 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
     // Assert PTT in the protocol's quiet RX tail so the audio path reaches the
     // selected boundary without waiting for CAT. Capture itself remains alive
     // until the boundary and is stopped by the single audio-start owner.
-    m_pendingFt8PttLeadMs = kFtPttPrearmLeadMs;
-    m_pendingFt8TxPlan.audioTargetDelayMs = m_pendingFt8AudioTargetDelayMs;
-    m_pendingFt8TxPlan.pttLeadMs = m_pendingFt8PttLeadMs;
+    m_pendingFt8TxPlan.pttLeadMs = kFtPttPrearmLeadMs;
 
     m_pendingFt8PreparedModulator.reset();
-    if (!m_pendingFt8Tune) {
-        const int logicalTxHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : 1500;
-        const double txHz = static_cast<double>(ftEffectiveTxAudioFrequency(logicalTxHz));
-        std::unique_ptr<Ft8Transmitter> prepared(new Ft8Transmitter(
-            profile.modeName,
-            m_pendingFt8TxMessage,
-            48000,
-            txHz,
-            0));
-        if (prepared->generationSucceeded()) {
-            m_pendingFt8PreparedModulator = std::move(prepared);
-            appendLog(QString("FT timing: %1 waveform prebuilt for UTC-slot TX.").arg(profile.shortLabel));
-        } else {
-            appendLog(QString("FT timing: %1 waveform prebuild failed: %2")
-                          .arg(profile.shortLabel, prepared->generationError()));
-        }
-    }
 
     const quint64 armGeneration = ++m_ft8TxArmGeneration;
     m_ft8PendingTxToken = QStringLiteral("%1:%2:%3:%4")
         .arg(armGeneration)
-        .arg(m_pendingFt8SlotBoundaryUtcMs)
-        .arg(m_pendingFt8TxTag)
-        .arg(QString::number(qHash(m_pendingFt8TxMessage)));
+        .arg(m_pendingFt8TxPlan.slotBoundaryUtcMs)
+        .arg(m_pendingFt8TxPlan.tag)
+        .arg(QString::number(qHash(m_pendingFt8TxPlan.message)));
     m_ft8PendingTxArmed = true;
+    const QString preparedToken = m_ft8PendingTxToken;
+    const auto requestGeneration = m_txRequestGeneration;
+    const int logicalTxHz = m_spinFt8TxFreq ? m_spinFt8TxFreq->value() : 1500;
+    m_txWaveformPreparer->prepare(profile.modeName, txMessage,
+        ftEffectiveTxAudioFrequency(logicalTxHz),
+        [this, preparedToken, requestGeneration](std::unique_ptr<TxModulator> waveform, const QString &error) {
+            if (m_shutdownInProgress || m_ft8OperatorStopLatched ||
+                requestGeneration != m_txRequestGeneration || preparedToken != m_ft8PendingTxToken ||
+                !m_ft8PendingTxArmed) return;
+            if (!waveform) {
+                appendLog(QStringLiteral("FT waveform preparation failed: ") + error);
+                stopImageTx();
+                return;
+            }
+            m_pendingFt8PreparedModulator = std::move(waveform);
+            if (m_ft8AudioStartRequested) startFtPreparedSlotTransmit();
+        });
+
 
     if (m_ftSlotScheduler != nullptr) {
         QMetaObject::invokeMethod(m_ftSlotScheduler,
@@ -16665,25 +16736,25 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
                                   "armTransmission",
                                   Qt::QueuedConnection,
                                   Q_ARG(QString, m_ft8PendingTxToken),
-                                  Q_ARG(qint64, m_pendingFt8SlotBoundaryUtcMs),
-                                  Q_ARG(int, m_pendingFt8AudioTargetDelayMs),
-                                  Q_ARG(int, m_pendingFt8PttLeadMs));
+                                  Q_ARG(qint64, m_pendingFt8TxPlan.slotBoundaryUtcMs),
+                                  Q_ARG(int, m_pendingFt8TxPlan.audioTargetDelayMs),
+                                  Q_ARG(int, m_pendingFt8TxPlan.pttLeadMs));
         appendLog(QString("FT timing: %1 %2 armed by UTC scheduler; next selected slot in %3 ms, PTT/audio pre-arm %4 ms before boundary: %5")
-                      .arg(profile.shortLabel, m_pendingFt8TxTag)
+                      .arg(profile.shortLabel, m_pendingFt8TxPlan.tag)
                       .arg(delayMs)
-                      .arg(m_pendingFt8PttLeadMs)
+                      .arg(m_pendingFt8TxPlan.pttLeadMs)
                       .arg(txMessage));
 
         const QString watchdogToken = m_ft8PendingTxToken;
-        const qint64 watchdogBoundary = m_pendingFt8SlotBoundaryUtcMs;
-        const int watchdogAudioDelay = m_pendingFt8AudioTargetDelayMs;
-        const int watchdogPttLead = m_pendingFt8PttLeadMs;
+        const qint64 watchdogBoundary = m_pendingFt8TxPlan.slotBoundaryUtcMs;
+        const int watchdogAudioDelay = m_pendingFt8TxPlan.audioTargetDelayMs;
+        const int watchdogPttLead = m_pendingFt8TxPlan.pttLeadMs;
         const int watchdogDelay = qBound(0, delayMs + 250, 60000);
         QTimer::singleShot(watchdogDelay, this, [this, watchdogToken, watchdogBoundary, watchdogAudioDelay, watchdogPttLead]() {
             if (m_txRunning || m_ftTxWorkerRunning) {
                 return;
             }
-            if (m_pendingFt8TxMessage.trimmed().isEmpty()) {
+            if (m_pendingFt8TxPlan.message.trimmed().isEmpty()) {
                 return;
             }
             if (!m_ft8PendingTxArmed) {
@@ -16692,7 +16763,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
                 // for the next valid slot.  The watchdog must not resurrect it.
                 return;
             }
-            if (m_ft8PendingTxToken != watchdogToken || m_pendingFt8SlotBoundaryUtcMs != watchdogBoundary) {
+            if (m_ft8PendingTxToken != watchdogToken || m_pendingFt8TxPlan.slotBoundaryUtcMs != watchdogBoundary) {
                 return;
             }
             const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
@@ -16700,18 +16771,16 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
                 return;
             }
             appendLog("FT timing watchdog: scheduler audio-start was not observed; forcing pending FT TX for the armed UTC slot.");
-            m_ft8PendingTxArmed = false;
-            m_pendingFt8AudioTargetDelayMs = qMax(0, watchdogAudioDelay);
-            m_pendingFt8PttLeadMs = qMax(0, watchdogPttLead);
-            m_pendingFt8TxPlan.audioTargetDelayMs = m_pendingFt8AudioTargetDelayMs;
-            m_pendingFt8TxPlan.pttLeadMs = m_pendingFt8PttLeadMs;
+            m_ft8AudioStartRequested = true;
+            m_pendingFt8TxPlan.audioTargetDelayMs = qMax(0, watchdogAudioDelay);
+            m_pendingFt8TxPlan.pttLeadMs = qMax(0, watchdogPttLead);
             startFtPreparedSlotTransmit();
         });
     } else {
         appendLog("FT timing: scheduler unavailable, starting immediately as fallback.");
         beginScheduledFt8Transmit();
         QTimer::singleShot(0, this, [this]() {
-            if (!m_txRunning && !m_ftTxWorkerRunning && !m_pendingFt8TxMessage.trimmed().isEmpty()) {
+            if (!m_txRunning && !m_ftTxWorkerRunning && !m_pendingFt8TxPlan.message.trimmed().isEmpty()) {
                 startFtPreparedSlotTransmit();
             }
         });
@@ -16944,7 +17013,7 @@ bool MainWindow::canStartFt8FullAutoQsoNow() const
     if (m_ftSession.qsoActive || m_ft8PendingTxArmed || m_hasDeferredFt8TxPlan ||
         m_txRunning || m_ftTxWorkerRunning ||
         (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning()) ||
-        m_pendingFt8Tune || m_pendingFt8PttKeyed) {
+        m_pendingFt8TxPlan.tune || m_pendingFt8PttKeyed) {
         return false;
     }
     if (m_chkFt8CallerQueue != nullptr && m_chkFt8CallerQueue->isChecked() && !m_ft8CallerQueue.isEmpty()) {
@@ -17309,17 +17378,17 @@ void MainWindow::stopFt8Sequencer(const QString &reason)
     }
     m_ft8PendingTxArmed = false;
     m_ft8PendingTxToken.clear();
-    m_pendingFt8TxMessage.clear();
-    m_pendingFt8TxTag.clear();
-    m_pendingFt8PreSilenceMs = 0;
+    m_pendingFt8TxPlan.message.clear();
+    m_pendingFt8TxPlan.tag.clear();
     m_pendingFt8PreparedModulator.reset();
     m_pendingFt8TxPlan = FtTxPlan();
     m_pendingFt8PttPrearmed = false;
     m_pendingFt8PttKeyed = false;
+    m_ft8AudioStartRequested = false;
     m_ftSession.activeTxRow = -1;
     m_hasDeferredFt8TxPlan = false;
-    m_deferredFt8TxMessage.clear();
-    m_deferredFt8TxTag.clear();
+    m_deferredFt8TxPlan.message.clear();
+    m_deferredFt8TxPlan.tag.clear();
     m_deferredFt8TxPlan = FtTxPlan();
     m_ftSession.deferredState = Ft8SequencerState::Idle;
     m_ft8FullAutoCqCandidates.clear();
@@ -17463,7 +17532,7 @@ bool MainWindow::activateNextFt8QueuedCaller()
     const bool busy = m_ftSession.qsoActive || m_txRunning || m_ftTxWorkerRunning ||
                       (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning()) ||
                       m_ft8PendingTxArmed || m_hasDeferredFt8TxPlan ||
-                      !m_pendingFt8TxMessage.trimmed().isEmpty();
+                      !m_pendingFt8TxPlan.message.trimmed().isEmpty();
     if (busy) {
         return false;
     }
@@ -17559,13 +17628,13 @@ void MainWindow::processFt8SequencerDecode(const Ft8RxDecoder::Decode &decode)
         }
         m_ft8PendingTxArmed = false;
         m_ft8PendingTxToken.clear();
-        m_pendingFt8TxMessage.clear();
-        m_pendingFt8TxTag.clear();
+        m_pendingFt8TxPlan.message.clear();
+        m_pendingFt8TxPlan.tag.clear();
         m_pendingFt8PreparedModulator.reset();
         m_pendingFt8TxPlan = FtTxPlan();
         m_hasDeferredFt8TxPlan = false;
-        m_deferredFt8TxMessage.clear();
-        m_deferredFt8TxTag.clear();
+        m_deferredFt8TxPlan.message.clear();
+        m_deferredFt8TxPlan.tag.clear();
         m_deferredFt8TxPlan = FtTxPlan();
         m_ftSession.deferredState = Ft8SequencerState::Idle;
         const QString abandonedCall = m_ftSession.dxCall.trimmed().toUpper();
@@ -17710,8 +17779,8 @@ void MainWindow::processFt8SequencerDecode(const Ft8RxDecoder::Decode &decode)
         }
         m_ft8PendingTxArmed = false;
         m_ft8PendingTxToken.clear();
-        m_pendingFt8TxMessage.clear();
-        m_pendingFt8TxTag.clear();
+        m_pendingFt8TxPlan.message.clear();
+        m_pendingFt8TxPlan.tag.clear();
         m_pendingFt8PreparedModulator.reset();
         m_pendingFt8TxPlan = FtTxPlan();
         if (m_txRunning || m_ftTxWorkerRunning || (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
@@ -17729,11 +17798,11 @@ void MainWindow::processFt8SequencerDecode(const Ft8RxDecoder::Decode &decode)
 
 void MainWindow::handleFt8TxCompleted()
 {
-    if (m_ftSession.lastTxWasTune) {
+    if (m_ftSession.lastTxPlan.tune) {
         return;
     }
 
-    const QString completedTag = m_ftSession.lastTxTag.trimmed().toUpper();
+    const QString completedTag = m_ftSession.lastTxPlan.tag.trimmed().toUpper();
     const QDateTime now = QDateTime::currentDateTimeUtc();
 
     if (completedTag == QStringLiteral("CQ") && m_ftSession.cqRepeatActive && !m_ftSession.qsoActive) {
@@ -17802,13 +17871,13 @@ void MainWindow::completeFt8Qso(const QString &reason)
     }
     m_ft8PendingTxArmed = false;
     m_ft8PendingTxToken.clear();
-    m_pendingFt8TxMessage.clear();
-    m_pendingFt8TxTag.clear();
-    m_pendingFt8PreSilenceMs = 0;
+    m_pendingFt8TxPlan.message.clear();
+    m_pendingFt8TxPlan.tag.clear();
     m_pendingFt8PreparedModulator.reset();
     m_pendingFt8TxPlan = FtTxPlan();
     m_pendingFt8PttPrearmed = false;
     m_pendingFt8PttKeyed = false;
+    m_ft8AudioStartRequested = false;
     m_ftSession.activeTxRow = -1;
     const QString completedCall = m_ftSession.dxCall.trimmed().toUpper();
     const bool countSessionQso = m_ftSession.qsoActive;
@@ -17831,8 +17900,8 @@ void MainWindow::completeFt8Qso(const QString &reason)
     m_ftSession.cqRepeatActive = false;
     m_ftSession.resumeCqAfterQso = false;
     m_hasDeferredFt8TxPlan = false;
-    m_deferredFt8TxMessage.clear();
-    m_deferredFt8TxTag.clear();
+    m_deferredFt8TxPlan.message.clear();
+    m_deferredFt8TxPlan.tag.clear();
     m_deferredFt8TxPlan = FtTxPlan();
     m_ftSession.deferredState = Ft8SequencerState::Idle;
     const bool evilAutoQso = m_ft8EvilModeUnlocked && m_chkFt8FullAutoQso != nullptr && m_chkFt8FullAutoQso->isChecked();
@@ -17854,6 +17923,10 @@ void MainWindow::autoLogFt8Qso(const QString &reason)
 
     LogbookEntry entry;
     entry.callsign = AdifLogbook::normalizeCallsign(m_ftSession.dxCall);
+    entry.stationCallsign = stationCallsign();
+    entry.operatorCall = stationCallsign();
+    entry.adifFields.insert(QStringLiteral("APP_MADMODEM_QSO_ID"), QUuid::createUuid().toString(QUuid::WithoutBraces));
+    entry.adifFields.insert(QStringLiteral("MY_GRIDSQUARE"), stationLocator());
     entry.rstSent = m_ftSession.reportSent.isEmpty() ? QStringLiteral("-10") : cleanFt8Report(m_ftSession.reportSent);
     entry.rstReceived = m_ftSession.reportReceived.isEmpty() ? QStringLiteral("-10") : cleanFt8Report(m_ftSession.reportReceived);
     entry.band = (m_cmbFt8Band != nullptr) ? m_cmbFt8Band->currentText().trimmed().toLower() : m_settings.ft8Band.toLower();
@@ -17882,67 +17955,47 @@ void MainWindow::autoLogFt8Qso(const QString &reason)
                              reason,
                              QString::number(m_ftSession.audioFreqHz > 0 ? m_ftSession.audioFreqHz : (m_spinFt8RxFreq != nullptr ? m_spinFt8RxFreq->value() : 0)),
                              QString::number(m_spinFt8TxFreq != nullptr ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz),
-                             m_ftSession.lastTxMessage.isEmpty() ? QStringLiteral("--") : m_ftSession.lastTxMessage);
+                             m_ftSession.lastTxPlan.message.isEmpty() ? QStringLiteral("--") : m_ftSession.lastTxPlan.message);
 
     if (entry.callsign.isEmpty()) {
         return;
     }
 
 
-    if (m_ftAutoLogLookupPending || m_logbookIndexWorker == nullptr) return;
-
-    QVariantMap query = makeFtLogbookQuery(entry.callsign,
-                                           entry.band,
-                                           entry.mode,
-                                           entry.adifFields.value(QStringLiteral("DXCC")),
-                                           entry.grid,
-                                           0,
-                                           10);
-    query.insert(QStringLiteral("referenceUtcMs"), entry.utc.toUTC().toMSecsSinceEpoch());
-    query.insert(QStringLiteral("generation"), QVariant::fromValue<qulonglong>(m_ftLogbookCacheGeneration));
-
-    const quint64 requestId = ++m_ftLogbookRequestCounter;
-    m_ftPendingAutoLogs.insert(requestId, PendingFtAutoLog{entry, reason});
-    m_ftAutoLogLookupPending = true;
-    LogbookIndexWorker *worker = m_logbookIndexWorker;
-    const QVariantList queries{query};
-    QMetaObject::invokeMethod(worker, [worker, requestId, queries]() {
-        worker->lookupFt(requestId, QStringLiteral("FT_AUTOLOG"), queries);
-    }, Qt::QueuedConnection);
+    finishAutoLogFt8Qso(entry, reason, {});
 }
 
-void MainWindow::finishAutoLogFt8Qso(const LogbookEntry &entry,
-                                     const QString &reason,
+void MainWindow::finishAutoLogFt8Qso(const LogbookEntry &entry, const QString &reason,
                                      const QVariantMap &logbookStatus)
 {
     Q_UNUSED(reason)
-    if (m_ftSession.autoLogDone || entry.callsign.isEmpty()) return;
-
-    if (logbookStatus.value(QStringLiteral("recentBandMode")).toBool()) {
-        m_ftSession.autoLogDone = true;
-        appendLog(QString("FT8 auto-log skipped duplicate QSO: %1 %2 %3 already in logbook within 10 minutes.")
-                      .arg(entry.callsign, entry.band, entry.mode));
-        return;
-    }
-
-    const bool wasKnown = logbookStatus.value(QStringLiteral("worked")).toBool();
-    QString error;
-    if (!m_logbook.append(entry, &error)) {
-        appendLog("FT8 auto-log failed: " + error);
-        return;
-    }
-    queueLogbookIndexAdd(entry);
-    broadcastLoggedQsoUdp(entry);
-
-    m_ftSession.autoLogDone = true;
-    refreshLogbookHighlights(true);
-    refreshQsoMaps();
-    appendLog(QString("FT8 auto-logged QSO: %1 %2/%3 %4%5")
-                  .arg(entry.callsign,
-                       entry.rstSent,
-                       entry.rstReceived,
-                       entry.band,
-                       wasKnown ? QStringLiteral(" (worked before)") : QString()));
+    Q_UNUSED(logbookStatus)
+    if (!m_logbookStore || entry.callsign.isEmpty()) return;
+    const QString key = entry.callsign + QLatin1Char('|') + entry.band + QLatin1Char('|') +
+        entry.mode + QLatin1Char('|') + QString::number(entry.utc.toMSecsSinceEpoch());
+    if (m_pendingFtLogKeys.contains(key)) return;
+    const bool currentSession = AdifLogbook::normalizeCallsign(m_ftSession.dxCall) == entry.callsign &&
+                                m_ftSession.qsoStartUtc == entry.utc;
+    if (currentSession && m_ftSession.autoLogDone) return;
+    m_pendingFtLogKeys.insert(key);
+    m_logbookStore->append(entry, [this, entry, key](int count, const QString &error) {
+        if (count < 0) {
+            appendLog(QStringLiteral("FT auto-log failed; QSO retained for retry: ") + error);
+            return;
+        }
+        m_pendingFtLogKeys.remove(key);
+        if (AdifLogbook::normalizeCallsign(m_ftSession.dxCall) == entry.callsign && m_ftSession.qsoStartUtc == entry.utc)
+            m_ftSession.autoLogDone = true;
+        if (count > 0) {
+            queueLogbookIndexAdd(entry);
+            broadcastLoggedQsoUdp(entry);
+            refreshLogbookHighlights(true);
+            refreshQsoMaps();
+        }
+        appendLog(QStringLiteral("FT auto-log %1: %2 %3 %4")
+            .arg(count > 0 ? QStringLiteral("saved") : QStringLiteral("duplicate skipped"),
+                 entry.callsign, entry.band, entry.mode));
+    }, true);
 }
 
 
@@ -18193,8 +18246,8 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
             m_ftSession.resumeCqAfterQso = false;
             m_ftSession.deferredState = Ft8SequencerState::Idle;
             m_hasDeferredFt8TxPlan = false;
-            m_deferredFt8TxMessage.clear();
-            m_deferredFt8TxTag.clear();
+            m_deferredFt8TxPlan.message.clear();
+            m_deferredFt8TxPlan.tag.clear();
             m_deferredFt8TxPlan = FtTxPlan();
             if (!m_txRunning && !m_ftTxWorkerRunning &&
                 !(m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
@@ -18207,14 +18260,13 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
                 }
                 m_ft8PendingTxArmed = false;
                 m_ft8PendingTxToken.clear();
-                m_pendingFt8TxMessage.clear();
-                m_pendingFt8TxTag.clear();
-                m_pendingFt8Tune = false;
-                m_pendingFt8LatePartial = false;
-                m_pendingFt8PreSilenceMs = 0;
-                m_pendingFt8SlotBoundaryUtcMs = 0;
-                m_pendingFt8AudioTargetDelayMs = 0;
-                m_pendingFt8PttLeadMs = 0;
+                m_pendingFt8TxPlan.message.clear();
+                m_pendingFt8TxPlan.tag.clear();
+                m_pendingFt8TxPlan.tune = false;
+                m_pendingFt8TxPlan.latePartial = false;
+                m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+                m_pendingFt8TxPlan.audioTargetDelayMs = 0;
+                m_pendingFt8TxPlan.pttLeadMs = 0;
                 m_pendingFt8PreparedModulator.reset();
                 m_pendingFt8TxPlan = FtTxPlan();
                 m_pendingFt8PttPrearmed = false;
@@ -18225,8 +18277,8 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
             // aborted sequence must not inherit a stale retry/deferred plan.
             m_ftSession.clearRetry();
             m_hasDeferredFt8TxPlan = false;
-            m_deferredFt8TxMessage.clear();
-            m_deferredFt8TxTag.clear();
+            m_deferredFt8TxPlan.message.clear();
+            m_deferredFt8TxPlan.tag.clear();
             m_deferredFt8TxPlan = FtTxPlan();
             m_ftSession.deferredState = Ft8SequencerState::Idle;
         }
@@ -18420,7 +18472,9 @@ qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs(bool allowManualLatePartial) c
         deltaToBoundaryMs = cycleMs - cyclePosMs + selectedStartMs;
     }
 
-    return now.toMSecsSinceEpoch() + static_cast<qint64>(deltaToBoundaryMs);
+    qint64 boundary = now.toMSecsSinceEpoch() + static_cast<qint64>(deltaToBoundaryMs);
+    while (boundary <= m_ft8LastAttemptedSlotBoundaryUtcMs) boundary += cycleMs;
+    return boundary;
 }
 
 void MainWindow::appendFt8LocalTxRow(const QString &message, int frequencyHz, const QString &tag)
@@ -18535,7 +18589,7 @@ void MainWindow::scheduleFt8RetryIfNeeded()
     if (m_txRunning || m_ftTxWorkerRunning || (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
         return;
     }
-    if (m_ft8PendingTxArmed && m_pendingFt8TxMessage.trimmed().toUpper() == retryMessage) {
+    if (m_ft8PendingTxArmed && m_pendingFt8TxPlan.message.trimmed().toUpper() == retryMessage) {
         updateFt8SequencerUi();
         return;
     }
@@ -19422,14 +19476,13 @@ void MainWindow::beginScheduledFt8Transmit()
 {
     const Ft8Mode::Profile activeFtProfile = Ft8Mode::profileForMode(ui->cmbMode->currentText());
     if (!ensureStationIdentityForTx(activeFtProfile.shortLabel)) {
-        m_pendingFt8TxMessage.clear();
-        m_pendingFt8TxTag.clear();
-        m_pendingFt8Tune = false;
-        m_pendingFt8LatePartial = false;
-        m_pendingFt8PreSilenceMs = 0;
-        m_pendingFt8SlotBoundaryUtcMs = 0;
-        m_pendingFt8AudioTargetDelayMs = 0;
-        m_pendingFt8PttLeadMs = 0;
+        m_pendingFt8TxPlan.message.clear();
+        m_pendingFt8TxPlan.tag.clear();
+        m_pendingFt8TxPlan.tune = false;
+        m_pendingFt8TxPlan.latePartial = false;
+        m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+        m_pendingFt8TxPlan.audioTargetDelayMs = 0;
+        m_pendingFt8TxPlan.pttLeadMs = 0;
         m_pendingFt8PreparedModulator.reset();
         m_pendingFt8TxPlan = FtTxPlan();
         m_pendingFt8PttPrearmed = false;
@@ -19439,16 +19492,15 @@ void MainWindow::beginScheduledFt8Transmit()
         updateFt8TxBannerUi();
         return;
     }
-    if (!Ft8Mode::isFamilyMode(ui->cmbMode->currentText()) || (!m_pendingFt8Tune && !activeFtProfile.interoperableCoreAvailable)) {
+    if (!Ft8Mode::isFamilyMode(ui->cmbMode->currentText()) || (!m_pendingFt8TxPlan.tune && !activeFtProfile.interoperableCoreAvailable)) {
         appendLog("Pending FT digital TX cancelled: selected mode has no active interoperable TX core.");
-        m_pendingFt8TxMessage.clear();
-        m_pendingFt8TxTag.clear();
-        m_pendingFt8Tune = false;
-        m_pendingFt8LatePartial = false;
-        m_pendingFt8PreSilenceMs = 0;
-        m_pendingFt8SlotBoundaryUtcMs = 0;
-        m_pendingFt8AudioTargetDelayMs = 0;
-        m_pendingFt8PttLeadMs = 0;
+        m_pendingFt8TxPlan.message.clear();
+        m_pendingFt8TxPlan.tag.clear();
+        m_pendingFt8TxPlan.tune = false;
+        m_pendingFt8TxPlan.latePartial = false;
+        m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+        m_pendingFt8TxPlan.audioTargetDelayMs = 0;
+        m_pendingFt8TxPlan.pttLeadMs = 0;
         m_pendingFt8PreparedModulator.reset();
         m_pendingFt8TxPlan = FtTxPlan();
         m_pendingFt8PttPrearmed = false;
@@ -19460,14 +19512,14 @@ void MainWindow::beginScheduledFt8Transmit()
         return;
     }
 
-    if (m_pendingFt8TxTag == QStringLiteral("CQ") &&
+    if (m_pendingFt8TxPlan.tag == QStringLiteral("CQ") &&
         m_ftSession.cqRepeatActive &&
         m_ftSession.cqRepeatDeadlineUtc.isValid() &&
         QDateTime::currentDateTimeUtc() >= m_ftSession.cqRepeatDeadlineUtc) {
-        m_pendingFt8TxMessage.clear();
-        m_pendingFt8TxTag.clear();
-        m_pendingFt8Tune = false;
-        m_pendingFt8LatePartial = false;
+        m_pendingFt8TxPlan.message.clear();
+        m_pendingFt8TxPlan.tag.clear();
+        m_pendingFt8TxPlan.tune = false;
+        m_pendingFt8TxPlan.latePartial = false;
         m_ftSession.cqRepeatActive = false;
         m_ftSession.state = Ft8SequencerState::Idle;
         m_ft8PendingTxArmed = false;
@@ -19481,60 +19533,30 @@ void MainWindow::beginScheduledFt8Transmit()
     // Validate the complete-frame deadline before appending a local TX row or
     // keying PTT.  The audio-start path retains the same check as a second hard
     // guard for backend-opening latency.
-    if (!m_pendingFt8Tune && m_pendingFt8SlotBoundaryUtcMs > 0) {
-        const qint64 targetMs = m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs;
+    if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.slotBoundaryUtcMs > 0) {
+        const qint64 targetMs = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
         const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
         const qint64 lateMs = nowMs - targetMs;
         constexpr qint64 kFtStartDeadlineToleranceMs = 20;
         if (lateMs > kFtStartDeadlineToleranceMs) {
-            const QString deferredMessage = m_pendingFt8TxMessage;
-            const QString deferredTag = m_pendingFt8TxTag;
-            appendLog(QString("FT timing: slot expired by %1 ms before PTT; deferring complete %2 frame '%3' to the next selected slot.")
-                          .arg(lateMs)
-                          .arg(activeFtProfile.shortLabel, deferredMessage));
-            if (m_ftSlotScheduler != nullptr) {
-                ++m_txRequestGeneration; m_catCommand->cancel();
-        QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
-            }
-            m_ft8PendingTxArmed = false;
-            m_ft8PendingTxToken.clear();
-            m_pendingFt8PttPrearmed = false;
-            m_pendingFt8PttKeyed = false;
-            m_pendingFt8SlotBoundaryUtcMs = 0;
-            m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
-            m_pendingFt8PreparedModulator.reset();
-            updateFt8TxBannerUi();
-            updateTxControlState();
-            QTimer::singleShot(0, this, [this, deferredMessage, deferredTag]() {
-                scheduleFt8SequencerMessage(deferredMessage, deferredTag);
-            });
+            deferPendingFtTx(QStringLiteral("audio target expired by %1 ms").arg(lateMs));
             return;
         }
     }
 
-    m_ftSession.lastTxWasTune = m_pendingFt8Tune;
-    m_ftSession.lastTxMessage = m_pendingFt8TxMessage;
-    m_ftSession.lastTxTag = m_pendingFt8TxTag.isEmpty() ? QStringLiteral("TX") : m_pendingFt8TxTag;
-    m_lastFt8TxPlan = m_pendingFt8TxPlan;
-    m_lastFt8TxPlan.message = m_ftSession.lastTxMessage;
-    m_lastFt8TxPlan.tag = m_ftSession.lastTxTag;
-    m_lastFt8TxPlan.tune = m_ftSession.lastTxWasTune;
     updateFt8TxBannerUi();
 
-    if (m_pendingFt8Tune) {
+    if (m_pendingFt8TxPlan.tune) {
         appendLog(QString("Starting %1 tune at %2 Hz.")
                       .arg(activeFtProfile.shortLabel)
                       .arg(m_spinFt8TxFreq != nullptr ? m_spinFt8TxFreq->value() : 1500));
     } else {
-        appendFt8LocalTxRow(m_pendingFt8TxMessage,
-                            m_spinFt8TxFreq != nullptr ? m_spinFt8TxFreq->value() : 1500,
-                            m_ftSession.lastTxTag);
         const QString timingSuffix = QStringLiteral(" (UTC slot boundary target, PTT/audio lead %1 ms)")
-            .arg(m_pendingFt8PttLeadMs);
-        appendLog(QString("Starting %1 %2 slot TX: %3%4")
+            .arg(m_pendingFt8TxPlan.pttLeadMs);
+        appendLog(QString("Preparing %1 %2 slot TX: %3%4")
                       .arg(activeFtProfile.shortLabel,
-                           m_ftSession.lastTxTag,
-                           m_pendingFt8TxMessage,
+                           m_pendingFt8TxPlan.tag,
+                           m_pendingFt8TxPlan.message,
                            timingSuffix));
     }
 
@@ -19543,6 +19565,8 @@ void MainWindow::beginScheduledFt8Transmit()
 
 void MainWindow::stopFt8Shell()
 {
+    if (m_txWaveformPreparer) m_txWaveformPreparer->cancel();
+    if(m_ftTxWorker)m_ftTxWorker->cancelPendingStart();
     m_ft8OperatorStopLatched = true;
     const bool txWasActive = (m_txRunning ||
                               m_ftTxWorkerRunning ||
@@ -19553,27 +19577,26 @@ void MainWindow::stopFt8Shell()
         QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
     }
 
-    if (m_pendingFt8PttKeyed && !txWasActive) {
-        unkeyPttAfterTx();
-    }
+    m_txPreparationPending=false;
+    unkeyPttAfterTx();
 
     m_ft8PendingTxArmed = false;
     m_ft8PendingTxToken.clear();
-    m_pendingFt8TxMessage.clear();
-    m_pendingFt8TxTag.clear();
-    m_pendingFt8Tune = false;
-    m_pendingFt8LatePartial = false;
-    m_pendingFt8PreSilenceMs = 0;
-    m_pendingFt8SlotBoundaryUtcMs = 0;
-    m_pendingFt8AudioTargetDelayMs = 0;
-    m_pendingFt8PttLeadMs = 0;
+    m_pendingFt8TxPlan.message.clear();
+    m_pendingFt8TxPlan.tag.clear();
+    m_pendingFt8TxPlan.tune = false;
+    m_pendingFt8TxPlan.latePartial = false;
+    m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+    m_pendingFt8TxPlan.audioTargetDelayMs = 0;
+    m_pendingFt8TxPlan.pttLeadMs = 0;
     m_pendingFt8PreparedModulator.reset();
     m_pendingFt8TxPlan = FtTxPlan();
     m_pendingFt8PttPrearmed = false;
     m_pendingFt8PttKeyed = false;
+    m_ft8AudioStartRequested = false;
     m_hasDeferredFt8TxPlan = false;
-    m_deferredFt8TxMessage.clear();
-    m_deferredFt8TxTag.clear();
+    m_deferredFt8TxPlan.message.clear();
+    m_deferredFt8TxPlan.tag.clear();
     m_deferredFt8TxPlan = FtTxPlan();
     m_ftSession.deferredState = Ft8SequencerState::Idle;
 
@@ -19593,7 +19616,9 @@ void MainWindow::stopFt8Shell()
         // and no stopped() signal reaches MainWindow, force the logical UI state
         // back to idle/RX-safe after a short grace period.  This avoids locked RX/TX
         // buttons while still giving the worker the first chance to shut down cleanly.
-        QTimer::singleShot(900, this, [this]() {
+        const quint64 stoppedRequest=m_ftTxActiveRequest;
+        QTimer::singleShot(900, this, [this,stoppedRequest]() {
+            if (stoppedRequest!=m_ftTxActiveRequest) return;
             if (!Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) {
                 return;
             }
@@ -19645,8 +19670,8 @@ void MainWindow::tuneFt8Shell()
 {
     applyFt8Settings();
 
-    const bool tuneActive = m_pendingFt8Tune ||
-                            (m_ftSession.lastTxWasTune && (m_txRunning || m_ftTxWorkerRunning ||
+    const bool tuneActive = m_pendingFt8TxPlan.tune ||
+                            (m_ftSession.lastTxPlan.tune && (m_txRunning || m_ftTxWorkerRunning ||
                                 (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning()))) ||
                             (m_pendingFt8PttKeyed && !m_txRunning && !m_ftTxWorkerRunning);
     if (tuneActive) {
@@ -19665,6 +19690,9 @@ void MainWindow::tuneFt8Shell()
         QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
     }
 
+    m_ft8OperatorStopLatched = false;
+    m_txPreparationPending = false;
+
     // Tune is a manual carrier/action, not part of CQ repeat or the QSO
     // sequencer.  Cancel any armed auto-CQ/deferred slot so Tune cannot be
     // followed by an unexpected CQ restart when the user stops or the tone ends.
@@ -19673,8 +19701,8 @@ void MainWindow::tuneFt8Shell()
         m_ftSession.state = Ft8SequencerState::Idle;
     }
     m_hasDeferredFt8TxPlan = false;
-    m_deferredFt8TxMessage.clear();
-    m_deferredFt8TxTag.clear();
+    m_deferredFt8TxPlan.message.clear();
+    m_deferredFt8TxPlan.tag.clear();
     m_deferredFt8TxPlan = FtTxPlan();
     m_ftSession.deferredState = Ft8SequencerState::Idle;
 
@@ -19687,21 +19715,20 @@ void MainWindow::tuneFt8Shell()
     m_pendingFt8PreparedModulator.reset();
     m_pendingFt8PttPrearmed = false;
     m_pendingFt8PttKeyed = false;
-    m_pendingFt8PreSilenceMs = 0;
-    m_pendingFt8SlotBoundaryUtcMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
-    m_pendingFt8AudioTargetDelayMs = 0;
-    m_pendingFt8PttLeadMs = 0;
+    m_ft8AudioStartRequested = false;
     m_pendingFt8TxPlan = FtTxPlan();
+    m_pendingFt8TxPlan.slotBoundaryUtcMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
+    m_pendingFt8TxPlan.audioTargetDelayMs = 0;
+    m_pendingFt8TxPlan.pttLeadMs = 0;
     m_pendingFt8TxPlan.tune = true;
     m_pendingFt8TxPlan.audioFrequencyHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz;
-    m_pendingFt8TxPlan.slotBoundaryUtcMs = m_pendingFt8SlotBoundaryUtcMs;
     m_pendingFt8TxPlan.audioTargetDelayMs = 0;
     m_pendingFt8TxPlan.pttLeadMs = 0;
 
-    m_pendingFt8TxTag = QStringLiteral("TUNE");
-    m_pendingFt8LatePartial = false;
-    m_pendingFt8Tune = true;
-    m_pendingFt8TxMessage = QStringLiteral("TUNE");
+    m_pendingFt8TxPlan.tag = QStringLiteral("TUNE");
+    m_pendingFt8TxPlan.latePartial = false;
+    m_pendingFt8TxPlan.tune = true;
+    m_pendingFt8TxPlan.message = QStringLiteral("TUNE");
 
     beginScheduledFt8Transmit();
     startFtPreparedSlotTransmit();
@@ -20485,10 +20512,11 @@ void MainWindow::resetDspEngine()
         return;
     }
 
+    if (m_dspAudioDispatcher) m_dspAudioDispatcher->clear();
     QMetaObject::invokeMethod(
         m_dspEngine,
         "reset",
-        Qt::BlockingQueuedConnection
+        Qt::QueuedConnection
         );
 }
 
@@ -22252,16 +22280,19 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
     const bool logbookPathChanged = !newLogbookPath.isEmpty() &&
         QFileInfo(newLogbookPath).absoluteFilePath() != QFileInfo(oldLogbookPath).absoluteFilePath();
     if (logbookPathChanged) {
-        m_logbook.setFileName(newLogbookPath);
-        QString loadError;
-        if (!m_logbook.load(&loadError)) {
-            QMessageBox::warning(this,
-                                 uiText("logbook", "Logbook"),
-                                 uiText("cannot_load_logbook", "Cannot load logbook:") + " " + loadError);
-        } else {
+        m_logbookStore->reload(newLogbookPath, [this, newLogbookPath, oldLogbookPath](int count, const QString &error) {
+            if (count < 0) {
+                m_settings.logbookFilePath = oldLogbookPath;
+                savePersistentSettings();
+                QMessageBox::warning(this, uiText("logbook", "Logbook"),
+                    uiText("cannot_load_logbook", "Cannot load logbook:") + " " + error);
+                return;
+            }
             appendLog(uiText("logbook_file_changed", "Logbook file changed:") + " " + QDir::toNativeSeparators(newLogbookPath));
             queueLogbookIndexRebuild();
-        }
+            refreshLogbookHighlights(true);
+            refreshQsoMaps();
+        });
     }
 
     const bool deviceSelectionChanged =
@@ -22471,16 +22502,8 @@ void MainWindow::updateSstvTxPreparedImage()
 
 void MainWindow::showLogbookDialog()
 {
-    QString error;
-    if (!m_logbook.load(&error)) {
-        QMessageBox::warning(this,
-                             uiTextFromSource("text", "Logbook"),
-                             uiTextFromSource("text", "Cannot load logbook:") + " " + error);
-    } else {
-        queueLogbookIndexRebuild();
-    }
-
     LogbookDialog dialog(&m_logbook, &m_settings, this);
+    dialog.setStore(m_logbookStore);
     dialog.setTextTranslator([this](const QString &source) {
         return uiTextFromSource("text", source);
     });
@@ -22565,7 +22588,9 @@ void MainWindow::showAboutMadModem()
 void MainWindow::showRuntimeLogDialog()
 {
     if (m_runtimeLogDialog == nullptr) {
-        m_runtimeLogDialog = new QDialog(this);
+        m_runtimeLogDialog = new QDialog(this, Qt::Window);
+        m_runtimeLogDialog->setModal(false);
+        m_runtimeLogDialog->setAttribute(Qt::WA_QuitOnClose, false);
         m_runtimeLogDialog->setWindowTitle(uiText("runtime_log", "Runtime log"));
         m_runtimeLogDialog->resize(980, 520);
         QVBoxLayout *layout = new QVBoxLayout(m_runtimeLogDialog);
@@ -22776,11 +22801,11 @@ void MainWindow::toggleRxReady()
         return;
     }
 
-    if (m_txRunning || m_offlineAnalysisActive) {
+    if (m_txRunning || m_txPreparationPending || m_offlineAnalysisActive) {
         return;
     }
 
-    if (m_rxRunning || (m_audioEngine != nullptr && m_audioEngine->isRunning())) {
+    if (m_rxStartPending || m_rxRunning || (m_audioEngine != nullptr && m_audioEngine->isRunning())) {
         stopRx();
         return;
     }
@@ -22799,12 +22824,12 @@ void MainWindow::startRx()
         return;
     }
 
-    if (m_txRunning) {
+    if (m_txRunning || m_txPreparationPending) {
         appendLog("RX start blocked: TX/PTT is active.");
         return;
     }
 
-    if (m_audioEngine->isRunning()) {
+    if (m_rxStartPending || (m_audioEngine->isRunning() && !m_rxStopPending)) {
         appendLog("RX is already running.");
         return;
     }
@@ -23081,7 +23106,7 @@ void MainWindow::startRx()
     syncLiveRxConfig();
     QMetaObject::invokeMethod(m_rxDecoderWorker,&RxDecoderWorker::beginCapture,Qt::QueuedConnection);
     m_rxContinuity.reset(); // Offline/UI continuity only.
-    if (!startAudioInputBlocking(inputName, m_settings.audioSampleRate)) {
+    if (!requestAudioInputStart(inputName, m_settings.audioSampleRate)) {
         setReceiverRunning(false);
         if (fastResumeCwRtty) {
             m_fastResumeCwRttyRxPending = false;
@@ -23108,13 +23133,13 @@ void MainWindow::stopRx()
                                   disableConnection,
                                   Q_ARG(bool, false));
     }
-    if (!m_audioEngine->isRunning()) {
+    if (!m_rxStartPending && !m_audioEngine->isRunning()) {
         setReceiverRunning(false);
         appendLog("RX already stopped.");
         return;
     }
 
-    stopAudioInputBlocking();
+    requestAudioInputStop();
 }
 
 void MainWindow::startRxAudioRecording()
@@ -23582,59 +23607,14 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
             ));
     }
 
-    if (Msk144Mode::isMode(modeName)) {
-        QString msg;
-        int row = (m_tableMsk144TxMessages != nullptr) ? m_tableMsk144TxMessages->currentRow() : -1;
-        if (row < 0) row = 0;
-        if (m_tableMsk144TxMessages != nullptr && row >= 0 && row < m_tableMsk144TxMessages->rowCount()) {
-            QTableWidgetItem *item = m_tableMsk144TxMessages->item(row, 1);
-            if (item != nullptr) msg = item->text().trimmed();
-        }
-        if (msg.isEmpty()) {
-            msg = QStringLiteral("CQ %1 %2").arg(stationCallsign(), stationLocator().left(4)).trimmed();
-        }
-        const int period = (m_cmbMsk144Period != nullptr) ? m_cmbMsk144Period->currentData().toInt() : 15;
-        const bool shortMessages = m_chkMsk144ShortMessages != nullptr &&
-                                   m_chkMsk144ShortMessages->isChecked();
-        const double txHz = (m_spinMsk144TxFreq != nullptr)
-                                ? static_cast<double>(m_spinMsk144TxFreq->value()) : 1500.0;
-        Msk144Transmitter *msk = new Msk144Transmitter(msg, txSampleRate, period,
-                                                       shortMessages, txHz);
-        if (!msk->generationSucceeded()) {
-            appendLog(QStringLiteral("MSK144 TX generator failed: %1").arg(msk->generationError()));
-            delete msk;
-            return nullptr;
-        }
-        return std::unique_ptr<TxModulator>(msk);
-    }
-
-    if (Q65Mode::isFamilyMode(modeName)) {
-        QString msg;
-        int row = (m_tableQ65TxMessages != nullptr) ? m_tableQ65TxMessages->currentRow() : -1;
-        if (row < 0) row = 0;
-        if (m_tableQ65TxMessages != nullptr && row >= 0 && row < m_tableQ65TxMessages->rowCount()) {
-            QTableWidgetItem *item = m_tableQ65TxMessages->item(row, 1);
-            if (item != nullptr) msg = item->text().trimmed();
-        }
-        if (msg.isEmpty()) {
-            msg = QStringLiteral("CQ %1 %2").arg(stationCallsign(), stationLocator().left(4)).trimmed();
-        }
-        const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
-        const double txHz = (m_spinQ65TxFreq != nullptr) ? static_cast<double>(m_spinQ65TxFreq->value()) : 1500.0;
-        Q65Transmitter *q65 = new Q65Transmitter(msg, txSampleRate, period, currentQ65Submode(), txHz);
-        if (!q65->generationSucceeded()) {
-            appendLog(QStringLiteral("Q65 TX generator failed: %1").arg(q65->generationError()));
-            delete q65;
-            return nullptr;
-        }
-        return std::unique_ptr<TxModulator>(q65);
-    }
+    if (Msk144Mode::isMode(modeName) || Q65Mode::isFamilyMode(modeName))
+        return std::move(m_nativeWeakSignalPreparedModulator);
 
     if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
         const int logicalTxHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : 1500;
         const double txHz = static_cast<double>(ftEffectiveTxAudioFrequency(logicalTxHz));
-        if (m_pendingFt8Tune) {
+        if (m_pendingFt8TxPlan.tune) {
             Ft8Transmitter *tone = new Ft8Transmitter(profile.modeName, 48000, txHz, static_cast<double>(profile.slotMs) / 1000.0, true);
             if (!tone->generationSucceeded()) {
                 delete tone;
@@ -23647,65 +23627,11 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator()
             return nullptr;
         }
 
-        int leadingSilenceMs = m_pendingFt8PreSilenceMs;
-        int skipMs = 0;
-        if (m_pendingFt8SlotBoundaryUtcMs > 0 && m_pendingFt8AudioTargetDelayMs >= 0) {
-            const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
-            const qint64 targetMs = m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs;
-            const qint64 deltaMs = targetMs - nowMs;
-            if (deltaMs >= 0) {
-                leadingSilenceMs = qBound(0, static_cast<int>(deltaMs), 2000);
-            } else {
-                leadingSilenceMs = 0;
-                skipMs = qBound(0, static_cast<int>(-deltaMs), profile.slotMs);
-                appendLog(QString("FT timing: refusing to create a truncated %1 waveform (%2 ms late).")
-                              .arg(profile.shortLabel)
-                              .arg(skipMs));
-                return nullptr;
-            }
-        }
-
-        std::unique_ptr<TxModulator> modulator;
-        if (m_pendingFt8PreparedModulator) {
-            modulator = std::move(m_pendingFt8PreparedModulator);
-            appendLog(QString("FT timing: using prebuilt %1 waveform.").arg(profile.shortLabel));
-        } else {
-            Ft8Transmitter *ft8 = new Ft8Transmitter(
-                profile.modeName,
-                m_pendingFt8TxMessage,
-                48000,
-                txHz,
-                0
-                );
-            if (!ft8->generationSucceeded()) {
-                delete ft8;
-                return nullptr;
-            }
-            modulator.reset(ft8);
-        }
-
-        Ft8Transmitter *ft8 = dynamic_cast<Ft8Transmitter *>(modulator.get());
-        if (ft8 != nullptr) {
-            // skipMs is always zero: a manual late burst starts with the real
-            // Costas/frame prefix and shortens only its tail at the slot guard.
-            if (leadingSilenceMs > 0) {
-                ft8->prependLeadingSilenceMilliseconds(leadingSilenceMs);
-            }
-            if (m_pendingFt8LatePartial) {
-                const qint64 stopUtcMs = m_pendingFt8SlotBoundaryUtcMs
-                    + static_cast<qint64>(profile.slotMs - kFtSlotEndGuardMs);
-                const int remainingOutputMs = static_cast<int>(qMax<qint64>(
-                    0, stopUtcMs - QDateTime::currentDateTimeUtc().toMSecsSinceEpoch()));
-                if (remainingOutputMs <= 0) {
-                    return nullptr;
-                }
-                ft8->truncateTotalMilliseconds(remainingOutputMs);
-            }
-            appendLog(QString("FT timing: target=%1 ms, lead-in silence=%2 ms, skipped=%3 ms.")
-                          .arg(m_pendingFt8AudioTargetDelayMs)
-                          .arg(leadingSilenceMs)
-                          .arg(skipMs));
-        }
+        auto modulator = std::move(m_pendingFt8PreparedModulator);
+        if (!modulator) return nullptr;
+        auto *ft = static_cast<Ft8Transmitter *>(modulator.get());
+        ft->setPlaybackWindow(m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs,
+            m_pendingFt8TxPlan.latePartial ? m_pendingFt8TxPlan.slotBoundaryUtcMs + profile.slotMs - kFtSlotEndGuardMs : 0);
         return modulator;
     }
 
@@ -24191,7 +24117,7 @@ void MainWindow::unkeyPttAfterTx()
         return;
     }
     auto released=[this](bool ok){
-        if(ok){restoreFtSplitAfterTx();resumeQsoSignalPeakAfterTransmit();}
+        if(ok){m_ftSplitRestoreFailed=false;restoreFtSplitAfterTx();resumeQsoSignalPeakAfterTransmit();}
         else {m_ftSplitRestoreFailed=true;appendLog(QStringLiteral("CAT PTT OFF not confirmed; further TX is blocked."));}
     };
     if(pttViaRigController)requestRigPtt(false,released);
@@ -24309,7 +24235,7 @@ void MainWindow::startImageTx()
     const bool q65Mode = Q65Mode::isFamilyMode(activeModeName);
     const bool textMode = rttyMode || bpskMode || mfskMode || cwMode || hellMode || ft8Mode || msk144Mode || q65Mode;
 
-    const bool liveRxRunning = m_rxRunning ||
+    const bool liveRxRunning = m_rxStartPending || m_rxRunning ||
                                (m_audioEngine != nullptr && m_audioEngine->isRunning());
 
     if (liveRxRunning && !textMode) {
@@ -24366,7 +24292,7 @@ void MainWindow::startImageTx()
         return;
     }
 
-    if (ft8Mode && !m_pendingFt8Tune && m_pendingFt8TxMessage.trimmed().isEmpty()) {
+    if (ft8Mode && !m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.message.trimmed().isEmpty()) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(activeModeName);
         QMessageBox::information(this,
                                  profile.shortLabel + QStringLiteral(" TX"),
@@ -24406,11 +24332,25 @@ void MainWindow::startImageTx()
         m_fastResumeCwRttyMode = activeModeName;
     }
 
-    if (liveRxRunning && m_audioEngine != nullptr) {
-        m_preserveTextTerminalOnNextRx = true;
-        appendLog("Pausing RX for text TX.");
-        stopAudioInputBlocking();
-    }
+    const auto captureStopGeneration = m_txRequestGeneration;
+    const bool nativeBoundaryStart = (msk144Mode || q65Mode) && m_nativeWeakSignalTxBoundaryStart;
+    const qint64 nativeBoundaryUtcMs = m_nativeWeakSignalTxBoundaryUtcMs;
+    const auto nativeWaveform = std::make_shared<std::unique_ptr<TxModulator>>();
+    if (nativeBoundaryStart) *nativeWaveform = std::move(m_nativeWeakSignalPreparedModulator);
+    auto continueTransmit = [=] {
+        if (captureStopGeneration != m_txRequestGeneration || m_shutdownInProgress ||
+            activeModeName != ui->cmbMode->currentText()) return;
+        m_txPreparationPending = false;
+        if (nativeBoundaryStart && nativeBoundaryUtcMs > 0 &&
+            QDateTime::currentMSecsSinceEpoch() > nativeBoundaryUtcMs + 100) {
+            const bool resume = m_returnToRxAfterTx;
+            m_returnToRxAfterTx = false;
+            m_currentTxIsTextMode = false;
+            m_nativeWeakSignalPreparedModulator = std::move(*nativeWaveform);
+            scheduleNativeWeakSignalPeriodTx();
+            if (resume) startRx();
+            return;
+        }
 
     if (activeModeName == WeatherFaxDecoder::modeName()) {
         applyWeatherFaxSettings();
@@ -24435,8 +24375,8 @@ void MainWindow::startImageTx()
     }
 
     std::unique_ptr<TxModulator> modulator;
-    if ((msk144Mode || q65Mode) && m_nativeWeakSignalTxBoundaryStart) {
-        modulator = std::move(m_nativeWeakSignalPreparedModulator);
+    if (nativeBoundaryStart) {
+        modulator = std::move(*nativeWaveform);
         if (!modulator) {
             appendLog(MadModemI18n::text(
                 QStringLiteral("Unable to create a transmitter for the active mode.")));
@@ -24488,10 +24428,11 @@ void MainWindow::startImageTx()
     m_txPreparationPending=true;
     updateTxControlState();
     keyPttForTx([=](bool pttKeyed) mutable {
+        if (generation != m_txRequestGeneration || m_shutdownInProgress ||
+            preparedMode != ui->cmbMode->currentText()) return;
         m_txPreparationPending=false;
         updateTxControlState();
         auto modulator=std::move(*prepared);
-        if(generation!=m_txRequestGeneration || m_shutdownInProgress || preparedMode!=ui->cmbMode->currentText()){unkeyPttAfterTx();return;}
     if (!pttKeyed) {
         appendLog("TX aborted: PTT/safety gate did not allow transmission; no audio TX will be generated.");
         const bool restartRx = m_returnToRxAfterTx;
@@ -24517,12 +24458,14 @@ void MainWindow::startImageTx()
 
     if (ft8Mode && m_ftTxWorker != nullptr) {
         m_ftTxWorkerRunning = true;
+        m_ftTxActiveRequest=m_ftTxWorker->newRequest();
         appendLog("FT timing: handing prepared waveform to dedicated FT TX worker thread.");
-        QMetaObject::invokeMethod(m_ftTxWorker,
-                                  "startOutput",
-                                  Qt::QueuedConnection,
-                                  Q_ARG(QString, outputName),
-                                  Q_ARG(TxModulator *, modulator.release()));
+        const auto owned = std::make_shared<std::unique_ptr<TxModulator>>(std::move(modulator));
+        auto *worker = m_ftTxWorker;
+        const auto request = m_ftTxActiveRequest;
+        QMetaObject::invokeMethod(worker, [worker, outputName, owned, request] {
+            worker->startScheduledOutput(outputName, owned->release(), 0, request);
+        }, Qt::QueuedConnection);
         return;
     }
 
@@ -24551,12 +24494,54 @@ void MainWindow::startImageTx()
         invokeRxDecoder(m_hellDecoder, &HellschreiberDecoder::appendTransmitRaster, txRaster);
     }
     });
+    };
+    if (liveRxRunning && m_audioEngine != nullptr) {
+        m_preserveTextTerminalOnNextRx = true;
+        m_txPreparationPending = true;
+        updateTxControlState();
+        appendLog("Pausing RX for text TX.");
+        requestAudioInputStop(std::move(continueTransmit));
+    } else {
+        continueTransmit();
+    }
+
+}
+
+void MainWindow::deferPendingFtTx(const QString &reason)
+{
+    const QString message=m_pendingFt8TxPlan.message, tag=m_pendingFt8TxPlan.tag;
+    m_ft8LastAttemptedSlotBoundaryUtcMs=qMax(m_ft8LastAttemptedSlotBoundaryUtcMs,
+                                            m_pendingFt8TxPlan.slotBoundaryUtcMs);
+    const quint64 generation=++m_txRequestGeneration;
+    m_catCommand->cancel();
+    if(m_ftSlotScheduler)QMetaObject::invokeMethod(m_ftSlotScheduler,"cancelTransmission",Qt::QueuedConnection);
+    unkeyPttAfterTx();
+    m_txPreparationPending=false;
+    m_ft8PendingTxArmed=false;
+    m_ft8PendingTxToken.clear();
+    m_ft8AudioStartRequested=false;
+    m_pendingFt8PttPrearmed=false;
+    m_pendingFt8PttKeyed=false;
+    m_pendingFt8PreparedModulator.reset();
+    appendLog(QStringLiteral("FT slot deferred: %1; no audio started.").arg(reason));
+    updateTxControlState();updateFt8TxBannerUi();
+    QTimer::singleShot(0,this,[this,generation,message,tag](){
+        if (generation==m_txRequestGeneration && !m_ft8OperatorStopLatched &&
+            !m_shutdownInProgress && !message.isEmpty())
+            scheduleFt8SequencerMessage(message,tag);
+    });
 }
 
 void MainWindow::prearmFtPreparedSlotTransmit()
 {
+    if (m_shutdownInProgress || m_ft8OperatorStopLatched) return;
     if (m_txRunning || m_ftTxWorkerRunning) {
         appendLog("FT TX pre-arm skipped: TX already running.");
+        return;
+    }
+    if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.slotBoundaryUtcMs > 0 &&
+        QDateTime::currentMSecsSinceEpoch() > m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs + 20) {
+        deferPendingFtTx(QStringLiteral("CAT gate became available after the slot deadline"));
         return;
     }
 
@@ -24574,11 +24559,11 @@ void MainWindow::prearmFtPreparedSlotTransmit()
     }
 
     const Ft8Mode::Profile profile = Ft8Mode::profileForMode(activeModeName);
-    if (!m_pendingFt8Tune && !profile.interoperableCoreAvailable) {
+    if (!m_pendingFt8TxPlan.tune && !profile.interoperableCoreAvailable) {
         appendLog("FT TX pre-arm cancelled: interoperable TX core unavailable for " + profile.shortLabel + ".");
         return;
     }
-    if (!m_pendingFt8Tune && m_pendingFt8TxMessage.trimmed().isEmpty()) {
+    if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.message.trimmed().isEmpty()) {
         appendLog("FT TX pre-arm cancelled: no pending FT message.");
         return;
     }
@@ -24593,19 +24578,44 @@ void MainWindow::prearmFtPreparedSlotTransmit()
     // gated live decode from launching when a TX was armed.
 
     if(m_pendingFt8PttKeyed){m_pendingFt8PttPrearmed=true;return;}
-    if(m_txPreparationPending || m_catCommand->busy())return;
+    if (m_txPreparationPending) return;
+    if (m_catCommand->busy()) {
+        // A previous OFF/rollback may still own CAT. In particular Tune has no
+        // scheduler event to retry it once the gate becomes available.
+        const auto generation = m_txRequestGeneration;
+        const QString token = m_ft8PendingTxToken;
+        QTimer::singleShot(50, this, [this, generation, token]() {
+            if (generation == m_txRequestGeneration && token == m_ft8PendingTxToken &&
+                !m_ft8OperatorStopLatched && !m_shutdownInProgress &&
+                (m_pendingFt8TxPlan.tune || m_ft8PendingTxArmed)) prearmFtPreparedSlotTransmit();
+        });
+        return;
+    }
     m_txPreparationPending=true;
     const QString token=m_ft8PendingTxToken;
     const auto generation=m_txRequestGeneration;
     const auto complete=[this,token,generation](bool ok){
+        if (generation != m_txRequestGeneration || token != m_ft8PendingTxToken ||
+            m_shutdownInProgress) return; // cancelled CAT job owns its rollback
         m_txPreparationPending=false;
-        if(generation!=m_txRequestGeneration || token!=m_ft8PendingTxToken || (!m_ft8PendingTxArmed && !m_pendingFt8Tune) || m_shutdownInProgress){unkeyPttAfterTx();return;}
-        if(!ok){
-            m_ft8PendingTxArmed=false;m_pendingFt8PttPrearmed=false;m_pendingFt8PttKeyed=false;
-            unkeyPttAfterTx();appendLog(QStringLiteral("FT TX aborted: CAT/PTT acknowledgement missing; no audio transmitted."));
+        if (!ok) {
+            if (m_pendingFt8TxPlan.tune) {
+                unkeyPttAfterTx();
+                m_pendingFt8TxPlan.tune=false;
+                m_pendingFt8TxPlan.message.clear();
+            } else {
+                deferPendingFtTx(QStringLiteral("CAT/PTT acknowledgement failed"));
+            }
         } else {
-            m_pendingFt8PttKeyed=true;m_pendingFt8PttPrearmed=true;
-            if(m_pendingFt8Tune)QTimer::singleShot(0,this,&MainWindow::startFtPreparedSlotTransmit);
+            m_pendingFt8PttKeyed=true;
+            m_pendingFt8PttPrearmed=true;
+            if (m_pendingFt8TxPlan.tune || m_ft8AudioStartRequested) {
+                QTimer::singleShot(0,this,[this,token,generation](){
+                    if (token==m_ft8PendingTxToken && generation==m_txRequestGeneration &&
+                        !m_txRunning && !m_ftTxWorkerRunning)
+                        startFtPreparedSlotTransmit();
+                });
+            }
         }
         updateTxControlState();updateFt8TxBannerUi();
     };
@@ -24641,11 +24651,11 @@ void MainWindow::startFtPreparedSlotTransmit()
     }
 
     const Ft8Mode::Profile profile = Ft8Mode::profileForMode(activeModeName);
-    if (!m_pendingFt8Tune && !profile.interoperableCoreAvailable) {
+    if (!m_pendingFt8TxPlan.tune && !profile.interoperableCoreAvailable) {
         appendLog("FT TX cancelled: interoperable TX core unavailable for " + profile.shortLabel + ".");
         return;
     }
-    if (!m_pendingFt8Tune && m_pendingFt8TxMessage.trimmed().isEmpty()) {
+    if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.message.trimmed().isEmpty()) {
         appendLog("FT TX cancelled: no pending FT message.");
         return;
     }
@@ -24654,36 +24664,29 @@ void MainWindow::startFtPreparedSlotTransmit()
     // manual late visual burst is chosen explicitly upstream and keeps the real
     // Costas/frame prefix; this deadline guard still defers any start that misses
     // its newly assigned target.
-    if (!m_pendingFt8Tune && m_pendingFt8SlotBoundaryUtcMs > 0) {
-        const qint64 targetMs = m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs;
+    if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.slotBoundaryUtcMs > 0) {
+        const qint64 targetMs = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
         const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
         const qint64 lateMs = nowMs - targetMs;
         constexpr qint64 kFtStartDeadlineToleranceMs = 20;
         if (lateMs > kFtStartDeadlineToleranceMs) {
-            const QString deferredMessage = m_pendingFt8TxMessage;
-            const QString deferredTag = m_pendingFt8TxTag;
-            appendLog(QString("FT timing: audio deadline missed by %1 ms; refusing truncated %2 frame and deferring '%3' to the next selected slot.")
-                          .arg(lateMs)
-                          .arg(profile.shortLabel, deferredMessage));
-            if (m_ftSlotScheduler != nullptr) {
-                ++m_txRequestGeneration; m_catCommand->cancel();
-        QMetaObject::invokeMethod(m_ftSlotScheduler, "cancelTransmission", Qt::QueuedConnection);
-            }
-            if (m_pendingFt8PttKeyed || m_pendingFt8PttPrearmed) {
-                unkeyPttAfterTx();
-            }
-            m_ft8PendingTxArmed = false;
-            m_ft8PendingTxToken.clear();
-            m_pendingFt8PttPrearmed = false;
-            m_pendingFt8PttKeyed = false;
-            m_pendingFt8SlotBoundaryUtcMs = 0;
-            m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
-            m_pendingFt8PreparedModulator.reset();
-            QTimer::singleShot(0, this, [this, deferredMessage, deferredTag]() {
-                scheduleFt8SequencerMessage(deferredMessage, deferredTag);
-            });
+            deferPendingFtTx(QStringLiteral("audio target expired by %1 ms").arg(lateMs));
             return;
         }
+    }
+
+    if (!m_pendingFt8TxPlan.tune && !m_pendingFt8PreparedModulator) {
+        m_ft8AudioStartRequested = true;
+        const auto token = m_ft8PendingTxToken;
+        const auto generation = m_txRequestGeneration;
+        const qint64 deadline = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
+        QTimer::singleShot(int(qBound<qint64>(1, deadline - QDateTime::currentMSecsSinceEpoch() + 21, 60000)),
+                          this, [this, token, generation] {
+            if (generation == m_txRequestGeneration && token == m_ft8PendingTxToken &&
+                m_ft8PendingTxArmed && !m_pendingFt8PreparedModulator)
+                deferPendingFtTx(QStringLiteral("waveform preparation missed audio deadline"));
+        });
+        return;
     }
 
     if (!m_pendingFt8PttPrearmed) {
@@ -24691,21 +24694,32 @@ void MainWindow::startFtPreparedSlotTransmit()
         prearmFtPreparedSlotTransmit();
     }
     if(!m_pendingFt8PttPrearmed || !m_pendingFt8PttKeyed) {
-        if(m_pendingFt8Tune)return; // Tune starts from the acknowledgement callback.
-        const auto message=m_pendingFt8TxMessage, tag=m_pendingFt8TxTag;
-        ++m_txRequestGeneration;m_catCommand->cancel();m_ft8PendingTxArmed=false;
-        unkeyPttAfterTx();
-        appendLog(QStringLiteral("FT slot skipped: CAT/PTT was not confirmed before audio deadline."));
-        QTimer::singleShot(0,this,[this,message,tag](){scheduleFt8SequencerMessage(message,tag);});
+        if(m_pendingFt8TxPlan.tune)return;
+        // Audio due is not CAT's deadline: an acknowledgement can still arrive
+        // while the remaining leading silence is available. Keep the same plan.
+        m_ft8AudioStartRequested=true;
+        const QString token=m_ft8PendingTxToken;
+        const auto generation=m_txRequestGeneration;
+        const qint64 deadline=m_pendingFt8TxPlan.slotBoundaryUtcMs+m_pendingFt8TxPlan.audioTargetDelayMs;
+        const int waitMs=static_cast<int>(qMax<qint64>(1,deadline-QDateTime::currentMSecsSinceEpoch()+1));
+        QTimer::singleShot(waitMs,this,[this,token,generation](){
+            if (generation==m_txRequestGeneration && token==m_ft8PendingTxToken &&
+                m_ft8AudioStartRequested && !m_txRunning)
+                deferPendingFtTx(QStringLiteral("CAT/PTT not ready by audio deadline"));
+        });
         return;
     }
+    m_ft8AudioStartRequested=false;
+    m_ft8PendingTxArmed=false;
+    if (!m_pendingFt8TxPlan.tune)
+        m_ft8LastAttemptedSlotBoundaryUtcMs=m_pendingFt8TxPlan.slotBoundaryUtcMs;
 
-    const bool liveRxRunning = m_rxRunning ||
+    const bool liveRxRunning = m_rxStartPending || m_rxRunning ||
                                (m_audioEngine != nullptr && m_audioEngine->isRunning());
     if (liveRxRunning) {
         if (m_audioEngine != nullptr) {
             appendLog("FT timing: RX audio stop requested at UTC boundary for FT TX.");
-            QMetaObject::invokeMethod(m_audioEngine,[engine=m_audioEngine](){engine->stopInput();},Qt::QueuedConnection);
+            requestAudioInputStop();
         }
         if (m_ft8RxDecoder != nullptr) {
             // Never wait for an in-flight boundary/deep decode on the GUI/TX
@@ -24719,19 +24733,19 @@ void MainWindow::startFtPreparedSlotTransmit()
             QMetaObject::invokeMethod(m_ft8RxDecoder,
                                       "noteTransmitStarting",
                                       Qt::QueuedConnection,
-                                      Q_ARG(qint64, m_pendingFt8SlotBoundaryUtcMs));
+                                      Q_ARG(qint64, m_pendingFt8TxPlan.slotBoundaryUtcMs));
         }
     }
 
     std::unique_ptr<TxModulator> modulator = buildCurrentTxModulator();
     if (!modulator) {
-        const qint64 targetMs = m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs;
-        const qint64 lateMs = (m_pendingFt8SlotBoundaryUtcMs > 0)
+        const qint64 targetMs = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
+        const qint64 lateMs = (m_pendingFt8TxPlan.slotBoundaryUtcMs > 0)
             ? (QDateTime::currentDateTimeUtc().toMSecsSinceEpoch() - targetMs)
             : 0;
-        const bool missedDeadline = !m_pendingFt8Tune && lateMs > 0;
-        const QString deferredMessage = m_pendingFt8TxMessage;
-        const QString deferredTag = m_pendingFt8TxTag;
+        const bool missedDeadline = !m_pendingFt8TxPlan.tune && lateMs > 0;
+        const QString deferredMessage = m_pendingFt8TxPlan.message;
+        const QString deferredTag = m_pendingFt8TxPlan.tag;
         appendLog(missedDeadline
                       ? uiText("ft_tx_missed_deadline_retry",
                                "FT TX cancelled: prepared waveform missed its audio deadline by %1 ms; message will be retried in the next selected slot.").arg(lateMs)
@@ -24750,8 +24764,10 @@ void MainWindow::startFtPreparedSlotTransmit()
             QTimer::singleShot(0, this, [this]() { startRx(); });
         }
         if (missedDeadline && !deferredMessage.trimmed().isEmpty()) {
-            QTimer::singleShot(0, this, [this, deferredMessage, deferredTag]() {
-                scheduleFt8SequencerMessage(deferredMessage, deferredTag);
+            const auto generation = m_txRequestGeneration;
+            QTimer::singleShot(0, this, [this, generation, deferredMessage, deferredTag]() {
+                if (generation == m_txRequestGeneration)
+                    scheduleFt8SequencerMessage(deferredMessage, deferredTag);
             });
         }
         return;
@@ -24763,9 +24779,9 @@ void MainWindow::startFtPreparedSlotTransmit()
     const QString outputLabel = selectedAudioOutputLabel();
     appendLog(QString("FT timing: UTC-scheduled %1 audio start; boundary=%2, PTT lead=%3 ms, target=%4 ms.")
                   .arg(profile.shortLabel)
-                  .arg(m_pendingFt8SlotBoundaryUtcMs)
-                  .arg(m_pendingFt8PttLeadMs)
-                  .arg(m_pendingFt8AudioTargetDelayMs));
+                  .arg(m_pendingFt8TxPlan.slotBoundaryUtcMs)
+                  .arg(m_pendingFt8TxPlan.pttLeadMs)
+                  .arg(m_pendingFt8TxPlan.audioTargetDelayMs));
     appendLog("Audio output: " + outputLabel);
 
     m_offlineAnalysisActive = false;
@@ -24781,13 +24797,15 @@ void MainWindow::startFtPreparedSlotTransmit()
         return;
     }
     m_ftTxWorkerRunning = true;
-    const qint64 deadline = m_pendingFt8Tune ? 0 :
-        m_pendingFt8SlotBoundaryUtcMs + m_pendingFt8AudioTargetDelayMs + 20;
-    TxModulator *owned = modulator.release();
-    if (!QMetaObject::invokeMethod(m_ftTxWorker, "startScheduledOutput", Qt::QueuedConnection,
-                                  Q_ARG(QString, outputName), Q_ARG(TxModulator *, owned),
-                                  Q_ARG(qint64, deadline))) {
-        delete owned;
+    m_ftTxActiveRequest=m_ftTxWorker->newRequest();
+    const qint64 deadline = m_pendingFt8TxPlan.tune ? 0 :
+        m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs + 20;
+    const auto owned = std::make_shared<std::unique_ptr<TxModulator>>(std::move(modulator));
+    auto *worker = m_ftTxWorker;
+    const auto request = m_ftTxActiveRequest;
+    if (!QMetaObject::invokeMethod(worker, [worker, outputName, owned, deadline, request] {
+        worker->startScheduledOutput(outputName, owned->release(), deadline, request);
+    }, Qt::QueuedConnection)) {
         handleTxError(QStringLiteral("Cannot enqueue prepared FT transmission."));
         return;
     }
@@ -24798,6 +24816,8 @@ void MainWindow::startFtPreparedSlotTransmit()
 
 void MainWindow::stopImageTx()
 {
+    if (m_txWaveformPreparer) m_txWaveformPreparer->cancel();
+    if(m_ftTxWorker)m_ftTxWorker->cancelPendingStart();
     ++m_txRequestGeneration;m_catCommand->cancel();
     if(!m_txRunning && (m_ft8PendingTxArmed || m_pendingFt8PttPrearmed || m_pendingFt8PttKeyed)){
         if(m_ftSlotScheduler)QMetaObject::invokeMethod(m_ftSlotScheduler,"cancelTransmission",Qt::QueuedConnection);
@@ -24813,7 +24833,10 @@ void MainWindow::stopImageTx()
         m_ft8PendingTxArmed=false;m_pendingFt8PttPrearmed=false;m_pendingFt8PttKeyed=false;
         updateTxControlState();
         if(restart && !m_shutdownInProgress && m_pendingModeName.isEmpty())
-            QTimer::singleShot(0,this,[this](){if(!m_txRunning && !m_rxRunning)startRx();});
+            QTimer::singleShot(0, this, [this, generation = m_txRequestGeneration] {
+                if (generation == m_txRequestGeneration && !m_txRunning && !m_txPreparationPending &&
+                    m_pendingModeName.isEmpty()) startRx();
+            });
     }
     if (m_nativeWeakSignalTxPending) {
         cancelNativeWeakSignalPeriodTx(QStringLiteral("operator STOP"));
@@ -24846,10 +24869,15 @@ void MainWindow::handleTxStarted()
     appendLog(QString("TX audio started at %1 Hz%2.")
                   .arg(txSampleRate)
                   .arg(ftTx ? QStringLiteral(" (FT dedicated worker, slot-aligned low-latency path)") : QString()));
-    if (ftTx) {
+    if (ftTx && !m_ft8OperatorStopLatched) {
+        m_ftSession.lastTxPlan = m_pendingFt8TxPlan;
+        updateFt8TxBannerUi();
+        if (!m_ftSession.lastTxPlan.tune)
+            appendFt8LocalTxRow(m_ftSession.lastTxPlan.message,
+                               m_ftSession.lastTxPlan.audioFrequencyHz, m_ftSession.lastTxPlan.tag);
         appendLog(QString("FT timing: audio engine started; target delay=%1 ms, PTT lead=%2 ms.")
-                      .arg(m_pendingFt8AudioTargetDelayMs)
-                      .arg(m_pendingFt8PttLeadMs));
+                      .arg(m_pendingFt8TxPlan.audioTargetDelayMs)
+                      .arg(m_pendingFt8TxPlan.pttLeadMs));
     }
     setReceiverRunning(false);
     updateTxControlState();
@@ -24861,7 +24889,7 @@ void MainWindow::handleTxStopped()
     unkeyPttAfterTx();
 
     const bool ftModeAtStop = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
-    const qint64 completedFtTxSlotBoundaryMs = ftModeAtStop ? m_pendingFt8SlotBoundaryUtcMs : 0;
+    const qint64 completedFtTxSlotBoundaryMs = ftModeAtStop ? m_pendingFt8TxPlan.slotBoundaryUtcMs : 0;
     const bool restartRx = m_returnToRxAfterTx;
     const bool naturalFinish = m_txFinishedNaturally;
     const bool textTx = m_currentTxIsTextMode;
@@ -24872,8 +24900,8 @@ void MainWindow::handleTxStopped()
          ui->cmbMode->currentText() == RttyDecoder::modeName());
     const bool completedFt8Tx = (ftModeAtStop &&
                                   naturalFinish && textTx &&
-                                  !m_ftSession.lastTxWasTune &&
-                                  !m_ftSession.lastTxMessage.trimmed().isEmpty());
+                                  !m_ftSession.lastTxPlan.tune &&
+                                  !m_ftSession.lastTxPlan.message.trimmed().isEmpty());
 
     if (naturalFinish && textTx) {
         updateTextTxHighlight(1.0);
@@ -24908,14 +24936,13 @@ void MainWindow::handleTxStopped()
     if (Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) {
         m_ft8PendingTxArmed = false;
         m_ft8PendingTxToken.clear();
-        m_pendingFt8TxMessage.clear();
-        m_pendingFt8TxTag.clear();
-        m_pendingFt8Tune = false;
-        m_pendingFt8LatePartial = false;
-        m_pendingFt8PreSilenceMs = 0;
-        m_pendingFt8SlotBoundaryUtcMs = 0;
-        m_pendingFt8AudioTargetDelayMs = 0;
-        m_pendingFt8PttLeadMs = 0;
+        m_pendingFt8TxPlan.message.clear();
+        m_pendingFt8TxPlan.tag.clear();
+        m_pendingFt8TxPlan.tune = false;
+        m_pendingFt8TxPlan.latePartial = false;
+        m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+        m_pendingFt8TxPlan.audioTargetDelayMs = 0;
+        m_pendingFt8TxPlan.pttLeadMs = 0;
         m_pendingFt8PreparedModulator.reset();
         m_pendingFt8TxPlan = FtTxPlan();
         m_pendingFt8PttPrearmed = false;
@@ -24934,12 +24961,12 @@ void MainWindow::handleTxStopped()
     updateTxControlState();
 
     if (Ft8Mode::isFamilyMode(ui->cmbMode->currentText()) && m_hasDeferredFt8TxPlan) {
-        const QString deferredMessage = m_deferredFt8TxMessage.trimmed().toUpper();
-        const QString deferredTag = m_deferredFt8TxTag.trimmed().isEmpty() ? QStringLiteral("SEQ") : m_deferredFt8TxTag.trimmed().toUpper();
+        const QString deferredMessage = m_deferredFt8TxPlan.message.trimmed().toUpper();
+        const QString deferredTag = m_deferredFt8TxPlan.tag.trimmed().isEmpty() ? QStringLiteral("SEQ") : m_deferredFt8TxPlan.tag.trimmed().toUpper();
         const Ft8SequencerState deferredState = m_ftSession.deferredState;
         m_hasDeferredFt8TxPlan = false;
-        m_deferredFt8TxMessage.clear();
-        m_deferredFt8TxTag.clear();
+        m_deferredFt8TxPlan.message.clear();
+        m_deferredFt8TxPlan.tag.clear();
         m_deferredFt8TxPlan = FtTxPlan();
         m_ftSession.deferredState = Ft8SequencerState::Idle;
         if (!deferredMessage.isEmpty()) {
@@ -24988,7 +25015,7 @@ void MainWindow::handleTxError(const QString &message)
     m_ftTxWorkerRunning = false;
     m_txFinishedNaturally = false;
     const bool ftModeAtError = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
-    const qint64 erroredFtTxSlotBoundaryMs = ftModeAtError ? m_pendingFt8SlotBoundaryUtcMs : 0;
+    const qint64 erroredFtTxSlotBoundaryMs = ftModeAtError ? m_pendingFt8TxPlan.slotBoundaryUtcMs : 0;
     appendLog("TX audio error: " + message);
     unkeyPttAfterTx();
     const bool restartRx = m_returnToRxAfterTx;
@@ -25004,14 +25031,13 @@ void MainWindow::handleTxError(const QString &message)
     if (Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) {
         m_ft8PendingTxArmed = false;
         m_ft8PendingTxToken.clear();
-        m_pendingFt8TxMessage.clear();
-        m_pendingFt8TxTag.clear();
-        m_pendingFt8Tune = false;
-        m_pendingFt8LatePartial = false;
-        m_pendingFt8PreSilenceMs = 0;
-        m_pendingFt8SlotBoundaryUtcMs = 0;
-        m_pendingFt8AudioTargetDelayMs = 0;
-        m_pendingFt8PttLeadMs = 0;
+        m_pendingFt8TxPlan.message.clear();
+        m_pendingFt8TxPlan.tag.clear();
+        m_pendingFt8TxPlan.tune = false;
+        m_pendingFt8TxPlan.latePartial = false;
+        m_pendingFt8TxPlan.slotBoundaryUtcMs = 0;
+        m_pendingFt8TxPlan.audioTargetDelayMs = 0;
+        m_pendingFt8TxPlan.pttLeadMs = 0;
         m_pendingFt8PreparedModulator.reset();
         m_pendingFt8TxPlan = FtTxPlan();
         m_pendingFt8PttPrearmed = false;

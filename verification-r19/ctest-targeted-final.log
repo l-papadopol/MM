@@ -1,0 +1,14 @@
+Internal ctest changing into directory: /workspace/scratch/568f9cc8dc74/verification-r19/build
+Test project /workspace/scratch/568f9cc8dc74/verification-r19/build
+    Start  2: madmodem_runtime_workers_regression
+1/4 Test  #2: madmodem_runtime_workers_regression ...   Passed    0.67 sec
+    Start  4: madmodem_tx_pull_regression
+2/4 Test  #4: madmodem_tx_pull_regression ...........   Passed    0.01 sec
+    Start 15: madmodem_ft_runtime_guard
+3/4 Test #15: madmodem_ft_runtime_guard .............   Passed    0.37 sec
+    Start 16: madmodem_release_audit
+4/4 Test #16: madmodem_release_audit ................   Passed    1.11 sec
+
+100% tests passed, 0 tests failed out of 4
+
+Total Test time (real) =   2.15 sec
