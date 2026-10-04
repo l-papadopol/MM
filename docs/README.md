@@ -1,4 +1,4 @@
-# MadModem 0.5.9-alpha documentation
+# MadModem 0.5.9-beta documentation
 
 This directory separates operating help from development records. If you are
 using MadModem on the radio, start with the embedded help or the user guides

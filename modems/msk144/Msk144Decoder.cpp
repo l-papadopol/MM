@@ -900,7 +900,7 @@ bool Msk144Decoder::decodeMsk144Frame(const QVector<std::complex<double>> &c, QS
     QString unpacked;
     bool unpackOk = false;
     {
-        std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
+        std::lock_guard<WeakSignalCodecLock::Mutex> guard(WeakSignalCodecLock::mutex());
         GenMsk gen(true);
         gen.save_hash_call_my_his_r1_r2(m_myCall, 0);
         gen.save_hash_call_my_his_r1_r2(m_dxCall, 1);
@@ -959,7 +959,7 @@ bool Msk144Decoder::decodeMsk40Frame(const QVector<std::complex<double>> &c,
     char decoded[16]{};
     int iterations = -1;
     {
-        std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
+        std::lock_guard<WeakSignalCodecLock::Mutex> guard(WeakSignalCodecLock::mutex());
         GenMsk generator(true);
         generator.bpdecode40(llr, 20, decoded, iterations);
     }
@@ -973,7 +973,7 @@ bool Msk144Decoder::decodeMsk40Frame(const QVector<std::complex<double>> &c,
     const QString forward = QStringLiteral("%1 %2").arg(m_dxCall, m_myCall).trimmed();
     const QString reverse = QStringLiteral("%1 %2").arg(m_myCall, m_dxCall).trimmed();
     {
-        std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
+        std::lock_guard<WeakSignalCodecLock::Mutex> guard(WeakSignalCodecLock::mutex());
         GenMsk generator(true);
         if (!forward.isEmpty() && generator.hash_msk40(forward) == receivedHash) calls = forward;
         else if (!reverse.isEmpty() && generator.hash_msk40(reverse) == receivedHash) calls = reverse;

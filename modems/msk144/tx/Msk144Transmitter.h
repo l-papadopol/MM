@@ -5,6 +5,7 @@
 
 #include <QImage>
 #include <QString>
+#include <functional>
 #include <QVector>
 
 class Msk144Transmitter final : public TxModulator
@@ -14,7 +15,8 @@ public:
                       int sampleRate,
                       int periodSeconds,
                       bool shortMessage,
-                      double txFrequencyHz = 1500.0);
+                      double txFrequencyHz = 1500.0,
+                   std::function<bool()> cancelled = {});
 
     int sampleRate() const override;
     int generate(float *output, int sampleCount) override;
@@ -46,6 +48,7 @@ private:
     QVector<float> m_samples;
     int m_position = 0;
     bool m_ok = false;
+    std::function<bool()> m_cancelled;
 };
 
 #endif // MSK144TRANSMITTER_H

@@ -1,0 +1,10 @@
+-- MadModem package/app version: 0.5.9-beta
+-- MadModem source revision: 0.5.9-beta-source-r21-thread-scheduling
+-- MadModem LTO/IPO disabled by default to avoid GCC/LTO private-slot link regressions
+-- MadModem portable CPU baseline: global AVX2/FMA disabled; runtime-dispatched kernels may still use AVX2 on capable CPUs.
+-- Qt Location QSO map backend not available; using offline planet_map.jpg fallback
+-- Qt Help backend enabled for the MM online manual
+-- Hamlib support enabled via pkg-config: 4.5.5
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/scratch/568f9cc8dc74/verification-r21/build

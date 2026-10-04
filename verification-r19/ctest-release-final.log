@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /workspace/scratch/568f9cc8dc74/verification-r19/build
+Test project /workspace/scratch/568f9cc8dc74/verification-r19/build
+    Start 16: madmodem_release_audit
+1/1 Test #16: madmodem_release_audit ...........   Passed    1.27 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   1.27 sec

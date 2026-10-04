@@ -29,6 +29,7 @@ struct FtTxPlan
     bool autoSequence = false;
     bool retry = false;
     bool tune = false;
+    bool latePartial = false;
     bool finalMessage = false;
 
     bool isValid() const { return tune || !message.trimmed().isEmpty(); }

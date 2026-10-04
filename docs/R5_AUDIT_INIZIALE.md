@@ -1,10 +1,10 @@
-# MadModem 0.5.9-alpha R5 — analisi trasversale iniziale
+# MadModem 0.5.9-beta R5 — analisi trasversale iniziale
 
 Data: 16 settembre 2026.
 
 ## Versione e limiti della verifica
 
-Archivio: `MadModem_0_5_9-alpha_FULL_SOURCE_R5.zip`, datato 4 settembre 2026, ultima alpha individuata fra gli archivi del progetto. Revisione interna: `0.5.9-alpha-source-r5-real-rotator-peak-tracking`. Il numero pubblico è confermato da `MadModemVersion.h`.
+Archivio: `MadModem_0_5_9-alpha_FULL_SOURCE_R5.zip`, datato 4 settembre 2026, ultima alpha individuata fra gli archivi del progetto. Revisione interna: `0.5.9-beta-source-r5-real-rotator-peak-tracking`. Il numero pubblico è confermato da `MadModemVersion.h`.
 
 SHA-256 archivio: `acc76128663ad5b4d1b83e44e1ac0e2f00f6ef42f9f91824a68336b994f87d53`.
 

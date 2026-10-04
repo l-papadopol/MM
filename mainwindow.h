@@ -1,5 +1,7 @@
 #include "runtime/AsyncCatCommand.h"
 #include "runtime/RxDecoderWorker.h"
+#include "runtime/LogbookIndexWorker.h"
+#include "runtime/TextAssistWorker.h"
 #include "modems/rtty/RttyAfc.h"
 #include "audio/AudioContinuity.h"
 #ifndef MAINWINDOW_H
@@ -55,7 +57,10 @@
 #include <QList>
 #include <QPointF>
 #include <QHash>
+#include <QPointer>
 #include <QSet>
+#include <QVariantList>
+#include <QVariantMap>
 #include <QVector>
 #include <QMainWindow>
 #include <QStackedWidget>
@@ -771,7 +776,7 @@ private slots:
     /**
      * @brief Starts a supervised WSJT-Z-style full-auto answer to a decoded CQ when enabled.
      */
-    bool tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode);
+    bool tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus);
 
 
     /**
@@ -880,6 +885,7 @@ private slots:
      * @brief Minimal low-latency FT TX path used by the UTC scheduler.
      */
     void prearmFtPreparedSlotTransmit();
+    void deferPendingFtTx(const QString &reason);
 
     /**
      * @brief Starts the already pre-armed FT audio worker at the scheduled waveform time.
@@ -934,12 +940,12 @@ private:
     /**
      * @brief Builds the worked-needed priority record for one decoded CQ.
      */
-    Ft8FullAutoCqCandidate buildFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode) const;
+    Ft8FullAutoCqCandidate buildFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus) const;
 
     /**
      * @brief Adds a decoded CQ to the short Auto QSO priority buffer.
      */
-    bool queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode);
+    bool queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus);
 
     /**
      * @brief Selects and starts the best buffered Auto QSO CQ candidate.
@@ -1176,7 +1182,6 @@ private:
                                    const QString &mode,
                                    const QString &band = QString(),
                                    const QString &comment = QString());
-    void scanTextForHeardStations(QPlainTextEdit *terminal, const QString &newText);
 
     /**
      * @brief Updates the FT map filter when FT4/FT8 selection changes.
@@ -1227,10 +1232,50 @@ private:
     /**
      * @brief Highlights callsigns in one RX terminal using logbook duplicate state.
      */
-    void highlightCallsignsInTerminal(QPlainTextEdit *terminal);
+    /** Requests background text parsing/highlighting for one terminal snapshot. */
+    void highlightCallsignsInTerminal(QPlainTextEdit *terminal, bool recentOnly = false);
 
-    /** Coalesces high-frequency character updates before recolouring a terminal. */
+    /** Coalesces high-frequency character updates before queueing a background analysis. */
     void scheduleTerminalHighlight(QPlainTextEdit *terminal);
+
+    QString textAssistConsumerId(QPlainTextEdit *terminal) const;
+    QPlainTextEdit *textAssistTerminal(const QString &consumerId) const;
+    QString textAssistMode(QPlainTextEdit *terminal) const;
+    bool textAssistContestEnabled(QPlainTextEdit *terminal) const;
+    void handleTextAssistAnalysisReady(quint64 requestId,
+                                       const QString &consumerId,
+                                       const QVariantList &annotations,
+                                       const QVariantMap &contestCandidate,
+                                       const QVariantList &heardStations);
+    void handleLogbookLookupReady(quint64 requestId,
+                                  const QString &consumerId,
+                                  const QStringList &workedCalls);
+    void applyTextAssistResult(quint64 requestId, const QStringList &workedCalls);
+    void applyTextAssistContestCandidate(const QVariantMap &candidate);
+
+    // FT worked/needed metadata is resolved asynchronously by LogbookIndexWorker.
+    QVariantMap makeFtLogbookQuery(const QString &call,
+                                   const QString &band,
+                                   const QString &mode,
+                                   const QString &dxcc = QString(),
+                                   const QString &grid = QString(),
+                                   int recentHours = 0,
+                                   int recentBandModeMinutes = 0) const;
+    QVariantMap cachedFtLogbookStatus(const QVariantMap &query) const;
+    void queueFtLogbookQueries(const QVariantList &queries);
+    void queueFtLogbookQueriesForDecode(const Ft8RxDecoder::Decode &decode, bool retryAutoQso);
+    void handleFtLogbookLookupReady(quint64 requestId,
+                                    const QString &consumerId,
+                                    const QVariantList &results);
+    void invalidateFtLogbookCache();
+    void finishAutoLogFt8Qso(const LogbookEntry &entry,
+                             const QString &reason,
+                             const QVariantMap &logbookStatus);
+
+    void queueLogbookIndexRebuild();
+    void queueLogbookIndexAdd(const LogbookEntry &entry);
+    void queueContestIndexRebuild();
+    LogbookIndexWorker::ContestConfig currentLogbookContestConfig() const;
 
     // Data-driven contest mode shared by RTTY and CW. Contest-specific exchange,
     // macros and scoring stay in external runtime files (rtty_rules / cw_rules).
@@ -1260,7 +1305,6 @@ private:
     QString rttyContestFieldValue(const RttyContestFieldRule &field, bool sent) const;
     QString rttyContestExchange(bool sent) const;
     QString expandRttyContestTemplate(const QString &source) const;
-    void processRttyContestRxLine(const QString &line);
     bool fillRttyContestFieldFromClick(QPlainTextEdit *terminal, int clickPos, const QString &text);
     bool rttyContestConditionMatches(const QJsonObject &condition,
                                      const LogbookEntry *entry = nullptr,
@@ -1268,13 +1312,11 @@ private:
     void refreshFt8DecodeWorkedHighlights();
     bool isFtCallBlacklisted(const QString &call) const;
     bool isFtCallWatched(const QString &call) const;
-    bool ftCountryAlreadyWorked(const QString &dxcc, const QString &countryName = QString()) const;
-    bool ftCallWorkedWithinHours(const QString &call, int hours) const;
 
     /**
      * @brief Re-highlights all RX text terminals after logbook changes.
      */
-    void refreshLogbookHighlights();
+    void refreshLogbookHighlights(bool recentOnly = false);
 
     /**
      * @brief Extracts a plausible ham-radio callsign from arbitrary selected text.
@@ -1404,8 +1446,9 @@ private:
      * @brief Returns the active audio output backend name.
      */
     QString selectedAudioOutputName() const;
-    bool startAudioInputBlocking(const QString &deviceName, int sampleRate);
+    bool requestAudioInputStart(const QString &deviceName, int sampleRate);
     void stopAudioInputBlocking();
+    void requestAudioInputStop(std::function<void()> completion = {});
 
     /**
      * @brief Returns the active audio output display label.
@@ -1547,6 +1590,8 @@ private:
      * @brief Expands and transmits one stored standard text macro.
      */
     void sendTextMacro(int index);
+    void editRttyMacros();
+    void sendRttyQuickReply();
 
     /**
      * @brief Expands and transmits one RTTY contest macro from the active rtty_rules profile.
@@ -1594,6 +1639,10 @@ private:
 
     AppSettings m_settings;
     AdifLogbook m_logbook;
+    class AsyncLogbook *m_logbookStore = nullptr;
+    QSet<QsoFormWidgets *> m_pendingLogForms;
+    QSet<QString> m_pendingFtLogKeys;
+    bool m_closeAwaitingLogbook = false;
     QTimer m_qsoUtcTimer;
     bool m_shutdownInProgress = false;
     bool m_runtimeShutdownComplete = false;
@@ -1621,6 +1670,7 @@ private:
     FtTxWorker *m_ftTxWorker = nullptr;
     QThread *m_ftTxThread = nullptr;
     bool m_ftTxWorkerRunning = false;
+    quint64 m_ftTxActiveRequest = 0;
     DspEngine *m_dspEngine = nullptr;
     BoundedAudioDispatcher *m_dspAudioDispatcher = nullptr;
     QThread *m_dspThread = nullptr;
@@ -1700,7 +1750,7 @@ private:
     QSpinBox *m_spinRttyShiftHz = nullptr;
     QSpinBox *m_spinRttyMarkHz = nullptr;
     QCheckBox *m_chkRttyReverse = nullptr;
-    QCheckBox *m_chkRttyAutoReverse = nullptr;
+    QCheckBox *m_chkRttyNarrowFilter = nullptr;
     QCheckBox *m_chkRttyAfc = nullptr;
     QSpinBox *m_spinRttyAfcRangeHz = nullptr;
     QCheckBox *m_chkRttyMultiDecode = nullptr;
@@ -1712,12 +1762,16 @@ private:
     RttyScopeWidget *m_rttyScopeWidget = nullptr;
     QPlainTextEdit *m_txtRttyRx = nullptr;
     QPlainTextEdit *m_txtRttyTx = nullptr;
+    QPlainTextEdit *m_txtRttyQuickReply = nullptr;
+    QPushButton *m_btnRttyQuickReplySend = nullptr;
+    QPushButton *m_btnRttyMacroEdit = nullptr;
+    QString m_rttyTxOverrideText;
+    QString m_pendingRttyQuickReply;
     QPushButton *m_btnRttyClearRx = nullptr;
     QPushButton *m_btnRttyLoadTxText = nullptr;
     QPushButton *m_btnRttyClearTx = nullptr;
     QPushButton *m_btnRttySend = nullptr;
     QList<QPushButton *> m_rttyMacroButtons;
-    QList<QPushButton *> m_rttyContestMacroButtons;
     QsoFormWidgets *m_rttyQsoForm = nullptr;
 
     // Shared RTTY/CW Contest Engine UI/state. Each mode has its own authoritative
@@ -1744,9 +1798,6 @@ private:
     QGridLayout *m_rttyContestFieldsLayout = nullptr;
     QHash<QString, QLineEdit *> m_rttyContestSentFieldEdits;
     QHash<QString, QLineEdit *> m_rttyContestReceivedFieldEdits;
-    QString m_rttyContestLastRxLine;
-    QString m_cwContestLastRxLineA;
-    QString m_cwContestLastRxLineB;
     QString m_rttyContestActiveSessionId;
     QDateTime m_rttyContestActiveSessionStartedUtc;
     int m_rttyContestSessionQsoCount = 0;
@@ -2032,8 +2083,6 @@ private:
     QCheckBox *m_chkDspSoftwareAgc = nullptr;
     QCheckBox *m_chkDspNoiseReduction = nullptr;
     QCheckBox *m_chkDspAdaptiveLineEnhancer = nullptr;
-    QCheckBox *m_chkDspRttyMatchedFilter = nullptr;
-    QCheckBox *m_chkDspRttyMarkSpaceEnhancer = nullptr;
     QCheckBox *m_chkDspBpskCoherentTracking = nullptr;
     QCheckBox *m_chkDspImageWaveletDenoise = nullptr;
     QWidget *m_tabFtDecodeDiagnostics = nullptr;
@@ -2108,24 +2157,16 @@ private:
     bool m_ft8PendingTxArmed = false;
     QString m_ft8PendingTxToken;
     quint64 m_ft8TxArmGeneration = 0;
-    QString m_pendingFt8TxMessage;
-    QString m_pendingFt8TxTag;
-    bool m_pendingFt8Tune = false;
-    bool m_pendingFt8LatePartial = false;
-    int m_pendingFt8PreSilenceMs = 0;
-    qint64 m_pendingFt8SlotBoundaryUtcMs = 0;
-    int m_pendingFt8AudioTargetDelayMs = 0;
-    int m_pendingFt8PttLeadMs = 0;
+    bool m_ft8AudioStartRequested = false;
+    qint64 m_ft8LastAttemptedSlotBoundaryUtcMs = 0;
     bool m_pendingFt8PttPrearmed = false;
     bool m_pendingFt8PttKeyed = false;
     bool m_ftSplitPreparedForTx = false;
     bool m_ftSplitRestoreFailed = false;
     std::unique_ptr<TxModulator> m_pendingFt8PreparedModulator;
+    class WeakSignalTxPreparer *m_txWaveformPreparer = nullptr;
     FtTxPlan m_pendingFt8TxPlan;
-    FtTxPlan m_lastFt8TxPlan;
     bool m_hasDeferredFt8TxPlan = false;
-    QString m_deferredFt8TxMessage;
-    QString m_deferredFt8TxTag;
     FtTxPlan m_deferredFt8TxPlan;
     FtQsoSession m_ftSession;
     QString m_lastCompletedFt8Call;
@@ -2205,11 +2246,16 @@ private:
     QString m_nativeWeakSignalTxMode;
     qint64 m_nativeWeakSignalTxBoundaryUtcMs = 0;
     std::unique_ptr<TxModulator> m_nativeWeakSignalPreparedModulator;
+    quint64 m_nativeTxPreparationGeneration = 0;
     QPlainTextEdit *m_activeTextTxEditor = nullptr;
     int m_activeTextTxLength = 0;
     int m_textTxHighlightedChars = -1;
 
     bool m_rxRunning = false;
+    bool m_rxStartPending = false;
+    bool m_rxStopPending = false;
+    quint64 m_audioInputRequest = 0;
+    std::function<void()> m_audioStopCompletion;
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;
     AsyncCatCommand *m_catCommand = nullptr;
@@ -2242,6 +2288,29 @@ private:
     QTimer m_pttTestTimer;
     QTimer m_terminalHighlightTimer;
     QSet<QPlainTextEdit *> m_pendingTerminalHighlights;
+    QThread *m_logbookIndexThread = nullptr;
+    LogbookIndexWorker *m_logbookIndexWorker = nullptr;
+    quint64 m_ftLogbookRequestCounter = 0;
+    quint64 m_ftLogbookCacheGeneration = 1;
+    QHash<QString, QVariantMap> m_ftLogbookStatusCache;
+    QSet<QString> m_ftLogbookPendingKeys;
+    QHash<QString, QVector<Ft8RxDecoder::Decode>> m_ftPendingAutoQsoByKey;
+    bool m_ftHighlightRefreshPending = false;
+    QThread *m_textAssistThread = nullptr;
+    TextAssistWorker *m_textAssistWorker = nullptr;
+    quint64 m_textAssistRequestCounter = 0;
+    QHash<QPlainTextEdit *, quint64> m_textAssistLatestRequest;
+    QHash<QPlainTextEdit *, quint64> m_textTerminalGeneration;
+    QHash<quint64, QPointer<QPlainTextEdit>> m_textAssistPendingTerminal;
+    QHash<quint64, quint64> m_textAssistPendingGeneration;
+    QHash<quint64, int> m_textAssistPendingScanStart;
+    QHash<quint64, int> m_textAssistPendingScanEnd;
+    QHash<quint64, QVariantList> m_textAssistPendingAnnotations;
+    QHash<quint64, QVariantMap> m_textAssistPendingContest;
+    QHash<quint64, QVariantList> m_textAssistPendingHeard;
+    QHash<quint64, bool> m_textAssistPendingContestScoped;
+    QHash<quint64, QString> m_textAssistPendingBand;
+    QHash<quint64, QString> m_textAssistPendingPeriod;
 };
 
 #endif // MAINWINDOW_H

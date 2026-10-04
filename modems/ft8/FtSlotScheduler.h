@@ -4,6 +4,7 @@
 #include "Ft8Mode.h"
 
 #include <QObject>
+#include <functional>
 #include <QString>
 
 class QTimer;
@@ -20,7 +21,7 @@ class FtSlotScheduler final : public QObject
     Q_OBJECT
 
 public:
-    explicit FtSlotScheduler(QObject *parent = nullptr);
+    explicit FtSlotScheduler(QObject *parent = nullptr, std::function<qint64()> utcClock = {});
     ~FtSlotScheduler() override = default;
 
 public slots:
@@ -75,6 +76,7 @@ private:
     void clearPending();
     void ensureTimer();
 
+    std::function<qint64()> m_utcClock;
     QTimer *m_tickTimer = nullptr;
     QString m_modeName = QStringLiteral("FT8");
     bool m_txFirstPeriod = true;

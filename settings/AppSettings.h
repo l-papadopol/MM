@@ -127,7 +127,7 @@ public:
     int rttyShiftHz = 170;
     int rttyMarkHz = 2125;
     bool rttyReverse = false;
-    bool rttyAutoReverseEnabled = true;
+    bool rttyNarrowFilterEnabled = true;
     bool rttyAfcEnabled = true;
     int rttyAfcRangeHz = 20;
     bool rttyNoiseReductionEnabled = false;
@@ -135,8 +135,6 @@ public:
     // changes Mark/Space balance during QSB. Keep it opt-in.
     bool rttyAgcEnabled = false;
     bool rttyAdaptiveLineEnhancerEnabled = false;
-    bool rttyMatchedFilterEnabled = false;
-    bool rttyMarkSpaceEnhancerEnabled = false;
     bool rttyMultiDecodeEnabled = false;
     bool rttyOverlayCallsignsEnabled = true;
     bool rttyWaterfallTextOverlayEnabled = false;

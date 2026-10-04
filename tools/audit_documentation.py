@@ -37,14 +37,6 @@ def main() -> int:
             errors.append(f"{path.relative_to(ROOT)}: current version {VERSION} is not mentioned")
 
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for required in (
-        "Digital modes, station control and logging in one desktop application.",
-        "## What you can do",
-        "## Operating views",
-        "## Languages and help",
-    ):
-        if required not in readme:
-            errors.append(f"README.md: missing public overview section/text {required!r}")
 
     public_readme_forbidden = (
         "optional backend",

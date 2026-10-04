@@ -3,6 +3,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QIODevice>
+#include <QMetaObject>
 #include <QStringList>
 #include <QtMath>
 
@@ -127,6 +128,59 @@ AudioEngine::~AudioEngine()
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
+
+quint64 AudioEngine::requestStartInput(const QString &device, int rate)
+{
+    return enqueueInputRequest(true, device, rate);
+}
+
+quint64 AudioEngine::requestStopInput()
+{
+    return enqueueInputRequest(false, {}, 48000);
+}
+
+void AudioEngine::invalidateInputRequests()
+{
+    std::lock_guard<std::mutex> lock(m_inputRequestMutex);
+    ++m_inputRequestGeneration;
+    m_pendingInputRequest = {};
+}
+
+quint64 AudioEngine::enqueueInputRequest(bool start, const QString &device, int rate)
+{
+    bool schedule = false;
+    quint64 id;
+    {
+        std::lock_guard<std::mutex> lock(m_inputRequestMutex);
+        id = ++m_inputRequestGeneration;
+        m_pendingInputRequest = {id, start, device, rate};
+        if (!m_inputRequestScheduled) { m_inputRequestScheduled = true; schedule = true; }
+    }
+    if (schedule) QMetaObject::invokeMethod(this, [this] { processInputRequests(); }, Qt::QueuedConnection);
+    return id;
+}
+
+void AudioEngine::processInputRequests()
+{
+    for (;;) {
+        InputRequest request;
+        {
+            std::lock_guard<std::mutex> lock(m_inputRequestMutex);
+            request = std::move(m_pendingInputRequest);
+            m_pendingInputRequest = {};
+            if (!request.id) { m_inputRequestScheduled = false; return; }
+        }
+        if (request.id != m_inputRequestGeneration.load()) continue;
+        const bool success = request.start ? startInput(request.device, request.rate) : (stopInput(), true);
+        if (request.id != m_inputRequestGeneration.load()) {
+            // Stop can arrive while the platform is opening the device. Never
+            // leave that superseded capture running or acknowledge it as live.
+            if (request.start) stopInput();
+            continue;
+        }
+        emit inputRequestFinished(request.id, request.start, success);
+    }
+}
 
 bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
 {

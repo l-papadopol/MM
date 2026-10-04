@@ -59,8 +59,6 @@ public:
         // Optional advanced, mode-selective DSP modules.  They are disabled
         // by default and intentionally not used by FT4/FT8.
         bool adaptiveLineEnhancerEnabled = false;
-        bool rttyMatchedFilterEnabled = false;
-        bool rttyMarkSpaceEnhancerEnabled = false;
         bool bpskCoherentTrackingEnabled = false;
         bool imageWaveletDenoiseEnabled = false;
 
@@ -210,10 +208,6 @@ private:
     Biquad m_hp2;
     Biquad m_lp1;
     Biquad m_lp2;
-    Biquad m_rttyMarkBp1;
-    Biquad m_rttyMarkBp2;
-    Biquad m_rttySpaceBp1;
-    Biquad m_rttySpaceBp2;
     AdaptiveLineEnhancer m_adaptiveLineEnhancer;
 
     double m_blankerEnvelope = 0.02;

@@ -1,6 +1,6 @@
 # R9 — Avvio Windows e comandi rapidi del rotore
 
-Revisione: `0.5.9-alpha-source-r9-windows-rotator-ui`.
+Revisione: `0.5.9-beta-source-r9-windows-rotator-ui`.
 Baseline: R8 completa, incluse le correzioni ai worker RX e al CAT asincrono.
 
 ## Menu all'avvio

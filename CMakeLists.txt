@@ -449,6 +449,10 @@ add_executable(MadModem
     modems/rtty/contest/RttyContestRules.h
     runtime/RxDecoderWorker.cpp
     runtime/RxDecoderWorker.h
+    runtime/LogbookIndexWorker.h
+    runtime/LogbookIndexWorker.cpp
+    runtime/TextAssistWorker.h
+    runtime/TextAssistWorker.cpp
     runtime/AsyncCatCommand.h
     modems/rtty/contest/RttyContestRules.cpp
     modems/bpsk31/Bpsk31Decoder.h
@@ -966,6 +970,8 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_test(NAME madmodem_async_architecture_regression COMMAND MadModem --architecture-regression)
+    set_tests_properties(madmodem_async_architecture_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME madmodem_window_rotator_regression COMMAND MadModem --window-rotator-regression)
     set_tests_properties(madmodem_window_rotator_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME madmodem_runtime_workers_regression COMMAND MadModem --runtime-regression)
@@ -1155,4 +1161,25 @@ if(BUILD_TESTING)
     add_custom_command(TARGET madmodem_rtty_contest_regression POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cty.csv $<TARGET_FILE_DIR:madmodem_rtty_contest_regression>/cty.csv)
     add_test(NAME madmodem_rtty_contest_regression COMMAND madmodem_rtty_contest_regression)
+
+    add_executable(madmodem_rtty_synthetic_bench
+        tests/RttySyntheticBench.cpp
+        modems/rtty/RttyDecoder.cpp)
+    target_include_directories(madmodem_rtty_synthetic_bench PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_rtty_synthetic_bench PRIVATE ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_rtty_synthetic_bench COMMAND madmodem_rtty_synthetic_bench)
+
+    add_executable(madmodem_text_assist_workers_regression
+        tests/TextAssistWorkersRegression.cpp
+        runtime/LogbookIndexWorker.h
+        runtime/LogbookIndexWorker.cpp
+        runtime/TextAssistWorker.h
+        runtime/TextAssistWorker.cpp
+        logbook/AdifLogbook.cpp
+        dxcc/CtyCountryFile.cpp)
+    target_include_directories(madmodem_text_assist_workers_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_text_assist_workers_regression PRIVATE ${QT}::Core)
+    add_custom_command(TARGET madmodem_text_assist_workers_regression POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cty.csv $<TARGET_FILE_DIR:madmodem_text_assist_workers_regression>/cty.csv)
+    add_test(NAME madmodem_text_assist_workers_regression COMMAND madmodem_text_assist_workers_regression)
 endif()

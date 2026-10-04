@@ -468,9 +468,9 @@ bool Q65NativeEngine::decodeEnergies(const QVector<float> &energies,
     const int firstBandwidth = configuration.decodeDepth <= 1 ? 2 : 0;
     const int lastBandwidth = configuration.decodeDepth >= 3 ? 10 : 7;
 
-    std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
-    q65subs codec;
     for (int bandwidth = firstBandwidth; bandwidth <= lastBandwidth; ++bandwidth) {
+        std::lock_guard<WeakSignalCodecLock::Mutex> guard(WeakSignalCodecLock::mutex());
+        q65subs codec;
         const float b90ts = static_cast<float>(std::pow(1.72, bandwidth) / baud);
         codec.q65_intrinsics_ff(const_cast<float *>(energies.constData()),
                                 submodeIndex(configuration.submode), b90ts, 1,
@@ -539,11 +539,11 @@ bool Q65NativeEngine::decodeAssistedList(const QVector<float> &energies,
     const int binsPerSymbol = kAlphabet * (2 + multiplier);
     if (energies.size() != kDataSymbols * binsPerSymbol) return false;
 
-    std::lock_guard<std::mutex> guard(WeakSignalCodecLock::mutex());
     QVector<int> codewords;
     codewords.reserve(messages.size() * kDataSymbols);
-    GenQ65 generator(true);
     for (const QString &message : messages) {
+        std::lock_guard<WeakSignalCodecLock::Mutex> guard(WeakSignalCodecLock::mutex());
+        GenQ65 generator(true);
         int tones[kQ65Symbols]{};
         generator.genq65itone(message, tones, false);
         for (int symbol = 0; symbol < kQ65Symbols; ++symbol) {
@@ -553,8 +553,9 @@ bool Q65NativeEngine::decodeAssistedList(const QVector<float> &energies,
 
     QVector<float> probabilities(kDataSymbols * kAlphabet, 0.0f);
     const double baud = static_cast<double>(kSampleRate) / symbolSamples(configuration.periodSeconds);
-    q65subs codec;
     for (int bandwidth = 0; bandwidth <= (configuration.decodeDepth >= 3 ? 10 : 7); ++bandwidth) {
+        std::lock_guard<WeakSignalCodecLock::Mutex> guard(WeakSignalCodecLock::mutex());
+        q65subs codec;
         const float b90ts = static_cast<float>(std::pow(1.72, bandwidth) / baud);
         codec.q65_intrinsics_ff(const_cast<float *>(energies.constData()),
                                 submodeIndex(configuration.submode), b90ts, 1,

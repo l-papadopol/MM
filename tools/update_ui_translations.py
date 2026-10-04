@@ -79,7 +79,7 @@ def harvest_keys() -> OrderedDict[str, str]:
     ui_pat = re.compile(r'uiText\s*\(\s*"([^"]+)"\s*,\s*"((?:\\.|[^"])*)"', re.S)
     for p in sorted(list(ROOT.rglob("*.cpp")) + list(ROOT.rglob("*.h"))):
         ps = str(p)
-        if "/build-" in ps or "/third_party/" in ps or "/tests/" in ps:
+        if "/build-" in ps or "/third_party/" in ps or "/tests/" in ps or "/verification-" in ps:
             continue
         text = p.read_text(encoding="utf-8", errors="replace")
         for m in ui_pat.finditer(text):
@@ -167,7 +167,7 @@ def harvest_keys() -> OrderedDict[str, str]:
 
     for p in sorted(list(ROOT.rglob("*.cpp")) + list(ROOT.rglob("*.h"))):
         ps = str(p)
-        if "/build-" in ps or "/third_party/" in ps or "/tests/" in ps:
+        if "/build-" in ps or "/third_party/" in ps or "/tests/" in ps or "/verification-" in ps:
             continue
         text = p.read_text(encoding="utf-8", errors="replace")
         for pat, kind in visible_patterns:

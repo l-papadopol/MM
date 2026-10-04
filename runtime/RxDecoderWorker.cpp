@@ -1,19 +1,19 @@
 #include "RxDecoderWorker.h"
 
 RxDecoderWorker::RxDecoderWorker(Graph graph,QObject *parent):QObject(parent),m_graph(graph) {
+    qRegisterMetaType<QVector<FrequencyMarker>>("QVector<FrequencyMarker>");
     m_queue.setParent(this);
     for (QObject *decoder : QList<QObject*>{graph.fax,graph.sstv,graph.rtty,graph.multi,graph.bpsk,graph.mfsk,graph.cw,graph.hell,graph.msk}) {
         decoder->setParent(this);
     }
     connect(&m_queue,&BoundedAudioDispatcher::blocksAvailable,this,&RxDecoderWorker::drain,Qt::QueuedConnection);
-    connect(graph.rtty,&RttyDecoder::reversePolarityRequested,this,[this](bool reverse){
-        m_graph.rtty->setReverse(reverse);
-        m_graph.multi->setReverse(reverse);
-    },Qt::QueuedConnection);
     updateSnapshots(false);
 }
 void RxDecoderWorker::configure(const Config &config) {
     Q_ASSERT(QThread::currentThread()==thread());
+    if (m_config.afc != config.afc || m_config.afcRange != config.afcRange ||
+        m_config.filter.blackHz != config.filter.blackHz || m_config.filter.whiteHz != config.filter.whiteHz)
+        m_afc.reset();
     if (m_config.mode!=config.mode || m_config.enabled!=config.enabled) {
         m_queue.clear(); m_continuity.reset(); m_conditioner.reset(); m_afc.reset();
     }
@@ -47,9 +47,13 @@ void RxDecoderWorker::resetActive() {
 void RxDecoderWorker::process(const AudioBlock &block) {
     if(m_continuity.accept(block))resetActive();
     const auto mode=m_config.mode;
-    if(mode==RttyDecoder::modeName() && m_config.afc) {
+    if(mode==RttyDecoder::modeName()) {
         const int mark=qRound(m_config.filter.blackHz),shift=qRound(m_config.filter.whiteHz-m_config.filter.blackHz);
-        if(m_afc.process(block,mark,shift,m_config.afcRange))m_graph.rtty->retuneTones(mark+m_afc.offsetHz(),mark+shift+m_afc.offsetHz());
+        if (m_config.afc) m_afc.process(block,mark,shift,m_config.afcRange);
+        const int offset = m_config.afc ? m_afc.offsetHz() : 0;
+        if (qAbs(m_graph.rtty->markHz() - (mark + offset)) > 0.5 ||
+            qAbs(m_graph.rtty->spaceHz() - (mark + shift + offset)) > 0.5)
+            m_graph.rtty->retuneTones(mark+offset,mark+shift+offset);
     }
     // Preserve the narrow single-tone AFC used by PSK/Hell; DSP is worker-only.
     if(m_config.afc && (mode==Bpsk31Decoder::modeName() || mode==HellschreiberDecoder::modeName())) {

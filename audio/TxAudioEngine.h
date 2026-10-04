@@ -5,8 +5,11 @@
 #include "../core/tx/TxModulator.h"
 
 #include <QObject>
+#include <QElapsedTimer>
+#include <QTimer>
 #include <QString>
 #include <memory>
+#include <functional>
 
 class QIODevice;
 
@@ -43,7 +46,8 @@ public:
     /**
      * @brief Starts playback using the selected output device and modulator.
      */
-    bool startOutput(const QString &deviceName, std::unique_ptr<TxModulator> modulator);
+    bool startOutput(const QString &deviceName, std::unique_ptr<TxModulator> modulator,
+                     qint64 latestStartUtcMs = 0, std::function<bool()> authorized = {});
 
     /**
      * @brief Stops active playback immediately.
@@ -109,6 +113,7 @@ signals:
      * @brief Emits user-visible audio-output errors.
      */
     void errorOccurred(const QString &message);
+    void logMessage(const QString &message);
 
 private slots:
     /**
@@ -138,6 +143,11 @@ private:
     quint64 m_outputGeneration = 0;
     bool m_running = false;
     bool m_finishedEmitted = false;
+    bool m_playbackStarted = false;
+    QTimer m_outputMonitor;
+    QElapsedTimer m_outputProgressClock;
+    qint64 m_lastProcessedUs = 0;
+    qint64 m_lastProducedSamples = 0;
     int m_outputVolumePercent = 100;
 };
 

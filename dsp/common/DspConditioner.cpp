@@ -245,10 +245,6 @@ void DspConditioner::reset()
     m_hp2.reset();
     m_lp1.reset();
     m_lp2.reset();
-    m_rttyMarkBp1.reset();
-    m_rttyMarkBp2.reset();
-    m_rttySpaceBp1.reset();
-    m_rttySpaceBp2.reset();
     m_adaptiveLineEnhancer.reset();
 
     m_blankerEnvelope = 0.02;
@@ -316,18 +312,6 @@ AudioBlock DspConditioner::processBlock(const AudioBlock &block)
             sample = m_hp2.process(sample);
             sample = m_lp1.process(sample);
             sample = m_lp2.process(sample);
-        }
-
-        if (m_config.profile == Profile::Rtty &&
-            (m_config.rttyMatchedFilterEnabled || m_config.rttyMarkSpaceEnhancerEnabled)) {
-            double mark = m_rttyMarkBp1.process(sample);
-            mark = m_rttyMarkBp2.process(mark);
-            double space = m_rttySpaceBp1.process(sample);
-            space = m_rttySpaceBp2.process(space);
-            const double combined = mark + space;
-            sample = m_config.rttyMarkSpaceEnhancerEnabled
-                         ? (0.85 * combined) + (0.15 * sample)
-                         : (0.65 * combined) + (0.35 * sample);
         }
 
         if (m_config.adaptiveLineEnhancerEnabled) {
@@ -407,14 +391,6 @@ void DspConditioner::updateFilters(int sampleRate)
     m_hp2.setHighPass(static_cast<double>(sampleRate), lowHz, 0.707);
     m_lp1.setLowPass(static_cast<double>(sampleRate), highHz, 0.707);
     m_lp2.setLowPass(static_cast<double>(sampleRate), highHz, 0.707);
-
-    const double markHz = safeFrequency(static_cast<double>(sampleRate), m_config.blackHz);
-    const double spaceHz = safeFrequency(static_cast<double>(sampleRate), m_config.whiteHz);
-    const double rttyQ = m_config.rttyMatchedFilterEnabled ? 22.0 : 14.0;
-    m_rttyMarkBp1.setBandPass(static_cast<double>(sampleRate), markHz, rttyQ);
-    m_rttyMarkBp2.setBandPass(static_cast<double>(sampleRate), markHz, rttyQ);
-    m_rttySpaceBp1.setBandPass(static_cast<double>(sampleRate), spaceHz, rttyQ);
-    m_rttySpaceBp2.setBandPass(static_cast<double>(sampleRate), spaceHz, rttyQ);
 
     const int aleDelay = qBound(4, sampleRate / 3000, 96);
     const double aleMu = (m_config.profile == Profile::Cw) ? 0.00075 : 0.00045;

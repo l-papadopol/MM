@@ -25,6 +25,10 @@ public:
      */
     virtual int sampleRate() const = 0;
 
+    // Called exactly once at the first backend pull, after output has opened.
+    // Returning false rejects an expired waveform without producing PCM.
+    virtual bool prepareForPlayback(qint64 utcMs) { Q_UNUSED(utcMs) return true; }
+
     /**
      * @brief Generates up to sampleCount normalized audio samples.
      *

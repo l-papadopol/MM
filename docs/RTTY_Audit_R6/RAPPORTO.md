@@ -1,4 +1,4 @@
-# Audit approfondito RTTY, contest e logbook — MadModem 0.5.9-alpha R6
+# Audit approfondito RTTY, contest e logbook — MadModem 0.5.9-beta R6
 
 **24 settembre 2026. Esito: la demodulazione di base funziona nelle prove pulite,
 ma la catena contest non è ancora pronta per essere definita affidabile per

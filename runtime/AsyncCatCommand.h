@@ -36,8 +36,8 @@ public:
     bool faulted() const {return m_faulted;}
     void cancel() {if(m_cancelled)m_cancelled->store(true);}
     void request(QObject *target,std::function<bool()> operation,
-                 std::function<bool()> rollback,std::function<void(bool)> completion,int timeoutMs=3000) {
-        if(m_busy || m_faulted || !target || !target->thread()->isRunning()){completion(false);return;}
+                 std::function<bool()> rollback,std::function<void(bool)> completion,int timeoutMs=3000,bool recoveryOnly=false) {
+        if(m_busy || (m_faulted && !recoveryOnly) || !target || !target->thread()->isRunning()){completion(false);return;}
         m_busy=true;
         m_cancelled=std::make_shared<std::atomic_bool>(false);
         auto delivered=std::make_shared<bool>(false);

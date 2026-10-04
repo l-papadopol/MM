@@ -1,6 +1,6 @@
 # MadModem translation audit
 
-Release: **0.5.9-alpha**
+Release: **0.5.9-beta**
 
 Runtime UI dictionaries:
 

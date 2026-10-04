@@ -3,6 +3,7 @@
 
 #include <QColor>
 #include <QString>
+#include <QMetaType>
 
 /**
  * @brief Describes one important frequency marker for the waterfall.
@@ -20,5 +21,7 @@ struct FrequencyMarker
     bool dashed = false;
     int width = 2;
 };
+
+Q_DECLARE_METATYPE(FrequencyMarker)
 
 #endif // FREQUENCYMARKER_H

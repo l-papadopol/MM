@@ -36,6 +36,9 @@ namespace AudioNs = QAudio;
 TxAudioEngine::TxAudioEngine(QObject *parent)
     : QObject(parent)
 {
+    m_outputMonitor.setParent(this);
+    m_outputMonitor.setInterval(50);
+    connect(&m_outputMonitor, &QTimer::timeout, this, &TxAudioEngine::checkOutputState);
 }
 
 TxAudioEngine::~TxAudioEngine()
@@ -47,7 +50,8 @@ TxAudioEngine::~TxAudioEngine()
 // Public API
 // -----------------------------------------------------------------------------
 
-bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxModulator> modulator)
+bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxModulator> modulator,
+                                qint64 latestStartUtcMs, std::function<bool()> authorized)
 {
     stopOutput();
 
@@ -60,6 +64,9 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
     m_modulator = std::move(modulator);
     m_totalSamples = 0;
     m_finishedEmitted = false;
+    m_playbackStarted = false;
+    m_lastProcessedUs = 0;
+    m_lastProducedSamples = 0;
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 
@@ -146,6 +153,7 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
 
     TxOutputDevice *device = new TxOutputDevice(m_modulator.get(), m_sampleRate, m_outputVolumePercent, this);
 
+    device->setStartGuard(latestStartUtcMs, std::move(authorized));
     connect(device, &TxOutputDevice::audioBlockReady,
             this, &TxAudioEngine::audioBlockReady);
 
@@ -188,7 +196,12 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
         emit errorOccurred(QStringLiteral("TX audio backend failed to start (error %1).").arg(error));
         return false;
     }
-    emit started();
+    // Opening a sink does not prove it has pulled or played any PCM.
+    m_outputProgressClock.start();
+    m_outputMonitor.start();
+    emit logMessage(QStringLiteral("TX audio opened: %1 Hz, mono PCM16, buffer %2 B, source available %3 B, state %4.")
+                    .arg(m_sampleRate).arg(m_audioOutput->bufferSize())
+                    .arg(device->bytesAvailable()).arg(static_cast<int>(m_audioOutput->state())));
     emit progressChanged(0.0);
 
     return true;
@@ -253,10 +266,32 @@ void TxAudioEngine::handleDeviceFinished()
 void TxAudioEngine::checkOutputState()
 {
     if (!m_running || !m_audioOutput || m_finishedEmitted) return;
+    const quint64 generation=m_outputGeneration;
     const auto state = m_audioOutput->state();
     const auto error = m_audioOutput->error();
     const auto *source = static_cast<TxOutputDevice *>(m_outputDevice);
-    if (state == AudioNs::IdleState && source && source->exhausted() &&
+    const qint64 produced = source ? source->samplesProduced() : 0;
+    const qint64 processed = m_audioOutput->processedUSecs();
+    if (source && source->aborted()) {
+        m_finishedEmitted = true;
+        releaseAudioOutput();
+        m_running = false;
+        m_modulator.reset();
+        emit errorOccurred(QStringLiteral("TX audio cancelled before PCM pull: authorization revoked or start deadline expired."));
+        return;
+    }
+    if (!m_playbackStarted && produced > 0 && processed > 0) {
+        m_playbackStarted = true;
+        emit logMessage(QStringLiteral("TX audio playback confirmed: %1 samples pulled, %2 us processed.").arg(produced).arg(processed));
+        emit started();
+        if (!m_running || !m_audioOutput || generation!=m_outputGeneration) return;
+    }
+    if (produced != m_lastProducedSamples || processed != m_lastProcessedUs) {
+        m_lastProducedSamples = produced;
+        m_lastProcessedUs = processed;
+        m_outputProgressClock.restart();
+    }
+    if (state == AudioNs::IdleState && source && source->atEnd() &&
         (error == AudioNs::NoError || error == AudioNs::UnderrunError)) {
         m_finishedEmitted = true;
         emit progressChanged(1.0);
@@ -264,14 +299,17 @@ void TxAudioEngine::checkOutputState()
         stopOutput();
         return;
     }
-    if (state == AudioNs::StoppedState || error != AudioNs::NoError) {
+    const bool stalled = m_outputProgressClock.isValid() && m_outputProgressClock.elapsed() > 1000;
+    if (state == AudioNs::StoppedState || error != AudioNs::NoError || stalled) {
         m_finishedEmitted = true;
         const int errorCode = static_cast<int>(error);
         releaseAudioOutput();
         m_running = false;
         m_modulator.reset();
         // One terminal event; MainWindow's error handler releases PTT.
-        emit errorOccurred(QStringLiteral("TX audio backend stopped unexpectedly (error %1).").arg(errorCode));
+        emit errorOccurred(QStringLiteral("TX audio backend %1 (state %2, error %3, pulled %4 samples, processed %5 us).")
+                           .arg(stalled ? QStringLiteral("stalled") : QStringLiteral("stopped unexpectedly"))
+                           .arg(static_cast<int>(state)).arg(errorCode).arg(produced).arg(processed));
     }
 }
 
@@ -282,6 +320,7 @@ void TxAudioEngine::checkOutputState()
 void TxAudioEngine::releaseAudioOutput()
 {
     ++m_outputGeneration;
+    m_outputMonitor.stop();
     if (m_audioOutput != nullptr) {
         disconnect(m_audioOutput, nullptr, this, nullptr);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)

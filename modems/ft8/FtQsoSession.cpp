@@ -48,9 +48,7 @@ void FtQsoSession::clearRetry()
 
 void FtQsoSession::clearLastTx()
 {
-    lastTxMessage.clear();
-    lastTxTag.clear();
-    lastTxWasTune = false;
+    lastTxPlan = FtTxPlan();
 }
 
 void FtQsoSession::resetForCqRepeat(const QString &, const QString &, int timeoutMinutes)
@@ -132,7 +130,7 @@ FtQsoSequencer::Context FtQsoSession::makeContext(const QString &myCall, int rxA
     context.dxGrid = dxGrid;
     context.reportSent = reportSent;
     context.reportReceived = reportReceived;
-    context.lastTxMessage = lastTxMessage;
+    context.lastTxMessage = lastTxPlan.message;
     context.state = state;
     context.qsoActive = qsoActive;
     context.cqRepeatActive = cqRepeatActive;

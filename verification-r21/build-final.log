@@ -1,0 +1,52 @@
+[0/2] Re-checking globbed directories...
+[1/36] Copying localized MM HTML help files
+[2/36] Generating localized MM Qt Help manuals (.qch, optional)
+CMake Warning at /workspace/scratch/568f9cc8dc74/MadModem_R21/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/568f9cc8dc74/verification-r21/build/docs/help/qhelpgenerator.log
+
+
+[3/36] Automatic MOC and UIC for target madmodem_rtty_synthetic_bench
+[4/36] Automatic MOC and UIC for target madmodem_rtty_contest_regression
+[5/36] Automatic MOC and UIC for target MadModem
+[6/36] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/madmodem_rtty_synthetic_bench_autogen/mocs_compilation.cpp.o
+[7/36] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/modems/rtty/RttyDecoder.cpp.o
+[8/36] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/tests/RttySyntheticBench.cpp.o
+[9/36] Building CXX object CMakeFiles/MadModem.dir/widgets/WaterfallWidget.cpp.o
+[10/36] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/mocs_compilation.cpp.o
+[11/36] Building CXX object CMakeFiles/MadModem.dir/widgets/CwDiagnosticWidget.cpp.o
+[12/36] Building CXX object CMakeFiles/MadModem.dir/modems/weatherfax/WeatherFaxDecoder.cpp.o
+[13/36] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/tx/MfskTransmitter.cpp.o
+[14/36] Building CXX object CMakeFiles/MadModem.dir/modems/hell/tx/HellschreiberTransmitter.cpp.o
+[15/36] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[16/36] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvModeDefinition.cpp.o
+[17/36] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/tx/Ft8Transmitter.cpp.o
+[18/36] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyDecoder.cpp.o
+[19/36] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvDecoder.cpp.o
+[20/36] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyMultiDecoder.cpp.o
+[21/36] Building CXX object CMakeFiles/MadModem.dir/runtime/RxDecoderWorker.cpp.o
+[22/36] Building CXX object CMakeFiles/MadModem.dir/modems/bpsk31/Bpsk31Decoder.cpp.o
+[23/36] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/MfskDecoder.cpp.o
+[24/36] Building CXX object CMakeFiles/MadModem.dir/modems/hell/HellschreiberDecoder.cpp.o
+[25/36] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8Mode.cpp.o
+[26/36] Building CXX object CMakeFiles/MadModem.dir/modems/cw/CwDecoder.cpp.o
+[27/36] Linking CXX executable madmodem_rtty_synthetic_bench
+[28/36] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtSlotScheduler.cpp.o
+[29/36] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/madmodem_rtty_contest_regression_autogen/mocs_compilation.cpp.o
+[30/36] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/RttyDecoder.cpp.o
+[31/36] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/tests/RttyContestRegression.cpp.o
+[32/36] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/RttyMultiDecoder.cpp.o
+[33/36] Linking CXX executable madmodem_rtty_contest_regression
+[34/36] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8RxDecoder.cpp.o
+[35/36] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[36/36] Linking CXX executable MadModem

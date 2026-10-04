@@ -5,6 +5,7 @@
 #include "../core/tx/TxModulator.h"
 
 #include <QObject>
+#include <atomic>
 #include <QString>
 
 class TxAudioEngine;
@@ -27,20 +28,23 @@ class FtTxWorker final : public QObject
 public:
     explicit FtTxWorker(QObject *parent = nullptr);
     ~FtTxWorker() override;
+    // Thread-safe revocation: STOP takes effect even before queued work runs.
+    quint64 newRequest() { return ++m_authorizedRequest; }
+    void cancelPendingStart() { ++m_authorizedRequest; }
 
 public slots:
-    void startOutput(const QString &deviceName, TxModulator *modulator);
-    void startScheduledOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs);
+    void startOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs = 0);
+    void startScheduledOutput(const QString &deviceName, TxModulator *modulator, qint64 latestStartUtcMs, quint64 requestId);
     void stopOutput();
 
 signals:
     void audioBlockReady(const AudioBlock &block);
     void rttyToneStateChanged(bool mark, double progress);
     void progressChanged(double progress);
-    void started();
-    void stopped();
-    void finished();
-    void errorOccurred(const QString &message);
+    void started(quint64 requestId);
+    void stopped(quint64 requestId);
+    void finished(quint64 requestId);
+    void errorOccurred(quint64 requestId, const QString &message);
     void logMessage(const QString &message);
 
 private slots:
@@ -55,6 +59,8 @@ private:
 private:
     TxAudioEngine *m_engine = nullptr;
     bool m_running = false;
+    std::atomic<quint64> m_authorizedRequest{0};
+    quint64 m_activeRequest = 0;
 };
 
 #endif // FTTXWORKER_H

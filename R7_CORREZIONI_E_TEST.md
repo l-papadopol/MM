@@ -1,6 +1,6 @@
 # R7 — RTTY, CQ WW e logbook
 
-Revisione sorgenti: `0.5.9-alpha-source-r7-rtty-contest`.
+Revisione sorgenti: `0.5.9-beta-source-r7-rtty-contest`.
 Baseline: R6.1. I rapporti e log R6/R6.1 inclusi sono storici.
 
 ## Correzioni

@@ -1,6 +1,26 @@
 # MadModem changelog
 
-## 0.5.9-alpha — FT split-operation validation — 2026-08-25
+## 0.5.9-beta R17 — background text assistance + O(1) logbook indexes — 2026-09-27
+
+- Adds dedicated `TextAssistWorker` and `LogbookIndexWorker` threads so live callsign/exchange parsing and worked/dupe lookup no longer run in the GUI or modem threads.
+- Replaces live logbook scans with O(1) hash lookups; normal QSO additions update the index incrementally. Exceptional rebuilds pass only the ADIF path and are parsed inside the logbook worker, avoiding whole-logbook copies in `MainWindow`.
+- Routes RTTY, CW A/B, PSK and MFSK text terminals through one bounded asynchronous assistance path; the GUI receives only ranges/metadata and applies formatting/autofill.
+- Adds static architecture guards and the `madmodem_text_assist_workers_regression` CTest for global/contest lookup, incremental updates and text/contest parsing.
+
+## 0.5.9-beta R16 — long-session UI latency + TX progress highlight — 2026-09-27
+
+- Restores green per-character TX progress highlighting with lightweight `ExtraSelection` overlays.
+- Removes the main RTTY/CW contest GUI scaling path: live callsign highlighting is tail-bounded and duplicate detection builds one active-session callsign set per pass instead of copying/scanning the whole logbook for every match.
+- Coalesces contest auto-fill highlighting, removes full-history RTTY text copies from the waterfall overlay path, and batch-prunes bounded terminal/runtime histories.
+
+## 0.5.9-beta R15 — RTTY V2 phase 1 — 2026-09-27
+
+- Adds a deterministic RTTY synthetic CTest with AWGN, selective fading, CW interference, mistuning and noise-only cases.
+- Replaces the old wideband-power-sensitive RTTY slicer front end with independent Mark/Space baseband channels, baud-derived Butterworth filtering and selective-fading ATC.
+- Moves the Narrow Mark/Space option into that single decoder path (about 1.2 x baud versus 1.5 x baud normal) and removes the obsolete parallel RTTY band-pass bank from `DspConditioner`.
+- Keeps multi-decode discovery wideband while every shadow decoder now benefits from the same channelized RTTY core.
+
+## 0.5.9-beta — FT split-operation validation — 2026-08-25
 
 ### Alpha r5 — real rotator peak tracking
 
@@ -328,6 +348,12 @@
 - No decoder, audio, CW, sequencer, CAT/PTT, or logbook logic changed.
 
 # MadModem changelog
+
+## 0.5.9-beta R16 — long-session UI latency + TX progress highlight — 2026-09-27
+
+- Restores green per-character TX progress highlighting with lightweight `ExtraSelection` overlays.
+- Removes the main RTTY/CW contest GUI scaling path: live callsign highlighting is tail-bounded and duplicate detection builds one active-session callsign set per pass instead of copying/scanning the whole logbook for every match.
+- Coalesces contest auto-fill highlighting, removes full-history RTTY text copies from the waterfall overlay path, and batch-prunes bounded terminal/runtime histories.
 
 ## 0.5.78 — OpenGL waterfall HiDPI label fix
 

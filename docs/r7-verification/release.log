@@ -14,7 +14,7 @@ cs: 1863 keys; 1446 localized values; 417 shared technical terms or coherent Eng
 Translation audit PASSED: structure, placeholders, reviewed operator text and semantic-mixing checks are clean.
 
 --- RUN tools/audit_documentation.py ---
-Documentation audit PASSED: version 0.5.9-alpha, 72 localized HTML pages and six Qt Help projects are consistent.
+Documentation audit PASSED: version 0.5.9-beta, 72 localized HTML pages and six Qt Help projects are consistent.
 
 --- RUN tools/audit_rtty_rules.py ---
 rtty_rules: 30 profiles, 29 active, schema=1, updated=2026-08-15
