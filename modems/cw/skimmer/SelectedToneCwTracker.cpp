@@ -729,11 +729,10 @@ public:
     const std::complex<double> sideMinus = sideMinusControlSum / static_cast<double>(controlCount);
     const std::complex<double> rawCoherent = rawControlSum / static_cast<double>(controlCount);
     const double edgeEnvelope = std::abs(edgeCoherent);
-    const double sideEnvelope = std::max(std::abs(sidePlus), std::abs(sideMinus));
     const double centerContrastEnvelope = std::abs(contrastCenter);
-    const double envelope = std::max(kEpsilon, std::max(
-        0.12 * edgeEnvelope,
-        edgeEnvelope - 0.75 * std::max(0.0, sideEnvelope - 0.18 * centerContrastEnvelope)));
+    // The operator's selected passband must feed the discriminator itself.
+    // The pre-filter edge path remains available for acquisition diagnostics.
+    const double envelope = std::max(kEpsilon, std::abs(coherent));
 
     constexpr double carrierAlpha = 0.045;
     slowCarrier += carrierAlpha * (carrierCoherent - slowCarrier);
@@ -873,10 +872,11 @@ public:
             run.carrierCenteredFraction >= 0.25;
         const bool priorFamilyMark = run.mark &&
             ((run.durationMs >= 0.62 * priorDitMs &&
-              run.durationMs <= 1.45 * priorDitMs) ||
+              run.durationMs <= 1.60 * priorDitMs) ||
              (run.durationMs >= 0.62 * priorDahMs &&
               run.durationMs <= 1.45 * priorDahMs)) &&
-            run.confidence >= 0.88 && run.coherence >= 0.50;
+            run.confidence >= 0.88 && (run.coherence >= 0.50 ||
+                (config.afcEnabled && run.meanSnrDb >= 10.0 && run.confidence >= 0.90));
         const bool crediblePreLockMark = centeredPreLockMark || priorFamilyMark;
 
         if (crediblePreLockMark) {
@@ -955,7 +955,8 @@ public:
           const double meanConfidence = 0.5 * (first.confidence + second.confidence);
           if (shortMs < minimumShortMs || ratio < 1.80 || ratio > 4.00 ||
               gap.durationMs > 2.10 * shortMs || meanCoherence < 0.48 ||
-              meanConfidence < 0.72)
+              meanConfidence < 0.72 ||
+              std::abs(first.meanSnrDb - second.meanSnrDb) > 12.0)
             continue;
           // Start at the first trustworthy relative pair. Carrier evidence
           // gathered later in the same pre-roll validates these two marks,
@@ -972,16 +973,9 @@ public:
           // the previous 6.5-dit walk-back could begin at its third element and
           // combine the tail with the following Q. The pre-roll is already
           // bounded to 1.25 s and is cleared by rejected/unbounded OFF runs; walk
-          // back to the last real character-size SPACE, or to the first
-          // carrier-qualified run when acquisition started inside a character.
+          // back through all retained characters. Replay below separately
+          // rejects weak startup runs against the acquired carrier.
           pairStart = 0U;
-          for (std::size_t back = i; back > 0U; --back) {
-            const CwLogicRun& previous = runPreRoll[back - 1U];
-            if (!previous.mark && previous.durationMs >= 2.25 * shortMs) {
-              pairStart = back;
-              break;
-            }
-          }
           break;
         }
         if (pairStart < runPreRoll.size()) {
@@ -1028,12 +1022,13 @@ public:
               const bool predatesAcquisitionPair =
                   i < acquisitionPairIndex;
               if (predatesAcquisitionPair &&
-                  replay.meanSnrDb < acquisitionPairFloorSnrDb - 8.0) {
+                  replay.meanSnrDb < clampd(acquisitionPairFloorSnrDb - 8.0, 5.0, 10.0)) {
                 continue;
               }
               const bool leadingSameCharacter = !centred && pairFamily &&
-                  replay.confidence >= 0.90 && replay.coherence >= 0.45 &&
-                  replay.meanSnrDb >= acquisitionPairFloorSnrDb - 8.0;
+                  replay.confidence >= 0.90 && (replay.coherence >= 0.45 ||
+                    (config.afcEnabled && replay.meanSnrDb >= 10.0)) &&
+                  replay.meanSnrDb >= clampd(acquisitionPairFloorSnrDb - 8.0, 5.0, 10.0);
               if (!centred && !leadingSameCharacter) continue;
               if (leadingSameCharacter) {
                 replay.carrierCentered = true;
@@ -1092,6 +1087,47 @@ public:
         pendingPreRollSpace.reset();
       }
     }
+    // A valid word need not contain a mixed dit/dah pair (TEST, SOS, 599).
+    // At a character gap, a strong centred carrier and runs compatible with
+    // the existing clock can bootstrap reception without inventing a new speed.
+    // Mixed pairs above remain the preferred way to acquire an unknown clock.
+    if (!timingFeedEnabled && currentStableCarrier && carrierEvidence >= 3 &&
+        !carrier.keyDown && !runPreRoll.empty()) {
+      const double dit = 1200.0 / std::max(5.0, config.initialWpm);
+      bool credible = true;
+      int marks = 0;
+      double lastMarkEnd = 0.0;
+      for (const auto& run : runPreRoll) {
+        if (!run.mark) continue;
+        const bool fits = (run.durationMs >= 0.72 * dit && run.durationMs <= 1.60 * dit) ||
+                          (run.durationMs >= 2.40 * dit && run.durationMs <= 3.60 * dit);
+        credible = credible && fits && run.confidence >= 0.88 &&
+                   (run.coherence >= 0.48 || (config.afcEnabled && run.meanSnrDb >= 10.0)) &&
+                   run.meanSnrDb >= 5.0;
+        lastMarkEnd = run.endSec;
+        ++marks;
+      }
+      if (credible && marks > 0 && carrier.resolvedTimestampSec - lastMarkEnd >= 1.8 * dit / 1000.0) {
+        timingTask.beginEpoch(dit, 3.0 * dit, dit, true);
+        timingFeedEnabled = true;
+        temporalAwaitingSpace = false;
+        lastCompletedSpaceMs = 0.0;
+        for (auto run : runPreRoll) {
+          if (run.mark) {
+            run.carrierSessionQualified = true;
+            run.carrierCentered = true; // independently confirmed narrow lane
+          }
+          timingTask.submitRun(run);
+          temporalAwaitingSpace = run.mark;
+        }
+        if (pendingPreRollSpace) {
+          timingTask.submitRun(*pendingPreRollSpace);
+          temporalAwaitingSpace = false;
+        }
+        runPreRoll.clear(); pendingPreRollSpace.reset();
+        log("carrier lock: confirmed character acquired with timing prior");
+      }
+    }
     if (timingFeedEnabled) {
       const bool qualifiedKeyDown = carrier.resolvedKeyDown &&
           (currentStableCarrier || carrierSessionProbability >= 0.22 ||
@@ -1138,7 +1174,9 @@ public:
 
     // AFC uses only consecutive coherent MARK observations. It never bridges a
     // SPACE or follows a neighbouring station across the midpoint.
-    if (config.afcEnabled && carrier.keyDown && previousControlWasMark &&
+    const bool afcMark = carrier.keyDown && carrier.confidence >= 0.80 &&
+        instantCenterToSideDb >= std::max(6.0, config.minSnrDb + 3.0);
+    if (config.afcEnabled && afcMark && previousControlWasMark &&
         havePreviousControl && std::abs(coherent) > 1.0e-9 &&
         std::abs(previousControl) > 1.0e-9) {
       const double phaseError = std::arg(coherent * std::conj(previousControl));
@@ -1151,8 +1189,8 @@ public:
       }
     }
     previousControl = coherent;
-    havePreviousControl = carrier.keyDown;
-    previousControlWasMark = carrier.keyDown;
+    havePreviousControl = afcMark;
+    previousControlWasMark = afcMark;
 
     qsbErasureActive = carrier.qsbErasure;
     if (qsbErasureActive && qsbErasureStart <= 0.0) qsbErasureStart = timestamp;
@@ -1343,8 +1381,12 @@ public:
   void flush() {
     const double timestamp = sampleRate > 0.0
         ? static_cast<double>(processedSamples) / sampleRate : 0.0;
-    for (const CwLogicRun& run : discriminator.flush(timestamp))
-      timingTask.submitRun(run);
+    // Finishing a recording must not bypass acquisition and decode a last
+    // noise fragment that live reception never authorised.
+    if (timingFeedEnabled) {
+      for (const CwLogicRun& run : discriminator.flush(timestamp))
+        timingTask.submitRun(run);
+    }
     timingTask.flush(timestamp);
     drainTimingResults(timestamp, true);
   }

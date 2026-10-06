@@ -1,0 +1,110 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+PASS only observed contest editions/stations listed
+PASS bad UTC and out-of-period rows counted
+PASS restarts combined; other years, modes, contests and stations excluded
+PASS untagged exchange/date inference visible
+PASS last full September weekend
+PASS UTC end boundary exclusive
+PASS profile fixture writable
+PASS installed profile names and legacy IDs resolved
+PASS inferred contact exports without modifying its missing source contest tag
+PASS multiple sessions export with standard ADIF fields
+PASS mixed editions rejected by writer
+PASS mixed station callsigns rejected by writer
+PASS recorded exchange strings recovered without invented zones
+PASS serial number is not guessed as a CQ zone
+PASS legacy rule-only record recognized
+PASS separate runs of a generic contest in one year
+PASS wizard offers populated years only
+PASS edition names include UTC dates
+PASS native wizard background disabled
+PASS page background matches active theme
+PASS preview lists the entire chosen edition
+PASS translated headers retain their meaning beside literal UTC/MHz columns
+PASS invalid row prevents saving
+PASS explicit exclusion updates export and enables finish
+PASS preview and generated edition agree
+PASS empty selection cannot export
+PASS back navigation regenerates exact selected year
+PASS wizard offers populated years only
+PASS edition names include UTC dates
+PASS native wizard background disabled
+PASS page background matches active theme
+PASS preview lists the entire chosen edition
+PASS translated headers retain their meaning beside literal UTC/MHz columns
+PASS invalid row prevents saving
+PASS explicit exclusion updates export and enables finish
+PASS preview and generated edition agree
+PASS empty selection cannot export
+PASS back navigation regenerates exact selected year
+PASS wizard offers populated years only
+PASS edition names include UTC dates
+PASS native wizard background disabled
+PASS page background matches active theme
+PASS preview lists the entire chosen edition
+PASS translated headers retain their meaning beside literal UTC/MHz columns
+PASS invalid row prevents saving
+PASS explicit exclusion updates export and enables finish
+PASS preview and generated edition agree
+PASS empty selection cannot export
+PASS back navigation regenerates exact selected year
+PASS no contest means no empty wizard progression
+PASS missing station can be explicitly supplied and is visible in preview
+PASS non-CQ contest wizard exports recorded standard fields automatically
+PASS non-CQ preview shows the exchanges used by Cabrillo
+PASS export never edits source logbook

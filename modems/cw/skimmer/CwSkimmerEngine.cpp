@@ -151,6 +151,16 @@ public:
     if (peaks.size() > static_cast<std::size_t>(kSkimmerChannels * 2)) {
       peaks.resize(static_cast<std::size_t>(kSkimmerChannels * 2));
     }
+    // Keying side lobes are not independent stations. Keep peaks with local
+    // spectral prominence as well as a broadband noise-floor advantage.
+    peaks.erase(std::remove_if(peaks.begin(), peaks.end(), [&](const Peak& peak) {
+      const int bin = static_cast<int>(std::lround(peak.frequencyHz / binHz));
+      const int delta = 3;
+      if (bin < delta || bin + delta >= static_cast<int>(spectrum.size()/2)) return true;
+      const double shoulder = 0.5 * (std::norm(spectrum[bin-delta]) + std::norm(spectrum[bin+delta]));
+      const double prominence = peak.powerDb - 10.0 * std::log10(shoulder + kEpsilon);
+      return prominence < 6.0;
+    }), peaks.end());
     updateLanes(peaks);
   }
 

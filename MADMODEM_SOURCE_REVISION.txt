@@ -1,1 +1,1 @@
-0.5.9-beta-source-r22-tx-recovery
+0.6.0-source-r3-all-contest-export

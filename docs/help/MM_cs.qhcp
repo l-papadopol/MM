@@ -1,8 +1,8 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <QHelpCollectionProject version="1.0">
     <assistant>
-        <title>Nápověda MM - Čeština 0.5.9-beta</title>
-        <startPage>qthelp://org.madmodem.mm.059-beta.cs/doc/cs/index.html</startPage>
+        <title>Nápověda MM - Čeština 0.6.0</title>
+        <startPage>qthelp://org.madmodem.mm.060.cs/doc/cs/index.html</startPage>
         <applicationIcon>../../icons/madmodem_32.png</applicationIcon>
     </assistant>
     <docFiles>

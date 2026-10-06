@@ -394,8 +394,9 @@ void CwMorseBeamDecoder::rebuild(const CwMorseTimingSnapshot& timing) {
               outlierLogLikelihood, outlierProbability);
           candidate.logPosterior += logProbability(
               symbol == '.' ? m_config.dotPrior : m_config.dashPrior);
-          posterior.update(event.durationMs,
-                           probability.reliability * validProbability);
+          if (timing.adaptiveMarks)
+            posterior.update(event.durationMs,
+                             probability.reliability * validProbability);
           candidate.evidence += probability.reliability * validProbability;
           ++candidate.observations;
           next.push_back(std::move(candidate));

@@ -287,7 +287,10 @@ void CwDecoder::updateTrackerInterferers()
         auto addOrMerge = [&](double toneHz, double confidence) {
             if (!std::isfinite(toneHz) || !std::isfinite(confidence)) return;
             const double separation = std::abs(toneHz - targetHz);
-            if (separation < 14.0 || separation > 260.0) return;
+            // A carrier inside RX's acquisition interval may be the wanted
+            // station. Never feed it back as a neighbour that cages its own AFC.
+            const double wantedGuardHz = m_afcEnabled ? qMax(14.0, m_afcRangeHz + 8.0) : 14.0;
+            if (separation < wantedGuardHz || separation > 260.0) return;
             for (auto &existing : result) {
                 if (std::abs(existing.toneHz - toneHz) <= 5.0) {
                     if (confidence > existing.confidence) {

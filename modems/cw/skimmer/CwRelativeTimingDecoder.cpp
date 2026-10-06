@@ -96,8 +96,13 @@ void CwRelativeTimingDecoder::reset(bool keepTimingPrior) {
 void CwRelativeTimingDecoder::beginEpoch(
     double shortMarkMs, double longMarkMs, double elementSpaceMs,
     bool keepContinuityAlternative) {
-  installFreshEpoch(shortMarkMs, longMarkMs, elementSpaceMs, 0.86,
-                    keepContinuityAlternative, false);
+  if (!m_config.autoWpm) {
+    const double dit = 1200.0 / m_config.initialWpm;
+    installFreshEpoch(dit, 3.0 * dit, dit, 0.86, false, false);
+  } else {
+    installFreshEpoch(shortMarkMs, longMarkMs, elementSpaceMs, 0.86,
+                      keepContinuityAlternative, false);
+  }
 }
 
 void CwRelativeTimingDecoder::installFreshEpoch(
@@ -312,6 +317,7 @@ void CwRelativeTimingDecoder::updateMarkCluster(
 bool CwRelativeTimingDecoder::updatePair(
     double previousMarkMs, double currentMarkMs,
     double separatingSpaceMs, double weight) {
+  if (!m_config.autoWpm) return false;
   const double shortMs = std::min(previousMarkMs, currentMarkMs);
   const double longMs = std::max(previousMarkMs, currentMarkMs);
   if (shortMs < 8.0 || longMs > 1200.0) {
@@ -582,6 +588,7 @@ CwMorseTimingSnapshot CwRelativeTimingDecoder::beamTiming() const {
   timing.characterSpaceMs = m_characterSpaceMs;
   timing.wordSpaceMs = m_wordSpaceMs;
   timing.timingConfidence = m_confidence;
+  timing.adaptiveMarks = m_config.autoWpm;
   return timing;
 }
 

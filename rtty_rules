@@ -2287,7 +2287,10 @@
           "start_utc": "2026-08-30T12:00:00Z",
           "end_utc": "2026-08-30T23:59:59Z"
         }
-      ]
+      ],
+      "export": {
+        "separate_periods": true
+      }
     },
     {
       "id": "russian_ww_rtty",
@@ -2634,6 +2637,13 @@
       "source": {
         "url": "https://cqwwrtty.com/rules.htm",
         "note": ""
+      },
+      "export": {
+        "calendar": {
+          "month": 9,
+          "last_full_weekend": true,
+          "duration_hours": 48
+        }
       }
     },
     {
@@ -2892,6 +2902,11 @@
       "source": {
         "url": "https://www.pl259.org/makrothen/makrothen-rules/",
         "note": ""
+      },
+      "export": {
+        "field_widths": {
+          "GRID": 4
+        }
       }
     },
     {

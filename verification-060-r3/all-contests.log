@@ -1,0 +1,241 @@
+PASS load rtty_rules
+PASS expected fixture exists: sartg_new_year
+PASS mode-specific profile resolved: sartg_new_year
+PASS exact internal exchanges: sartg_new_year [599 001 LUCIAN BUON ANNO / 599 002 BOB HAPPY NEW YEAR]
+PASS Cabrillo across sessions: sartg_new_year 
+PASS ADIF exchange strings: sartg_new_year 
+PASS separate years: sartg_new_year
+PASS expected fixture exists: arrl_rtty_roundup
+PASS mode-specific profile resolved: arrl_rtty_roundup
+PASS exact internal exchanges: arrl_rtty_roundup [599 001 / 599 CA]
+PASS Cabrillo across sessions: arrl_rtty_roundup 
+PASS ADIF exchange strings: arrl_rtty_roundup 
+PASS separate years: arrl_rtty_roundup
+PASS expected fixture exists: bartg_sprint
+PASS mode-specific profile resolved: bartg_sprint
+PASS exact internal exchanges: bartg_sprint [001 / 002]
+PASS Cabrillo across sessions: bartg_sprint 
+PASS ADIF exchange strings: bartg_sprint 
+PASS separate years: bartg_sprint
+PASS expected fixture exists: mexico_rtty
+PASS mode-specific profile resolved: mexico_rtty
+PASS exact internal exchanges: mexico_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: mexico_rtty 
+PASS ADIF exchange strings: mexico_rtty 
+PASS separate years: mexico_rtty
+PASS expected fixture exists: cq_wpx_rtty
+PASS mode-specific profile resolved: cq_wpx_rtty
+PASS exact internal exchanges: cq_wpx_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: cq_wpx_rtty 
+PASS ADIF exchange strings: cq_wpx_rtty 
+PASS separate years: cq_wpx_rtty
+PASS expected fixture exists: naqp_rtty
+PASS mode-specific profile resolved: naqp_rtty
+PASS exact internal exchanges: naqp_rtty [LUCIAN / BOB CA]
+PASS Cabrillo across sessions: naqp_rtty 
+PASS ADIF exchange strings: naqp_rtty 
+PASS separate years: naqp_rtty
+PASS expected fixture exists: yb_dx_rtty
+PASS mode-specific profile resolved: yb_dx_rtty
+PASS exact internal exchanges: yb_dx_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: yb_dx_rtty 
+PASS ADIF exchange strings: yb_dx_rtty 
+PASS separate years: yb_dx_rtty
+PASS expected fixture exists: na_sprint_rtty
+PASS mode-specific profile resolved: na_sprint_rtty
+PASS exact internal exchanges: na_sprint_rtty [001 LUCIAN DX / 002 BOB CA]
+PASS Cabrillo across sessions: na_sprint_rtty 
+PASS ADIF exchange strings: na_sprint_rtty 
+PASS separate years: na_sprint_rtty
+PASS expected fixture exists: bartg_hf
+PASS mode-specific profile resolved: bartg_hf
+PASS exact internal exchanges: bartg_hf [599 001 1200 / 599 002 1201]
+PASS Cabrillo across sessions: bartg_hf 
+PASS ADIF exchange strings: bartg_hf 
+PASS separate years: bartg_hf
+PASS expected fixture exists: ea_rtty
+PASS mode-specific profile resolved: ea_rtty
+PASS exact internal exchanges: ea_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: ea_rtty 
+PASS ADIF exchange strings: ea_rtty 
+PASS separate years: ea_rtty
+PASS expected fixture exists: sp_dx_rtty
+PASS mode-specific profile resolved: sp_dx_rtty
+PASS exact internal exchanges: sp_dx_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: sp_dx_rtty 
+PASS ADIF exchange strings: sp_dx_rtty 
+PASS separate years: sp_dx_rtty
+PASS expected fixture exists: bartg_sprint75
+PASS mode-specific profile resolved: bartg_sprint75
+PASS exact internal exchanges: bartg_sprint75 [001 / 002]
+PASS Cabrillo across sessions: bartg_sprint75 
+PASS ADIF exchange strings: bartg_sprint75 
+PASS separate years: bartg_sprint75
+PASS expected fixture exists: ari_dx_rtty
+PASS mode-specific profile resolved: ari_dx_rtty
+PASS exact internal exchanges: ari_dx_rtty [599 RN / 599 002]
+PASS Cabrillo across sessions: ari_dx_rtty 
+PASS ADIF exchange strings: ari_dx_rtty 
+PASS separate years: ari_dx_rtty
+PASS expected fixture exists: volta_rtty
+PASS mode-specific profile resolved: volta_rtty
+PASS exact internal exchanges: volta_rtty [599 001 15 / 599 002 03]
+PASS Cabrillo across sessions: volta_rtty 
+PASS ADIF exchange strings: volta_rtty 
+PASS separate years: volta_rtty
+PASS expected fixture exists: sartg_ww
+PASS mode-specific profile resolved: sartg_ww
+PASS exact internal exchanges: sartg_ww [599 001 / 599 002]
+PASS Cabrillo across sessions: sartg_ww 
+PASS ADIF exchange strings: sartg_ww 
+PASS separate years: sartg_ww
+PASS expected fixture exists: rttyops_scry
+PASS mode-specific profile resolved: rttyops_scry
+PASS exact internal exchanges: rttyops_scry [599 2000 / 599 1995]
+PASS Cabrillo across sessions: rttyops_scry 
+PASS ADIF exchange strings: rttyops_scry 
+PASS separate years: rttyops_scry
+PASS expected fixture exists: russian_ww_rtty
+PASS mode-specific profile resolved: russian_ww_rtty
+PASS exact internal exchanges: russian_ww_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: russian_ww_rtty 
+PASS ADIF exchange strings: russian_ww_rtty 
+PASS separate years: russian_ww_rtty
+PASS expected fixture exists: cq_ww_rtty
+PASS mode-specific profile resolved: cq_ww_rtty
+PASS exact internal exchanges: cq_ww_rtty [599 15 / 599 03 CA]
+PASS Cabrillo across sessions: cq_ww_rtty 
+PASS ADIF exchange strings: cq_ww_rtty 
+PASS separate years: cq_ww_rtty
+PASS expected fixture exists: urc_dx_rtty
+PASS mode-specific profile resolved: urc_dx_rtty
+PASS exact internal exchanges: urc_dx_rtty [599 ITA / 599 USA]
+PASS Cabrillo across sessions: urc_dx_rtty 
+PASS ADIF exchange strings: urc_dx_rtty 
+PASS separate years: urc_dx_rtty
+PASS expected fixture exists: makrothen
+PASS mode-specific profile resolved: makrothen
+PASS exact internal exchanges: makrothen [JN63 / CM87]
+PASS Cabrillo across sessions: makrothen 
+PASS ADIF exchange strings: makrothen 
+PASS separate years: makrothen
+PASS expected fixture exists: jarl_ww_rtty
+PASS mode-specific profile resolved: jarl_ww_rtty
+PASS exact internal exchanges: jarl_ww_rtty [599 40 / 599 45]
+PASS Cabrillo across sessions: jarl_ww_rtty 
+PASS ADIF exchange strings: jarl_ww_rtty 
+PASS separate years: jarl_ww_rtty
+PASS expected fixture exists: waedc_rtty
+PASS mode-specific profile resolved: waedc_rtty
+PASS exact internal exchanges: waedc_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: waedc_rtty 
+PASS ADIF exchange strings: waedc_rtty 
+PASS separate years: waedc_rtty
+PASS expected fixture exists: ok_dx_rtty
+PASS mode-specific profile resolved: ok_dx_rtty
+PASS exact internal exchanges: ok_dx_rtty [599 15 / 599 03]
+PASS Cabrillo across sessions: ok_dx_rtty 
+PASS ADIF exchange strings: ok_dx_rtty 
+PASS separate years: ok_dx_rtty
+PASS expected fixture exists: weekly_rtty_test
+PASS mode-specific profile resolved: weekly_rtty_test
+PASS exact internal exchanges: weekly_rtty_test [LUCIAN DX / BOB CA]
+PASS Cabrillo across sessions: weekly_rtty_test 
+PASS ADIF exchange strings: weekly_rtty_test 
+PASS separate years: weekly_rtty_test
+PASS expected fixture exists: arrl_rookie_roundup_rtty
+PASS mode-specific profile resolved: arrl_rookie_roundup_rtty
+PASS exact internal exchanges: arrl_rookie_roundup_rtty [LUCIAN 20 DX / BOB 21 CA]
+PASS Cabrillo across sessions: arrl_rookie_roundup_rtty 
+PASS ADIF exchange strings: arrl_rookie_roundup_rtty 
+PASS separate years: arrl_rookie_roundup_rtty
+PASS expected fixture exists: ig_ry_ww_rtty
+PASS mode-specific profile resolved: ig_ry_ww_rtty
+PASS exact internal exchanges: ig_ry_ww_rtty [599 2000 / 599 1995]
+PASS Cabrillo across sessions: ig_ry_ww_rtty 
+PASS ADIF exchange strings: ig_ry_ww_rtty 
+PASS separate years: ig_ry_ww_rtty
+PASS expected fixture exists: darc_rtty_sprint
+PASS mode-specific profile resolved: darc_rtty_sprint
+PASS exact internal exchanges: darc_rtty_sprint [599 001 / 599 002]
+PASS Cabrillo across sessions: darc_rtty_sprint 
+PASS ADIF exchange strings: darc_rtty_sprint 
+PASS separate years: darc_rtty_sprint
+PASS expected fixture exists: r3a_cup_digi_rtty
+PASS mode-specific profile resolved: r3a_cup_digi_rtty
+PASS exact internal exchanges: r3a_cup_digi_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: r3a_cup_digi_rtty 
+PASS ADIF exchange strings: r3a_cup_digi_rtty 
+PASS separate years: r3a_cup_digi_rtty
+PASS expected fixture exists: paccdigi_rtty
+PASS mode-specific profile resolved: paccdigi_rtty
+PASS exact internal exchanges: paccdigi_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: paccdigi_rtty 
+PASS ADIF exchange strings: paccdigi_rtty 
+PASS separate years: paccdigi_rtty
+PASS expected fixture exists: open_ukraine_rtty
+PASS mode-specific profile resolved: open_ukraine_rtty
+PASS exact internal exchanges: open_ukraine_rtty [599 001 / 599 002]
+PASS Cabrillo across sessions: open_ukraine_rtty 
+PASS ADIF exchange strings: open_ukraine_rtty 
+PASS separate years: open_ukraine_rtty
+PASS load cw_rules
+PASS expected fixture exists: ari_40_80_cw
+PASS mode-specific profile resolved: ari_40_80_cw
+PASS exact internal exchanges: ari_40_80_cw [599 RN / 599 CA]
+PASS Cabrillo across sessions: ari_40_80_cw 
+PASS ADIF exchange strings: ari_40_80_cw 
+PASS separate years: ari_40_80_cw
+PASS expected fixture exists: ari_international_cw
+PASS mode-specific profile resolved: ari_international_cw
+PASS exact internal exchanges: ari_international_cw [599 RN / 599 002]
+PASS Cabrillo across sessions: ari_international_cw 
+PASS ADIF exchange strings: ari_international_cw 
+PASS separate years: ari_international_cw
+PASS expected fixture exists: cq_ww_cw
+PASS mode-specific profile resolved: cq_ww_cw
+PASS exact internal exchanges: cq_ww_cw [599 15 / 599 03]
+PASS Cabrillo across sessions: cq_ww_cw 
+PASS ADIF exchange strings: cq_ww_cw 
+PASS separate years: cq_ww_cw
+PASS expected fixture exists: cq_wpx_cw
+PASS mode-specific profile resolved: cq_wpx_cw
+PASS exact internal exchanges: cq_wpx_cw [599 001 / 599 002]
+PASS Cabrillo across sessions: cq_wpx_cw 
+PASS ADIF exchange strings: cq_wpx_cw 
+PASS separate years: cq_wpx_cw
+PASS expected fixture exists: arrl_dx_cw
+PASS mode-specific profile resolved: arrl_dx_cw
+PASS exact internal exchanges: arrl_dx_cw [599 100 / 599 CA]
+PASS Cabrillo across sessions: arrl_dx_cw 
+PASS ADIF exchange strings: arrl_dx_cw 
+PASS separate years: arrl_dx_cw
+PASS expected fixture exists: iaru_hf_cw
+PASS mode-specific profile resolved: iaru_hf_cw
+PASS exact internal exchanges: iaru_hf_cw [599 28 / 599 06]
+PASS Cabrillo across sessions: iaru_hf_cw 
+PASS ADIF exchange strings: iaru_hf_cw 
+PASS separate years: iaru_hf_cw
+PASS expected fixture exists: wae_dx_cw
+PASS mode-specific profile resolved: wae_dx_cw
+PASS exact internal exchanges: wae_dx_cw [599 001 / 599 002]
+PASS Cabrillo across sessions: wae_dx_cw 
+PASS ADIF exchange strings: wae_dx_cw 
+PASS separate years: wae_dx_cw
+PASS expected fixture exists: marconi_144_cw
+PASS mode-specific profile resolved: marconi_144_cw
+PASS exact internal exchanges: marconi_144_cw [599 001 JN63HX / 599 002 CM87UX]
+PASS Cabrillo across sessions: marconi_144_cw 
+PASS ADIF exchange strings: marconi_144_cw 
+PASS separate years: marconi_144_cw
+PASS all 30 RTTY and 8 CW profiles covered
+PASS WPX uses standard STX/SRX plus RST
+PASS exchange-only serial 599 is not consumed as an RST
+PASS non-CQ untagged QSO recognized from observed edition and exchange
+PASS overlapping serial contests remain ambiguous, not duplicated
+PASS ARI-DX CW/RTTY profiles coexist in one mixed-mode entry
+PASS Sprint does not duplicate leading/trailing calls in exchange columns
+PASS independent SCRY periods remain separate
+PASS R3A tours belong to the same edition
+PASS weekly editions separated despite same station/session
+PASS missing exchange blocks all-contest writer

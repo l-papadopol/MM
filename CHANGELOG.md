@@ -1,5 +1,26 @@
 # MadModem changelog
 
+## 0.6.0 R3 — all contest profiles — 2026-10-06
+
+- Generalize edition discovery, ADIF exchange recovery and QSO validation to 30 RTTY and 8 CW profiles.
+- Preserve mode-specific profiles sharing Cabrillo IDs; combine mixed ARI-DX sessions.
+- Respect known periods, flag ambiguous inference and retain a manual field fallback.
+- Add all-profile regression coverage and a non-CQ wizard/export regression.
+
+## 0.6.0 R2 — contest export — 2026-10-06
+
+- Discover logged contest editions, combine CQ WW restarts and separate years/stations.
+- Add selectable QSO preview with row validation and coherent wizard theme.
+- Read standard ADIF zone/state fields and unambiguous recorded CQ exchanges.
+- Fix translation harvesting across adjacent one-argument calls.
+
+## 0.6.0 — CW receiver — 2026-10-06
+
+- Fix startup-character recovery, AFC self-interference, discriminator bandwidth and manual WPM.
+- Reject unmatched startup noise and unqualified EOF fragments.
+- Add application-level CW regressions with shaped signals and portable noise.
+- Retain R22 TX/CAT/FT/RTTY fixes; align release and help metadata.
+
 ## 0.5.9-beta R17 — background text assistance + O(1) logbook indexes — 2026-09-27
 
 - Adds dedicated `TextAssistWorker` and `LogbookIndexWorker` threads so live callsign/exchange parsing and worked/dupe lookup no longer run in the GUI or modem threads.

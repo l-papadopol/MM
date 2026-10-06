@@ -93,15 +93,15 @@ def harvest_keys() -> OrderedDict[str, str]:
         # L("stable_key", "English fallback").  Harvest both forms.  The
         # two-argument form must be harvested by its real stable key; otherwise
         # generated dictionaries show marker text such as scheduler_dialog_title.
-        two_arg_l = re.compile(
-            r'\bL\s*\(\s*(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"\s*\)?\s*,\s*'
-            r'(?:QStringLiteral\s*\(\s*)?"((?:\\.|[^"])*)"',
-            re.S,
-        )
+        # Match argument boundaries, not the ')' ending a one-argument L().
+        # Otherwise {L("Export"), "UTC"} invents the dictionary entry Export=UTC.
+        literal = r'"((?:\\.|[^"\\])*)"'
+        argument = rf'(?:{literal}|QStringLiteral\s*\(\s*{literal}\s*\))'
+        two_arg_l = re.compile(r'\bL\s*\(\s*' + argument + r'\s*,\s*' + argument + r'\s*\)', re.S)
         two_arg_spans = []
         for m in two_arg_l.finditer(text):
-            key = unescape_cpp(m.group(1)).strip()
-            fallback = unescape_cpp(m.group(2)).strip()
+            key = unescape_cpp(m.group(1) if m.group(1) is not None else m.group(2)).strip()
+            fallback = unescape_cpp(m.group(3) if m.group(3) is not None else m.group(4)).strip()
             two_arg_spans.append((m.start(), m.end()))
             if key and fallback:
                 out.setdefault(key, fallback)
@@ -1566,6 +1566,11 @@ for _key, _values in R9_TRANSLATIONS.items():
     for _lang, _value in _values.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
+
+from contest_export_translations import ITALIAN as CONTEST_EXPORT_ITALIAN
+EXACT["it"].update(CONTEST_EXPORT_ITALIAN)
+for source, translation in CONTEST_EXPORT_ITALIAN.items():
+    KEY_EXACT.setdefault("it", {})["text." + norm_key(source)] = translation
 
 def main() -> int:
     canonical = harvest_keys()

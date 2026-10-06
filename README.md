@@ -20,7 +20,7 @@ MM è scritto in **C++/Qt**, è pensato per **Linux e Windows** e il codice sorg
 
 ### Stato del progetto
 
-MadModem è ancora in versione **0.5.9-beta**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
+MadModem è alla versione **0.6.0**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
 
 Per compilazione, configurazione e dettagli tecnici trovate la documentazione nella cartella [`docs`](docs/README.md).
 
@@ -49,7 +49,7 @@ MM is written in **C++/Qt**, targets **Linux and Windows**, and its source code 
 
 ### Project status
 
-MadModem is still **0.5.9-beta software**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
+MadModem is at version **0.6.0**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
 
 Build instructions, configuration notes and technical information are available in the [`docs`](docs/README.md) directory.
 

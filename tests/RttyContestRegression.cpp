@@ -74,7 +74,7 @@ int main(int argc,char **argv) {
  bad=e;bad.adifFields["APP_MADMODEM_RTTY_RX_QTH"]="ON";check(!CqWwRtty::validate(bad).isEmpty(),"US state not Canadian province");
  bad=e;bad.freq.clear();check(CqWwRtty::cabrillo({bad},{},&err).isEmpty(),"export rejects absent frequency");
  bad=e;bad.utc=bad.utc.addDays(-1);check(CqWwRtty::cabrillo({bad},{},&err).isEmpty(),"export rejects practice date");
- bad=e;bad.adifFields["APP_MADMODEM_RTTY_SESSION"]="other";check(CqWwRtty::cabrillo({e,bad},{},&err).isEmpty(),"export rejects mixed sessions");
+ bad=e;bad.adifFields["APP_MADMODEM_RTTY_SESSION"]="other";check(!CqWwRtty::cabrillo({e,bad},{},&err).isEmpty(),"export combines sessions of the same edition");
  bad=e;bad.callsign="IG9ABC";check(CqWwRtty::points(bad)==3,"IG9 intercontinental despite shared DXCC");
  bad.callsign="IT9ABC";check(CqWwRtty::points(bad)==2,"IT9 different contest country");
  bad.callsign="I1ABC";check(CqWwRtty::points(bad)==1,"Italian same contest country");

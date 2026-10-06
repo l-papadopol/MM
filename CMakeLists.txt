@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.5.9
+    VERSION 0.6.0
     LANGUAGES CXX
 )
 
@@ -506,6 +506,11 @@ add_executable(MadModem
     dialogs/TextMacroSettingsDialog.cpp
     dialogs/LogbookDialog.h
     dialogs/LogbookDialog.cpp
+    dialogs/ContestExportWizard.cpp
+    dialogs/ContestExportWizard.h
+    logbook/ContestExport.h
+    logbook/ContestExchange.cpp
+    logbook/ContestExchange.h
     dialogs/LogbookSettingsDialog.h
     dialogs/LogbookSettingsDialog.cpp
     dialogs/RigControlSettingsDialog.h
@@ -1152,6 +1157,39 @@ if(MADMODEM_BUILD_CW_TESTS)
 endif()
 
 if(BUILD_TESTING)
+    add_executable(madmodem_all_contest_exports_regression
+        tests/AllContestExportsRegression.cpp logbook/ContestExchange.cpp dxcc/CtyCountryFile.cpp)
+    target_include_directories(madmodem_all_contest_exports_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_all_contest_exports_regression PRIVATE ${QT}::Core ${QT}::Gui)
+    add_custom_command(TARGET madmodem_all_contest_exports_regression POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cty.csv $<TARGET_FILE_DIR:madmodem_all_contest_exports_regression>/cty.csv
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules $<TARGET_FILE_DIR:madmodem_all_contest_exports_regression>/rtty_rules
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cw_rules $<TARGET_FILE_DIR:madmodem_all_contest_exports_regression>/cw_rules)
+    add_test(NAME madmodem_all_contest_exports_regression COMMAND madmodem_all_contest_exports_regression)
+
+    add_executable(madmodem_contest_export_regression
+        tests/ContestExportRegression.cpp tests/i18n.qrc
+        dialogs/ContestExportWizard.cpp dialogs/ContestExportWizard.h
+        logbook/ContestExchange.cpp logbook/ContestExchange.h
+        dxcc/CtyCountryFile.cpp utils/RuntimeI18n.cpp utils/CockpitTheme.cpp)
+    target_include_directories(madmodem_contest_export_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_contest_export_regression PRIVATE ${QT}::Core ${QT}::Gui ${QT}::Widgets)
+    add_custom_command(TARGET madmodem_contest_export_regression POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cty.csv $<TARGET_FILE_DIR:madmodem_contest_export_regression>/cty.csv)
+    add_custom_command(TARGET madmodem_contest_export_regression POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/rtty_rules $<TARGET_FILE_DIR:madmodem_contest_export_regression>/rtty_rules
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cw_rules $<TARGET_FILE_DIR:madmodem_contest_export_regression>/cw_rules)
+    add_test(NAME madmodem_contest_export_regression COMMAND madmodem_contest_export_regression)
+    set_tests_properties(madmodem_contest_export_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+
+    add_executable(madmodem_cw_integration_regression
+        tests/CwIntegrationRegression.cpp tests/CwTestSignal.h
+        modems/cw/CwDecoder.cpp modems/cw/CwDecoder.h)
+    target_include_directories(madmodem_cw_integration_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_cw_integration_regression PRIVATE
+        madmodem_cwskimmer ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_cw_integration_regression COMMAND madmodem_cw_integration_regression)
+
     add_executable(madmodem_rtty_contest_regression tests/RttyContestRegression.cpp
         modems/rtty/RttyDecoder.cpp modems/rtty/RttyMultiDecoder.cpp
         modems/rtty/tx/RttyTransmitter.cpp dsp/common/DspConditioner.cpp

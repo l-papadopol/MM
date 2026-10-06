@@ -1,0 +1,53 @@
+[0/2] Re-checking globbed directories...
+[1/2] Re-running CMake...
+-- MadModem package/app version: 0.6.0
+-- MadModem source revision: 0.6.0-source-r1-cw-receiver
+-- MadModem LTO/IPO disabled by default to avoid GCC/LTO private-slot link regressions
+-- MadModem portable CPU baseline: global AVX2/FMA disabled; runtime-dispatched kernels may still use AVX2 on capable CPUs.
+-- Qt Location QSO map backend not available; using offline planet_map.jpg fallback
+-- Qt Help backend enabled for the MM online manual
+-- Hamlib support enabled via pkg-config: 4.5.5
+-- Configuring done (0.1s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/scratch/568f9cc8dc74/verification-r21/build
+[0/2] Re-checking globbed directories...
+[1/57] Copying localized MM HTML help files
+[2/57] Automatic MOC and UIC for target madmodem_weak_signal_codec
+[3/55] Automatic MOC and UIC for target madmodem_linear_resampler
+[4/53] Automatic MOC and UIC for target madmodem_tx_pull_regression
+[5/51] Automatic MOC and UIC for target madmodem_i18n_regression
+[6/49] Automatic MOC and UIC for target madmodem_resampler_streaming
+[7/47] Generating localized MM Qt Help manuals (.qch, optional)
+CMake Warning at /workspace/scratch/568f9cc8dc74/MadModem_R21/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/568f9cc8dc74/verification-r21/build/docs/help/qhelpgenerator.log
+
+
+[8/47] Automatic MOC and UIC for target madmodem_logbook_regression
+[9/45] Automatic MOC and UIC for target madmodem_wav_reader_test
+[10/43] Automatic MOC and UIC for target MadModemFtSequencerSelfTest
+[11/41] Automatic MOC and UIC for target madmodem_cw_integration_regression
+[12/39] Automatic MOC and UIC for target madmodem_rtty_contest_regression
+[13/38] Automatic MOC and UIC for target madmodem_rtty_synthetic_bench
+[14/36] Automatic MOC and UIC for target madmodem_text_assist_workers_regression
+[15/34] Automatic MOC and UIC for target madmodem_msk144
+[16/32] Automatic MOC and UIC for target madmodem_q65
+[17/30] Automatic MOC and UIC for target madmodem_msk144_native_regression
+[18/28] Automatic MOC and UIC for target madmodem_q65_native_regression
+[19/26] Automatic MOC and UIC for target MadModem
+[20/25] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/tests/RttyContestRegression.cpp.o
+[21/25] Linking CXX executable madmodem_rtty_contest_regression
+[22/25] Building CXX object CMakeFiles/MadModem.dir/dialogs/ContestExportWizard.cpp.o
+[23/25] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookDialog.cpp.o
+[24/25] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[25/25] Linking CXX executable MadModem

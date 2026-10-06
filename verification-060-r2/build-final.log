@@ -1,0 +1,27 @@
+[0/2] Re-checking globbed directories...
+[1/13] Copying localized MM HTML help files
+[2/13] Automatic MOC and UIC for target madmodem_contest_export_regression
+[3/12] Generating localized MM Qt Help manuals (.qch, optional)
+CMake Warning at /workspace/scratch/568f9cc8dc74/MadModem_R21/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/568f9cc8dc74/verification-r21/build/docs/help/qhelpgenerator.log
+
+
+[4/12] Automatic MOC and UIC for target MadModem
+[5/11] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/tests/ContestExportRegression.cpp.o
+[6/11] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/dialogs/ContestExportWizard.cpp.o
+[7/11] Linking CXX executable madmodem_contest_export_regression
+[8/11] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookDialog.cpp.o
+[9/11] Building CXX object CMakeFiles/MadModem.dir/dialogs/ContestExportWizard.cpp.o
+[10/11] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[11/11] Linking CXX executable MadModem

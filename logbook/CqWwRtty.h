@@ -1,5 +1,6 @@
 #pragma once
 #include "AdifLogbook.h"
+#include "../MadModemVersion.h"
 #include "../dxcc/CtyCountryFile.h"
 #include <QRegularExpression>
 #include <QSet>
@@ -8,7 +9,16 @@
 namespace CqWwRtty {
 inline QString zoneKey(const QString &value) { return QString::number(value.toInt()); }
 inline QString field(const LogbookEntry &e, bool sent, const QString &id) {
-    return e.adifFields.value(QStringLiteral("APP_MADMODEM_RTTY_%1_%2").arg(sent ? "TX" : "RX", id)).trimmed().toUpper();
+    const QString internal = e.adifFields.value(QStringLiteral("APP_MADMODEM_RTTY_%1_%2").arg(sent ? "TX" : "RX", id)).trimmed().toUpper();
+    if (!internal.isEmpty()) return internal;
+    const QString standard = e.adifFields.value(id == "CQZONE" ? (sent ? "MY_CQ_ZONE" : "CQZ")
+                                                            : (sent ? "MY_STATE" : "STATE")).trimmed().toUpper();
+    if (!standard.isEmpty()) return standard == "NT" && id == "QTH" ? QStringLiteral("NWT") : standard;
+    // Recognize only an unambiguous RST/zone[/state] or zone[/state] exchange.
+    // Never substitute a DXCC-derived zone for the exchange actually logged.
+    static const QRegularExpression exchange("^(?:[1-5][1-9][1-9]\\s+)?(0?[1-9]|[1-3][0-9]|40)(?:\\s+([A-Z]{2,3}))?$");
+    const auto match = exchange.match(e.adifFields.value(sent ? "STX_STRING" : "SRX_STRING").simplified().toUpper());
+    return match.hasMatch() ? match.captured(id == "CQZONE" ? 1 : 2) : QString();
 }
 inline QDate startDate(int year) {
     QDate d(year, 9, 30);
@@ -93,13 +103,12 @@ struct CabrilloOptions {
     QString name, email;
 };
 inline QByteArray cabrillo(QVector<LogbookEntry> records, const CabrilloOptions &o, QString *error) {
+    if (error) error->clear();
     auto fail = [&](const QString &why) { if(error) *error = why; return QByteArray(); };
     if (records.isEmpty()) return fail("No QSOs selected");
     const auto &first = records.first();
-    const QString session = first.adifFields.value("APP_MADMODEM_RTTY_SESSION");
     const QString own = first.stationCallsign;
     const int year = first.utc.toUTC().date().year();
-    if (session.isEmpty()) return fail("Select one contest session");
     if (!QStringList{"SINGLE-OP","CHECKLOG"}.contains(o.operatorCategory) ||
         !QStringList{"HIGH","LOW","QRP"}.contains(o.power) ||
         !QStringList{"ASSISTED","NON-ASSISTED"}.contains(o.assisted) ||
@@ -108,11 +117,11 @@ inline QByteArray cabrillo(QVector<LogbookEntry> records, const CabrilloOptions 
     auto clean = [](QString v) { return v.replace('\r',' ').replace('\n',' ').simplified(); };
     QString text = "START-OF-LOG: 3.0\nCONTEST: CQ-WW-RTTY\nCALLSIGN: " + own + "\nLOCATION: " + location +
         "\nCATEGORY-OPERATOR: " + o.operatorCategory + "\nCATEGORY-POWER: " + o.power + "\nCATEGORY-ASSISTED: " + o.assisted +
-        "\nCATEGORY-BAND: " + o.band + "\nCATEGORY-MODE: RTTY\nCATEGORY-STATION: FIXED\nCREATED-BY: MadModem R7\nNAME: " + clean(o.name) + "\nEMAIL: " + clean(o.email) + "\n";
+        "\nCATEGORY-BAND: " + o.band + "\nCATEGORY-MODE: RTTY\nCATEGORY-STATION: FIXED\nCREATED-BY: MadModem " MADMODEM_VERSION_STRING "\nNAME: " + clean(o.name) + "\nEMAIL: " + clean(o.email) + "\n";
     std::sort(records.begin(),records.end(),[](const LogbookEntry&a,const LogbookEntry&b){return a.utc<b.utc;});
     for (const auto &e : records) {
-        if (e.adifFields.value("CONTEST_ID") != "CQ-WW-RTTY" || e.adifFields.value("APP_MADMODEM_RTTY_SESSION") != session || e.stationCallsign != own || e.utc.toUTC().date().year() != year)
-            return fail("Select QSOs from one CQ WW session, station and edition");
+        if (e.adifFields.value("CONTEST_ID") != "CQ-WW-RTTY" || e.stationCallsign != own || e.utc.toUTC().date().year() != year)
+            return fail("Select QSOs from one CQ WW station and edition");
         const QString why = validate(e,true);
         if (!why.isEmpty()) return fail(e.callsign + ": " + why);
         // Include off-category-band contacts as required by CQ WW log instructions.

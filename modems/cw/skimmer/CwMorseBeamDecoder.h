@@ -13,6 +13,7 @@ struct CwMorseTimingSnapshot {
   double characterSpaceMs = 180.0;
   double wordSpaceMs = 420.0;
   double timingConfidence = 0.0;
+  bool adaptiveMarks = true;
 };
 
 struct CwMorseObservationQuality {

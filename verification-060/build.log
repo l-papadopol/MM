@@ -1,0 +1,50 @@
+[0/2] Re-checking globbed directories...
+[1/56] Copying localized MM HTML help files
+[2/56] Automatic MOC and UIC for target madmodem_weak_signal_codec
+[3/54] Automatic MOC and UIC for target madmodem_linear_resampler
+[4/52] Automatic MOC and UIC for target madmodem_tx_pull_regression
+[5/50] Automatic MOC and UIC for target madmodem_resampler_streaming
+[6/48] Automatic MOC and UIC for target madmodem_i18n_regression
+[7/46] Automatic MOC and UIC for target madmodem_logbook_regression
+[8/44] Generating localized MM Qt Help manuals (.qch, optional)
+CMake Warning at /workspace/scratch/568f9cc8dc74/MadModem_R21/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/568f9cc8dc74/verification-r21/build/docs/help/qhelpgenerator.log
+
+
+[9/44] Automatic MOC and UIC for target madmodem_wav_reader_test
+[10/42] Automatic MOC and UIC for target MadModemFtSequencerSelfTest
+[11/40] Automatic MOC and UIC for target madmodem_rtty_contest_regression
+[12/38] Automatic MOC and UIC for target madmodem_rtty_synthetic_bench
+[13/36] Automatic MOC and UIC for target madmodem_text_assist_workers_regression
+[14/34] Automatic MOC and UIC for target madmodem_msk144
+[15/32] Automatic MOC and UIC for target madmodem_q65
+[16/30] Automatic MOC and UIC for target madmodem_msk144_native_regression
+[17/28] Automatic MOC and UIC for target madmodem_q65_native_regression
+[18/26] Automatic MOC and UIC for target MadModem
+[19/25] Automatic RCC for resources.qrc
+[20/25] Building CXX object CMakeFiles/MadModem.dir/modems/cw/CwDecoder.cpp.o
+[21/25] Building CXX object CMakeFiles/MadModem.dir/dialogs/HelpDialog.cpp.o
+/workspace/scratch/568f9cc8dc74/MadModem_R21/dialogs/HelpDialog.cpp: In member function ‘bool HelpDialog::setupQtHelpBackend(const QUrl&)’:
+/workspace/scratch/568f9cc8dc74/MadModem_R21/dialogs/HelpDialog.cpp:229:51: warning: ‘void QHelpIndexWidget::linkActivated(const QUrl&, const QString&)’ is deprecated: Use documentActivated() instead [-Wdeprecated-declarations]
+  229 |         connect(m_indexWidget, &QHelpIndexWidget::linkActivated,
+      |                                                   ^~~~~~~~~~~~~
+In file included from /workspace/scratch/568f9cc8dc74/verification-r19/toolchain/usr/include/x86_64-linux-gnu/qt5/QtHelp/QHelpIndexWidget:1,
+                 from /workspace/scratch/568f9cc8dc74/MadModem_R21/dialogs/HelpDialog.cpp:29:
+/workspace/scratch/568f9cc8dc74/verification-r19/toolchain/usr/include/x86_64-linux-gnu/qt5/QtHelp/qhelpindexwidget.h:95:10: note: declared here
+   95 |     void linkActivated(const QUrl &link, const QString &keyword);
+      |          ^~~~~~~~~~~~~
+[22/25] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/EWIEGA46WW/qrc_resources.cpp.o
+[23/25] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[24/25] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[25/25] Linking CXX executable MadModem

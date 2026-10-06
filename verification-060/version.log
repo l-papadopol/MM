@@ -1,0 +1,7 @@
+MadModem CI version guard
+  MADMODEM_VERSION.txt : 0.6.0
+  SOURCE_REVISION      : 0.6.0-source-r1-cw-receiver
+  GITHUB_REF_TYPE      : tag
+  GITHUB_REF_NAME      : v0.6.0
+  GITHUB_SHA           : manual
+  status               : OK

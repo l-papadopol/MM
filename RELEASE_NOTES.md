@@ -1,3 +1,52 @@
+# 0.6.0 R3 — export per tutti i profili contest
+
+Il riconoscimento delle edizioni e degli scambi ora usa tutti i 30 profili RTTY
+e gli 8 CW installati. Le sessioni della stessa edizione vengono riunite;
+anni, stazioni e periodi dichiarati indipendenti restano separati. I profili con
+lo stesso identificativo Cabrillo (ARI-DX) convivono anche in un log misto.
+
+La wizard legge gli scambi registrati nei campi interni, nei campi ADIF standard
+e in STX_STRING/SRX_STRING. L’anteprima mostra esattamente gli scambi esportati.
+Resta disponibile la scelta manuale dei campi. Zone mancanti e progressivi
+mancanti non vengono inventati; le righe incomplete bloccano il salvataggio.
+
+Quando il profilo contiene un calendario, viene rispettato. Negli altri casi
+si usano i tag e le date effettivamente registrate: non vengono inventate date
+ufficiali per edizioni non definite. I QSO senza tag sono associati solo quando
+il riscontro è univoco; i casi ambigui sono conteggiati e non assegnati.
+Questa revisione riguarda catalogo e QSO Cabrillo, non aggiunge l’export QTC.
+
+---
+
+# 0.6.0 R2 — esportazione contest
+
+Dal logbook: **File → Esporta Cabrillo…**. La wizard propone le edizioni presenti
+con nome, date UTC, nominativo di stazione e numero di QSO. Selezionare l’edizione,
+controllare la categoria, quindi verificare e spuntare i QSO nell’anteprima.
+Le righe con dati mancanti bloccano il salvataggio finché non vengono corrette
+nel logbook oppure escluse esplicitamente dall’anteprima.
+
+CQ WW RTTY riunisce le sessioni della stessa edizione, supporta i campi ADIF
+standard e gli scambi registrati, ed evidenzia i QSO riconosciuti senza tag
+contest. Le altre edizioni sono ricavate dai tag e dalle date presenti nel log.
+I contest generici richiedono la verifica del formato degli scambi previsto dal
+loro regolamento. Nessun dato viene riscritto nel logbook durante l’esportazione.
+
+Corretti sfondi della wizard e raccolta delle traduzioni che poteva scambiare
+l’intestazione di una colonna con quella adiacente. Conservati i fix CW della R1.
+
+---
+
+# 0.6.0 — ricezione CW
+
+Corretti acquisizione dei primi caratteri, aggancio AFC, uso effettivo del filtro
+RX e rispetto dei WPM manuali. Ridotte le false stazioni dovute ai lobi laterali;
+il termine di una registrazione non può più aggirare la qualificazione del segnale.
+Conservate le correzioni TX/CAT/FT/RTTY della R22. Dettagli e limiti delle prove:
+[release 0.6.0](docs/RELEASE_0_6_0.md).
+
+---
+
 # 0.5.9-beta R7 — RTTY / CQ WW
 
 Corretti avvio LTRS, AFC RX a shift fisso, continuità RX dopo TX, scambi contest
