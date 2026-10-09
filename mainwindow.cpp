@@ -2479,40 +2479,13 @@ QWidget *MainWindow::wrapTextDisplayPageWithMap(QWidget *mainPage,
     map->setAutoFillBackground(false);
     map->setObjectName(QStringLiteral("qsoMapCanvas"));
 
-    // Keep the map controls inside the map canvas instead of reserving a
-    // separate row above it.  The layout is owned by QsoMapWidget, so the
-    // buttons sit on the upper edge of the blue map area and the parent page
-    // gives all vertical space to the actual map.
-    QHBoxLayout *tools = new QHBoxLayout(map);
-    tools->setContentsMargins(10, 10, 10, 0);
-    tools->setSpacing(6);
-
-    QPushButton *mapLayers = new QPushButton(uiText("qso_map_layers", "Layers..."), map);
-    mapLayers->setToolTip(uiText("qso_map_layers_tooltip", "Choose all visible QSO map layers, marker source and map filters."));
-    QPushButton *refresh = new QPushButton(uiText("refresh", "Refresh"), map);
-    QPushButton *reset = new QPushButton(uiText("reset_view", "Reset view"), map);
-    QPushButton *save = new QPushButton(uiText("save_map", "Save map..."), map);
-    QPushButton *print = new QPushButton(uiText("print_map", "Print map..."), map);
-
-    tools->addStretch(1);
-    tools->addWidget(mapLayers, 0, Qt::AlignTop);
-    tools->addWidget(refresh, 0, Qt::AlignTop);
-    tools->addWidget(reset, 0, Qt::AlignTop);
-    tools->addWidget(save, 0, Qt::AlignTop);
-    tools->addWidget(print, 0, Qt::AlignTop);
-    tools->addStretch(0);
     map->setTextTranslator([this](const QString &source) {
         return uiTextFromSource(QStringLiteral("text"), source);
     });
     map->setModeFilter(modeFilter);
     map->setHomeGrid(m_settings.textMyLocator);
     map->setRecords(m_logbook.records());
-    connect(mapLayers, &QPushButton::clicked, map, &QsoMapWidget::configureLayerSettings);
-    connect(refresh, &QPushButton::clicked, this, &MainWindow::refreshQsoMaps);
-    connect(reset, &QPushButton::clicked, map, &QsoMapWidget::resetView);
-    connect(save, &QPushButton::clicked, map, &QsoMapWidget::saveMap);
-    connect(print, &QPushButton::clicked, map, &QsoMapWidget::printMap);
-
+    outer->addWidget(map->createControls(mapPage));
     outer->addWidget(map, 1);
     tabs->addTab(mapPage, uiText("qso_map_tab", "QSO map"));
 

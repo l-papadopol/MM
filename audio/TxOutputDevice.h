@@ -54,6 +54,8 @@ public:
 
     qint64 samplesProduced() const { return m_produced.load(std::memory_order_acquire); }
 
+    int peakPcm() const { return m_peakPcm.load(std::memory_order_relaxed); }
+
     bool isSequential() const override
     {
         return true;
@@ -64,6 +66,7 @@ public:
      */
     bool start()
     {
+        m_peakPcm.store(0,std::memory_order_relaxed);
         m_totalSamples = 0;
         m_produced.store(0,std::memory_order_release);
         m_finishQueued = false;
@@ -138,10 +141,14 @@ protected:
         qint16 *pcm = reinterpret_cast<qint16 *>(data);
 
         const double gain = static_cast<double>(m_volumePercent.load(std::memory_order_relaxed)) / 100.0;
+        int peak=0;
         for (int i = 0; i < returnedSamples; ++i) {
             const double bounded = qBound(-1.0, static_cast<double>(samples.at(i)) * gain, 1.0);
             pcm[i] = static_cast<qint16>(qRound(bounded * 32767.0));
+            peak=qMax(peak,qAbs(int(pcm[i])));
         }
+
+        m_peakPcm.store(qMax(peak,m_peakPcm.load(std::memory_order_relaxed)),std::memory_order_relaxed);
 
         if (generatedSamples > 0) {
             AudioBlock block;
@@ -199,6 +206,7 @@ private:
     std::function<bool()> m_authorized;
     std::atomic<bool> m_aborted{false};
     std::atomic<qint64> m_produced{0};
+    std::atomic<int> m_peakPcm{0};
     std::atomic<int> m_volumePercent{100};
     std::atomic<bool> m_exhausted{false};
 };

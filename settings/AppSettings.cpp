@@ -592,7 +592,8 @@ void AppSettings::load()
     rotatorEnabled = settings.value("Rotator/enabled", rotatorEnabled).toBool();
     rotatorAutoConnect = settings.value("Rotator/autoConnect", rotatorAutoConnect).toBool();
     rotatorShowWindowOnStart = settings.value("Rotator/showWindowOnStart", rotatorShowWindowOnStart).toBool();
-    rotatorTrackSelectedQso = settings.value("Rotator/trackSelectedQso", rotatorTrackSelectedQso).toBool();
+    // Legacy defaults enabled tracking without an explicit operator choice.
+    rotatorTrackSelectedQso = settings.value("Rotator/explicitQsoTracking", false).toBool();
     rotatorTrackOnlyWhenQsoActive = settings.value("Rotator/trackOnlyWhenQsoActive", rotatorTrackOnlyWhenQsoActive).toBool();
     rotatorActiveProfile = settings.value("Rotator/activeProfile", rotatorActiveProfile).toInt();
     if (rotatorActiveProfile < 0 || rotatorActiveProfile > 2) rotatorActiveProfile = 0;
@@ -921,6 +922,7 @@ bool AppSettings::save() const
     settings.setValue("Rotator/autoConnect", rotatorAutoConnect);
     settings.setValue("Rotator/showWindowOnStart", rotatorShowWindowOnStart);
     settings.setValue("Rotator/trackSelectedQso", rotatorTrackSelectedQso);
+    settings.setValue("Rotator/explicitQsoTracking", rotatorTrackSelectedQso);
     settings.setValue("Rotator/trackOnlyWhenQsoActive", rotatorTrackOnlyWhenQsoActive);
     settings.setValue("Rotator/activeProfile", rotatorActiveProfile);
 

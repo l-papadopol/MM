@@ -9,13 +9,14 @@
 #include <functional>
 
 class QCheckBox;
-class QDateEdit;
+class QDateTimeEdit;
+class QComboBox;
+class QTimer;
 class QAction;
 class QLabel;
 class QLineEdit;
 class QPushButton;
 class QMenu;
-class QMenuBar;
 class QStatusBar;
 class QTableWidget;
 class QToolBar;
@@ -71,11 +72,6 @@ private:
                        const QString &dialogTitle,
                        const QString &defaultBaseName,
                        const QString &successLabel);
-    bool configureAdifExportOptions(const QVector<LogbookEntry> &sourceRecords,
-                                    const QString &dialogTitle,
-                                    QVector<LogbookEntry> *outputRecords,
-                                    QString *defaultBaseName,
-                                    QString *successLabel);
     bool exportRecordsCsv(const QVector<LogbookEntry> &records,
                           const QString &dialogTitle,
                           const QString &defaultBaseName,
@@ -111,6 +107,15 @@ private:
                              const QString &scopeLabel,
                              const QString &defaultBaseName);
 
+    QVector<LogbookEntry> outputRecords() const;
+    void updateOutputScope();
+    QComboBox *m_outputScope = nullptr;
+    QComboBox *m_period = nullptr;
+    QComboBox *m_bandCombo = nullptr;
+    QComboBox *m_modeCombo = nullptr;
+    QAction *m_actExport = nullptr;
+    QTimer *m_searchDelay = nullptr;
+    bool m_hadSelection = false;
     AdifLogbook *m_logbook = nullptr;
     AppSettings *m_settings = nullptr;
     QLineEdit *m_quickSearchEdit = nullptr;
@@ -121,12 +126,12 @@ private:
     QLineEdit *m_modeEdit = nullptr;
     QLineEdit *m_gridEdit = nullptr;
     QCheckBox *m_fromEnabled = nullptr;
-    QDateEdit *m_fromDateEdit = nullptr;
+    QDateTimeEdit *m_fromDateEdit = nullptr;
     QCheckBox *m_toEnabled = nullptr;
-    QDateEdit *m_toDateEdit = nullptr;
+    QDateTimeEdit *m_toDateEdit = nullptr;
     QLabel *m_summaryLabel = nullptr;
+    QLabel *m_filterError = nullptr;
     QTableWidget *m_table = nullptr;
-    QMenuBar *m_menuBar = nullptr;
     QToolBar *m_toolbar = nullptr;
     QStatusBar *m_statusBar = nullptr;
     QAction *m_actImport = nullptr;
@@ -145,14 +150,6 @@ private:
     QAction *m_actSelectAll = nullptr;
     QAction *m_actColumns = nullptr;
     QPushButton *m_clearSearchButton = nullptr;
-    QPushButton *m_importButton = nullptr;
-    QPushButton *m_exportAllButton = nullptr;
-    QPushButton *m_exportResultButton = nullptr;
-    QPushButton *m_exportSelectedButton = nullptr;
-    QPushButton *m_deleteSelectedButton = nullptr;
-    QPushButton *m_printButton = nullptr;
-    QPushButton *m_savePdfButton = nullptr;
-    QPushButton *m_statsPdfButton = nullptr;
     QPushButton *m_closeButton = nullptr;
     QVector<LogbookEntry> m_displayedRecords;
     QStringList m_adifExtraColumns;

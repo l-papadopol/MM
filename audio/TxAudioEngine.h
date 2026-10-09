@@ -2,6 +2,7 @@
 #define TXAUDIOENGINE_H
 
 #include "AudioBlock.h"
+#include "TxPlaybackWatchdog.h"
 #include "../core/tx/TxModulator.h"
 
 #include <QObject>
@@ -146,8 +147,7 @@ private:
     bool m_playbackStarted = false;
     QTimer m_outputMonitor;
     QElapsedTimer m_outputProgressClock;
-    qint64 m_lastProcessedUs = 0;
-    qint64 m_lastProducedSamples = 0;
+    TxPlaybackWatchdog m_playbackWatchdog;
     int m_outputVolumePercent = 100;
 };
 

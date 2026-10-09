@@ -47,7 +47,7 @@ public:
         double noMovementThresholdDeg = 2.0;
         double parkAzimuth = 0.0;
         double parkElevation = 0.0;
-        bool trackSelectedQso = true;
+        bool trackSelectedQso = false;
         bool trackOnlyWhenQsoActive = true;
         int targetToleranceDeg = 3;
 
@@ -207,7 +207,7 @@ private:
     bool m_connected = false;
     bool m_fastApplicationShutdown = false;
     bool m_trackingQsoTarget = false;
-    TrackingMode m_trackingMode = TrackingMode::Qso;
+    TrackingMode m_trackingMode = TrackingMode::Manual;
     bool m_motionActive = false;
     double m_currentAz = 0.0;
     double m_currentEl = 0.0;

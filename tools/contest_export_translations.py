@@ -225,3 +225,41 @@ ITALIAN.update({
     'Mode does not match contest profile': 'Modo non corrispondente al profilo del contest',
     'Exchange cannot be determined from logged callsigns': 'Impossibile determinare lo scambio dai nominativi registrati'
 })
+
+# R4 logbook and map workflows.
+ITALIAN.update({
+ 'Visible QSOs': 'QSO visualizzati',
+ 'This choice applies to ADIF, CSV, copy, print and PDF.': 'Questa scelta vale per ADIF, CSV, copia, stampa e PDF.',
+ 'Export ADIF...': 'Esporta ADIF...',
+ 'More': 'Altro',
+ 'Export CSV...': 'Esporta CSV...',
+ 'Search callsign, locator or any field...': 'Cerca nominativo, locator o qualsiasi campo...',
+ 'Reset filters': 'Azzera filtri',
+ 'All bands': 'Tutte le bande',
+ 'All modes': 'Tutti i modi',
+ 'All dates': 'Tutte le date',
+ 'Today (UTC)': 'Oggi (UTC)',
+ 'Yesterday (UTC)': 'Ieri (UTC)',
+ 'Custom UTC interval': 'Intervallo UTC',
+ 'Period': 'Periodo',
+ 'Until UTC (excluded)': 'Fino a UTC (escluso)',
+ 'More filters': 'Altri filtri',
+ 'Select visible': 'Seleziona visualizzati',
+ 'Clear selection': 'Deseleziona',
+ 'Custom dates (UTC)': 'Date personalizzate (UTC)',
+ 'Current mode only': 'Solo modo attuale',
+ 'Paths': 'Tratte',
+ 'Grid and worked squares': 'Griglia e locator lavorati',
+ 'Map options': 'Opzioni mappa',
+ 'Through UTC date': 'Fino al giorno UTC',
+ 'Marker density...': 'Densità marcatori...',
+ 'Marker density': 'Densità marcatori',
+ '%1 markers': '%1 marcatori',
+ 'One per DXCC country': 'Uno per entità DXCC',
+ 'One per locator square': 'Uno per quadrato locator',
+ 'Home: %1': 'Stazione: %1',
+ 'Home grid not set': 'Locator di stazione non impostato',
+ 'Automatically point at the selected QSO (opt-in)': 'Punta automaticamente il QSO selezionato (facoltativo)',
+})
+
+ITALIAN.update({"No QSOs match the current filters.": "Nessun QSO corrisponde ai filtri impostati."})

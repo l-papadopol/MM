@@ -64,6 +64,11 @@ inline int runWindowRotatorRegression(QApplication &app)
     }
     QTemporaryDir storage;check(storage.isValid(),"isolated preset settings available");
     mm::CatRotatorController controller;
+    check(controller.trackingMode()==mm::CatRotatorController::TrackingMode::Manual,"rotator starts in manual mode");
+    controller.setTrackingMode(mm::CatRotatorController::TrackingMode::Qso);
+    check(controller.trackingMode()==mm::CatRotatorController::TrackingMode::Qso,"operator can explicitly select QSO tracking");
+    controller.setTrackingQsoTarget(false);
+    check(controller.trackingMode()==mm::CatRotatorController::TrackingMode::Manual,"disabling QSO tracking also updates the visible manual mode");
     mm::CatRotatorPanel panel(&controller,nullptr,storage.filePath("presets.ini"));
     mm::CatRotatorController::Config config;config.useElevation=true;config.azimuthMaxDeg=450;config.elevationMaxDeg=180;
     panel.applyConfig(config);panel.resize(380,1000);panel.show();app.processEvents();

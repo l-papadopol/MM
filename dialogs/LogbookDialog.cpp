@@ -31,7 +31,9 @@
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QDate>
-#include <QDateEdit>
+#include <QScreen>
+#include <QGuiApplication>
+#include <QSignalBlocker>
 #include <QDateTime>
 #include <QDateTimeEdit>
 #include <QFileDialog>
@@ -74,21 +76,14 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
       m_settings(settings)
 {
     setWindowTitle(L("MadModem logbook"));
-    setMinimumSize(1280, 760);
-    resize(MadModemUi::size(1480, 840));
+    setMinimumSize(700, 460);
+    resize(MadModemUi::size(1120, 720));
     setObjectName(QStringLiteral("MadModemLogbookDialog"));
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(8);
 
 
-    /*
-     * ADIFMaster-like logbook chrome: a classic menu bar, an icon toolbar,
-     * spreadsheet-style table actions, and a status bar.  The ADIF backend is
-     * still conservative/preserving; these actions operate on the visible rows
-     * without normalising or rewriting the whole ADIF file unless explicitly
-     * requested.
-     */
     m_actImport = new QAction(style()->standardIcon(QStyle::SP_DirOpenIcon), L("Import"), this);
     m_actExportAll = new QAction(style()->standardIcon(QStyle::SP_DialogSaveButton), L("Export all"), this);
     m_actExportResult = new QAction(style()->standardIcon(QStyle::SP_FileDialogListView), L("Export result"), this);
@@ -98,7 +93,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     m_actExportSelectedCsv = new QAction(style()->standardIcon(QStyle::SP_DriveFDIcon), L("Save CSV"), this);
     m_actCopyCsv = new QAction(style()->standardIcon(QStyle::SP_FileIcon), L("Copy CSV"), this);
     m_actCopyAdif = new QAction(style()->standardIcon(QStyle::SP_FileIcon), L("Copy ADIF"), this);
-    m_actDelete = new QAction(style()->standardIcon(QStyle::SP_TrashIcon), L("Delete"), this);
+    m_actDelete = new QAction(style()->standardIcon(QStyle::SP_TrashIcon), L("Delete selected QSOs"), this);
     m_actPrint = new QAction(style()->standardIcon(QStyle::SP_FileDialogDetailedView), L("Print"), this);
     m_actPdf = new QAction(style()->standardIcon(QStyle::SP_FileDialogContentsView), L("PDF"), this);
     m_actStatsPdf = new QAction(style()->standardIcon(QStyle::SP_FileDialogDetailedView), L("Stats PDF"), this);
@@ -128,145 +123,102 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     describeAction(m_actClearSearch, QStringLiteral("Clear all search fields and show the full logbook."), QStringLiteral("Clear logbook search."));
     describeAction(m_actColumns, QStringLiteral("Choose which ADIF fields are visible and printed."), QStringLiteral("Configure visible columns."));
 
-    m_menuBar = new QMenuBar(this);
-    QMenu *fileMenu = m_menuBar->addMenu(L("File"));
-    fileMenu->addAction(m_actImport);
-    fileMenu->addSeparator();
-    fileMenu->addAction(m_actExportAll);
-    fileMenu->addAction(m_actExportResult);
-    fileMenu->addAction(m_actExportSelectedAdif);
-    fileMenu->addAction(m_actExportSelectedCsv);
-    fileMenu->addAction(actCabrillo);
-    fileMenu->addSeparator();
-    fileMenu->addAction(m_actPrint);
-    fileMenu->addAction(m_actPdf);
-    fileMenu->addAction(m_actStatsPdf);
-    fileMenu->addSeparator();
-    fileMenu->addAction(L("Close"), this, &LogbookDialog::accept);
-
-    QMenu *editMenu = m_menuBar->addMenu(L("Edit"));
-    editMenu->addAction(m_actCopyCsv);
-    editMenu->addAction(m_actCopyAdif);
-    editMenu->addSeparator();
-    editMenu->addAction(m_actSelectAll);
-    editMenu->addAction(m_actDelete);
-
-    QMenu *searchMenu = m_menuBar->addMenu(L("Search"));
-    searchMenu->addAction(m_actClearSearch);
-    searchMenu->addAction(m_actRefresh);
-
-    QMenu *toolsMenu = m_menuBar->addMenu(L("Tools"));
-    toolsMenu->addAction(m_actRefresh);
-    toolsMenu->addAction(m_actColumns);
-    toolsMenu->addAction(m_actStatsPdf);
-    // Keep the menu bar inside the dialog contents instead of using
-    // QLayout::setMenuBar().  setMenuBar() reserves a native top strip outside
-    // the layout margins and, with the cockpit/double-border theme, the menu
-    // paint area covers the outer frame: visually the frame looks interrupted
-    // above "File/Edit/Search/Tools". As a normal child widget it respects the
-    // 10 px inset and the one theme-owned window frame remains continuous.
-    m_menuBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    m_menuBar->setStyleSheet(QStringLiteral("QMenuBar::item { padding: 3px 12px; }"));
-    mainLayout->addWidget(m_menuBar);
-
+    // One output scope drives exports and reports; no second scope dialog.
     m_toolbar = new QToolBar(this);
-    m_toolbar->setIconSize(QSize(24, 24));
-    m_toolbar->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    m_toolbar->setObjectName("logbookActions");
     m_toolbar->setMovable(false);
-    m_toolbar->setMinimumHeight(MadModemUi::size(76, 76).height());
-    m_toolbar->setStyleSheet(QStringLiteral("QToolBar { spacing: 6px; padding: 4px; } QToolButton { min-width: 76px; min-height: 64px; padding: 3px; }"));
-    m_toolbar->addAction(m_actImport);
-    m_toolbar->addAction(m_actExportAll);
-    m_toolbar->addAction(m_actRefresh);
-    m_toolbar->addSeparator();
-    m_toolbar->addAction(m_actCopyCsv);
-    m_toolbar->addAction(m_actCopyAdif);
-    m_toolbar->addAction(m_actExportSelectedAdif);
-    m_toolbar->addAction(m_actExportSelectedCsv);
-    m_toolbar->addSeparator();
-    m_toolbar->addAction(m_actDelete);
-    m_toolbar->addSeparator();
-    m_toolbar->addAction(m_actPrint);
-    m_toolbar->addAction(m_actPdf);
-    m_toolbar->addAction(m_actStatsPdf);
-    m_toolbar->addSeparator();
-    m_toolbar->addAction(m_actColumns);
+    m_toolbar->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_toolbar->setIconSize(QSize(18,18));
+    m_outputScope = new QComboBox(this);
+    m_outputScope->setObjectName("logbookOutputScope");
+    m_outputScope->addItems({L("Visible QSOs"),L("Selected QSOs"),L("Full logbook")});
+    m_outputScope->setToolTip(L("This choice applies to ADIF, CSV, copy, print and PDF."));
+    m_toolbar->addWidget(m_outputScope);
+    m_actExport = m_toolbar->addAction(style()->standardIcon(QStyle::SP_DialogSaveButton), L("Export ADIF..."));
+    m_actExport->setObjectName("logbookExportAdif");
+    connect(m_actExport,&QAction::triggered,this,[this]{
+        exportRecords(outputRecords(),"Export ADIF", "MadModem_QSOs.adi", "QSOs");
+    });
+    m_toolbar->addAction(actCabrillo);
+    auto* more = new QToolButton(this);
+    more->setText(L("More")); more->setPopupMode(QToolButton::InstantPopup);
+    auto* menu = new QMenu(more);
+    menu->addAction(m_actImport);
+    auto* csv=menu->addAction(L("Export CSV..."));
+    connect(csv,&QAction::triggered,this,[this]{exportRecordsCsv(outputRecords(),"Export CSV","MadModem_QSOs.csv","QSOs");});
+    auto* copyCsv=menu->addAction(L("Copy CSV"));
+    connect(copyCsv,&QAction::triggered,this,[this]{QApplication::clipboard()->setText(csvForRecords(outputRecords()));});
+    auto* copyAdif=menu->addAction(L("Copy ADIF"));
+    connect(copyAdif,&QAction::triggered,this,[this]{
+        if(m_logbook) QApplication::clipboard()->setText(AdifLogbook::recordsToAdif(outputRecords()));
+    });
+    menu->addSeparator(); menu->addAction(m_actPrint); menu->addAction(m_actPdf); menu->addAction(m_actStatsPdf);
+    menu->addSeparator(); menu->addAction(m_actColumns); menu->addAction(m_actRefresh);
+    menu->addSeparator(); menu->addAction(m_actDelete);
+    more->setMenu(menu); m_toolbar->addWidget(more);
     mainLayout->addWidget(m_toolbar);
+    connect(m_outputScope,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this]{updateOutputScope();});
 
-    QGroupBox *searchGroup = new QGroupBox(L("Advanced search"), this);
-    QGridLayout *searchGrid = new QGridLayout(searchGroup);
-    searchGrid->setContentsMargins(10, 8, 10, 8);
-    searchGrid->setHorizontalSpacing(8);
-    searchGrid->setVerticalSpacing(6);
+    auto* searchRow=new QHBoxLayout;
+    m_quickSearchEdit=new QLineEdit(this); m_quickSearchEdit->setObjectName("logbookSearch");
+    m_quickSearchEdit->setClearButtonEnabled(true);
+    m_quickSearchEdit->setPlaceholderText(L("Search callsign, locator or any field..."));
+    searchRow->addWidget(m_quickSearchEdit,1);
+    m_clearSearchButton=new QPushButton(L("Reset filters"),this);
+    searchRow->addWidget(m_clearSearchButton);
+    mainLayout->addLayout(searchRow);
 
-    m_quickSearchEdit = new QLineEdit(this);
-    m_quickSearchEdit->setPlaceholderText(L("Any field: callsign, grid, band, mode, report or UTC date..."));
-    m_quickSearchEdit->setMinimumWidth(520);
-    m_callEdit = new QLineEdit(this);
-    m_callEdit->setPlaceholderText(MadModemI18n::placeholder(QStringLiteral("e.g. IK6ABC")));
-    m_callEdit->setMinimumWidth(220);
-    m_rstSentEdit = new QLineEdit(this);
-    m_rstSentEdit->setPlaceholderText("599");
-    m_rstReceivedEdit = new QLineEdit(this);
-    m_rstReceivedEdit->setPlaceholderText("599");
-    m_bandEdit = new QLineEdit(this);
-    m_bandEdit->setPlaceholderText("20m");
-    m_bandEdit->setMinimumWidth(160);
-    m_modeEdit = new QLineEdit(this);
-    m_modeEdit->setPlaceholderText(MadModemI18n::placeholder(QStringLiteral("RTTY, BPSK31, CW, HELL...")));
-    m_modeEdit->setMinimumWidth(220);
-    m_gridEdit = new QLineEdit(this);
-    m_gridEdit->setPlaceholderText(MadModemI18n::placeholder(QStringLiteral("JN63")));
-    m_gridEdit->setMinimumWidth(140);
+    auto* filters = new QGridLayout;
+    m_bandCombo=new QComboBox(this); m_bandCombo->setObjectName("logbookBand");
+    m_modeCombo=new QComboBox(this); m_modeCombo->setObjectName("logbookMode");
+    m_bandCombo->setEditable(true); m_modeCombo->setEditable(true);
+    m_bandCombo->addItem(""); m_modeCombo->addItem("");
+    QSet<QString> bands,modes;
+    if(m_logbook) for(const auto& e:m_logbook->records()) { if(!e.band.isEmpty()) bands.insert(e.band); if(!e.mode.isEmpty()) modes.insert(e.mode); }
+    auto bandNames=bands.values();bandNames.sort();m_bandCombo->addItems(bandNames);
+    auto modeNames=modes.values();modeNames.sort();m_modeCombo->addItems(modeNames);
+    m_bandEdit=m_bandCombo->lineEdit(); m_modeEdit=m_modeCombo->lineEdit();
+    m_bandEdit->setPlaceholderText(L("All bands"));m_modeEdit->setPlaceholderText(L("All modes"));
+    m_period=new QComboBox(this);m_period->setObjectName("logbookPeriod");
+    m_period->addItems({L("All dates"),L("Today (UTC)"),L("Yesterday (UTC)"),L("Last 7 days"),L("Custom UTC interval")});
+    filters->addWidget(new QLabel(L("Band"),this),0,0);filters->addWidget(m_bandCombo,0,1);
+    filters->addWidget(new QLabel(L("Mode"),this),0,2);filters->addWidget(m_modeCombo,0,3);
+    filters->addWidget(new QLabel(L("Period"),this),0,4);filters->addWidget(m_period,0,5);
+    filters->setColumnStretch(1,1);filters->setColumnStretch(3,1);filters->setColumnStretch(5,2);
+    mainLayout->addLayout(filters);
+    auto* interval=new QWidget(this); auto* dates=new QHBoxLayout(interval);dates->setContentsMargins(0,0,0,0);
+    m_fromEnabled=new QCheckBox(L("From UTC"),interval);m_toEnabled=new QCheckBox(L("Until UTC (excluded)"),interval);
+    const auto today=QDateTime::currentDateTimeUtc().date();
+    m_fromDateEdit=new QDateTimeEdit(QDateTime(today,QTime(0,0),Qt::UTC),interval);
+    m_toDateEdit=new QDateTimeEdit(QDateTime(today.addDays(1),QTime(0,0),Qt::UTC),interval);
+    m_fromDateEdit->setObjectName("logbookFromUtc");m_toDateEdit->setObjectName("logbookUntilUtc");
+    for(auto* edit:{m_fromDateEdit,m_toDateEdit}) {edit->setTimeSpec(Qt::UTC);edit->setCalendarPopup(true);edit->setDisplayFormat("yyyy-MM-dd HH:mm:ss");}
+    m_fromEnabled->setChecked(true);m_toEnabled->setChecked(true);
+    dates->addWidget(m_fromEnabled);dates->addWidget(m_fromDateEdit,1);dates->addWidget(m_toEnabled);dates->addWidget(m_toDateEdit,1);
+    mainLayout->addWidget(interval); interval->hide();
+    m_filterError=new QLabel(L("End UTC must be after start UTC."),this);m_filterError->setWordWrap(true);
+    mainLayout->addWidget(m_filterError);m_filterError->hide();
+    connect(m_period,QOverload<int>::of(&QComboBox::currentIndexChanged),this,[this,interval](int index){interval->setVisible(index==4);refreshTable();});
 
-    m_fromEnabled = new QCheckBox(L("From UTC"), this);
-    m_fromDateEdit = new QDateEdit(QDate::currentDate().addMonths(-1), this);
-    m_fromDateEdit->setCalendarPopup(true);
-    m_fromDateEdit->setDisplayFormat("yyyy-MM-dd");
-    m_fromDateEdit->setEnabled(false);
-
-    m_toEnabled = new QCheckBox(L("To UTC"), this);
-    m_toDateEdit = new QDateEdit(QDate::currentDate(), this);
-    m_toDateEdit->setCalendarPopup(true);
-    m_toDateEdit->setDisplayFormat("yyyy-MM-dd");
-    m_toDateEdit->setEnabled(false);
-
-    m_clearSearchButton = new QPushButton(L("Clear search"), this);
-
-    searchGrid->addWidget(new QLabel(L("Any"), this), 0, 0);
-    searchGrid->addWidget(m_quickSearchEdit, 0, 1, 1, 5);
-
-    searchGrid->addWidget(new QLabel(L("Callsign"), this), 1, 0);
-    searchGrid->addWidget(m_callEdit, 1, 1);
-    searchGrid->addWidget(new QLabel(L("Band"), this), 1, 2);
-    searchGrid->addWidget(m_bandEdit, 1, 3);
-    searchGrid->addWidget(new QLabel(L("Mode"), this), 1, 4);
-    searchGrid->addWidget(m_modeEdit, 1, 5);
-
-    searchGrid->addWidget(new QLabel(L("Grid"), this), 2, 4);
-    searchGrid->addWidget(m_gridEdit, 2, 5);
-
-    searchGrid->addWidget(new QLabel(L("RST sent"), this), 2, 0);
-    searchGrid->addWidget(m_rstSentEdit, 2, 1);
-    searchGrid->addWidget(new QLabel(L("RST rcvd"), this), 2, 2);
-    searchGrid->addWidget(m_rstReceivedEdit, 2, 3);
-    searchGrid->addWidget(m_fromEnabled, 3, 2);
-    searchGrid->addWidget(m_fromDateEdit, 3, 3);
-
-    searchGrid->addWidget(m_toEnabled, 3, 4);
-    searchGrid->addWidget(m_toDateEdit, 3, 5);
-    searchGrid->addWidget(m_clearSearchButton, 3, 0, 1, 2);
-
-    searchGrid->setColumnStretch(1, 2);
-    searchGrid->setColumnStretch(3, 2);
-    searchGrid->setColumnStretch(5, 3);
+    auto* advancedToggle=new QToolButton(this);advancedToggle->setText(L("More filters"));advancedToggle->setCheckable(true);
+    advancedToggle->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);advancedToggle->setArrowType(Qt::RightArrow);
+    searchRow->insertWidget(1,advancedToggle);
+    auto* advanced=new QWidget(this);auto* advancedForm=new QGridLayout(advanced);advancedForm->setContentsMargins(0,0,0,0);
+    m_callEdit=new QLineEdit(this);m_gridEdit=new QLineEdit(this);m_rstSentEdit=new QLineEdit(this);m_rstReceivedEdit=new QLineEdit(this);
+    advancedForm->addWidget(new QLabel(L("Callsign"),this),0,0);advancedForm->addWidget(m_callEdit,0,1);
+    advancedForm->addWidget(new QLabel(L("Grid"),this),0,2);advancedForm->addWidget(m_gridEdit,0,3);
+    advancedForm->addWidget(new QLabel(L("RST sent"),this),1,0);advancedForm->addWidget(m_rstSentEdit,1,1);
+    advancedForm->addWidget(new QLabel(L("RST rcvd"),this),1,2);advancedForm->addWidget(m_rstReceivedEdit,1,3);
+    mainLayout->addWidget(advanced);advanced->hide();
+    connect(advancedToggle,&QToolButton::toggled,this,[advanced,advancedToggle](bool on){advanced->setVisible(on);advancedToggle->setArrowType(on?Qt::DownArrow:Qt::RightArrow);});
 
     m_summaryLabel = new QLabel(this);
     m_summaryLabel->setMinimumWidth(220);
 
     m_table = new QTableWidget(this);
     m_table->setColumnCount(0);
-    m_table->setMinimumHeight(420);
+    m_table->setMinimumHeight(180);
+    m_table->setObjectName("logbookTable");
 
     /*
      * ADIF fields have very predictable display lengths.  Keep the table
@@ -275,7 +227,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
      * the UTC/callsign columns.  Headers remain manually draggable.
      */
     QHeaderView *header = m_table->horizontalHeader();
-    header->setStretchLastSection(false);
+    header->setStretchLastSection(true);
     header->setSectionResizeMode(QHeaderView::Interactive);
     header->setMinimumSectionSize(80);
     m_table->verticalHeader()->setVisible(false);
@@ -291,85 +243,41 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
         "QTableWidget::item { padding: 2px; }"
         "QHeaderView::section { padding: 3px; font-weight: 600; }"));
 
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    m_importButton = new QPushButton(L("Import ADIF..."), this);
-    m_exportAllButton = new QPushButton(L("Export all..."), this);
-    m_exportResultButton = new QPushButton(L("Export result..."), this);
-    m_exportSelectedButton = new QPushButton(L("Export selected..."), this);
-    m_deleteSelectedButton = new QPushButton(L("Delete selected"), this);
-    m_deleteSelectedButton->setToolTip(L("Delete the selected QSO records from the ADIF logbook after confirmation."));
-    m_printButton = new QPushButton(L("Print..."), this);
-    m_savePdfButton = new QPushButton(L("Save PDF..."), this);
-    m_statsPdfButton = new QPushButton(L("Statistics PDF..."), this);
-    m_closeButton = new QPushButton(L("Close"), this);
-
-    buttonLayout->addWidget(m_importButton);
-    buttonLayout->addSpacing(12);
-    buttonLayout->addWidget(m_exportAllButton);
-    buttonLayout->addWidget(m_exportResultButton);
-    buttonLayout->addWidget(m_exportSelectedButton);
-    buttonLayout->addWidget(m_deleteSelectedButton);
-    buttonLayout->addSpacing(12);
-    buttonLayout->addWidget(m_printButton);
-    buttonLayout->addWidget(m_savePdfButton);
-    buttonLayout->addWidget(m_statsPdfButton);
-    buttonLayout->addStretch(1);
-    buttonLayout->addWidget(m_summaryLabel);
-    buttonLayout->addWidget(m_closeButton);
-
-    // ADIFMaster-style workflow keeps the main commands in menu/toolbar/context menu.
-    // Legacy push buttons are kept alive for signal compatibility but not shown.
-    for (QPushButton *button : {m_importButton, m_exportAllButton, m_exportResultButton,
-                                m_exportSelectedButton, m_deleteSelectedButton,
-                                m_printButton, m_savePdfButton, m_statsPdfButton, m_closeButton}) {
-        if (button != nullptr) {
-            button->setVisible(false);
-        }
-    }
-    if (m_summaryLabel != nullptr) {
-        m_summaryLabel->setVisible(false);
-    }
-
-    mainLayout->addWidget(searchGroup);
-    mainLayout->addWidget(m_table, 1);
-
+    mainLayout->addWidget(m_table,1);
+    auto* selectionRow=new QHBoxLayout;
+    auto* selectVisible=new QPushButton(L("Select visible"),this);
+    auto* clearSelection=new QPushButton(L("Clear selection"),this);
+    selectVisible->setObjectName("logbookSelectVisible"); clearSelection->setObjectName("logbookClearSelection");
+    selectionRow->addWidget(selectVisible);selectionRow->addWidget(clearSelection);
+    selectionRow->addWidget(m_summaryLabel,1);
+    m_closeButton=new QPushButton(L("Close"),this);selectionRow->addWidget(m_closeButton);
+    mainLayout->addLayout(selectionRow);
+    connect(selectVisible,&QPushButton::clicked,this,&LogbookDialog::selectAllRows);
+    connect(clearSelection,&QPushButton::clicked,m_table,&QTableWidget::clearSelection);
+    m_actSelectAll->setShortcutContext(Qt::WidgetWithChildrenShortcut);addAction(m_actSelectAll);
+    m_searchDelay=new QTimer(this);m_searchDelay->setSingleShot(true);m_searchDelay->setInterval(180);
+    connect(m_searchDelay,&QTimer::timeout,this,&LogbookDialog::refreshTable);
     const auto lineEdits = {m_quickSearchEdit, m_callEdit, m_rstSentEdit, m_rstReceivedEdit, m_bandEdit, m_modeEdit, m_gridEdit};
     for (QLineEdit *edit : lineEdits) {
         connect(edit, &QLineEdit::textChanged,
-                this, &LogbookDialog::refreshTable);
+                this, [this]{m_searchDelay->start();});
     }
 
     connect(m_fromEnabled, &QCheckBox::toggled,
-            m_fromDateEdit, &QDateEdit::setEnabled);
+            m_fromDateEdit, &QDateTimeEdit::setEnabled);
     connect(m_fromEnabled, &QCheckBox::toggled,
             this, &LogbookDialog::refreshTable);
-    connect(m_fromDateEdit, &QDateEdit::dateChanged,
+    connect(m_fromDateEdit, &QDateTimeEdit::dateTimeChanged,
             this, &LogbookDialog::refreshTable);
     connect(m_toEnabled, &QCheckBox::toggled,
-            m_toDateEdit, &QDateEdit::setEnabled);
+            m_toDateEdit, &QDateTimeEdit::setEnabled);
     connect(m_toEnabled, &QCheckBox::toggled,
             this, &LogbookDialog::refreshTable);
-    connect(m_toDateEdit, &QDateEdit::dateChanged,
+    connect(m_toDateEdit, &QDateTimeEdit::dateTimeChanged,
             this, &LogbookDialog::refreshTable);
 
     connect(m_clearSearchButton, &QPushButton::clicked,
             this, &LogbookDialog::clearSearch);
-    connect(m_importButton, &QPushButton::clicked,
-            this, &LogbookDialog::importAdif);
-    connect(m_exportAllButton, &QPushButton::clicked,
-            this, &LogbookDialog::exportAllAdif);
-    connect(m_exportResultButton, &QPushButton::clicked,
-            this, &LogbookDialog::exportSearchResultAdif);
-    connect(m_exportSelectedButton, &QPushButton::clicked,
-            this, &LogbookDialog::exportSelectedAdif);
-    connect(m_deleteSelectedButton, &QPushButton::clicked,
-            this, &LogbookDialog::deleteSelectedRecords);
-    connect(m_printButton, &QPushButton::clicked,
-            this, &LogbookDialog::printLogbook);
-    connect(m_savePdfButton, &QPushButton::clicked,
-            this, &LogbookDialog::savePdfLogbook);
-    connect(m_statsPdfButton, &QPushButton::clicked,
-            this, &LogbookDialog::saveStatisticsPdf);
     connect(m_closeButton, &QPushButton::clicked,
             this, &LogbookDialog::accept);
 
@@ -401,6 +309,7 @@ LogbookDialog::LogbookDialog(AdifLogbook *logbook, AppSettings *settings, QWidge
     refreshTable();
     updateSelectionActions();
     MadModemUi::scaleWidgetTree(this);
+    if(auto* screen=QGuiApplication::primaryScreen()) resize(size().boundedTo(screen->availableGeometry().size()*0.9));
     QTimer::singleShot(0, this, &LogbookDialog::adjustColumnWidths);
 }
 
@@ -488,6 +397,9 @@ void LogbookDialog::retranslateVisibleText()
 {
     setWindowTitle(L("MadModem logbook"));
     retranslateQObjectTree(this);
+    const QSignalBlocker block(m_period);
+    const QStringList periods={L("All dates"),L("Today (UTC)"),L("Yesterday (UTC)"),L("Last 7 days"),L("Custom UTC interval")};
+    for(int i=0;i<periods.size();++i) m_period->setItemText(i,periods[i]);
     if (m_table != nullptr && m_logbook != nullptr) {
         refreshTable();
     } else {
@@ -499,7 +411,6 @@ void LogbookDialog::retranslateVisibleText()
 void LogbookDialog::resizeEvent(QResizeEvent *event)
 {
     QDialog::resizeEvent(event);
-    adjustColumnWidths();
 }
 
 void LogbookDialog::adjustColumnWidths()
@@ -512,13 +423,13 @@ void LogbookDialog::adjustColumnWidths()
      * Common ADIF columns stay readable; the complete ADIF payload is exposed
      * through additional per-field columns with horizontal scrolling.
      */
-    const int fixedWidths[] = {170, 120, 90, 90, 90, 75, 95, 85, 130, 130, 220};
-    const int fixedCount = qMin<int>(m_table->columnCount(), int(sizeof(fixedWidths) / sizeof(fixedWidths[0])));
-    for (int col = 0; col < fixedCount; ++col) {
-        m_table->setColumnWidth(col, fixedWidths[col]);
-    }
-    for (int col = fixedCount; col < m_table->columnCount(); ++col) {
-        m_table->setColumnWidth(col, 140);
+    const QMap<QString,QString> samples{{"UTC","2026-10-07 17:59:59"},{"CALL","IZ6NNH/P"},{"GRIDSQUARE","JN63HX"},
+        {"RST_SENT","-24"},{"RST_RCVD","-24"},{"BAND","1.25m"},{"MODE","MSK144"},{"FREQ","144.174000"}};
+    for(int col=0;col<m_visibleColumnKeys.size();++col) {
+        const auto key=m_visibleColumnKeys[col];
+        const int width=qMax(m_table->fontMetrics().horizontalAdvance(samples.value(key,"WWWWWWWWWW")),
+            m_table->horizontalHeader()->fontMetrics().horizontalAdvance(columnLabel(key)))+24;
+        m_table->setColumnWidth(col,qMax(64,width));
     }
 }
 
@@ -532,12 +443,6 @@ LogbookSearchCriteria LogbookDialog::currentCriteria() const
     criteria.band = m_bandEdit != nullptr ? m_bandEdit->text() : QString();
     criteria.mode = m_modeEdit != nullptr ? m_modeEdit->text() : QString();
     criteria.grid = m_gridEdit != nullptr ? m_gridEdit->text() : QString();
-    if (m_fromEnabled != nullptr && m_fromEnabled->isChecked() && m_fromDateEdit != nullptr) {
-        criteria.fromDateUtc = m_fromDateEdit->date();
-    }
-    if (m_toEnabled != nullptr && m_toEnabled->isChecked() && m_toDateEdit != nullptr) {
-        criteria.toDateUtc = m_toDateEdit->date();
-    }
     return criteria;
 }
 
@@ -589,21 +494,8 @@ bool LogbookDialog::fieldHiddenByDefault(const QString &field) const
 
 QStringList LogbookDialog::defaultVisibleColumnKeys() const
 {
-    QStringList keys = {
-        QStringLiteral("UTC"), QStringLiteral("CALL"), QStringLiteral("GRIDSQUARE"),
-        QStringLiteral("RST_SENT"), QStringLiteral("RST_RCVD"), QStringLiteral("BAND"),
-        QStringLiteral("MODE"), QStringLiteral("FREQ"), QStringLiteral("NAME"),
-        QStringLiteral("QTH"), QStringLiteral("COMMENT")
-    };
+    QStringList keys = {"UTC","CALL","GRIDSQUARE","RST_SENT","RST_RCVD","BAND","MODE","FREQ"};
 
-    if (m_logbook != nullptr) {
-        for (const QString &field : m_logbook->allAdifFieldNames()) {
-            const QString key = field.trimmed().toUpper();
-            if (!key.isEmpty() && !keys.contains(key) && !fieldHiddenByDefault(key)) {
-                keys.append(key);
-            }
-        }
-    }
     return keys;
 }
 
@@ -667,6 +559,8 @@ void LogbookDialog::refreshTable()
         return;
     }
 
+    if(m_searchDelay) m_searchDelay->stop();
+    m_table->clearSelection();
     m_visibleColumnKeys = visibleColumnKeys();
     const QStringList primaryKeys = {
         QStringLiteral("UTC"), QStringLiteral("CALL"), QStringLiteral("GRIDSQUARE"),
@@ -691,6 +585,30 @@ void LogbookDialog::refreshTable()
     m_table->setHorizontalHeaderLabels(headers);
 
     m_displayedRecords = m_logbook->filteredRecords(currentCriteria());
+    // Band/mode selectors are exact. A 2m activity must not include 12m QSOs.
+    const QString band=m_bandEdit->text().trimmed(), mode=m_modeEdit->text().trimmed();
+    m_displayedRecords.erase(std::remove_if(m_displayedRecords.begin(),m_displayedRecords.end(),[&](const LogbookEntry& e){
+        return (!band.isEmpty() && e.band.trimmed().compare(band,Qt::CaseInsensitive)!=0) ||
+               (!mode.isEmpty() && e.mode.trimmed().compare(mode,Qt::CaseInsensitive)!=0);
+    }),m_displayedRecords.end());
+    const int period=m_period->currentIndex();
+    QDateTime from,until;
+    const auto today=QDateTime(QDateTime::currentDateTimeUtc().date(),QTime(0,0),Qt::UTC);
+    if(period==1) {from=today;until=today.addDays(1);}
+    else if(period==2) {from=today.addDays(-1);until=today;}
+    else if(period==3) {from=today.addDays(-6);until=today.addDays(1);}
+    else if(period==4) {
+        if(m_fromEnabled->isChecked()) from=m_fromDateEdit->dateTime();
+        if(m_toEnabled->isChecked()) until=m_toDateEdit->dateTime();
+    }
+    const bool invalidInterval=from.isValid() && until.isValid() && until<=from;
+    if(from.isValid() || until.isValid()) {
+        m_displayedRecords.erase(std::remove_if(m_displayedRecords.begin(),m_displayedRecords.end(),[&](const LogbookEntry& e){
+            return !e.utc.isValid() || (from.isValid() && e.utc<from) || (until.isValid() && e.utc>=until);
+        }),m_displayedRecords.end());
+    }
+    m_filterError->setText(invalidInterval?L("End UTC must be after start UTC."):L("No QSOs match the current filters."));
+    m_filterError->setVisible(invalidInterval || m_displayedRecords.isEmpty());
     m_table->setRowCount(m_displayedRecords.size());
 
     for (int row = 0; row < m_displayedRecords.size(); ++row) {
@@ -735,6 +653,9 @@ void LogbookDialog::clearSearch()
     if (m_fromEnabled != nullptr) m_fromEnabled->blockSignals(oldFrom);
     if (m_toEnabled != nullptr) m_toEnabled->blockSignals(oldTo);
 
+    m_period->setCurrentIndex(0);
+    m_fromEnabled->setChecked(true);m_toEnabled->setChecked(true);
+    m_fromDateEdit->setEnabled(true);m_toDateEdit->setEnabled(true);
     refreshTable();
 }
 
@@ -801,19 +722,7 @@ void LogbookDialog::updateStatusBar()
         return;
     }
     const int total = m_logbook != nullptr ? m_logbook->count() : 0;
-    const int shown = m_displayedRecords.size();
-    const int selected = selectedRecords().size();
-    QString message = QString("%1    %2: %3    %4: %5    %6: %7")
-                          .arg(L("Ready"))
-                          .arg(L("QSOs"))
-                          .arg(total)
-                          .arg(L("Shown"))
-                          .arg(shown)
-                          .arg(L("Selected"))
-                          .arg(selected);
-    if (!m_adifExtraColumns.isEmpty()) {
-        message += QString("    %1: %2").arg(L("ADIF extra fields")).arg(m_adifExtraColumns.size());
-    }
+    const QString message=QFileInfo(m_logbook?m_logbook->fileName():QString()).fileName()+QString(" — %1 QSO").arg(total);
     m_statusBar->showMessage(message);
 }
 
@@ -826,7 +735,31 @@ void LogbookDialog::updateSelectionActions()
             action->setEnabled(hasSelection);
         }
     }
+    if(hasSelection && !m_hadSelection) m_outputScope->setCurrentIndex(1);
+    if(!hasSelection && m_outputScope->currentIndex()==1) m_outputScope->setCurrentIndex(0);
+    m_hadSelection=hasSelection;
+    updateOutputScope();
     updateStatusBar();
+}
+
+QVector<LogbookEntry> LogbookDialog::outputRecords() const
+{
+    if(m_outputScope->currentIndex()==1) return selectedRecords();
+    if(m_outputScope->currentIndex()==2 && m_logbook) return m_logbook->records();
+    return m_displayedRecords;
+}
+
+void LogbookDialog::updateOutputScope()
+{
+    const QSignalBlocker blocker(m_outputScope);
+    const int selected=selectedRecords().size();
+    m_outputScope->setItemText(0,L("Visible QSOs")+QString(" (%1)").arg(m_displayedRecords.size()));
+    m_outputScope->setItemText(1,L("Selected QSOs")+QString(" (%1)").arg(selected));
+    m_outputScope->setItemText(2,L("Full logbook")+QString(" (%1)").arg(m_logbook?m_logbook->count():0));
+    const bool available=!outputRecords().isEmpty();
+    m_actExport->setEnabled(available);
+    for(auto* action:{m_actPrint,m_actPdf,m_actStatsPdf}) action->setEnabled(available);
+    if(m_summaryLabel) m_summaryLabel->setText(L("Shown")+QString(": %1   ").arg(m_displayedRecords.size())+L("Selected")+QString(": %1").arg(selected));
 }
 
 void LogbookDialog::showTableContextMenu(const QPoint &pos)
@@ -1071,178 +1004,6 @@ void LogbookDialog::saveSelectedRowsCsv()
 }
 
 
-bool LogbookDialog::configureAdifExportOptions(const QVector<LogbookEntry> &sourceRecords,
-                                               const QString &dialogTitle,
-                                               QVector<LogbookEntry> *outputRecords,
-                                               QString *defaultBaseName,
-                                               QString *successLabel)
-{
-    if (outputRecords == nullptr || defaultBaseName == nullptr || successLabel == nullptr) {
-        return false;
-    }
-
-    *outputRecords = sourceRecords;
-
-    QDateTime minUtc;
-    QDateTime maxUtc;
-    for (const LogbookEntry &entry : sourceRecords) {
-        const QDateTime qsoUtc = entry.utc.toUTC();
-        if (!qsoUtc.isValid() || qsoUtc.isNull()) {
-            continue;
-        }
-        if (!minUtc.isValid() || qsoUtc < minUtc) {
-            minUtc = qsoUtc;
-        }
-        if (!maxUtc.isValid() || qsoUtc > maxUtc) {
-            maxUtc = qsoUtc;
-        }
-    }
-
-    const QDateTime nowUtc = QDateTime::currentDateTimeUtc();
-    QDateTime defaultStart = minUtc.isValid() ? minUtc : nowUtc.addSecs(-4 * 3600);
-    QDateTime defaultEnd = maxUtc.isValid() ? maxUtc.addSecs(1) : nowUtc;
-    if (defaultEnd <= defaultStart) {
-        defaultEnd = defaultStart.addSecs(4 * 3600);
-    }
-
-
-    QDialog optionsDialog(this);
-    optionsDialog.setWindowTitle(L("ADIF export options"));
-    QVBoxLayout *layout = new QVBoxLayout(&optionsDialog);
-    layout->setContentsMargins(12, 12, 12, 12);
-    layout->setSpacing(8);
-
-    QLabel *sourceLabel = new QLabel(QString("%1: %2")
-                                     .arg(L("Source QSO records"))
-                                     .arg(sourceRecords.size()), &optionsDialog);
-    layout->addWidget(sourceLabel);
-
-    QCheckBox *timeFilterCheck = new QCheckBox(L("Limit export to UTC time interval (TIME_ON)"), &optionsDialog);
-    timeFilterCheck->setToolTip(L("Use ADIF QSO_DATE + TIME_ON in UTC. Start is included, end is excluded."));
-    layout->addWidget(timeFilterCheck);
-
-    QGridLayout *grid = new QGridLayout();
-    grid->setHorizontalSpacing(8);
-    grid->setVerticalSpacing(6);
-
-    QDateTimeEdit *fromEdit = new QDateTimeEdit(defaultStart, &optionsDialog);
-    fromEdit->setCalendarPopup(true);
-    fromEdit->setDisplayFormat("yyyy-MM-dd HH:mm:ss");
-    fromEdit->setEnabled(false);
-
-    QDateTimeEdit *toEdit = new QDateTimeEdit(defaultEnd, &optionsDialog);
-    toEdit->setCalendarPopup(true);
-    toEdit->setDisplayFormat("yyyy-MM-dd HH:mm:ss");
-    toEdit->setEnabled(false);
-
-    grid->addWidget(new QLabel(L("Start UTC, included"), &optionsDialog), 0, 0);
-    grid->addWidget(fromEdit, 0, 1);
-    grid->addWidget(new QLabel(L("End UTC, excluded"), &optionsDialog), 1, 0);
-    grid->addWidget(toEdit, 1, 1);
-    grid->setColumnStretch(1, 1);
-    layout->addLayout(grid);
-
-    QLabel *hintLabel = new QLabel(L("Example: for a 4-hour activity, set 18:00 as start and 22:00 as end. A QSO exactly at the end time is not exported, avoiding duplicates in consecutive exports."), &optionsDialog);
-    hintLabel->setWordWrap(true);
-    layout->addWidget(hintLabel);
-
-    QLabel *countLabel = new QLabel(&optionsDialog);
-    layout->addWidget(countLabel);
-
-    QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &optionsDialog);
-    layout->addWidget(buttons);
-
-    auto normalizedUtc = [](const QDateTime &dt) -> QDateTime {
-        QDateTime copy(dt.date(), dt.time(), Qt::UTC);
-        return copy;
-    };
-    auto recordsForInterval = [&sourceRecords, &normalizedUtc](const QDateTime &startUtc, const QDateTime &endUtc) -> QVector<LogbookEntry> {
-        QVector<LogbookEntry> filtered;
-        if (!startUtc.isValid() || !endUtc.isValid() || endUtc <= startUtc) {
-            return filtered;
-        }
-        filtered.reserve(sourceRecords.size());
-        for (const LogbookEntry &entry : sourceRecords) {
-            const QDateTime qsoUtc = entry.utc.toUTC();
-            if (!qsoUtc.isValid() || qsoUtc.isNull()) {
-                continue;
-            }
-            if (qsoUtc >= startUtc && qsoUtc < endUtc) {
-                filtered.append(entry);
-            }
-        }
-        return filtered;
-    };
-    auto refreshCount = [&]() {
-        if (!timeFilterCheck->isChecked()) {
-            countLabel->setText(QString("%1: %2")
-                                .arg(L("QSOs to export"))
-                                .arg(sourceRecords.size()));
-            return;
-        }
-        const QDateTime startUtc = normalizedUtc(fromEdit->dateTime());
-        const QDateTime endUtc = normalizedUtc(toEdit->dateTime());
-        const int count = recordsForInterval(startUtc, endUtc).size();
-        countLabel->setText(QString("%1: %2")
-                            .arg(L("QSOs matching interval"))
-                            .arg(count));
-    };
-
-    QObject::connect(timeFilterCheck, &QCheckBox::toggled, fromEdit, &QDateTimeEdit::setEnabled);
-    QObject::connect(timeFilterCheck, &QCheckBox::toggled, toEdit, &QDateTimeEdit::setEnabled);
-    QObject::connect(timeFilterCheck, &QCheckBox::toggled, &optionsDialog, [&](bool) { refreshCount(); });
-    QObject::connect(fromEdit, &QDateTimeEdit::dateTimeChanged, &optionsDialog, [&](const QDateTime &) { refreshCount(); });
-    QObject::connect(toEdit, &QDateTimeEdit::dateTimeChanged, &optionsDialog, [&](const QDateTime &) { refreshCount(); });
-    QObject::connect(buttons, &QDialogButtonBox::accepted, &optionsDialog, [&]() {
-        if (!timeFilterCheck->isChecked()) {
-            optionsDialog.accept();
-            return;
-        }
-        const QDateTime startUtc = normalizedUtc(fromEdit->dateTime());
-        const QDateTime endUtc = normalizedUtc(toEdit->dateTime());
-        if (!startUtc.isValid() || !endUtc.isValid() || endUtc <= startUtc) {
-            QMessageBox::warning(&optionsDialog,
-                                 L(dialogTitle),
-                                 L("End UTC must be after start UTC."));
-            return;
-        }
-        optionsDialog.accept();
-    });
-    QObject::connect(buttons, &QDialogButtonBox::rejected, &optionsDialog, &QDialog::reject);
-
-    refreshCount();
-    if (optionsDialog.exec() != QDialog::Accepted) {
-        return false;
-    }
-
-    if (timeFilterCheck->isChecked()) {
-        const QDateTime startUtc = normalizedUtc(fromEdit->dateTime());
-        const QDateTime endUtc = normalizedUtc(toEdit->dateTime());
-        QVector<LogbookEntry> filtered = recordsForInterval(startUtc, endUtc);
-        if (filtered.isEmpty()) {
-            QMessageBox::information(this,
-                                     L(dialogTitle),
-                                     L("No QSO records match the selected UTC interval."));
-            return false;
-        }
-        *outputRecords = filtered;
-        const QString suffix = QString("_utc_%1_%2")
-                                   .arg(startUtc.toString("yyyyMMdd_HHmmss"))
-                                   .arg(endUtc.toString("yyyyMMdd_HHmmss"));
-        if (defaultBaseName->endsWith(".adi", Qt::CaseInsensitive)) {
-            defaultBaseName->chop(4);
-            *defaultBaseName += suffix + ".adi";
-        } else {
-            *defaultBaseName += suffix;
-        }
-        *successLabel = QString("%1 - %2")
-                            .arg(L(*successLabel))
-                            .arg(L("UTC interval"));
-    }
-
-    return true;
-}
-
 bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
                                   const QString &dialogTitle,
                                   const QString &defaultBaseName,
@@ -1256,19 +1017,15 @@ bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
         return false;
     }
 
-    QVector<LogbookEntry> exportList;
-    QString adjustedBaseName = defaultBaseName;
-    QString adjustedSuccessLabel = successLabel;
-    if (!configureAdifExportOptions(records, dialogTitle, &exportList, &adjustedBaseName, &adjustedSuccessLabel)) {
-        return false;
-    }
-
+    const auto& exportList=records;
+    const QString adjustedBaseName=defaultBaseName;
+    const QString adjustedSuccessLabel=successLabel;
     const QString defaultName = adjustedBaseName.endsWith(".adi", Qt::CaseInsensitive)
                                 ? adjustedBaseName
                                 : adjustedBaseName + ".adi";
     QString selectedFilter;
     const QString fileName = QFileDialog::getSaveFileName(
-        this, L(dialogTitle), defaultName,
+        this, L(dialogTitle)+QString(" — %1 QSO").arg(records.size()), defaultName,
         L("ADIF logbook (*.adi);;ADIF logbook (*.adif);;All files (*)"), &selectedFilter);
     if (fileName.isEmpty()) {
         return false;
@@ -1280,11 +1037,8 @@ bool LogbookDialog::exportRecords(const QVector<LogbookEntry> &records,
         return false;
     }
 
-    QMessageBox::information(this,
-                             L(dialogTitle),
-                             L("%1 exported successfully (%2 QSO records).")
-                             .arg(L(adjustedSuccessLabel))
-                             .arg(exportList.size()));
+    m_statusBar->showMessage(L("%1 exported successfully (%2 QSO records).")
+        .arg(L(adjustedSuccessLabel)).arg(exportList.size())+" — "+fileName,15000);
     return true;
 }
 
@@ -1381,42 +1135,10 @@ QVector<LogbookEntry> LogbookDialog::chooseOutputRecords(const QString &dialogTi
         return {};
     }
 
-    const QVector<LogbookEntry> selected = selectedRecords();
-
-    QMessageBox box(this);
-    box.setWindowTitle(L(dialogTitle));
-    box.setIcon(QMessageBox::Question);
-    box.setText(L("Choose which QSO records to use."));
-    QPushButton *selectedButton = box.addButton(QString("%1 (%2)").arg(L("Selected QSOs")).arg(selected.size()),
-                                                QMessageBox::AcceptRole);
-    QPushButton *resultButton = box.addButton(QString("%1 (%2)").arg(L("Current search result")).arg(m_displayedRecords.size()),
-                                              QMessageBox::AcceptRole);
-    QPushButton *allButton = box.addButton(QString("%1 (%2)").arg(L("Full logbook")).arg(m_logbook->count()),
-                                           QMessageBox::AcceptRole);
-    QPushButton *cancelButton = box.addButton(QMessageBox::Cancel);
-    selectedButton->setEnabled(!selected.isEmpty());
-    resultButton->setEnabled(!m_displayedRecords.isEmpty());
-    allButton->setEnabled(m_logbook->count() > 0);
-
-    box.exec();
-    if (box.clickedButton() == cancelButton || box.clickedButton() == nullptr) {
-        return {};
-    }
-
-    if (box.clickedButton() == selectedButton) {
-        if (scopeLabel != nullptr) *scopeLabel = L("selected QSOs");
-        if (defaultBaseName != nullptr) *defaultBaseName = "MadModem_logbook_selected";
-        return selected;
-    }
-    if (box.clickedButton() == allButton) {
-        if (scopeLabel != nullptr) *scopeLabel = L("full logbook");
-        if (defaultBaseName != nullptr) *defaultBaseName = "MadModem_logbook_all";
-        return m_logbook->records();
-    }
-
-    if (scopeLabel != nullptr) *scopeLabel = L("current search result");
-    if (defaultBaseName != nullptr) *defaultBaseName = "MadModem_logbook_search_result";
-    return m_displayedRecords;
+    Q_UNUSED(dialogTitle)
+    if(scopeLabel) *scopeLabel=m_outputScope->currentText();
+    if(defaultBaseName) *defaultBaseName="MadModem_QSOs";
+    return outputRecords();
 }
 
 QString LogbookDialog::htmlForRecords(const QVector<LogbookEntry> &records,

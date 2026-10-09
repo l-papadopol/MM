@@ -65,8 +65,7 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
     m_totalSamples = 0;
     m_finishedEmitted = false;
     m_playbackStarted = false;
-    m_lastProcessedUs = 0;
-    m_lastProducedSamples = 0;
+
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
 
@@ -197,11 +196,13 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
         return false;
     }
     // Opening a sink does not prove it has pulled or played any PCM.
+    m_playbackWatchdog.reset(qint64(m_audioOutput->bufferSize())*1000/qMax(1,m_sampleRate*2));
     m_outputProgressClock.start();
     m_outputMonitor.start();
     emit logMessage(QStringLiteral("TX audio opened: %1 Hz, mono PCM16, buffer %2 B, source available %3 B, state %4.")
                     .arg(m_sampleRate).arg(m_audioOutput->bufferSize())
                     .arg(device->bytesAvailable()).arg(static_cast<int>(m_audioOutput->state())));
+    emit logMessage(QStringLiteral("TX device: %1; output level %2%; backend volume %3.").arg(deviceName.isEmpty()?QStringLiteral("default"):deviceName).arg(m_outputVolumePercent).arg(m_audioOutput->volume()));
     emit progressChanged(0.0);
 
     return true;
@@ -286,12 +287,7 @@ void TxAudioEngine::checkOutputState()
         emit started();
         if (!m_running || !m_audioOutput || generation!=m_outputGeneration) return;
     }
-    if (produced != m_lastProducedSamples || processed != m_lastProcessedUs) {
-        m_lastProducedSamples = produced;
-        m_lastProcessedUs = processed;
-        m_outputProgressClock.restart();
-    }
-    if (state == AudioNs::IdleState && source && source->atEnd() &&
+    if (m_playbackStarted && state == AudioNs::IdleState && source && source->atEnd() &&
         (error == AudioNs::NoError || error == AudioNs::UnderrunError)) {
         m_finishedEmitted = true;
         emit progressChanged(1.0);
@@ -299,7 +295,8 @@ void TxAudioEngine::checkOutputState()
         stopOutput();
         return;
     }
-    const bool stalled = m_outputProgressClock.isValid() && m_outputProgressClock.elapsed() > 1000;
+    const auto failure=m_playbackWatchdog.observe(m_outputProgressClock.elapsed(),produced,processed,source && source->atEnd());
+    const bool stalled=failure!=TxPlaybackWatchdog::Failure::None;
     if (state == AudioNs::StoppedState || error != AudioNs::NoError || stalled) {
         m_finishedEmitted = true;
         const int errorCode = static_cast<int>(error);
@@ -308,7 +305,7 @@ void TxAudioEngine::checkOutputState()
         m_modulator.reset();
         // One terminal event; MainWindow's error handler releases PTT.
         emit errorOccurred(QStringLiteral("TX audio backend %1 (state %2, error %3, pulled %4 samples, processed %5 us).")
-                           .arg(stalled ? QStringLiteral("stalled") : QStringLiteral("stopped unexpectedly"))
+                           .arg(stalled ? (failure==TxPlaybackWatchdog::Failure::PlaybackStalled ? QStringLiteral("playback stalled") : QStringLiteral("source stalled")) : QStringLiteral("stopped unexpectedly"))
                            .arg(static_cast<int>(state)).arg(errorCode).arg(produced).arg(processed));
     }
 }
@@ -322,6 +319,10 @@ void TxAudioEngine::releaseAudioOutput()
     ++m_outputGeneration;
     m_outputMonitor.stop();
     if (m_audioOutput != nullptr) {
+        const auto* source=static_cast<TxOutputDevice*>(m_outputDevice);
+        emit logMessage(QStringLiteral("TX audio closing: pulled %1 samples, processed %2 us, PCM peak %3/32767, output level %4%.")
+            .arg(source?source->samplesProduced():0).arg(m_audioOutput->processedUSecs())
+            .arg(source?source->peakPcm():0).arg(m_outputVolumePercent));
         disconnect(m_audioOutput, nullptr, this, nullptr);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         m_audioOutput->stop();

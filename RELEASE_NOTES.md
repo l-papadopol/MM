@@ -1,3 +1,18 @@
+# 0.6.0 R4 — logbook, mappa e controllo TX
+
+- Logbook: un solo ambito visibile (QSO visualizzati, selezionati, intero log) per ADIF, CSV, copia e report; i QSO selezionati impostano automaticamente l’ambito.
+- Filtri banda e modo esatti, ricerca con breve debounce, date rapide e intervallo UTC con orario direttamente nella schermata. L’inizio è incluso e la fine esclusa.
+- ADIF: dal gruppo già visibile/selezionato al salvataggio, senza seconda finestra per rifiltrare. Il risultato viene confermato nella barra di stato.
+- Tabella iniziale con otto campi essenziali; altri campi restano disponibili in Altro → Colonne. Rimossi pulsanti duplicati e minimo finestra 1280×760.
+- QSO map: sorgente, periodo e banda sempre accessibili sopra la mappa; date personalizzate; controlli di visualizzazione unificati; stampa, salvataggio e densità in Opzioni mappa. Ripristino delle preferenze di sorgente e livelli.
+- Rotore: avvio manuale anche dopo aggiornamento dalle preferenze precedenti. Il tracking QSO richiede una nuova scelta esplicita nelle impostazioni o nel pannello rotore.
+- Audio TX: watchdog separati per prelievo PCM e avanzamento backend, con tolleranza proporzionata al buffer. Un contatore in movimento non maschera più l’altro fermo. Il percorso di errore chiude l’output e richiede il rilascio PTT.
+- Diagnostica TX: dispositivo, livello, campioni prelevati/elaborati e picco PCM. I contatori Qt non dimostrano l’uscita fisica dal DAC: il guasto intermittente segnalato non è stato riprodotto su hardware e non viene attribuito con certezza a un lock.
+
+Validazione locale Linux/Qt5: test dei flussi con export ADIF reale, ordinamento, filtri 2m/12m e limiti UTC; controlli dei temi e del watchdog. Le prove native Windows/macOS e con radio restano da eseguire.
+
+---
+
 # 0.6.0 R3 — export per tutti i profili contest
 
 Il riconoscimento delle edizioni e degli scambi ora usa tutti i 30 profili RTTY

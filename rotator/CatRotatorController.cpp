@@ -514,6 +514,14 @@ void CatRotatorController::trackQsoTargetNow(const QString &reason)
 void CatRotatorController::setTrackingQsoTarget(bool enabled)
 {
     m_trackingQsoTarget = enabled;
+    if(enabled && m_trackingMode==TrackingMode::Manual) {
+        setTrackingMode(TrackingMode::Qso);
+        return;
+    }
+    if(!enabled && m_trackingMode==TrackingMode::Qso) {
+        setTrackingMode(TrackingMode::Manual);
+        return;
+    }
     if (enabled && m_trackingMode == TrackingMode::Qso) {
         trackQsoTargetNow(QStringLiteral("QSO tracking enabled"));
     } else if (!enabled && m_trackingMode == TrackingMode::Qso) {
@@ -991,7 +999,7 @@ void CatRotatorController::advanceCalibration()
 bool CatRotatorController::shouldTrackCurrentQsoTarget() const
 {
     return m_trackingMode == TrackingMode::Qso &&
-           m_config.enabled && m_config.trackSelectedQso && m_trackingQsoTarget &&
+           m_config.enabled && m_trackingQsoTarget &&
            !m_qsoTarget.callsign.trimmed().isEmpty() && m_qsoTarget.bearingDeg >= 0.0 &&
            (!m_config.trackOnlyWhenQsoActive || m_qsoTarget.qsoActive);
 }

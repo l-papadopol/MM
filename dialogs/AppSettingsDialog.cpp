@@ -1571,7 +1571,7 @@ QWidget *AppSettingsDialog::makeRotatorPage()
     m_chkRotatorEnabled->setChecked(m_initialSettings.rotatorEnabled);
     m_chkRotatorAutoConnect = new QCheckBox(L(QStringLiteral("Auto-connect selected rotator at startup")), global);
     m_chkRotatorAutoConnect->setChecked(m_initialSettings.rotatorAutoConnect);
-    m_chkRotatorTrackSelectedQso = new QCheckBox(L(QStringLiteral("Track selected MM QSO correspondent")), global);
+    m_chkRotatorTrackSelectedQso = new QCheckBox(L(QStringLiteral("Automatically point at the selected QSO (opt-in)")), global);
     m_chkRotatorTrackSelectedQso->setChecked(m_initialSettings.rotatorTrackSelectedQso);
     m_chkRotatorTrackOnlyQso = new QCheckBox(L(QStringLiteral("Only move while a QSO is active")), global);
     m_chkRotatorTrackOnlyQso->setChecked(m_initialSettings.rotatorTrackOnlyWhenQsoActive);

@@ -1,0 +1,50 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS fixture opens
+PASS fixture loads
+PASS all records visible initially
+PASS 2m and FT8 filters exclude 12m and FT4
+PASS UTC interval includes start and excludes end
+PASS selection switches output scope with count
+This plugin does not support propagateSizeHints()
+PASS ADIF export opens file picker directly, without options wizard
+PASS sorted selection exports the correct contact only
+PASS clearing selection returns to visible scope
+PASS select visible uses the filtered set
+PASS compact screen retains usable table area
+PASS all records visible initially
+PASS 2m and FT8 filters exclude 12m and FT4
+PASS UTC interval includes start and excludes end
+PASS selection switches output scope with count
+PASS clearing selection returns to visible scope
+PASS select visible uses the filtered set
+PASS compact screen retains usable table area
+PASS all records visible initially
+PASS 2m and FT8 filters exclude 12m and FT4
+PASS UTC interval includes start and excludes end
+PASS selection switches output scope with count
+PASS clearing selection returns to visible scope
+PASS select visible uses the filtered set
+PASS compact screen retains usable table area
+PASS buffer priming is allowed
+PASS new PCM cannot mask stopped playback
+PASS backend clock cannot mask stopped source
+PASS EOF may drain a large backend buffer without further pulls
+PASS new settings default to manual pointing
+PASS legacy automatic default migrates to manual pointing
+PASS explicit tracking preference saves
+PASS explicit opt-in survives restart
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+[QSO map] OSM diagnostics (startup)
+Supporto Qt SSL: YES
+Build OpenSSL: OpenSSL 3.0.13 30 Jan 2024
+Runtime OpenSSL: OpenSSL 3.0.13 30 Jan 2024
+Fallback HTTP: OFF
+Tile providers: http://127.0.0.1:9/{z}/{x}/{y}.png
+This plugin does not support propagateSizeHints()
+PASS heard-today source exposes fixed date scope
+PASS custom map dates accessible without modal dialog
+PASS controls do not cover map canvas

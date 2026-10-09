@@ -288,7 +288,7 @@ public:
     bool rotatorEnabled = false;
     bool rotatorAutoConnect = false;
     bool rotatorShowWindowOnStart = false;
-    bool rotatorTrackSelectedQso = true;
+    bool rotatorTrackSelectedQso = false;
     bool rotatorTrackOnlyWhenQsoActive = true;
     int rotatorActiveProfile = 0;
     RotatorProfileSettings rotatorProfiles[3] = {

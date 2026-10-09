@@ -1,3 +1,8 @@
+#include <QToolButton>
+#include <QPushButton>
+#include <QMenu>
+#include <QDateEdit>
+#include <QSignalBlocker>
 #include "QsoMapWidget.h"
 #include "../utils/RuntimeI18n.h"
 #include "../utils/CockpitTheme.h"
@@ -663,11 +668,18 @@ void QsoMapWidget::printMap()
 void QsoMapWidget::loadDisplaySettings()
 {
     QSettings settings(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("settings.mad")), QSettings::IniFormat);
+    const auto behavior=settings.value("QsoMap/displayBehavior").toString();
+    m_displayBehavior=behavior=="heard_today"?DisplayBehavior::HeardToday:behavior=="worked_dxcc"?DisplayBehavior::WorkedDxcc:DisplayBehavior::LogbookQsos;
+    m_mapFromDate=settings.value("QsoMap/fromDate",QDateTime::currentDateTimeUtc().date()).toDate();
+    m_mapUntilDate=settings.value("QsoMap/untilDate",m_mapFromDate).toDate();
+    if(!m_mapFromDate.isValid() || !m_mapUntilDate.isValid() || m_mapUntilDate<m_mapFromDate) m_mapFromDate=m_mapUntilDate=QDateTime::currentDateTimeUtc().date();
+    m_showPaths=settings.value("QsoMap/showPaths",false).toBool();
+    m_showMaidenheadGrid=settings.value("QsoMap/showGrid",false).toBool();
     m_mapUseModeFilter = settings.value(QStringLiteral("QsoMap/useModeFilter"), m_mapUseModeFilter).toBool();
     m_mapBandFilter = settings.value(QStringLiteral("QsoMap/bandFilter"), m_mapBandFilter).toString().trimmed();
     m_mapDateScope = settings.value(QStringLiteral("QsoMap/dateScope"), m_mapDateScope).toString().trimmed().toLower();
     if (m_mapDateScope != QStringLiteral("today") && m_mapDateScope != QStringLiteral("last7") &&
-        m_mapDateScope != QStringLiteral("last30") && m_mapDateScope != QStringLiteral("all")) {
+        m_mapDateScope != QStringLiteral("last30") && m_mapDateScope != QStringLiteral("all") && m_mapDateScope != QStringLiteral("custom")) {
         m_mapDateScope = QStringLiteral("today");
     }
     m_mapLatestPerGrid = settings.value(QStringLiteral("QsoMap/latestPerGrid"), m_mapLatestPerGrid).toBool();
@@ -680,7 +692,11 @@ void QsoMapWidget::loadDisplaySettings()
 void QsoMapWidget::saveDisplaySettings() const
 {
     QSettings settings(QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("settings.mad")), QSettings::IniFormat);
+    settings.setValue("QsoMap/fromDate",m_mapFromDate);
+    settings.setValue("QsoMap/untilDate",m_mapUntilDate);
     settings.setValue(QStringLiteral("QsoMap/displayBehavior"), displayBehaviorName());
+    settings.setValue("QsoMap/showPaths",m_showPaths);
+    settings.setValue("QsoMap/showGrid",m_showMaidenheadGrid);
     settings.setValue(QStringLiteral("QsoMap/useModeFilter"), m_mapUseModeFilter);
     settings.setValue(QStringLiteral("QsoMap/bandFilter"), m_mapBandFilter.trimmed());
     settings.setValue(QStringLiteral("QsoMap/dateScope"), m_mapDateScope);
@@ -689,114 +705,72 @@ void QsoMapWidget::saveDisplaySettings() const
     settings.sync();
 }
 
+QWidget* QsoMapWidget::createControls(QWidget* parent)
+{
+    auto* panel=new QWidget(parent);panel->setObjectName("qsoMapControls");panel->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
+    auto* layout=new QGridLayout(panel);layout->setContentsMargins(0,0,0,0);
+    auto* source=new QComboBox(panel);source->setObjectName("mapSource");
+    source->addItems({L("Logged QSOs"),L("Heard stations today"),L("Worked DXCC countries")});
+    source->setCurrentIndex(static_cast<int>(m_displayBehavior));
+    auto* period=new QComboBox(panel);period->setObjectName("mapPeriod");
+    period->addItem(L("Today (UTC)"),"today");period->addItem(L("Last 7 days"),"last7");
+    period->addItem(L("Last 30 days"),"last30");period->addItem(L("All dates"),"all");period->addItem(L("Custom dates (UTC)"),"custom");
+    period->setCurrentIndex(qMax(0,period->findData(m_mapDateScope)));
+    auto* band=new QComboBox(panel);band->setObjectName("mapBand");
+    band->addItem(L("All bands"),"");
+    QStringList bands={"160m","80m","60m","40m","30m","20m","17m","15m","12m","10m","6m","4m","2m","1.25m","70cm","23cm","13cm","9cm","6cm","3cm"};
+    for(const auto& e:m_records) if(!e.band.isEmpty() && !bands.contains(e.band)) bands.append(e.band);
+    if(!m_mapBandFilter.isEmpty() && !bands.contains(m_mapBandFilter)) bands.append(m_mapBandFilter);
+    for(const auto& b:bands) band->addItem(b,b);
+    band->setCurrentIndex(qMax(0,band->findData(m_mapBandFilter)));
+    layout->addWidget(source,0,0);layout->addWidget(period,0,1);layout->addWidget(band,0,2);
+    source->setToolTip(L("Marker source"));period->setToolTip(L("Period"));band->setToolTip(L("Band"));
+    auto* currentMode=new QCheckBox(L("Current mode only"),panel);currentMode->setObjectName("mapCurrentMode");currentMode->setChecked(m_mapUseModeFilter);
+    auto* paths=new QCheckBox(L("Paths"),panel);paths->setChecked(m_showPaths);
+    auto* grid=new QCheckBox(L("Grid and worked squares"),panel);grid->setChecked(m_showMaidenheadGrid);
+    auto* row=new QHBoxLayout;row->addWidget(currentMode);row->addWidget(paths);row->addWidget(grid);row->addStretch();
+    auto* options=new QToolButton(panel);options->setText(L("Map options"));options->setPopupMode(QToolButton::InstantPopup);
+    auto* menu=new QMenu(options);
+    menu->addAction(L("Reset view"),this,&QsoMapWidget::resetView);
+    menu->addAction(L("Marker density..."),this,[this]{configureLayerSettings();});
+    menu->addSeparator();menu->addAction(L("Save map..."),this,&QsoMapWidget::saveMap);menu->addAction(L("Print map..."),this,&QsoMapWidget::printMap);
+    options->setMenu(menu);row->addWidget(options);layout->addLayout(row,1,0,1,3);
+    auto* interval=new QWidget(panel);auto* dates=new QHBoxLayout(interval);dates->setContentsMargins(0,0,0,0);
+    auto* from=new QDateEdit(m_mapFromDate,interval);auto* until=new QDateEdit(m_mapUntilDate,interval);
+    from->setObjectName("mapFromDate");until->setObjectName("mapUntilDate");
+    for(auto* edit:{from,until}) {edit->setCalendarPopup(true);edit->setDisplayFormat("yyyy-MM-dd");}
+    dates->addWidget(new QLabel(L("From UTC"),panel));dates->addWidget(from);dates->addWidget(new QLabel(L("Through UTC date"),panel));dates->addWidget(until);dates->addStretch();
+    layout->addWidget(interval,2,0,1,3);
+    auto apply=[this,source,period,band,currentMode,paths,grid,interval,from,until]{
+        m_displayBehavior=static_cast<DisplayBehavior>(source->currentIndex());
+        m_mapDateScope=period->currentData().toString();m_mapBandFilter=band->currentData().toString();
+        m_mapUseModeFilter=currentMode->isChecked();m_showPaths=paths->isChecked();m_showMaidenheadGrid=grid->isChecked();
+        m_mapFromDate=from->date();m_mapUntilDate=until->date();
+        const bool heard=m_displayBehavior==DisplayBehavior::HeardToday;
+        period->setEnabled(!heard);interval->setVisible(!heard && m_mapDateScope=="custom");
+        saveDisplaySettings();updateQuickMapModel();update();
+    };
+    for(auto* combo:{source,period,band}) connect(combo,QOverload<int>::of(&QComboBox::currentIndexChanged),this,apply);
+    for(auto* check:{currentMode,paths,grid}) connect(check,&QCheckBox::toggled,this,apply);
+    connect(from,&QDateEdit::dateChanged,this,[from,until,apply](const QDate& date){if(until->date()<date) until->setDate(date);apply();});
+    connect(until,&QDateEdit::dateChanged,this,[from,until,apply](const QDate& date){if(from->date()>date) from->setDate(date);apply();});
+    period->setEnabled(m_displayBehavior!=DisplayBehavior::HeardToday);
+    interval->setVisible(m_displayBehavior!=DisplayBehavior::HeardToday && m_mapDateScope=="custom");
+    return panel;
+}
+
 bool QsoMapWidget::configureLayerSettings()
 {
-    QDialog dialog(this);
-    dialog.setWindowTitle(L(QStringLiteral("QSO map layers")));
-    QVBoxLayout *outer = new QVBoxLayout(&dialog);
-
-    QLabel *hint = new QLabel(L(QStringLiteral("Choose visible QSO-map layers, marker sources and filtering. These settings are saved for the map.")), &dialog);
-    hint->setWordWrap(true);
-    outer->addWidget(hint);
-
-    QGroupBox *visibleGroup = new QGroupBox(L(QStringLiteral("Visible layers")), &dialog);
-    QGridLayout *visible = new QGridLayout(visibleGroup);
-    QCheckBox *paths = new QCheckBox(L(QStringLiteral("Home to QSO paths")), visibleGroup);
-    paths->setChecked(m_showPaths);
-    QCheckBox *grid = new QCheckBox(L(QStringLiteral("Maidenhead grid")), visibleGroup);
-    grid->setChecked(m_showMaidenheadGrid);
-    QCheckBox *workedSquares = new QCheckBox(L(QStringLiteral("Worked square shading")), visibleGroup);
-    workedSquares->setChecked(m_showMaidenheadGrid);
-    workedSquares->setToolTip(L(QStringLiteral("Worked-square shading is shown together with the Maidenhead grid.")));
-    QCheckBox *markerLabels = new QCheckBox(L(QStringLiteral("Marker tooltips")), visibleGroup);
-    markerLabels->setChecked(true);
-    markerLabels->setEnabled(false);
-    QCheckBox *osmTiles = new QCheckBox(L(QStringLiteral("OpenStreetMap raster tiles")), visibleGroup);
-    osmTiles->setChecked(true);
-    osmTiles->setEnabled(false);
-    osmTiles->setToolTip(L(QStringLiteral("OSM tiles are used automatically when available; the offline map remains the fallback.")));
-    visible->addWidget(paths, 0, 0);
-    visible->addWidget(grid, 0, 1);
-    visible->addWidget(workedSquares, 1, 0);
-    visible->addWidget(markerLabels, 1, 1);
-    visible->addWidget(osmTiles, 2, 0, 1, 2);
-    outer->addWidget(visibleGroup);
-
-    QGroupBox *sourceGroup = new QGroupBox(L(QStringLiteral("Marker source")), &dialog);
-    QFormLayout *sourceForm = new QFormLayout(sourceGroup);
-    QComboBox *behavior = new QComboBox(sourceGroup);
-    behavior->addItem(L(QStringLiteral("Logged QSOs")), QStringLiteral("logbook_qsos"));
-    behavior->addItem(L(QStringLiteral("Heard stations today")), QStringLiteral("heard_today"));
-    behavior->addItem(L(QStringLiteral("Worked DXCC countries")), QStringLiteral("worked_dxcc"));
-    const int behaviorIndex = behavior->findData(displayBehaviorName());
-    behavior->setCurrentIndex(behaviorIndex >= 0 ? behaviorIndex : 0);
-    sourceForm->addRow(L(QStringLiteral("Source")), behavior);
-    outer->addWidget(sourceGroup);
-
-    QGroupBox *filtersGroup = new QGroupBox(L(QStringLiteral("Filters and marker reduction")), &dialog);
-    QFormLayout *form = new QFormLayout(filtersGroup);
-
-    QCheckBox *useMode = new QCheckBox(L(QStringLiteral("Use current mode filter")), filtersGroup);
-    useMode->setChecked(m_mapUseModeFilter);
-    form->addRow(L(QStringLiteral("Mode")), useMode);
-
-    QLineEdit *band = new QLineEdit(m_mapBandFilter, filtersGroup);
-    band->setPlaceholderText(L(QStringLiteral("empty = all bands, e.g. 20m")));
-    form->addRow(L(QStringLiteral("Band filter")), band);
-
-    QComboBox *dateScope = new QComboBox(filtersGroup);
-    dateScope->addItem(L(QStringLiteral("Current UTC day")), QStringLiteral("today"));
-    dateScope->addItem(L(QStringLiteral("Last 7 days")), QStringLiteral("last7"));
-    dateScope->addItem(L(QStringLiteral("Last 30 days")), QStringLiteral("last30"));
-    dateScope->addItem(L(QStringLiteral("All logbook")), QStringLiteral("all"));
-    const int scopeIndex = dateScope->findData(m_mapDateScope);
-    dateScope->setCurrentIndex(scopeIndex >= 0 ? scopeIndex : 0);
-    form->addRow(L(QStringLiteral("Time window")), dateScope);
-
-    QCheckBox *latestPerGrid = new QCheckBox(L(QStringLiteral("Show only latest QSO per Maidenhead square")), filtersGroup);
-    latestPerGrid->setChecked(m_mapLatestPerGrid);
-    latestPerGrid->setToolTip(L(QStringLiteral("Recommended for large ADIF logs: 50,000 QSOs become one marker per worked square.")));
-    form->addRow(L(QStringLiteral("Marker reduction")), latestPerGrid);
-
-    QSpinBox *maxMarkers = new QSpinBox(filtersGroup);
-    maxMarkers->setRange(50, 10000);
-    maxMarkers->setSingleStep(50);
-    maxMarkers->setValue(m_mapMaxMarkers);
-    form->addRow(L(QStringLiteral("Maximum markers")), maxMarkers);
-    outer->addWidget(filtersGroup);
-
-    QLabel *note = new QLabel(L(QStringLiteral("Available map layers now include OSM/fallback map background, Home→QSO paths, Maidenhead grid with worked-square shading, marker tooltips, logbook QSO markers, heard-today markers and DXCC summary markers.")), &dialog);
-    note->setWordWrap(true);
-    outer->addWidget(note);
-
-    QDialogButtonBox *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
-    outer->addWidget(buttons);
-    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-
-    if (dialog.exec() != QDialog::Accepted) {
-        return false;
-    }
-
-    m_showPaths = paths->isChecked();
-    m_showMaidenheadGrid = grid->isChecked() || workedSquares->isChecked();
-    const QString behaviorValue = behavior->currentData().toString();
-    if (behaviorValue == QStringLiteral("heard_today")) {
-        m_displayBehavior = DisplayBehavior::HeardToday;
-    } else if (behaviorValue == QStringLiteral("worked_dxcc")) {
-        m_displayBehavior = DisplayBehavior::WorkedDxcc;
-    } else {
-        m_displayBehavior = DisplayBehavior::LogbookQsos;
-    }
-    m_mapUseModeFilter = useMode->isChecked();
-    m_mapBandFilter = band->text().trimmed();
-    m_mapDateScope = dateScope->currentData().toString();
-    m_mapLatestPerGrid = latestPerGrid->isChecked();
-    m_mapMaxMarkers = maxMarkers->value();
-    saveDisplaySettings();
-    updateQuickMapModel();
-    update();
-    return true;
+    QDialog dialog(this);dialog.setWindowTitle(L("Marker density"));
+    auto* form=new QFormLayout(&dialog);
+    auto* latest=new QCheckBox(L("Show only latest QSO per Maidenhead square"),&dialog);latest->setChecked(m_mapLatestPerGrid);
+    auto* maximum=new QSpinBox(&dialog);maximum->setRange(50,10000);maximum->setSingleStep(50);maximum->setValue(m_mapMaxMarkers);
+    form->addRow(latest);form->addRow(L("Maximum markers"),maximum);
+    auto* buttons=new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel,&dialog);form->addRow(buttons);
+    connect(buttons,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);connect(buttons,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+    if(dialog.exec()!=QDialog::Accepted) return false;
+    m_mapLatestPerGrid=latest->isChecked();m_mapMaxMarkers=maximum->value();
+    saveDisplaySettings();updateQuickMapModel();update();return true;
 }
 
 void QsoMapWidget::paintEvent(QPaintEvent *)
@@ -1499,6 +1473,7 @@ bool QsoMapWidget::dateMatchesDisplayScope(const LogbookEntry &entry) const
         return true;
     }
     const QDate d = entry.utc.toUTC().date();
+    if(m_mapDateScope=="custom") return d>=m_mapFromDate && d<=m_mapUntilDate;
     const QDate today = QDateTime::currentDateTimeUtc().date();
     if (m_mapDateScope == QStringLiteral("last30")) {
         return d >= today.addDays(-29) && d <= today;
@@ -1772,7 +1747,7 @@ void QsoMapWidget::drawOverlays(QPainter *painter, const QRect &targetRect) cons
     painter->setPen(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MapText));
     painter->drawText(targetRect.adjusted(12, -24, -12, -6),
                       Qt::AlignRight | Qt::AlignBottom,
-                      mapStatusText());
+                      painter->fontMetrics().elidedText(mapStatusText(),Qt::ElideRight,qMax(0,targetRect.width()-24)));
     painter->restore();
 }
 
@@ -1943,6 +1918,7 @@ QVariantMap QsoMapWidget::qmlWorkedGridMap() const
 QString QsoMapWidget::mapTitleText() const
 {
     const QString scope = (m_displayBehavior == DisplayBehavior::HeardToday) ? L(QStringLiteral("current UTC day"))
+                        : (m_mapDateScope == QStringLiteral("custom")) ? m_mapFromDate.toString("yyyy-MM-dd")+" / "+m_mapUntilDate.toString("yyyy-MM-dd")
                         : (m_mapDateScope == QStringLiteral("all")) ? L(QStringLiteral("all dates"))
                         : (m_mapDateScope == QStringLiteral("last30")) ? L(QStringLiteral("last 30 days"))
                         : (m_mapDateScope == QStringLiteral("last7")) ? L(QStringLiteral("last 7 days"))
@@ -1959,29 +1935,13 @@ QString QsoMapWidget::mapStatusText() const
     const int count = qmlMarkerList().size();
     QPointF homeLonLat;
     const bool haveHome = maidenheadToLonLat(m_homeGrid, &homeLonLat);
-    QString extras;
-    if (m_mapLatestPerGrid) {
-        extras += L(QStringLiteral(" | latest per grid"));
-    }
-    if (!m_mapBandFilter.trimmed().isEmpty()) {
-        extras += L(QStringLiteral(" | band %1")).arg(m_mapBandFilter.trimmed());
-    }
-    const int sourceCount = (m_displayBehavior == DisplayBehavior::HeardToday) ? m_heardRecords.size() : m_records.size();
-    QString sourceLabel = L(QStringLiteral("QSO records"));
-    if (m_displayBehavior == DisplayBehavior::HeardToday) {
-        sourceLabel = L(QStringLiteral("heard stations today"));
-    } else if (m_displayBehavior == DisplayBehavior::WorkedDxcc) {
-        sourceLabel = L(QStringLiteral("logbook records grouped by DXCC"));
-    }
-    return L(QStringLiteral("%1 plotted marker%2 from %3 %4%5%6  |  %7"))
-        .arg(count)
-        .arg(count == 1 ? QString() : QStringLiteral("s"))
-        .arg(sourceCount)
-        .arg(sourceLabel)
-        .arg(extras)
-        .arg(haveHome ? L(QStringLiteral("  |  Home: %1")).arg(m_homeGrid.left(6))
-                      : L(QStringLiteral("  |  Home grid not set")))
-        .arg(osmShortStatusText());
+    QStringList parts;
+    parts << L("%1 markers").arg(count);
+    if(m_displayBehavior==DisplayBehavior::WorkedDxcc) parts << L("One per DXCC country");
+    else if(m_mapLatestPerGrid) parts << L("One per locator square");
+    if(!m_mapBandFilter.isEmpty()) parts << m_mapBandFilter;
+    parts << (haveHome ? L("Home: %1").arg(m_homeGrid.left(6)) : L("Home grid not set"));
+    return parts.join(" | ");
 }
 
 

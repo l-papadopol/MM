@@ -1,5 +1,13 @@
 # MadModem changelog
 
+## 0.6.0 R4 — logbook and map workflows — 2026-10-09
+
+- Consolidate logbook output scope and remove the second ADIF filtering dialog.
+- Expose exact band/mode and UTC time filters, compact columns, selection counts and direct export.
+- Move map controls above the canvas; expose source/date/band choices and fix layer toggling/persistence.
+- Default rotator control to manual, with explicit QSO tracking opt-in.
+- Monitor PCM delivery and backend playback independently; add device/level/PCM diagnostics.
+
 ## 0.6.0 R3 — all contest profiles — 2026-10-06
 
 - Generalize edition discovery, ADIF exchange recovery and QSO validation to 30 RTTY and 8 CW profiles.

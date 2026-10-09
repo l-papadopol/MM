@@ -1,0 +1,62 @@
+Internal ctest changing into directory: /workspace/scratch/568f9cc8dc74/verification-r21/build
+Test project /workspace/scratch/568f9cc8dc74/verification-r21/build
+      Start  1: madmodem_async_architecture_regression
+ 1/28 Test  #1: madmodem_async_architecture_regression ....   Passed    0.32 sec
+      Start  2: madmodem_window_rotator_regression
+ 2/28 Test  #2: madmodem_window_rotator_regression ........   Passed    0.41 sec
+      Start  3: madmodem_runtime_workers_regression
+ 3/28 Test  #3: madmodem_runtime_workers_regression .......   Passed    0.99 sec
+      Start  4: madmodem_settings_ui_regression
+ 4/28 Test  #4: madmodem_settings_ui_regression ...........   Passed    5.03 sec
+      Start  5: madmodem_tx_pull_regression
+ 5/28 Test  #5: madmodem_tx_pull_regression ...............   Passed    0.01 sec
+      Start  6: madmodem_i18n_regression
+ 6/28 Test  #6: madmodem_i18n_regression ..................   Passed    0.01 sec
+      Start  7: madmodem_rotator_coordinates
+ 7/28 Test  #7: madmodem_rotator_coordinates ..............   Passed    0.01 sec
+      Start  8: madmodem_antialias_regression
+ 8/28 Test  #8: madmodem_antialias_regression .............   Passed    0.04 sec
+      Start  9: madmodem_resampler_streaming
+ 9/28 Test  #9: madmodem_resampler_streaming ..............   Passed    0.11 sec
+      Start 10: madmodem_logbook_regression
+10/28 Test #10: madmodem_logbook_regression ...............   Passed    0.01 sec
+      Start 11: madmodem_wav_reader_test
+11/28 Test #11: madmodem_wav_reader_test ..................   Passed    0.00 sec
+      Start 12: madmodem_q65_native_regression
+12/28 Test #12: madmodem_q65_native_regression ............   Passed    2.25 sec
+      Start 13: madmodem_msk144_native_regression
+13/28 Test #13: madmodem_msk144_native_regression .........   Passed    0.35 sec
+      Start 14: madmodem_architecture_guard
+14/28 Test #14: madmodem_architecture_guard ...............   Passed    0.59 sec
+      Start 15: madmodem_ui_contest_guard
+15/28 Test #15: madmodem_ui_contest_guard .................   Passed    0.29 sec
+      Start 16: madmodem_ft_runtime_guard
+16/28 Test #16: madmodem_ft_runtime_guard .................   Passed    0.43 sec
+      Start 17: madmodem_release_audit
+17/28 Test #17: madmodem_release_audit ....................   Passed    1.73 sec
+      Start 18: madmodem_cw_native_regression
+18/28 Test #18: madmodem_cw_native_regression .............   Passed   27.77 sec
+      Start 19: madmodem_waterfall_native_regression
+19/28 Test #19: madmodem_waterfall_native_regression ......   Passed    1.72 sec
+      Start 20: madmodem_waterfall_integrity_guard
+20/28 Test #20: madmodem_waterfall_integrity_guard ........   Passed    0.11 sec
+      Start 21: madmodem_ft_sequencer
+21/28 Test #21: madmodem_ft_sequencer .....................   Passed    0.01 sec
+      Start 22: madmodem_all_contest_exports_regression
+22/28 Test #22: madmodem_all_contest_exports_regression ...   Passed    2.08 sec
+      Start 23: madmodem_logbook_workflow_regression
+23/28 Test #23: madmodem_logbook_workflow_regression ......   Passed    3.85 sec
+      Start 24: madmodem_contest_export_regression
+24/28 Test #24: madmodem_contest_export_regression ........   Passed    2.58 sec
+      Start 25: madmodem_cw_integration_regression
+25/28 Test #25: madmodem_cw_integration_regression ........   Passed   12.36 sec
+      Start 26: madmodem_rtty_contest_regression
+26/28 Test #26: madmodem_rtty_contest_regression ..........   Passed    8.28 sec
+      Start 27: madmodem_rtty_synthetic_bench
+27/28 Test #27: madmodem_rtty_synthetic_bench .............   Passed    1.49 sec
+      Start 28: madmodem_text_assist_workers_regression
+28/28 Test #28: madmodem_text_assist_workers_regression ...   Passed    0.01 sec
+
+100% tests passed, 0 tests failed out of 28
+
+Total Test time (real) =  72.84 sec

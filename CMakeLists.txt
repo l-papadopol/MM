@@ -1167,6 +1167,19 @@ if(BUILD_TESTING)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cw_rules $<TARGET_FILE_DIR:madmodem_all_contest_exports_regression>/cw_rules)
     add_test(NAME madmodem_all_contest_exports_regression COMMAND madmodem_all_contest_exports_regression)
 
+    add_executable(madmodem_logbook_workflow_regression
+        tests/LogbookWorkflowRegression.cpp tests/i18n.qrc
+        dialogs/LogbookDialog.cpp dialogs/LogbookDialog.h
+        dialogs/ContestExportWizard.cpp dialogs/ContestExportWizard.h
+        logbook/ContestExchange.cpp logbook/AdifLogbook.cpp
+        widgets/QsoMapWidget.cpp widgets/QsoMapWidget.h
+        settings/AppSettings.cpp rotator/RotatorPeakSearch.cpp
+        dxcc/CtyCountryFile.cpp utils/RuntimeI18n.cpp utils/CockpitTheme.cpp)
+    target_include_directories(madmodem_logbook_workflow_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_logbook_workflow_regression PRIVATE ${QT}::Core ${QT}::Gui ${QT}::Widgets ${QT}::Network ${QT}::PrintSupport)
+    add_test(NAME madmodem_logbook_workflow_regression COMMAND madmodem_logbook_workflow_regression)
+    set_tests_properties(madmodem_logbook_workflow_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+
     add_executable(madmodem_contest_export_regression
         tests/ContestExportRegression.cpp tests/i18n.qrc
         dialogs/ContestExportWizard.cpp dialogs/ContestExportWizard.h

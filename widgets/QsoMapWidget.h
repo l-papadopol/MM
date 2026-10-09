@@ -43,6 +43,7 @@ public:
     explicit QsoMapWidget(QWidget *parent = nullptr);
     ~QsoMapWidget() override;
 
+    QWidget* createControls(QWidget* parent);
     void setRecords(const QVector<LogbookEntry> &records);
     void addHeardStation(const LogbookEntry &entry);
     void clearHeardStations();
@@ -160,6 +161,7 @@ private:
     DisplayBehavior m_displayBehavior = DisplayBehavior::LogbookQsos;
     bool m_mapUseModeFilter = true;
     QString m_mapBandFilter;
+    QDate m_mapFromDate, m_mapUntilDate;
     QString m_mapDateScope = QStringLiteral("today"); // today, last7, last30, all
     bool m_mapLatestPerGrid = true;
     int m_mapMaxMarkers = 1000;
