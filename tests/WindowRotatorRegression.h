@@ -2,6 +2,7 @@
 #include "../utils/CockpitTheme.h"
 #include "../rotator/CatRotatorPanel.h"
 #include "../rotator/NavballWidget.h"
+#include "../dialogs/SstvImageEditorDialog.h"
 #include <QApplication>
 #include <QMainWindow>
 #include <QMenuBar>
@@ -14,6 +15,9 @@
 #include <QPushButton>
 #include <QTemporaryDir>
 #include <QTextStream>
+#include <QDialog>
+#include <QMessageBox>
+#include <QVBoxLayout>
 
 inline int runWindowRotatorRegression(QApplication &app)
 {
@@ -24,6 +28,23 @@ inline int runWindowRotatorRegression(QApplication &app)
         QMouseEvent press(QEvent::MouseButtonPress,point,global,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
         QMouseEvent release(QEvent::MouseButtonRelease,point,global,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
         app.sendEvent(widget,&press);app.sendEvent(widget,&release);app.processEvents();
+    };
+    auto dragEdge=[&](QWidget &window,Qt::Edges edge,const QPoint &delta){
+        auto *handle=window.findChild<QWidget*>(QStringLiteral("mmResizeHandle_%1").arg(int(edge)));
+        check(handle && handle->isVisible(),"resize handle visible on restored window");
+        if(!handle || !handle->isVisible()) return;
+        const QPoint local=handle->rect().center(), origin=handle->mapToGlobal(local);
+        const QRect before=window.geometry();
+        QMouseEvent press(QEvent::MouseButtonPress,local,origin,Qt::LeftButton,Qt::LeftButton,Qt::NoModifier);
+        app.sendEvent(handle,&press);
+        QMouseEvent move(QEvent::MouseMove,handle->mapFromGlobal(origin+delta),origin+delta,Qt::NoButton,Qt::LeftButton,Qt::NoModifier);
+        app.sendEvent(handle,&move);
+        QMouseEvent release(QEvent::MouseButtonRelease,handle->mapFromGlobal(origin+delta),origin+delta,Qt::LeftButton,Qt::NoButton,Qt::NoModifier);
+        app.sendEvent(handle,&release);app.processEvents();
+        check(window.size()!=before.size(),"edge drag actually resizes window");
+        if(edge & Qt::LeftEdge) check(window.geometry().right()==before.right(),"left drag preserves right edge");
+        if(edge & Qt::TopEdge) check(window.geometry().bottom()==before.bottom(),"top drag preserves bottom edge");
+        check(QWidget::mouseGrabber()!=handle,"resize releases mouse capture");
     };
     for(const QString &theme:{QStringLiteral("avionica"),QStringLiteral("qt_default"),QStringLiteral("classic_dark")}){
         MadModemUi::applyUiTheme(app,theme);
@@ -60,8 +81,30 @@ inline int runWindowRotatorRegression(QApplication &app)
         }
         combo->showPopup();app.processEvents();
         check(QApplication::activePopupWidget()!=nullptr,"combo popup remains available");combo->hidePopup();
+        window.showNormal();window.resize(800,600);app.processEvents();
+        for(const Qt::Edges edge:{Qt::Edges(Qt::LeftEdge),Qt::Edges(Qt::RightEdge),Qt::Edges(Qt::TopEdge),Qt::Edges(Qt::BottomEdge),
+              Qt::LeftEdge|Qt::TopEdge,Qt::RightEdge|Qt::TopEdge,Qt::LeftEdge|Qt::BottomEdge,Qt::RightEdge|Qt::BottomEdge}) {
+            dragEdge(window,edge,QPoint(edge & Qt::LeftEdge ? -35 : 35,edge & Qt::TopEdge ? -25 : 25));
+        }
+        window.showMaximized();app.processEvents();
+        for(auto *child:window.findChildren<QWidget*>()) if(child->objectName().startsWith("mmResizeHandle_"))
+            check(!child->isVisible(),"maximized window does not intercept border controls");
+        QDialog dialog;auto *layout=new QVBoxLayout(&dialog);layout->addWidget(new QPushButton("Control"));
+        dialog.resize(400,250);dialog.show();app.processEvents();
+        dragEdge(dialog,Qt::RightEdge|Qt::BottomEdge,QPoint(55,45));dialog.close();
+        QMessageBox message(QMessageBox::Information,"Message","Resizable message",QMessageBox::Ok);
+        message.show();app.processEvents();app.processEvents();
+        check(message.maximumWidth()==QWIDGETSIZE_MAX && message.maximumHeight()==QWIDGETSIZE_MAX,"message box releases Qt fixed-size constraints");
+        dragEdge(message,Qt::RightEdge|Qt::BottomEdge,QPoint(55,45));message.close();
+        QDialog embedded(&window);embedded.setWindowFlags(Qt::Widget);
+        embedded.setProperty("cockpitEmbeddedDialog",true);embedded.show();app.processEvents();
+        check(!embedded.property("mmWindowResizeInstalled").toBool(),"embedded settings pages have no window resize handles");
         window.close();app.processEvents();
     }
+    SstvImageEditorDialog editor;editor.show();app.processEvents();
+    editor.resize(800,600);app.processEvents();
+    check(editor.width()<=800 && editor.height()<=600,"SSTV editor fits a small desktop with scrollable tools");
+    dragEdge(editor,Qt::RightEdge|Qt::BottomEdge,QPoint(40,40));editor.close();
     QTemporaryDir storage;check(storage.isValid(),"isolated preset settings available");
     mm::CatRotatorController controller;
     check(controller.trackingMode()==mm::CatRotatorController::TrackingMode::Manual,"rotator starts in manual mode");

@@ -23,11 +23,7 @@ beam, selected-tone tracker and lane scanner used by the application. It checks:
 - micro-run storms, white/impulsive noise and no false text;
 - reset timestamps, duplicate tone updates and sample-rate restart integrity.
 
-For this checkpoint the production CW path is validated with GCC and Clang
-using `-Wall -Wextra -Werror`, plus AddressSanitizer and
-UndefinedBehaviorSanitizer. The current release-level results are consolidated
-in [`../RELEASE_VALIDATION_0_5_8.md`](../RELEASE_VALIDATION_0_5_8.md).
-The full Qt application cannot be configured in the preparation container
-because Qt5 development packages are absent. On-air and recorded-audio testing
-remain mandatory because synthetic generators cannot reproduce every receiver
-AGC, operator and QRM condition.
+Run the full integration suite with `ctest --test-dir build --output-on-failure`.
+GitHub runs native suites before packaging. Recorded-audio and on-air tests remain
+necessary for receiver AGC, QSB and QRM conditions that synthetic inputs cannot
+fully reproduce. Keep generated logs outside the source tree.

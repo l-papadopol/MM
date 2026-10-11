@@ -1,113 +1,35 @@
-# MadModem GitHub Actions distribution builds
+# MadModem 0.6.1 installer builds
 
-This tree contains CI scripts for building unsigned MadModem packages directly
-on GitHub-hosted runners. The goal is to keep Linux, Windows and macOS package
-creation outside the DSP/CAT/runtime code path.
+The `Build installers` workflow (`.github/workflows/build-distribution.yml`)
+runs automatically on pushes to `main`/`master` and `v*` tags. It can also be
+started through **Actions → Build installers → Run workflow**. It does not
+publish a public GitHub Release; completed installers are available as artifacts.
 
-## Workflows
+| Job | Build environment | Artifact |
+| --- | --- | --- |
+| Windows | Windows 2022, MSYS2/MinGW64, Qt5 | One x64 Setup.exe with CPU/OS selection |
+| Ubuntu | Ubuntu 24.04, Qt5, system Hamlib | Ubuntu24.04 Setup.run containing DEB |
+| Fedora | Fedora 43 container, Qt5, system Hamlib | fc43 Setup.run containing RPM |
+| macOS Intel | macos-15-intel, Qt6, Homebrew | x86_64 unsigned.pkg |
+| macOS Apple Silicon | macos-15, Qt6, Homebrew | arm64 unsigned.pkg |
 
-### `.github/workflows/build-distribution.yml`
+Each job builds and runs CTest before packaging. Native smoke checks then install
+and reinstall the package, verify user data preservation and launch `--version`.
+The Windows check also verifies that the installed executable matches the CPU
+variant selected by the probe, starts without the compiler runtime on PATH and
+retains user data after uninstall. A runner without AVX2/FMA tests the legacy
+executable; the AVX2 variant is still compiled and included.
 
-Manual or tag-driven release factory:
+Upload failures or failed build/test/install steps block that platform's artifact.
+The workflow uses read-only repository permissions. Signing/notarization secrets
+are not configured. macOS binaries target macOS 15 or later, matching the runners
+and their Homebrew libraries.
 
-- Linux x86_64 on `ubuntu-24.04`
-- Windows x86_64 on `windows-2022` using MSYS2/MinGW64
-- macOS arm64 on `macos-15`
-- macOS Intel on `macos-15-intel`
-- on `v*` tags, uploads the generated artifacts to a GitHub Release
+The separate `source-regression.yml` workflow continues to test Linux Qt5 and Qt6
+on pushes and pull requests. Match release tags exactly, for example `v0.6.1`.
+Copy the complete source tree, including `.github`, into the repository root.
+When updating a repository by copying sources, remove the old tracked verification
+folders and obsolete release reports as well: copying over files does not delete
+them. Preserve local settings, logs and recordings outside the source tree.
 
-Manual run:
-
-1. Open the repository on GitHub.
-2. Go to **Actions**.
-3. Select **Build distribution packages**.
-4. Click **Run workflow**.
-5. Download the artifacts at the bottom of the completed run.
-
-Tag/release run:
-
-```bash
-git tag v0.5.8
-git push origin v0.5.8
-```
-
-The workflow then builds all packages and creates or updates the GitHub Release
-for that tag.
-
-Every distribution job runs its configured CTest suite before packaging. A
-test failure therefore blocks the corresponding Linux, Windows or macOS
-artifact.
-
-### `.github/workflows/source-regression.yml`
-
-Runs on every push and pull request. It performs a portable Linux release
-build against the system Hamlib package, then executes the complete CTest
-suite, including the native CW/waterfall tests and the FT8/FT4 source guards.
-
-### `.github/workflows/build-macos.yml`
-
-macOS-only workflow, manual-only to avoid duplicate tag builds. Use it when you
-want to test only the macOS bundle without waiting for Linux and Windows.
-
-## Generated artifacts
-
-Expected CI output names:
-
-```text
-MadModem-<version>-Linux-x86_64.tar.gz
-MadModem-<version>-Windows-x86_64-legacy-standalone.zip
-MadModem-<version>-Windows-x86_64-avx2-standalone.zip
-MadModem-<version>-macOS-arm64-unsigned.zip
-MadModem-<version>-macOS-arm64-unsigned.dmg
-MadModem-<version>-macOS-x86_64-unsigned.zip
-MadModem-<version>-macOS-x86_64-unsigned.dmg
-```
-
-## Windows notes
-
-The official Windows release artifacts are built on GitHub with Qt5/MinGW64 in
-an MSYS2 runner. The packaging stage follows the complete runtime-DLL closure
-and refuses to publish an incomplete standalone package.
-
-The Windows artifacts are built in an MSYS2/MinGW64 runner and include the
-complete Qt/MinGW runtime dependency closure. Two standalone ZIP packages are
-produced:
-
-- `legacy-standalone`: portable x86_64 baseline, safer for old CPUs
-- `avx2-standalone`: AVX2/FMA optimized executable for modern CPUs
-
-The package script recursively discovers and bundles non-system DLLs, writes a
-runtime dependency report and rejects an unresolved dependency before creating
-the ZIP.
-
-## Linux notes
-
-The Linux package is a normal native tarball built on the GitHub Ubuntu
-runner. It is not an AppImage yet. Users may need the matching Qt runtime
-packages installed on their distribution.
-
-## macOS notes
-
-macOS packages are unsigned or ad-hoc signed only. They are not Apple Developer
-ID signed and not notarized. Gatekeeper may warn on first launch.
-
-## Build switches used by CI
-
-The CI scripts default to:
-
-```text
-Retired MIND build options are not part of 0.5.8; distribution builds do not pass MADMODEM_MIND_OPENMP.
-Q65A/B/C/D RX and TX are built unconditionally and require no external FFT library.
-```
-
-The main modem/DSP/CAT source code is not changed by these scripts.
-
-
-### 0.5.8 artifact validation
-
-The tag release job validates downloaded artifacts before uploading them to
-GitHub Releases. It rejects stale quarantined assets, Windows ZIPs without the
-executable/runtime report/Qt runtime/rules file, incomplete Linux tarballs and
-macOS ZIPs without the required QtSerialPort framework, build metadata or RTTY
-rules. The macOS package script also force-copies required Qt frameworks into
-the app bundle and aborts if `Contents/Frameworks` is empty.
+For end-user installation and data migration see [INSTALLERS.md](INSTALLERS.md).

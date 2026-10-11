@@ -1,236 +1,223 @@
-name: Build distribution packages
+name: Build installers
 
 on:
-  workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    branches: [main, master]
+    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: installers-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  linux-x86_64:
-    name: Linux x86_64 package
+  ubuntu:
+    name: Ubuntu 24.04 x64 portable and installer
     runs-on: ubuntu-24.04
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Linux build dependencies
+      - uses: actions/checkout@v4
+      - name: Install build and runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            build-essential cmake ninja-build pkg-config rsync \
-            autoconf automake libtool gettext autopoint \
-            qtbase5-dev qttools5-dev qttools5-dev-tools \
-            qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev \
-            libqt5serialport5-dev libqt5opengl5-dev libgl1-mesa-dev
-
-      - name: Build Linux package tree
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config python3 dpkg-dev \
+            libgl1-mesa-dev libhamlib-dev qtbase5-dev qttools5-dev qttools5-dev-tools \
+            qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev libqt5serialport5-dev \
+            libqt5opengl5-dev qml-module-qtquick2 qml-module-qtquick-window2 \
+            qml-module-qtlocation qml-module-qtpositioning libqt5multimedia5-plugins libqt5sql5-sqlite
+      - name: Build and test
         run: |
-          bash scripts/build_linux_github.sh
-
-      - name: Run Linux regression suite
+          cmake -S . -B build-installer -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON -DHAMLIB_ROOT=/usr \
+            -DMADMODEM_REQUIRE_HAMLIB=ON -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
+            -DMADMODEM_AVX2_BUILD=OFF -DMADMODEM_NATIVE_OPTIMIZE=OFF -DBUILD_TESTING=ON
+          cmake --build build-installer --parallel 2
+          ctest --test-dir build-installer --output-on-failure
+      - name: Create portable archives
+        env:
+          MADMODEM_LINUX_PLATFORM: Ubuntu24.04
         run: |
-          ctest --test-dir build-linux-github --output-on-failure
-
-      - name: Package Linux artifact
-        run: |
+          cmake --install build-installer --prefix "$PWD/dist/linux"
           bash scripts/package_linux_github.sh
-          ls -lh dist/packages
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: MadModem-Linux-x86_64
-          path: dist/packages/MadModem-*-Linux-x86_64.tar.gz
+          name: portable-ubuntu24-x64
+          path: |
+            dist/packages/*.zip
+            dist/packages/*.tar.gz
           if-no-files-found: error
-          retention-days: 14
+      - name: Package and verify installation and reinstall
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python3 scripts/package_linux_installer.py --build-dir build-installer --format deb
+          bash scripts/test_linux_installer.sh dist/packages/*-Setup.run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-ubuntu24-x64
+          path: dist/packages/*-Setup.run
+          if-no-files-found: error
 
-  windows-x86_64:
-    name: Windows x86_64 standalone packages
-    runs-on: windows-2022
-
-    defaults:
-      run:
-        shell: msys2 {0}
-
+  fedora:
+    name: Fedora 43 x64 portable and installer
+    runs-on: ubuntu-24.04
+    container: fedora:43
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Install tools and Qt
+        run: |
+          dnf install -y git tar gzip gcc-c++ cmake ninja-build python3 pkgconf-pkg-config \
+            hamlib-devel qt5-qtbase-devel qt5-qttools-devel qt5-qtmultimedia-devel \
+            qt5-qtserialport-devel qt5-qtdeclarative-devel qt5-qtlocation-devel \
+            mesa-libGL-devel rpm-build which findutils
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: |
+          cmake -S . -B build-installer -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON -DHAMLIB_ROOT=/usr \
+            -DMADMODEM_REQUIRE_HAMLIB=ON -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
+            -DMADMODEM_AVX2_BUILD=OFF -DMADMODEM_NATIVE_OPTIMIZE=OFF -DBUILD_TESTING=ON
+          cmake --build build-installer --parallel 2
+          ctest --test-dir build-installer --output-on-failure
+      - name: Create portable archives
+        env:
+          MADMODEM_LINUX_PLATFORM: Fedora43
+        run: |
+          cmake --install build-installer --prefix "$PWD/dist/linux"
+          bash scripts/package_linux_github.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: portable-fedora43-x64
+          path: |
+            dist/packages/*.zip
+            dist/packages/*.tar.gz
+          if-no-files-found: error
+      - name: Package and verify installation and reinstall
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python3 scripts/package_linux_installer.py --build-dir build-installer --format rpm
+          bash scripts/test_linux_installer.sh dist/packages/*-Setup.run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-fedora43-x64
+          path: dist/packages/*-Setup.run
+          if-no-files-found: error
 
-      - name: Setup MSYS2 MinGW64
-        uses: msys2/setup-msys2@v2
+  windows:
+    name: Windows x64 portable and automatic CPU installer
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update: true
-          cache: true
-          path-type: minimal
           install: >-
-            base-devel
-            git
-            zip
-            unzip
-            rsync
-            autoconf
-            automake-wrapper
-            libtool
-            gettext-devel
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-ninja
-            mingw-w64-x86_64-pkgconf
-            mingw-w64-x86_64-qt5-base
-            mingw-w64-x86_64-qt5-tools
-            mingw-w64-x86_64-qt5-declarative
-            mingw-w64-x86_64-qt5-location
-            mingw-w64-x86_64-qt5-multimedia
-            mingw-w64-x86_64-qt5-serialport
-            mingw-w64-x86_64-qt5-svg
-            mingw-w64-x86_64-qt5-imageformats
-            mingw-w64-x86_64-qt5-translations
-            mingw-w64-x86_64-angleproject
-
-      - name: Verify MSYS2 Qt deploy tools
+            base-devel git zip autoconf automake libtool
+            mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+            mingw-w64-x86_64-pkgconf mingw-w64-x86_64-python
+            mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools
+            mingw-w64-x86_64-qt5-multimedia mingw-w64-x86_64-qt5-serialport
+            mingw-w64-x86_64-qt5-declarative mingw-w64-x86_64-qt5-location
+            mingw-w64-x86_64-openssl mingw-w64-x86_64-libusb
+      - name: Ensure Inno Setup is available
+        shell: pwsh
         run: |
-          pacman -S --needed --noconfirm mingw-w64-x86_64-qt5-tools
-          echo "PATH=$PATH"
-          echo "MINGW_PREFIX=${MINGW_PREFIX:-/mingw64}"
-          ls -la "${MINGW_PREFIX:-/mingw64}/bin"/*deploy*qt* 2>/dev/null || true
-          command -v windeployqt || command -v windeployqt-qt5 || true
-          test -x "${MINGW_PREFIX:-/mingw64}/bin/windeployqt-qt5.exe" || { echo "windeployqt-qt5.exe missing after pacman install"; pacman -Ql mingw-w64-x86_64-qt5-tools | grep -i deploy || true; exit 1; }
-
-      - name: Build Windows standalone variants
+          if (!(Test-Path 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe')) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Build and test both CPU variants
+        shell: msys2 {0}
         env:
-          MADMODEM_WINDOWS_BUILD_LEGACY: on
-          MADMODEM_WINDOWS_BUILD_AVX2: on
+          JOBS: '2'
         run: |
+          bash scripts/ci_release_version_guard.sh
           bash scripts/build_windows_msys2.sh
-
-      - name: Run Windows regression suites
-        run: |
           ctest --test-dir build-windows-msys2-legacy --output-on-failure
-          ctest --test-dir build-windows-msys2-avx2 --output-on-failure
-
-      - name: Package Windows standalone artifacts
+          gcc -O2 -march=x86-64 -mno-avx -mno-avx2 -mno-fma -static packaging/windows/cpu_probe.c -o cpu-probe.exe
+          if ./cpu-probe.exe; then
+            ctest --test-dir build-windows-msys2-avx2 --output-on-failure
+          else
+            echo 'Runner lacks AVX2/FMA OS support; legacy tested, AVX2 compile verified.'
+          fi
+      - name: Check startup menus with the native Windows backend
+        shell: msys2 {0}
+        timeout-minutes: 3
         env:
-          MADMODEM_WINDOWS_BUILD_LEGACY: on
-          MADMODEM_WINDOWS_BUILD_AVX2: on
-        run: |
-          bash scripts/package_windows_msys2.sh
-          ls -lh dist/packages
-
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+          QT_QPA_PLATFORM: windows
+        run: ./build-windows-msys2-legacy/MadModem.exe --window-rotator-regression
+      - name: Create portable ZIPs
+        shell: msys2 {0}
+        run: bash scripts/package_windows_msys2.sh
+      - uses: actions/upload-artifact@v4
         with:
-          name: MadModem-Windows-x86_64-standalone
-          path: |
-            dist/packages/MadModem-*-Windows-x86_64-legacy-standalone.zip
-            dist/packages/MadModem-*-Windows-x86_64-avx2-standalone.zip
+          name: portable-windows-x64-legacy-and-avx2
+          path: dist/packages/*-standalone.zip
           if-no-files-found: error
-          retention-days: 14
+      - name: Create installer
+        shell: msys2 {0}
+        run: bash scripts/package_windows_installer.sh
+      - name: Verify installation, CPU choice, reinstall and uninstall
+        shell: pwsh
+        run: ./scripts/test_windows_installer.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows-x64
+          path: dist/packages/*-Setup.exe
+          if-no-files-found: error
 
   macos:
-    name: macOS ${{ matrix.arch }} unsigned package
-    runs-on: ${{ matrix.runner }}
+    name: macOS ${{ matrix.arch }} portable and installer
     strategy:
       fail-fast: false
       matrix:
         include:
-          - arch: arm64
-            runner: macos-15
-          - arch: x86_64
-            runner: macos-15-intel
-
+          - runner: macos-15-intel
+            arch: x86_64
+          - runner: macos-15
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+      JOBS: '2'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install macOS build dependencies
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: "1"
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: brew install cmake ninja pkg-config qt qtlocation hamlib
+      - name: Build and test
         run: |
-          brew install cmake ninja qt qtserialport qtmultimedia qtlocation qttools hamlib pkgconf rsync
-
-      - name: macOS source portability preflight
-        run: |
-          bash scripts/check_macos_portability.sh
-
-      - name: Build MadModem.app
-        env:
-          MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
-          MACOSX_DEPLOYMENT_TARGET: "13.0"
-        run: |
-          bash scripts/build_macos.sh
-
-      - name: Run macOS regression suite
-        run: |
-          ctest --test-dir "build-macos-${{ matrix.arch }}" --output-on-failure
-
-      - name: Package unsigned macOS app
-        env:
-          MADMODEM_OSX_ARCHITECTURES: ${{ matrix.arch }}
-          MADMODEM_ADHOC_SIGN: on
-        run: |
-          bash scripts/package_macos.sh
-          ls -lh dist/macos
-
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+          bash scripts/ci_release_version_guard.sh
+          bash scripts/build_macos.sh -DMADMODEM_NATIVE_OPTIMIZE=OFF -DBUILD_TESTING=ON
+          ctest --test-dir "build-macos-$MADMODEM_OSX_ARCHITECTURES" --output-on-failure
+      - name: Bundle runtime and create portable archives
+        run: bash scripts/package_macos.sh
+      - uses: actions/upload-artifact@v4
         with:
-          name: MadModem-macOS-${{ matrix.arch }}-unsigned
+          name: portable-macos-${{ matrix.arch }}
           path: |
             dist/macos/*.zip
             dist/macos/*.dmg
           if-no-files-found: error
-          retention-days: 14
-
-  github-release:
-    name: Publish GitHub Release on tag
-    needs:
-      - linux-x86_64
-      - windows-x86_64
-      - macos
-    runs-on: ubuntu-24.04
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download all package artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-assets
-          merge-multiple: true
-
-      - name: Install release validation tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends unzip
-
-      - name: List and validate release assets
-        run: |
-          bash scripts/validate_release_assets.sh release-assets
-
-      - name: Create GitHub Release and upload packages
+      - name: Create PKG installer
+        run: bash scripts/package_macos_installer.sh
+      - name: Verify installation and reinstall
         env:
-          GH_TOKEN: ${{ github.token }}
+          QT_QPA_PLATFORM: offscreen
         run: |
-          set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          title="MadModem ${tag}"
-          notes_file="RELEASE_NOTES.md"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists: deleting old assets before uploading fresh packages"
-            gh release view "$tag" --json assets -q '.assets[].name' | while IFS= read -r asset; do
-              [[ -z "$asset" ]] && continue
-              echo "Deleting stale release asset: $asset"
-              gh release delete-asset "$tag" "$asset" -y || true
-            done
-            gh release upload "$tag" release-assets/* --clobber
-          else
-            gh release create "$tag" release-assets/* --title "$title" --notes-file "$notes_file"
-          fi
+          package=(dist/macos/*.pkg)
+          sudo installer -pkg "${package[0]}" -target /
+          test -f /Applications/MadModem.app/Contents/MacOS/managed-install.flag
+          mkdir -p "$HOME/Library/Application Support/MadModem"
+          printf 'preserve user data\n' > "$HOME/Library/Application Support/MadModem/installer-test.txt"
+          sudo installer -pkg "${package[0]}" -target /
+          grep -qx 'preserve user data' "$HOME/Library/Application Support/MadModem/installer-test.txt"
+          /Applications/MadModem.app/Contents/MacOS/MadModem --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos-${{ matrix.arch }}
+          path: dist/macos/*.pkg
+          if-no-files-found: error

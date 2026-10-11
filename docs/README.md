@@ -1,9 +1,6 @@
-# MadModem 0.6.0 documentation
+# MadModem 0.6.1 documentation
 
-This directory separates operating help from development records. If you are
-using MadModem on the radio, start with the embedded help or the user guides
-below. Decoder experiments and release evidence are kept in their own sections
-so they do not obscure the normal operating instructions.
+Operating help and maintained developer references for MadModem 0.6.1. Generated verification output is kept outside the source tree.
 
 ## User help
 
@@ -41,17 +38,11 @@ project and is packaged with the application.
 
 ## Developer references
 
-- [`RELEASE_VALIDATION_0_5_8.md`](RELEASE_VALIDATION_0_5_8.md) — release checks
-  and platform status.
-- [`DECODER_RECOVERY_0_5_78.md`](DECODER_RECOVERY_0_5_78.md) — FT/CW decoder
-  recovery policy.
-- [`FT_CAPTURE_TIMELINE_TWO_STAGE_0_5_78.md`](FT_CAPTURE_TIMELINE_TWO_STAGE_0_5_78.md)
-  — FT audio timing and slot assembly.
-- [`WSJTX_3_1_IMPROVED_SOURCE_ANALYSIS_0_5_78.md`](WSJTX_3_1_IMPROVED_SOURCE_ANALYSIS_0_5_78.md)
-  — reference analysis for weak-signal decoding.
-- [`cwskimmer/`](cwskimmer/) — native CW architecture and regression notes.
-- [`architecture/`](architecture/), [`platform/`](platform/), [`msk144/`](msk144/)
-  and [`q65/`](q65/) — subsystem references.
+- [Installer and migration instructions](platform/INSTALLERS.md).
+- [GitHub build workflow](platform/GITHUB_ACTIONS_DISTRIBUTION.md).
+- [Current architecture](architecture/CURRENT_ARCHITECTURE.md).
+- [CW implementation and tests](cwskimmer/README.md).
+- [MSK144](msk144/README.md) and [Q65](q65/README.md).
 
 ## Validation commands
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.6.0
+    VERSION 0.6.1
     LANGUAGES CXX
 )
 
@@ -389,7 +389,7 @@ add_executable(MadModem
     utils/RuntimeI18n.h
     utils/RuntimeI18n.cpp
     utils/CockpitTheme.h
-    utils/CockpitTheme.cpp
+    utils/CockpitTheme.cpp utils/WindowResize.cpp
     utils/SystemResourceManager.h
     utils/SystemResourceManager.cpp
     dsp/DspEngine.h
@@ -1180,7 +1180,7 @@ if(BUILD_TESTING)
         logbook/ContestExchange.cpp logbook/AdifLogbook.cpp
         widgets/QsoMapWidget.cpp widgets/QsoMapWidget.h
         settings/AppSettings.cpp rotator/RotatorPeakSearch.cpp
-        dxcc/CtyCountryFile.cpp utils/RuntimeI18n.cpp utils/CockpitTheme.cpp)
+        dxcc/CtyCountryFile.cpp utils/RuntimeI18n.cpp utils/CockpitTheme.cpp utils/WindowResize.cpp)
     target_include_directories(madmodem_logbook_workflow_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(madmodem_logbook_workflow_regression PRIVATE ${QT}::Core ${QT}::Gui ${QT}::Widgets ${QT}::Network ${QT}::PrintSupport)
     add_test(NAME madmodem_logbook_workflow_regression COMMAND madmodem_logbook_workflow_regression)
@@ -1190,7 +1190,7 @@ if(BUILD_TESTING)
         tests/ContestExportRegression.cpp tests/i18n.qrc
         dialogs/ContestExportWizard.cpp dialogs/ContestExportWizard.h
         logbook/ContestExchange.cpp logbook/ContestExchange.h
-        dxcc/CtyCountryFile.cpp utils/RuntimeI18n.cpp utils/CockpitTheme.cpp)
+        dxcc/CtyCountryFile.cpp utils/RuntimeI18n.cpp utils/CockpitTheme.cpp utils/WindowResize.cpp)
     target_include_directories(madmodem_contest_export_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(madmodem_contest_export_regression PRIVATE ${QT}::Core ${QT}::Gui ${QT}::Widgets)
     add_custom_command(TARGET madmodem_contest_export_regression POST_BUILD
@@ -1239,4 +1239,11 @@ if(BUILD_TESTING)
     add_custom_command(TARGET madmodem_text_assist_workers_regression POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_CURRENT_SOURCE_DIR}/cty.csv $<TARGET_FILE_DIR:madmodem_text_assist_workers_regression>/cty.csv)
     add_test(NAME madmodem_text_assist_workers_regression COMMAND madmodem_text_assist_workers_regression)
+
+    add_executable(madmodem_installation_paths_regression tests/InstallationPathsRegression.cpp)
+    target_link_libraries(madmodem_installation_paths_regression PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_installation_paths_regression COMMAND madmodem_installation_paths_regression)
+    add_executable(madmodem_installer_cpu_regression tests/InstallerCpuRegression.cpp)
+    set_target_properties(madmodem_installer_cpu_regression PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME madmodem_installer_cpu_regression COMMAND madmodem_installer_cpu_regression)
 endif()

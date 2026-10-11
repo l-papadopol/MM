@@ -429,8 +429,8 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     : QDialog(parent)
 {
     setWindowTitle(L18n(QStringLiteral("SSTV QSO / QSL image editor")));
-    resize(MadModemUi::size(2100, 1500));
-    setMinimumSize(1650, 1180);
+    resize(MadModemUi::size(1100, 820));
+    setMinimumSize(640, 480);
 
     m_canvas = new SstvEditorCanvas(this);
     m_canvas->setSelectionChangedCallback([this](bool hasSelection) {
@@ -440,7 +440,7 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidget(m_canvas);
     m_scrollArea->setWidgetResizable(false);
-    m_scrollArea->setMinimumHeight(980);
+    m_scrollArea->setMinimumHeight(180);
 
     m_btnLoadBackground = new QPushButton(L18n(QStringLiteral("Load background...")), this);
     m_btnWhiteCard = new QPushButton(L18n(QStringLiteral("White card")), this);
@@ -560,7 +560,13 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->addWidget(m_scrollArea, 1);
-    mainLayout->addWidget(toolArea, 0);
+    // Controls remain reachable on smaller screens without imposing the old
+    // 1650x1180 minimum on the entire editor.
+    auto *toolsScroll = new QScrollArea(this);
+    toolsScroll->setWidgetResizable(true);
+    toolsScroll->setWidget(toolArea);
+    toolsScroll->setMinimumHeight(180);
+    mainLayout->addWidget(toolsScroll, 1);
     setLayout(mainLayout);
 
     updateColorButton();

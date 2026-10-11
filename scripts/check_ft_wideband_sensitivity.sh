@@ -3,7 +3,6 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CPP="$ROOT/modems/ft8/Ft8RxDecoder.cpp"
 HDR="$ROOT/modems/ft8/Ft8RxDecoder.h"
-DOC="$ROOT/docs/FT8_FT4_SENSITIVITY_REGRESSION_FIX_0_5_78.md"
 
 need() {
     local pattern="$1" file="$2" label="$3"
@@ -18,7 +17,6 @@ need 'makeFt4ReferenceWaveformRx(decodedTones' "$CPP" 'FT4 exact GFSK SIC is mis
 need 'const bool sumProductAllowed = m_offlineAnalysisActive.load();' "$CPP" 'live SPA safety gate is missing'
 need 'm_offlineAnalysisActive.load() &&' "$CPP" 'offline coherent A/B safety gate is missing'
 need 'bucket rescue decoded/candidates' "$ROOT/mainwindow.cpp" 'wideband recovery telemetry is missing'
-need 'Source-level error in the FT8 baseline port' "$DOC" 'regression diagnosis documentation is missing'
 
 if grep -Fq 'rescuedCandidate.bucketRescue = true' "$CPP"; then
     echo 'FAIL: active bucket-rescue tail still displaces validated live candidates' >&2

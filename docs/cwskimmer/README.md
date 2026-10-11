@@ -1,8 +1,8 @@
 # MadModem CW
 
 This directory documents the single production CW implementation shipped in the
-current MadModem 0.5.8 source checkpoint. The active design separates exact-tone
+MadModem 0.6.1 source tree. The active design separates exact-tone
 carrier discrimination, robust timing-family estimation and probabilistic Morse
 sequence decoding. RX A and RX B each use the same independent live pipeline.
 
-See `../CW_ADAPTIVE_BEAM_DECODER_0_5_78.md` for the current checkpoint details.
+See [ARCHITECTURE.md](ARCHITECTURE.md), [API.md](API.md) and [TESTING.md](TESTING.md).

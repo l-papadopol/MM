@@ -68,6 +68,6 @@ if ! grep -Fq "#define MADMODEM_VERSION_STRING \"$expected\"" "$HEADER_FILE"; th
     exit 1
 fi
 
-# CMake project(VERSION) is numeric by design, so CMAKE_PROJECT_VERSION may be
-# 0.5.9. The full release identity (including -alpha) is MADMODEM_PACKAGE_VERSION / this file.
+# CMake project(VERSION) is numeric by design. The package identity is read
+# from MADMODEM_VERSION.txt; source revisions distinguish packaging updates.
 printf '  status               : OK\n'

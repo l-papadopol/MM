@@ -16,11 +16,32 @@ Attorno ai modem c'è tutto quello che normalmente serve in stazione: **waterfal
 
 L'idea non è quella di mettere insieme una collezione di finestre indipendenti: radio, segnali, decoder, TX, log e controlli di stazione devono lavorare nello stesso ambiente e rimanere a portata di mano durante il QSO.
 
-MM è scritto in **C++/Qt**, è pensato per **Linux e Windows** e il codice sorgente è pubblicato sotto licenza **GNU GPL v3**.
+MM è scritto in **C++/Qt**, è pensato per **Linux, Windows e macOS** e il codice sorgente è pubblicato sotto licenza **GNU GPL v3**.
+
+### Installazione e aggiornamenti — 0.6.1
+
+**Installer e pacchetti portabili rimangono entrambi disponibili. L'installazione è facoltativa.**
+
+| Sistema | Senza installazione | Installer |
+| --- | --- | --- |
+| Windows 10/11 a 64 bit | ZIP separati legacy e AVX2/FMA; estrarre e avviare `bin/MadModem.exe`. Nel dubbio scegliere legacy. | Un unico `Setup.exe` sceglie automaticamente la variante compatibile con CPU e sistema operativo. |
+| Ubuntu 24.04 / distribuzioni compatibili | ZIP o TAR.GZ Ubuntu24.04; avviare `bin/MadModem`. | `Ubuntu24.04-…-Setup.run`, con DEB e dipendenze gestite da APT. |
+| Fedora 43 | ZIP o TAR.GZ Fedora43; avviare `bin/MadModem`. | `…fc43…-Setup.run`, con RPM e dipendenze gestite da DNF. |
+| macOS 15 o successivo | ZIP dell'app o DMG, dedicati a Intel oppure Apple Silicon. | `unsigned.pkg` dedicato all'architettura. |
+
+Gli archivi Linux richiedono le librerie runtime Qt5 e Hamlib della distribuzione indicata; non sono AppImage autonomi. Per aggiornare una copia portabile, chiudere MM e conservare `settings.mad`, logbook ADIF e registrazioni prima di sostituire i file del programma.
+
+Gli installer mostrano il copyright di **Papadopol Lucian-Ioan** e la **GNU GPLv3**. La procedura interattiva richiede l'accettazione della licenza. Su Linux avviare `bash nome-del-file-Setup.run`: viene mostrata la licenza in una finestra, se Zenity è disponibile, oppure nel terminale.
+
+Per aggiornare, chiudere MM ed eseguire il nuovo installer: viene aggiornata la stessa installazione. Preferenze e logbook delle installazioni gestite risiedono nelle cartelle dell'utente. Se si passa da una vecchia copia portabile conservata altrove, seguire le [istruzioni di migrazione](docs/platform/INSTALLERS.md) prima di rimuoverla.
+
+Le finestre si ridimensionano trascinando bordi o angoli; i contenuti mantengono una dimensione minima utilizzabile. L'editor SSTV permette di scorrere gli strumenti anche su schermi più piccoli.
+
+I pacchetti vengono creati dal workflow GitHub **Build installers**, automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Scaricarli dagli artifact della compilazione completata: `portable-*` per gli archivi, `installer-*` per gli installer. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
 
 ### Stato del progetto
 
-MadModem è alla versione **0.6.0**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
+MadModem è alla versione **0.6.1**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
 
 Per compilazione, configurazione e dettagli tecnici trovate la documentazione nella cartella [`docs`](docs/README.md).
 
@@ -45,13 +66,39 @@ Around the modems there is the rest of what is normally useful in a station: a *
 
 The idea is not to build a collection of unrelated windows. Radio control, signals, decoders, TX, logging and station controls should work together and remain immediately accessible while making a QSO.
 
-MM is written in **C++/Qt**, targets **Linux and Windows**, and its source code is released under the **GNU GPL v3** licence.
+MM is written in **C++/Qt**, targets **Linux, Windows and macOS**, and its source code is released under the **GNU GPL v3** licence.
+
+### Installation and updates — 0.6.1
+
+**Installers and portable packages are both available. Installation is optional.**
+
+| Platform | Without installation | Installer |
+| --- | --- | --- |
+| Windows 10/11, 64-bit | Separate legacy and AVX2/FMA ZIPs; extract and run `bin/MadModem.exe`. Choose legacy if unsure. | One `Setup.exe` selects the variant supported by the CPU and OS. |
+| Ubuntu 24.04 / compatible distributions | Ubuntu24.04 ZIP or TAR.GZ; run `bin/MadModem`. | `Ubuntu24.04-…-Setup.run`, backed by DEB and APT. |
+| Fedora 43 | Fedora43 ZIP or TAR.GZ; run `bin/MadModem`. | `…fc43…-Setup.run`, backed by RPM and DNF. |
+| macOS 15 or later | App ZIP or DMG, separately for Intel and Apple Silicon. | Architecture-specific `unsigned.pkg`. |
+
+Linux archives require the named distribution's Qt5 and Hamlib runtime libraries; they are not self-contained AppImages. Before updating a portable copy, close MM and preserve `settings.mad`, ADIF logbooks and recordings when replacing program files.
+
+Installers display **Papadopol Lucian-Ioan's copyright** and the **GNU GPLv3**. Interactive installation requires license acceptance. On Linux, run `bash installer-filename-Setup.run`; the license opens in a window when Zenity is available, otherwise in the terminal.
+
+To update, close MM and run the new installer. It updates the existing installation while keeping managed-install preferences and logbooks in user folders. When switching from a portable copy stored elsewhere, follow the [migration instructions](docs/platform/INSTALLERS.md) before removing it.
+
+Resize windows by dragging their edges or corners. Layouts retain a usable minimum size, and SSTV editing tools remain scrollable on smaller displays.
+
+GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Download the completed run's `portable-*` artifacts for archives or `installer-*` artifacts for installers. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
 
 ### Project status
 
-MadModem is at version **0.6.0**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
+MadModem is at version **0.6.1**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
 
 Build instructions, configuration notes and technical information are available in the [`docs`](docs/README.md) directory.
 
 **73 de IZ6NNH**  
 Lucian-Ioan Papadopol
+
+---
+
+Copyright (C) 2026 Papadopol Lucian-Ioan <l.i.papadopol@gmail.com>.
+Released under [GNU GPLv3](COPYING). See [third-party notices](THIRD_PARTY_NOTICES.md).

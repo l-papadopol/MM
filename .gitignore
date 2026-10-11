@@ -41,3 +41,13 @@ third_party/hamlib_lgpl/source/.libs/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Generated validation evidence (not source)
+verification*/
+**/__pycache__/
+*.pyc
+*.deb
+*.rpm
+*.pkg
+*-Setup.run
+cpu-probe.exe

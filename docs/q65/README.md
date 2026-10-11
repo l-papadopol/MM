@@ -1,4 +1,4 @@
-# Q65 engine — 0.5.8
+# Q65 engine — 0.6.1
 
 Q65A, Q65B, Q65C and Q65D use one MadModem receive/transmit path under
 `modems/q65/`. It is compiled in every normal Linux, Windows and macOS build;

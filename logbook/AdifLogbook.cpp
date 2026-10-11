@@ -1,3 +1,4 @@
+#include "../utils/InstallationPaths.h"
 #include "AdifLogbook.h"
 
 #include <QByteArray>
@@ -392,6 +393,11 @@ QString AdifLogbook::defaultPath()
 {
     const QDir executable(QCoreApplication::applicationDirPath());
     const QString legacy = executable.filePath(QStringLiteral("logbook.adi"));
+    if (MadModemInstallation::isManaged()) {
+        return MadModemInstallation::userFile(executable.absolutePath(),
+            QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation),
+            QStringLiteral("logbook.adi"));
+    }
     if (QFileInfo::exists(legacy) || QFileInfo::exists(executable.filePath(QStringLiteral("portable.flag")))) return legacy;
     return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath(QStringLiteral("logbook.adi"));
 }

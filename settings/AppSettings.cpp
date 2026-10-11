@@ -1,4 +1,5 @@
 #include "AppSettings.h"
+#include "../utils/InstallationPaths.h"
 #include "../rotator/RotatorPeakSearch.h"
 
 #include <QCoreApplication>
@@ -170,7 +171,7 @@ void normalizeRotatorBandSettings(AppSettings::RotatorProfileSettings &profile)
 
 QString AppSettings::settingsFilePath()
 {
-    return QDir(QCoreApplication::applicationDirPath()).filePath("settings.mad");
+    return MadModemInstallation::settingsFilePath();
 }
 
 // -----------------------------------------------------------------------------

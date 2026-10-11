@@ -33,6 +33,6 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>MadModem needs microphone/audio-input access to receive and decode radio audio.</string>
     <key>NSHumanReadableCopyright</key>
-    <string>MadModem is GPL software. See LICENSE.md and THIRD_PARTY_NOTICES.md.</string>
+    <string>Copyright (C) 2026 Papadopol Lucian-Ioan. GNU GPL version 3. Third-party notices retained.</string>
 </dict>
 </plist>

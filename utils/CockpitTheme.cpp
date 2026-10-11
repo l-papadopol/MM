@@ -1,4 +1,5 @@
 #include "CockpitTheme.h"
+#include "WindowResize.h"
 
 #include <QApplication>
 #include <QAbstractItemView>
@@ -607,26 +608,6 @@ bool isGoodBezelTarget(QWidget *w)
     return w->property("cockpitInstrumentFrame").toBool();
 }
 
-void hardenPopupSurface(QWidget *popup)
-{
-    if (popup == nullptr) return;
-    const Qt::WindowFlags flags = popup->windowFlags();
-    if (!(flags & Qt::Popup)) return;
-
-    if (!popup->property("cockpitPopupHardened").toBool()) {
-        popup->setProperty("cockpitPopupHardened", true);
-        popup->setAttribute(Qt::WA_StyledBackground, true);
-        popup->setWindowFlags(flags | Qt::Popup | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-    }
-
-    QTimer::singleShot(0, popup, [popup]() {
-        if (popup != nullptr && popup->isVisible()) {
-            popup->raise();
-            popup->activateWindow();
-        }
-    });
-}
-
 class ComboPopupRaiseFilter final : public QObject
 {
 public:
@@ -781,6 +762,7 @@ protected:
                 if (!dlg->testAttribute(Qt::WA_DontShowOnScreen)) {
                     const bool wasVisible = dlg->isVisible();
                     installDialogChrome(dlg);
+                    MadModemUi::enableWindowResize(dlg);
                     if (wasVisible && (dlg->windowFlags() & Qt::FramelessWindowHint)) {
                         dlg->show();
                     }
@@ -1203,6 +1185,7 @@ void installCockpitMainWindowChrome(QMainWindow *window)
     }
     window->setMenuWidget(header);
     decorate(window);
+    enableWindowResize(window);
     polishCockpitWidgetTree(window);
 }
 
