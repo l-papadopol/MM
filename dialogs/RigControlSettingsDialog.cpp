@@ -434,6 +434,7 @@ void RigControlSettingsDialog::buildUi()
 
     m_lblManufacturer = new QLabel(catGroup);
     m_cmbManufacturer = new QComboBox(catGroup);
+    m_cmbManufacturer->setObjectName(QStringLiteral("catManufacturer"));
     m_cmbManufacturer->setMinimumWidth(180);
 
     m_lblModelFilter = new QLabel(catGroup);
@@ -442,6 +443,7 @@ void RigControlSettingsDialog::buildUi()
 
     m_lblModel = new QLabel(catGroup);
     m_cmbRigModel = new QComboBox(catGroup);
+    m_cmbRigModel->setObjectName(QStringLiteral("catRigModel"));
     m_cmbRigModel->setMinimumWidth(180);
 
     m_lblManualId = new QLabel(catGroup);
@@ -469,6 +471,7 @@ void RigControlSettingsDialog::buildUi()
 
     m_lblSerialPort = new QLabel(catGroup);
     m_cmbSerialPort = new QComboBox(catGroup);
+    m_cmbSerialPort->setObjectName(QStringLiteral("catSerialPort"));
     m_cmbSerialPort->setEditable(true);
     m_cmbSerialPort->setMinimumWidth(180);
 
@@ -517,6 +520,7 @@ void RigControlSettingsDialog::buildUi()
 
     m_lblPttMethod = new QLabel(catGroup);
     m_cmbPttMethod = new QComboBox(catGroup);
+    m_cmbPttMethod->setObjectName(QStringLiteral("catPttMethod"));
     m_cmbPttMethod->addItem(QStringLiteral("None / audio only"), QStringLiteral("none"));
     m_cmbPttMethod->addItem(QStringLiteral("CAT / Hamlib"), QStringLiteral("cat_hamlib"));
     m_cmbPttMethod->addItem(QStringLiteral("Serial RTS"), QStringLiteral("serial_rts"));
@@ -770,13 +774,24 @@ void RigControlSettingsDialog::populateSerialPorts(const QString &selectedPath)
 }
 
 
+void RigControlSettingsDialog::setExternalPttConfiguration(const QString &method, const QString &port)
+{
+    // Embedded settings have one PTT selector, owned by the Audio / PTT page.
+    m_settings.pttPortName = port;
+    m_cmbPttMethod->setCurrentIndex(m_cmbPttMethod->findData(method));
+    m_cmbPttMethod->hide();
+    m_lblPttMethod->hide();
+    refreshEnabledState();
+}
+
 QString RigControlSettingsDialog::selectedSerialPath() const
 {
     if (m_cmbSerialPort == nullptr) {
         return QString();
     }
     const QString data = m_cmbSerialPort->currentData().toString().trimmed();
-    if (!data.isEmpty()) {
+    if (m_cmbSerialPort->currentIndex() >= 0 &&
+        m_cmbSerialPort->currentText() == m_cmbSerialPort->itemText(m_cmbSerialPort->currentIndex())) {
         return data;
     }
     const QString text = m_cmbSerialPort->currentText().trimmed();
@@ -1155,43 +1170,39 @@ void RigControlSettingsDialog::applyToSettings()
 
 void RigControlSettingsDialog::refreshEnabledState()
 {
-    const QString pttMethodForEnable = (m_cmbPttMethod != nullptr) ? m_cmbPttMethod->currentData().toString() : QStringLiteral("none");
-    const bool pttRequested = (pttMethodForEnable == QStringLiteral("cat_hamlib") ||
-                               pttMethodForEnable == QStringLiteral("serial_rts") ||
-                               pttMethodForEnable == QStringLiteral("serial_dtr"));
-    const bool enabled = ((m_chkCatEnabled != nullptr) && m_chkCatEnabled->isChecked()) || pttRequested;
+    // Configuration must be editable before polling or PTT is enabled.
     const bool cat = (m_chkCatEnabled != nullptr) && m_chkCatEnabled->isChecked();
     const bool custom = (m_cmbManufacturer != nullptr) &&
                         (m_cmbManufacturer->currentData().toString() == customManufacturerText());
 
-    if (m_cmbManufacturer != nullptr) m_cmbManufacturer->setEnabled(enabled);
-    if (m_editModelFilter != nullptr) m_editModelFilter->setEnabled(enabled && !custom);
-    if (m_cmbRigModel != nullptr) m_cmbRigModel->setEnabled(enabled && !custom);
+    if (m_cmbManufacturer != nullptr) m_cmbManufacturer->setEnabled(true);
+    if (m_editModelFilter != nullptr) m_editModelFilter->setEnabled(!custom);
+    if (m_cmbRigModel != nullptr) m_cmbRigModel->setEnabled(!custom);
     if (m_lblManualId != nullptr) m_lblManualId->setVisible(custom);
     if (m_spinRigModel != nullptr) {
         m_spinRigModel->setVisible(custom);
-        m_spinRigModel->setEnabled(enabled && custom);
+        m_spinRigModel->setEnabled(custom);
     }
     const bool hrd = HamlibController::isHamRadioDeluxeModel(selectedRigModel());
     const QString pttMethod = (m_cmbPttMethod != nullptr) ? m_cmbPttMethod->currentData().toString() : QStringLiteral("none");
     const bool pttViaHamlib = (pttMethod == QStringLiteral("cat_hamlib") || pttMethod == QStringLiteral("serial_rts") || pttMethod == QStringLiteral("serial_dtr"));
-    if (m_cmbTxAudioRoute != nullptr) m_cmbTxAudioRoute->setEnabled(enabled && pttMethod == QStringLiteral("cat_hamlib"));
+    if (m_cmbTxAudioRoute != nullptr) m_cmbTxAudioRoute->setEnabled(pttMethod == QStringLiteral("cat_hamlib"));
     if (m_cmbSplitOperation != nullptr) m_cmbSplitOperation->setEnabled(cat);
     if (m_lblSplitOperation != nullptr) m_lblSplitOperation->setEnabled(cat);
-    if (m_cmbTransmitAudioSource != nullptr) m_cmbTransmitAudioSource->setEnabled(enabled && pttMethod == QStringLiteral("cat_hamlib"));
-    if (m_cmbSerialPort != nullptr) m_cmbSerialPort->setEnabled(enabled && !hrd);
-    if (m_editTcpAddress != nullptr) m_editTcpAddress->setEnabled(enabled);
-    if (m_cmbBaud != nullptr) m_cmbBaud->setEnabled(enabled && !hrd);
-    if (m_cmbDataBits != nullptr) m_cmbDataBits->setEnabled(enabled && !hrd);
-    if (m_cmbStopBits != nullptr) m_cmbStopBits->setEnabled(enabled && !hrd);
-    if (m_cmbHandshake != nullptr) m_cmbHandshake->setEnabled(enabled && !hrd);
-    if (m_cmbForceDtr != nullptr) m_cmbForceDtr->setEnabled(enabled && !hrd);
-    if (m_cmbForceRts != nullptr) m_cmbForceRts->setEnabled(enabled && !hrd);
-    if (m_cmbPttMethod != nullptr) m_cmbPttMethod->setEnabled(enabled);
-    if (m_lblBaudHint != nullptr) m_lblBaudHint->setEnabled(enabled);
-    if (m_btnTestCat != nullptr) m_btnTestCat->setEnabled(enabled);
-    if (m_btnTestPttOn != nullptr) m_btnTestPttOn->setEnabled(enabled && pttViaHamlib);
-    if (m_btnTestPttOff != nullptr) m_btnTestPttOff->setEnabled(enabled && pttViaHamlib);
+    if (m_cmbTransmitAudioSource != nullptr) m_cmbTransmitAudioSource->setEnabled(pttMethod == QStringLiteral("cat_hamlib"));
+    if (m_cmbSerialPort != nullptr) m_cmbSerialPort->setEnabled(!hrd);
+    if (m_editTcpAddress != nullptr) m_editTcpAddress->setEnabled(true);
+    if (m_cmbBaud != nullptr) m_cmbBaud->setEnabled(!hrd);
+    if (m_cmbDataBits != nullptr) m_cmbDataBits->setEnabled(!hrd);
+    if (m_cmbStopBits != nullptr) m_cmbStopBits->setEnabled(!hrd);
+    if (m_cmbHandshake != nullptr) m_cmbHandshake->setEnabled(!hrd);
+    if (m_cmbForceDtr != nullptr) m_cmbForceDtr->setEnabled(!hrd);
+    if (m_cmbForceRts != nullptr) m_cmbForceRts->setEnabled(!hrd);
+    if (m_cmbPttMethod != nullptr) m_cmbPttMethod->setEnabled(true);
+    if (m_lblBaudHint != nullptr) m_lblBaudHint->setEnabled(true);
+    if (m_btnTestCat != nullptr) m_btnTestCat->setEnabled(true);
+    if (m_btnTestPttOn != nullptr) m_btnTestPttOn->setEnabled(pttViaHamlib);
+    if (m_btnTestPttOff != nullptr) m_btnTestPttOff->setEnabled(pttViaHamlib);
     if (m_spinPollMs != nullptr) m_spinPollMs->setEnabled(cat);
     if (m_lblSerialPort != nullptr) m_lblSerialPort->setEnabled(!hrd);
     if (m_lblBaud != nullptr) m_lblBaud->setEnabled(!hrd);
@@ -1200,7 +1211,7 @@ void RigControlSettingsDialog::refreshEnabledState()
     if (m_lblHandshake != nullptr) m_lblHandshake->setEnabled(!hrd);
     if (m_lblForceDtr != nullptr) m_lblForceDtr->setEnabled(!hrd);
     if (m_lblForceRts != nullptr) m_lblForceRts->setEnabled(!hrd);
-    if (m_lblPttMethod != nullptr) m_lblPttMethod->setEnabled(enabled);
+    if (m_lblPttMethod != nullptr) m_lblPttMethod->setEnabled(true);
     if (m_lblTcpAddress != nullptr) {
         m_lblTcpAddress->setText(hrd ? L("HRD TCP address") : L("CAT TCP address"));
     }

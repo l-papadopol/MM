@@ -7,6 +7,7 @@
 
 #include <QObject>
 #include <QVector>
+#include <QElapsedTimer>
 
 /**
  * @brief Performs first-stage DSP analysis for the receiver.
@@ -52,6 +53,8 @@ public slots:
      * thread together with waterfall processing.
      */
     void configureSignalPeakMetric(bool enabled, int lowHz, int highHz);
+    void configureReceiverFilter(const QString &modeName, int widthHz, int source);
+    void setNarrowBandDisplay(bool enabled) { m_narrowBandDisplay = enabled; }
 
 signals:
     /**
@@ -101,6 +104,9 @@ private:
     double m_maxHz = 3000.0;
 
     WaterfallLeveler m_waterfallLeveler;
+    int m_receiverWidthHz = 0;
+    bool m_narrowBandDisplay = false;
+    QElapsedTimer m_receiverFilterAge;
 
     bool m_signalPeakMetricEnabled = false;
     int m_signalPeakLowHz = 0;

@@ -1055,6 +1055,12 @@ if(BUILD_TESTING)
                     release ${MADMODEM_GUARD_UNIX_ARGS})
     endif()
 
+    add_executable(madmodem_receiver_filter_regression
+        tests/ReceiverFilterRegression.cpp dsp/WaterfallLeveler.cpp dsp/DspEngine.cpp)
+    target_include_directories(madmodem_receiver_filter_regression PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(madmodem_receiver_filter_regression PRIVATE Qt${QT_VERSION_MAJOR}::Core)
+    add_test(NAME madmodem_receiver_filter_regression COMMAND madmodem_receiver_filter_regression)
+
     if(UNIX)
         add_test(NAME madmodem_cw_native_regression
             COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_cw_native_regression.sh"

@@ -862,7 +862,12 @@ public:
         const double priorDahMs = clampd(lastTiming.dahMs,
                                          1.65 * priorDitMs,
                                          4.20 * priorDitMs);
-        const double minimumPreLockMarkMs = std::max(8.0, 0.38 * priorDitMs);
+        // In automatic mode the configured WPM is only a hint: using it as
+        // a lower duration bound suppresses valid dots from faster stations
+        // before the relative short/long pair can ever acquire their clock.
+        const double minimumPreLockMarkMs = config.autoWpm
+            ? std::max(8.0, std::min(0.38 * priorDitMs, 1200.0 / 50.0))
+            : std::max(8.0, 0.38 * priorDitMs);
         const double preLockContinuityLimitMs = clampd(
             std::max(1.60 * lastTiming.wordSpaceMs, 5.0 * priorDitMs),
             180.0, 1250.0);
@@ -931,7 +936,9 @@ public:
           spectrumTimingCentered;
       if (strictAcquisitionCarrier && !timingFeedEnabled) {
         const double priorDitMs = 1200.0 / std::max(5.0, config.initialWpm);
-        const double minimumShortMs = std::max(8.0, 0.45 * priorDitMs);
+        const double minimumShortMs = config.autoWpm
+            ? std::max(8.0, std::min(0.45 * priorDitMs, 1200.0 / 50.0))
+            : std::max(8.0, 0.45 * priorDitMs);
         std::size_t pairStart = runPreRoll.size();
         std::size_t acquisitionPairIndex = runPreRoll.size();
         double acquisitionShortMs = 0.0;

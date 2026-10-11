@@ -58,7 +58,7 @@ private:
   void enqueue(Command command, bool coalesceAdvance = false);
   void enqueueAndWait(Command command);
   void workerMain(CwRelativeTimingConfig initialConfig);
-  void publish(const CwRelativeTimingResult& result);
+  void publish(const CwRelativeTimingResult& result, bool discardPending = false);
   void stop();
 
 private:

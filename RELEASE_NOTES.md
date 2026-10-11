@@ -1,3 +1,26 @@
+# 0.6.0 R6 — acquisizione CW e reset della ricezione
+
+- WPM automatici: il valore iniziale non può più escludere i punti della massima velocità supportata prima dell’aggancio. Corretto il caso sintetico 50 WPM con indicazione iniziale 20 e verificato 35 WPM con indicazione iniziale 5. Conservate le soglie precedenti quando già compatibili con la velocità supportata.
+- Reset CW: eliminati atomicamente testo e metadati non ancora consegnati dal worker, evitando risultati della ricezione precedente dopo cambio tono, cancellazione o ripresa RX.
+- Aggiunte prove mirate di riproduzione, reset con/senza conservazione del timing e ricezione dopo il reset. Conservate le correzioni CAT/PTT e waterfall della R5.
+
+Le prove sintetiche non sostituiscono una registrazione ricevuta via radio per valutare segnali deboli, QSB e interferenze reali. Versione applicativa: 0.6.0.
+
+---
+
+# 0.6.0 R5 — filtri RX e waterfall a banda stretta
+
+- Impostazioni CAT/PTT: un solo selettore PTT, configurazione radio modificabile anche prima di abilitare il polling, porte inseribili manualmente e conservate se scollegate. Il PTT CAT usa la connessione radio e non mostra una COM dedicata fuorviante.
+- Corretta la saturazione del waterfall con filtri CW/RTTY stretti, conservando toni, asse delle frequenze e campioni destinati ai decoder. Fallback spettrale CW/RTTY anche senza CAT.
+- Modo e larghezza RX propagati dal worker CAT al DSP e visibili nello stato radio. Il prefisso ~ identifica i valori del backend Hamlib, che possono essere nominali.
+- TS-890: lettura diretta delle larghezze CW/FSK/PSK e dei controlli SSB/SSB-DATA (Shift/Width oppure High/Low Cut). Una sola interrogazione opzionale aggiuntiva per ciclo; pausa durante TX, invalidazione su errori/cambio modo/VFO e backoff dopo errore.
+- Il percorso TX resta audio AFSK/CW; queste letture non cambiano modo, filtro, polarità o ingresso della radio e non implementano la manipolazione FSK/CW nativa.
+- Regressioni con bande 100/250/500 Hz, toni, salti AGC, risposte CAT valide/errate e audio PCM attraverso la FFT reale. Il normale waterfall FT a banda larga mantiene il percorso precedente.
+
+Le prove su radio fisica e le compilazioni native Windows/macOS restano da eseguire.
+
+---
+
 # 0.6.0 R4 — logbook, mappa e controllo TX
 
 - Logbook: un solo ambito visibile (QSO visualizzati, selezionati, intero log) per ADIF, CSV, copia e report; i QSO selezionati impostano automaticamente l’ambito.

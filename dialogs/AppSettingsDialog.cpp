@@ -1087,6 +1087,10 @@ QWidget *AppSettingsDialog::makeAudioCatPage()
             this, &AppSettingsDialog::pttTestRequested);
     prepareEmbeddedDialog(m_rigPage);
     compactEmbeddedSettingsWidgets(m_rigPage);
+    connect(m_audioPage, &AudioSettingsDialog::pttConfigurationChanged,
+            m_rigPage, &RigControlSettingsDialog::setExternalPttConfiguration);
+    const AppSettings audioSettings = m_audioPage->settings();
+    m_rigPage->setExternalPttConfiguration(audioSettings.pttMethod, audioSettings.pttPortName);
     catLayout->addWidget(m_rigPage);
     layout->addWidget(catGroup);
     layout->addStretch(1);
@@ -2341,11 +2345,8 @@ void AppSettingsDialog::collectSettings()
         merged.hamlibTxAudioRoute = rig.hamlibTxAudioRoute;
         merged.hamlibSplitOperation = rig.hamlibSplitOperation;
         merged.hamlibTransmitAudioSource = rig.hamlibTransmitAudioSource;
-        // Radio/CAT owns the CAT-Hamlib PTT case; Audio/PTT owns serial/none.
-        if (rig.pttMethod == QStringLiteral("cat_hamlib") || merged.pttMethod == QStringLiteral("cat_hamlib")) {
-            merged.pttMethod = rig.pttMethod;
-            merged.hamlibPttEnabled = rig.hamlibPttEnabled;
-        }
+        // Audio / PTT is the single owner of the PTT method and dedicated port.
+        // The embedded CAT page mirrors it only for connection/test configuration.
     }
 
     if (m_logbookPage != nullptr) {

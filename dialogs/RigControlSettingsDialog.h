@@ -32,6 +32,7 @@ public:
     void setTextTranslator(std::function<QString(const QString &)> translator);
 
 public slots:
+    void setExternalPttConfiguration(const QString &method, const QString &port);
     void setExternalTestStatus(const QString &message, bool ok);
 
 signals:

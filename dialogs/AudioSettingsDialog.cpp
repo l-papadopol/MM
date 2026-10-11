@@ -9,6 +9,7 @@
 #include <QDialogButtonBox>
 #include <QPushButton>
 #include <QSerialPortInfo>
+#include <QSignalBlocker>
 #include <QtGlobal>
 
 #include <utility>
@@ -73,6 +74,11 @@ AudioSettingsDialog::AudioSettingsDialog(const AppSettings &initialSettings,
     ui->cmbSampleRate->addItem("48 kHz", 48000);
     ui->cmbSampleRate->addItem("96 kHz", 96000);
 
+    ui->cmbPttPort->setEditable(true);
+    ui->cmbPttPort->setInsertPolicy(QComboBox::NoInsert);
+    m_pttRouteInfo = new QLabel(ui->grpPtt);
+    m_pttRouteInfo->setWordWrap(true);
+    ui->pttGridLayout->addWidget(m_pttRouteInfo, 2, 0, 1, 2);
     ui->cmbPttMethod->addItem("CAT / Hamlib", "cat_hamlib");
     ui->cmbPttMethod->addItem("Serial RTS", "serial_rts");
     ui->cmbPttMethod->addItem("Serial DTR", "serial_dtr");
@@ -83,7 +89,13 @@ AudioSettingsDialog::AudioSettingsDialog(const AppSettings &initialSettings,
     }
     ui->cmbPttMethod->setCurrentIndex(pttMethodIndex >= 0 ? pttMethodIndex : ui->cmbPttMethod->findData(QStringLiteral("none")));
     connect(ui->cmbPttMethod, QOverload<int>::of(&QComboBox::currentIndexChanged),
-            this, [this]() { updatePttSerialUi(); });
+            this, [this]() {
+                updatePttSerialUi();
+                emit pttConfigurationChanged(ui->cmbPttMethod->currentData().toString(), selectedPttPort());
+            });
+    connect(ui->cmbPttPort, &QComboBox::currentTextChanged, this, [this]() {
+        emit pttConfigurationChanged(ui->cmbPttMethod->currentData().toString(), selectedPttPort());
+    });
 
     const int sampleRateIndex = ui->cmbSampleRate->findData(m_settings.audioSampleRate);
     ui->cmbSampleRate->setCurrentIndex(sampleRateIndex >= 0 ? sampleRateIndex : 1);
@@ -155,7 +167,7 @@ AppSettings AudioSettingsDialog::settings() const
     selected.audioInputName = ui->cmbAudioInput->currentData().toString();
     selected.audioOutputName = ui->cmbAudioOutput->currentData().toString();
     selected.audioSampleRate = ui->cmbSampleRate->currentData().toInt();
-    selected.pttPortName = ui->cmbPttPort->currentData().toString();
+    selected.pttPortName = selectedPttPort();
     selected.pttMethod = ui->cmbPttMethod->currentData().toString();
     selected.hamlibPttEnabled = (selected.pttMethod == QStringLiteral("cat_hamlib"));
 
@@ -176,13 +188,14 @@ void AudioSettingsDialog::refreshDevices()
                                       ? m_settings.audioOutputName
                                       : ui->cmbAudioOutput->currentData().toString();
 
-    const QString currentPtt = ui->cmbPttPort->currentData().toString().isEmpty()
-                                   ? m_settings.pttPortName
-                                   : ui->cmbPttPort->currentData().toString();
+    const QString currentPtt = ui->cmbPttPort->count() == 0
+                                   ? m_settings.pttPortName : selectedPttPort();
+    const QSignalBlocker pttBlocker(ui->cmbPttPort);
 
     ui->cmbAudioInput->clear();
     ui->cmbAudioOutput->clear();
     ui->cmbPttPort->clear();
+    ui->cmbPttPort->addItem(QString(), QString());
 
     QStringList seenInputs;
     QStringList seenOutputs;
@@ -250,14 +263,22 @@ void AudioSettingsDialog::refreshDevices()
         ui->cmbPttPort->addItem(label, port.portName());
     }
 
-    if (ui->cmbPttPort->count() == 0) {
-        ui->cmbPttPort->addItem("No serial port found", QString());
+    if (!currentPtt.isEmpty() && ui->cmbPttPort->findData(currentPtt) < 0) {
+        ui->cmbPttPort->addItem(currentPtt, currentPtt);
     }
 
     selectByBackendName(ui->cmbAudioInput, currentInput);
     selectByBackendName(ui->cmbAudioOutput, currentOutput);
     selectByBackendName(ui->cmbPttPort, currentPtt);
     updatePttSerialUi();
+}
+
+QString AudioSettingsDialog::selectedPttPort() const
+{
+    const QString text = ui->cmbPttPort->currentText().trimmed();
+    const int index = ui->cmbPttPort->currentIndex();
+    return index >= 0 && text == ui->cmbPttPort->itemText(index).trimmed()
+        ? ui->cmbPttPort->itemData(index).toString() : text;
 }
 
 void AudioSettingsDialog::updatePttSerialUi()
@@ -268,6 +289,10 @@ void AudioSettingsDialog::updatePttSerialUi()
     const QString method = ui->cmbPttMethod->currentData().toString();
     const bool serialPtt = (method == QStringLiteral("serial_rts") || method == QStringLiteral("serial_dtr"));
     ui->cmbPttPort->setEnabled(serialPtt);
+    ui->cmbPttPort->setVisible(serialPtt);
+    ui->lblPttPort->setVisible(serialPtt);
+    m_pttRouteInfo->setVisible(method == QStringLiteral("cat_hamlib"));
+    m_pttRouteInfo->setText(L(QStringLiteral("PTT uses the Radio / CAT connection below.")));
     if (ui->lblPttPort != nullptr) {
         ui->lblPttPort->setEnabled(serialPtt);
     }

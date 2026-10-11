@@ -9,6 +9,8 @@
 
 #include <functional>
 
+class QLabel;
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class AudioSettingsDialog;
@@ -51,6 +53,9 @@ public:
     AppSettings settings() const;
     void setTextTranslator(std::function<QString(const QString &)> translator);
 
+signals:
+    void pttConfigurationChanged(const QString &method, const QString &port);
+
 private slots:
     /**
      * @brief Refreshes all device lists.
@@ -82,6 +87,8 @@ private:
     void refreshLabels();
     void updatePttSerialUi();
     QString L(const QString &source) const;
+    QString selectedPttPort() const;
+    QLabel *m_pttRouteInfo = nullptr;
 
 private:
     Ui::AudioSettingsDialog *ui = nullptr;

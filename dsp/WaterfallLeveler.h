@@ -30,6 +30,7 @@ struct WaterfallLevelResult
     // Per-bin lower-envelope fit in dB.  DspEngine subtracts this from the
     // current dB spectrum before applying the fixed WSJT-X-like colour gain.
     std::vector<double> baselineDb;
+    bool narrowBandCorrected = false;
 };
 
 class WaterfallLeveler
@@ -37,6 +38,9 @@ class WaterfallLeveler
 public:
     void reset();
     WaterfallLevelResult update(const std::vector<double> &dbLine,
-                                double elapsedSeconds);
+                                double elapsedSeconds,
+                                double binHz = 0.0,
+                                double receiverWidthHz = 0.0,
+                                bool correctNarrowBand = true);
 
 };

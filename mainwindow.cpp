@@ -2336,6 +2336,9 @@ void MainWindow::setupCustomWidgets()
         ui->statusTabLayout->setAlignment(Qt::AlignTop);
         ui->statusTabLayout->setContentsMargins(8, 8, 8, 8);
         ui->statusTabLayout->setSpacing(12);
+        m_lblRigFrequency = new QLabel(this);
+        m_lblRigFrequency->setWordWrap(true);
+        ui->statusTabLayout->insertWidget(0, m_lblRigFrequency);
     }
     if (ui->grpStatusMeters != nullptr) {
         // The old Status page duplicated information and consumed too much space.
@@ -9516,13 +9519,24 @@ void MainWindow::setupProcessingConnections()
         connect(m_rigController, &HamlibController::modeChanged,
                 this, [this](const QString &modeName) {
                     m_lastRigModeName = modeName.trimmed().toUpper();
-                    if (m_rttyDecoder != nullptr) {
-                                        }
+                    updateRigControlStatusUi();
                     appendLog(m_lastRigModeName.isEmpty()
                                   ? QStringLiteral("CAT mode: unavailable")
                                   : QStringLiteral("CAT mode: %1").arg(m_lastRigModeName));
                 },
                 Qt::QueuedConnection);
+        connect(m_rigController, &HamlibController::receiverFilterChanged,
+                m_dspEngine, &DspEngine::configureReceiverFilter, Qt::QueuedConnection);
+        connect(m_rigController, &HamlibController::receiverFilterChanged,
+                this, [this](const QString &mode, int width, int source) {
+                    const bool changed = width != m_lastRigFilterWidthHz || source != m_lastRigFilterSource;
+                    m_lastRigFilterWidthHz = width;
+                    m_lastRigFilterSource = source;
+                    updateRigControlStatusUi();
+                    if (changed) appendLog(QStringLiteral("CAT RX filter: %1, %2 Hz, source=%3")
+                        .arg(mode).arg(width).arg(source == 2 ? QStringLiteral("direct CAT") :
+                                                 source == 1 ? QStringLiteral("Hamlib (may be nominal)") : QStringLiteral("unavailable")));
+                }, Qt::QueuedConnection);
         connect(m_rigController, &HamlibController::statusChanged,
                 this, [this](const QString &status) {
                     m_rigStatusMirror = status;
@@ -11784,7 +11798,14 @@ void MainWindow::updateRigControlStatusUi()
         if (!band.isEmpty()) {
             text += QStringLiteral("  ") + uiText("band", "Band") + QStringLiteral(": ") + band;
         }
+        if (!m_lastRigModeName.isEmpty()) text += QStringLiteral("  RX: ") + m_lastRigModeName;
+        if (m_lastRigFilterWidthHz > 0) text += QStringLiteral(" / %1%2 Hz")
+            .arg(m_lastRigFilterSource == 1 ? QStringLiteral("~") : QString())
+            .arg(m_lastRigFilterWidthHz);
         m_lblRigFrequency->setText(text);
+        m_lblRigFrequency->setVisible(catEnabled || pttEnabled || connected);
+        m_lblRigFrequency->setToolTip(uiText("rig_rx_filter_hint",
+            "RX mode and receiver filter width. ~ marks a Hamlib value that may be nominal. MadModem transmits RTTY and CW as audio; native FSK/CW keying is a separate radio function."));
     }
 
     if (m_lblRigPttStatus != nullptr) {
@@ -13008,6 +13029,8 @@ void MainWindow::finishPendingModeChange()
 
 void MainWindow::handleModeChanged(const QString &modeName)
 {
+    if (m_dspEngine != nullptr) QMetaObject::invokeMethod(m_dspEngine, "setNarrowBandDisplay",
+        Qt::QueuedConnection, Q_ARG(bool, modeName == RttyDecoder::modeName() || modeName == CwDecoder::modeName()));
     if(m_txPreparationPending)stopImageTx();
     if (m_nativeWeakSignalTxPending) {
         const bool sameFamily =

@@ -1,0 +1,77 @@
+PASS FSK actual 250 Hz, not backend nominal 500 Hz
+PASS CW width table
+PASS DATA shift/width configuration
+PASS DATA narrow width
+PASS DATA high/low 1100..1600 Hz gives 500 Hz
+PASS SSB uses separate menu from DATA
+PASS reject unrelated/stale reply
+PASS reject preset sentinel
+PASS reject malformed or truncated frame
+PASS unsupported mode has no extra CAT traffic
+width=100 center=700 CAT=0 noise=0.34453
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=100 center=700 CAT=1 noise=0.331771
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=100 center=1500 CAT=0 noise=0.386639
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=100 center=1500 CAT=1 noise=0.260006
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=100 center=2210 CAT=0 noise=1.66026
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=100 center=2210 CAT=1 noise=1.53654
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=250 center=700 CAT=0 noise=1.09516
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=250 center=700 CAT=1 noise=1.09516
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=250 center=1500 CAT=0 noise=1.22357
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=250 center=1500 CAT=1 noise=1.12444
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=250 center=2210 CAT=0 noise=1.0447
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=250 center=2210 CAT=1 noise=1.0307
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=500 center=700 CAT=0 noise=0.95322
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=500 center=700 CAT=1 noise=1.0564
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=500 center=1500 CAT=0 noise=1.04333
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=500 center=1500 CAT=1 noise=1.06822
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=500 center=2210 CAT=0 noise=0.946127
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+width=500 center=2210 CAT=1 noise=0.973467
+PASS narrow filter: dark noise, preserved tone and frequency axis
+PASS AGC step does not change colours
+PASS strong carrier is not flattened
+PCM width=100 CAT=0 noise colour=84 tone=254
+PASS production FFT: narrow noise not saturated, carrier visible
+PCM width=100 CAT=1 noise colour=104 tone=254
+PASS production FFT: narrow noise not saturated, carrier visible
+PCM width=250 CAT=0 noise colour=59 tone=254
+PASS production FFT: narrow noise not saturated, carrier visible
+PCM width=250 CAT=1 noise colour=59 tone=254
+PASS production FFT: narrow noise not saturated, carrier visible
+PCM width=500 CAT=0 noise colour=33 tone=254
+PASS production FFT: narrow noise not saturated, carrier visible
+PCM width=500 CAT=1 noise colour=29 tone=254
+PASS production FFT: narrow noise not saturated, carrier visible

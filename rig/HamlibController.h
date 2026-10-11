@@ -6,6 +6,8 @@
 #include <QString>
 #include <QStringList>
 #include <QTimer>
+#include <QElapsedTimer>
+#include "Ts890FilterQuery.h"
 
 class AppSettings;
 class QTcpSocket;
@@ -88,6 +90,8 @@ signals:
     void errorOccurred(const QString &message);
     void frequencyChanged(double frequencyHz);
     void modeChanged(const QString &modeName);
+    // source: 0 unavailable, 1 backend-reported (may be nominal), 2 direct CAT.
+    void receiverFilterChanged(const QString &modeName, int widthHz, int source);
     void pttChanged(bool enabled);
 
 private:
@@ -122,6 +126,9 @@ private:
     QTimer *m_pollTimer = nullptr;
     double m_lastFrequencyHz = 0.0;
     QString m_lastModeName;
+    Ts890FilterQuery m_ts890Filter;
+    QString m_filterContext;
+    QElapsedTimer m_filterRetryClock;
     bool m_lastPtt = false;
     QString m_lastStatus;
 

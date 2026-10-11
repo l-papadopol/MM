@@ -1697,6 +1697,8 @@ private:
     bool m_rigCatConnected = false;
     QString m_rigStatusMirror;
     QString m_lastRigModeName;
+    int m_lastRigFilterWidthHz = 0;
+    int m_lastRigFilterSource = 0;
     QDialog *m_runtimeLogDialog = nullptr;
     QPlainTextEdit *m_runtimeLogText = nullptr;
     QPushButton *m_btnShowRuntimeLog = nullptr;

@@ -263,3 +263,10 @@ ITALIAN.update({
 })
 
 ITALIAN.update({"No QSOs match the current filters.": "Nessun QSO corrisponde ai filtri impostati."})
+
+ITALIAN.update({
+    "CAT RX filter: %1, %2 Hz, source=%3": "Filtro CAT RX: %1, %2 Hz, origine=%3",
+    "RX mode and receiver filter width. ~ marks a Hamlib value that may be nominal. MadModem transmits RTTY and CW as audio; native FSK/CW keying is a separate radio function.": "Modo RX e larghezza del filtro della radio. ~ indica un valore Hamlib che può essere nominale. MadModem trasmette RTTY e CW tramite audio; la manipolazione FSK/CW nativa è una funzione separata della radio.",
+})
+
+ITALIAN["PTT uses the Radio / CAT connection below."] = "Il PTT usa la connessione Radio / CAT configurata qui sotto."

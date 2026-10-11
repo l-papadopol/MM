@@ -1,4 +1,5 @@
 #include "CwTestSignal.h"
+#include "modems/cw/skimmer/CwRelativeTimingTask.h"
 
 namespace {
 using namespace cwtest;
@@ -41,6 +42,53 @@ void requireEqual(const std::string& name, const std::string& actual,
 void requireTrue(const std::string& name, bool value) {
   if (!value) throw std::runtime_error(name);
   std::cout << "PASS " << name << '\n';
+}
+
+void testTimingTaskResetDiscardsOldText() {
+  using namespace madmodem::cwskimmer;
+  for (bool keepPrior : {false, true}) {
+    CwRelativeTimingTask task;
+    double time = 0.0;
+    auto feedText = [&](const std::string& text) {
+      auto feed = [&](bool mark, double ms) {
+        CwLogicRun run;
+        run.startSec = time;
+        time += ms / 1000.0;
+        run.endSec = time;
+        run.durationMs = ms;
+        run.mark = mark;
+        run.confidence = 0.96;
+        run.meanSnrDb = 28.0;
+        run.peakSnrDb = 32.0;
+        run.coherence = 0.90;
+        run.carrierCentered = mark;
+        run.carrierCenteredFraction = mark ? 1.0 : 0.0;
+        run.meanMarkProbability = mark ? 0.99 : 0.01;
+        task.submitRun(run);
+      };
+      for (char c : text) {
+        const std::string& pattern = kMorse.at(c);
+        for (std::size_t i = 0; i < pattern.size(); ++i) {
+          feed(true, pattern[i] == '.' ? 60.0 : 180.0);
+          if (i + 1 < pattern.size()) feed(false, 60.0);
+        }
+        feed(false, 180.0);
+      }
+      task.flush(time);
+    };
+    feedText("CQ");
+    requireEqual("task has decoded text before reset", normalize(task.snapshot().rollingText), "CQ");
+    // Do not drain results: emulate a retune/clear while text awaits its owner.
+    task.reset(keepPrior);
+    CwRelativeTimingResult result;
+    task.takeResult(result);
+    requireEqual("reset discards pending old text", result.committedText, "");
+    requireTrue("reset discards matching pattern metadata", result.committedPatterns.empty());
+    requireTrue("reset clears visible timing text", result.rollingText.empty() && result.currentPattern.empty());
+    feedText("TEST");
+    task.takeResult(result);
+    requireEqual("fresh reception after reset", normalize(result.committedText), "TEST");
+  }
 }
 
 void testRelativeTimingDirect() {
@@ -844,6 +892,7 @@ void testNoiseOnly() {
 
 int main() {
   try {
+    testTimingTaskResetDiscardsOldText();
     testRelativeTimingDirect();
     testSameLaneAbruptOperatorSpeedChange();
     testProvisionalEpochRebasesBeforePublishing();
@@ -868,6 +917,18 @@ int main() {
     fast.frequencyHz = 1453.0;
     fast.wpm = 35.0;
     testAudioCase("clean-35-wrong-hint", fast, "CQ CQ DE TEST", 18.0);
+
+    SignalOptions fastest = clean;
+    fastest.frequencyHz = 700.0;
+    fastest.wpm = 50.0;
+    fastest.portableRandom = true;
+    fastest.riseTimeMs = 5.0;
+    fastest.noiseAmplitude = 0.005;
+    testAudioCase("clean-50-wrong-hint", fastest, "CQ DE TEST 599", 20.0);
+
+    SignalOptions farFromHint = fastest;
+    farFromHint.wpm = 35.0;
+    testAudioCase("clean-35-slowest-hint", farFromHint, "CQ DE TEST 599", 5.0);
 
     SignalOptions liveLoop = clean;
     liveLoop.frequencyHz = 1548.0;

@@ -1,0 +1,61 @@
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+PASS PTT controls available
+PASS CAT configuration editable with polling off
+PASS one visible PTT method and synchronized CAT test configuration
+PASS retain disconnected PTT port
+PASS manual PTT port survives refresh
+PASS CAT tests follow the current PTT method and dedicated port
+PASS only serial PTT displays a dedicated port
+PASS save preserves the unified PTT selection
+PASS save preserves typed CAT and dedicated PTT ports independently
+PASS PTT controls available
+PASS CAT configuration editable with polling off
+PASS one visible PTT method and synchronized CAT test configuration
+PASS retain disconnected PTT port
+PASS manual PTT port survives refresh
+PASS CAT tests follow the current PTT method and dedicated port
+PASS only serial PTT displays a dedicated port
+PASS save preserves the unified PTT selection
+PASS save preserves typed CAT and dedicated PTT ports independently
+PASS PTT controls available
+PASS CAT configuration editable with polling off
+PASS one visible PTT method and synchronized CAT test configuration
+PASS retain disconnected PTT port
+PASS manual PTT port survives refresh
+PASS CAT tests follow the current PTT method and dedicated port
+PASS only serial PTT displays a dedicated port
+PASS save preserves the unified PTT selection
+PASS save preserves typed CAT and dedicated PTT ports independently
+PASS PTT controls available
+PASS CAT configuration editable with polling off
+PASS one visible PTT method and synchronized CAT test configuration
+PASS retain disconnected PTT port
+PASS manual PTT port survives refresh
+PASS CAT tests follow the current PTT method and dedicated port
+PASS only serial PTT displays a dedicated port
+PASS save preserves the unified PTT selection
+PASS save preserves typed CAT and dedicated PTT ports independently
+PASS Settings geometry/buttons Windows 9pt en
+PASS Settings geometry/buttons Windows 9pt it
+PASS Settings geometry/buttons Windows 9pt de
+PASS Settings geometry/buttons Windows 9pt fr
+PASS Settings geometry/buttons Windows 9pt no
+PASS Settings geometry/buttons Windows 9pt cs
+PASS Settings geometry/buttons Windows 14pt en
+PASS Settings geometry/buttons Windows 14pt it
+PASS Settings geometry/buttons Windows 14pt de
+PASS Settings geometry/buttons Windows 14pt fr
+PASS Settings geometry/buttons Windows 14pt no
+PASS Settings geometry/buttons Windows 14pt cs
+PASS Settings geometry/buttons Fusion 9pt en
+PASS Settings geometry/buttons Fusion 9pt it
+PASS Settings geometry/buttons Fusion 9pt de
+PASS Settings geometry/buttons Fusion 9pt fr
+PASS Settings geometry/buttons Fusion 9pt no
+PASS Settings geometry/buttons Fusion 9pt cs
+PASS Settings geometry/buttons Fusion 14pt en
+PASS Settings geometry/buttons Fusion 14pt it
+PASS Settings geometry/buttons Fusion 14pt de
+PASS Settings geometry/buttons Fusion 14pt fr
+PASS Settings geometry/buttons Fusion 14pt no
+PASS Settings geometry/buttons Fusion 14pt cs

@@ -106,8 +106,16 @@ CwRelativeTimingResult CwRelativeTimingTask::snapshot() const {
   return result;
 }
 
-void CwRelativeTimingTask::publish(const CwRelativeTimingResult& result) {
+void CwRelativeTimingTask::publish(const CwRelativeTimingResult& result,
+                                  bool discardPending) {
   std::lock_guard<std::mutex> lock(m_resultMutex);
+  if (discardPending) {
+    // A retune, clear or capture gap ends the old reception. Reset both the
+    // decoder and its undelivered output at the same FIFO barrier, under the
+    // result lock, before acknowledging completion to the owner.
+    m_pendingCommitted.clear();
+    m_pendingCommittedPatterns.clear();
+  }
   if (!result.committedText.empty())
     m_pendingCommitted += result.committedText;
   if (!result.committedPatterns.empty())
@@ -144,7 +152,7 @@ void CwRelativeTimingTask::workerMain(
         break;
       case CommandType::Reset:
         decoder.reset(command.flag);
-        publish(decoder.snapshot());
+        publish(decoder.snapshot(), true);
         break;
       case CommandType::BeginEpoch:
         decoder.beginEpoch(command.value1, command.value2, command.value3,

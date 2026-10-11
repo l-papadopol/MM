@@ -1,5 +1,20 @@
 # MadModem changelog
 
+## 0.6.0 R6 — CW acquisition — 2026-10-10
+
+- Cap automatic acquisition duration gates at the fastest supported dit, so a slow initial WPM hint cannot exclude valid faster stations before timing lock.
+- Clear undelivered CW text and pattern metadata atomically at the reset barrier.
+- Add targeted fast-station acquisition and worker reset regressions; retain R5 CAT/PTT and waterfall fixes.
+
+## 0.6.0 R5 — receiver filters — 2026-10-10
+
+- Fix conflicting embedded PTT selectors and disabled CAT setup fields; preserve manually typed and disconnected serial ports.
+- Correct narrow-band CW/RTTY waterfall noise-floor saturation without cropping frequency bins or altering decoder audio.
+- Carry CAT mode/filter telemetry to the DSP worker and radio status; distinguish backend-reported widths from direct measurements.
+- Read actual TS-890 filter widths with model-specific, validated read-only queries; stagger optional queries and back off on failure.
+- Preserve audio TX routing and normal wide-band FT rendering. Native FSK/CW keying is not added.
+- Add portable CAT parser and synthetic PCM/FFT regressions.
+
 ## 0.6.0 R4 — logbook and map workflows — 2026-10-09
 
 - Consolidate logbook output scope and remove the second ADIF filtering dialog.

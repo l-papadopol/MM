@@ -547,6 +547,10 @@ bool HamlibController::disconnectRig()
     }
 #endif
     m_lastFrequencyHz = 0.0;
+    m_ts890Filter.reset();
+    m_filterContext.clear();
+    m_filterRetryClock.invalidate();
+    emit receiverFilterChanged(QString(), 0, 0);
     if (!m_lastModeName.isEmpty()) {
         m_lastModeName.clear();
         emit modeChanged(QString());
@@ -586,7 +590,7 @@ void HamlibController::pollNow()
 
     // Split/Fake-It temporarily changes a CAT frequency for TX. Never publish
     // that transient value as the station RX frequency or band selection.
-    if (m_ftSplitTxActive) {
+    if (m_ftSplitTxActive || m_lastPtt) {
         return;
     }
 
@@ -652,6 +656,52 @@ void HamlibController::pollNow()
             m_lastModeName = modeName;
             emit modeChanged(modeName);
         }
+        // The bundled Kenwood backend reports rig_passband_normal() for the
+        // TS-890, not the front-panel DSP width. Read its documented controls
+        // on this same CAT worker/handle; never open a second serial session.
+        if (rig->caps->rig_model == RIG_MODEL_TS890S) {
+            const QString context = modeName + QLatin1Char('/') + QString::number(activeVfo);
+            if (context != m_filterContext) {
+                m_filterContext = context;
+                m_ts890Filter.reset();
+                m_filterRetryClock.invalidate();
+                emit receiverFilterChanged(modeName, 0, 0);
+            }
+            if (m_filterRetryClock.isValid() && m_filterRetryClock.elapsed() < 30000) return;
+            const QByteArray cmd = m_ts890Filter.command(modeName);
+            if (cmd.isEmpty()) {
+                emit receiverFilterChanged(modeName, 0, 0);
+                return;
+            }
+            unsigned char reply[64] = {};
+            unsigned char terminator[] = {';', 0};
+            const int size = rig_send_raw(rig,
+                reinterpret_cast<const unsigned char *>(cmd.constData()), cmd.size(),
+                reply, static_cast<int>(sizeof(reply)), terminator);
+            bool complete = false;
+            if (size <= 0 || size >= static_cast<int>(sizeof(reply)) ||
+                !m_ts890Filter.accept(modeName, QByteArray(reinterpret_cast<const char *>(reply), size), complete)) {
+                m_ts890Filter.reset();
+                m_filterRetryClock.start();
+                emit receiverFilterChanged(modeName, 0, 0);
+                // Optional telemetry failure must not mark CAT disconnected,
+                // change the mode, or prevent a subsequent PTT OFF.
+            } else if (complete) {
+                m_filterRetryClock.invalidate();
+                emit receiverFilterChanged(modeName, m_ts890Filter.widthHz(), 2);
+            }
+        } else {
+            emit receiverFilterChanged(modeName, width > 0 && width <= 12000 ? static_cast<int>(width) : 0,
+                                       width > 0 && width <= 12000 ? 1 : 0);
+        }
+    } else {
+        m_ts890Filter.reset();
+        m_filterContext.clear();
+        if (!m_lastModeName.isEmpty()) {
+            m_lastModeName.clear();
+            emit modeChanged(QString());
+        }
+        emit receiverFilterChanged(QString(), 0, 0);
     }
 #endif
 }

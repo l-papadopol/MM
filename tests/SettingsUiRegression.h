@@ -3,12 +3,73 @@
 #include <QFont>
 #include <QScrollArea>
 #include <QScrollBar>
+#include "../dialogs/AudioSettingsDialog.h"
+#include "../dialogs/RigControlSettingsDialog.h"
+inline bool runPttSettingsRegression(QApplication &app, QWidget &parent, QTextStream &out)
+{
+    bool ok = true;
+    auto check = [&](bool value, const char *name) {
+        out << (value ? "PASS " : "FAIL ") << name << "\n";
+        ok &= value;
+    };
+    for (const QString &method : {QStringLiteral("none"), QStringLiteral("cat_hamlib"),
+                                  QStringLiteral("serial_rts"), QStringLiteral("serial_dtr")}) {
+        AppSettings initial;
+        initial.pttMethod = method;
+        initial.hamlibPttEnabled = method == QStringLiteral("cat_hamlib");
+        initial.hamlibCatEnabled = false;
+        initial.pttPortName = QStringLiteral("COM237"); // A disconnected saved interface.
+        AppSettingsDialog dialog(initial, QString(), QString(), {}, {}, {},
+                                 AppSettingsDialog::InitialPage::AudioPtt, &parent);
+        dialog.show();
+        app.processEvents();
+        auto *audio = dialog.findChild<AudioSettingsDialog *>();
+        auto *rig = dialog.findChild<RigControlSettingsDialog *>();
+        auto *ptt = dialog.findChild<QComboBox *>(QStringLiteral("cmbPttMethod"));
+        auto *port = dialog.findChild<QComboBox *>(QStringLiteral("cmbPttPort"));
+        auto *catPort = dialog.findChild<QComboBox *>(QStringLiteral("catSerialPort"));
+        auto *catPtt = dialog.findChild<QComboBox *>(QStringLiteral("catPttMethod"));
+        auto *maker = dialog.findChild<QComboBox *>(QStringLiteral("catManufacturer"));
+        check(audio && rig && ptt && port && catPort && catPtt && maker, "PTT controls available");
+        if (!audio || !rig || !ptt || !port || !catPort || !catPtt || !maker) continue;
+        check(catPort->isEnabled() && catPort->isEditable() && maker->isEnabled(),
+              "CAT configuration editable with polling off");
+        check(catPtt->isHidden() && catPtt->currentData().toString() == method,
+              "one visible PTT method and synchronized CAT test configuration");
+        check(audio->settings().pttPortName == QStringLiteral("COM237"), "retain disconnected PTT port");
+        // Simulate typing over a detected item; itemData must not override edited text.
+        catPort->addItem(QStringLiteral("COM11 - USB adapter"), QStringLiteral("COM11"));
+        catPort->setCurrentIndex(catPort->count() - 1);
+        catPort->setEditText(QStringLiteral("COM12"));
+        ptt->setCurrentIndex(ptt->findData(QStringLiteral("serial_rts")));
+        port->addItem(QStringLiteral("COM11 - USB adapter"), QStringLiteral("COM11"));
+        port->setCurrentIndex(port->count() - 1);
+        port->setEditText(QStringLiteral("COM238"));
+        QMetaObject::invokeMethod(audio, "refreshDevices", Qt::DirectConnection);
+        check(audio->settings().pttPortName == QStringLiteral("COM238"), "manual PTT port survives refresh");
+        ptt->setCurrentIndex(ptt->findData(method));
+        QMetaObject::invokeMethod(rig, "applyToSettings", Qt::DirectConnection);
+        check(rig->settings().pttMethod == method && rig->settings().pttPortName == QStringLiteral("COM238"),
+              "CAT tests follow the current PTT method and dedicated port");
+        check((method == QStringLiteral("serial_rts") || method == QStringLiteral("serial_dtr"))
+              ? port->isVisible() && port->isEnabled() : port->isHidden(), "only serial PTT displays a dedicated port");
+        QMetaObject::invokeMethod(&dialog, "accept", Qt::DirectConnection);
+        const AppSettings saved = dialog.settings();
+        check(saved.pttMethod == method && saved.hamlibPttEnabled == (method == QStringLiteral("cat_hamlib")),
+              "save preserves the unified PTT selection");
+        check(saved.hamlibSerialPath == QStringLiteral("COM12") && saved.pttPortName == QStringLiteral("COM238"),
+              "save preserves typed CAT and dedicated PTT ports independently");
+    }
+    return ok;
+}
+
 inline int runSettingsUiRegression(QApplication &app) {
         bool ok = true;
         QTextStream out(stdout);
         QWidget parent;
         parent.resize(800, 600);
         parent.show();
+        ok &= runPttSettingsRegression(app, parent, out);
         AppSettings settings;
         const QFont originalFont = app.font();
         for (const QString &styleName : QStyleFactory::keys()) {

@@ -55,6 +55,15 @@ void DspEngine::configureSignalPeakMetric(bool enabled, int lowHz, int highHz)
     m_signalPeakHighHz = qMax(m_signalPeakLowHz, qMax(lowHz, highHz));
 }
 
+void DspEngine::configureReceiverFilter(const QString &modeName, int widthHz, int source)
+{
+    Q_UNUSED(modeName);
+    // A backend value is a hint only, never an audio-frequency centre or a
+    // hard crop. Spectrum evidence remains necessary before correction.
+    m_receiverWidthHz = source > 0 && widthHz >= 50 && widthHz <= 12000 ? widthHz : 0;
+    m_receiverFilterAge.start();
+}
+
 // -----------------------------------------------------------------------------
 // Analysis
 // -----------------------------------------------------------------------------
@@ -124,16 +133,19 @@ void DspEngine::analyzeWindow(const QVector<float> &window, int sampleRate)
      * fixed gain/zero colour mapping.  This reacts immediately to receiver
      * AGC steps without leaving the whole passband orange for many seconds.
      *
-     * MadModem keeps its persistent passband detector only to exclude truly
-     * silent monitor-device bins from the fit.  Decoder audio is untouched.
+     * Narrow receiver noise shelves receive a local lower-envelope correction.
+     * No frequency bins are cropped, and decoder audio is untouched.
      */
     std::vector<double> levelInput;
     levelInput.reserve(static_cast<std::size_t>(dbLine.size()));
     for (double value : dbLine) levelInput.push_back(value);
     const double lineSeconds = static_cast<double>(m_hopSize) /
                                static_cast<double>(sampleRate);
+    const int receiverWidth = m_receiverFilterAge.isValid() && m_receiverFilterAge.elapsed() < 45000 ? m_receiverWidthHz : 0;
     const WaterfallLevelResult levels =
-        m_waterfallLeveler.update(levelInput, lineSeconds);
+        m_waterfallLeveler.update(levelInput, lineSeconds,
+            (m_maxHz - m_minHz) / static_cast<double>(m_columns - 1),
+            receiverWidth, m_narrowBandDisplay || (receiverWidth >= 50 && receiverWidth <= 1000));
     const bool haveBaseline = levels.baselineDb.size() ==
                               static_cast<std::size_t>(dbLine.size());
 

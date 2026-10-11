@@ -320,6 +320,64 @@ std::vector<double> lowerEnvelopePolynomial(const std::vector<double> &dbLine,
     return baseline;
 }
 
+// A fourth-order fit cannot follow a 100..500-Hz noise shelf surrounded by
+// 40..60 dB of stopband attenuation. Detect the *lower envelope* of that shelf,
+// not the strongest tone. Width is only a hint: no guessed centre, rescaling
+// of the frequency axis, black mask, or modification of decoder samples.
+bool stabilizeNarrowShelf(const std::vector<double> &line, double binHz,
+                          double receiverWidthHz, std::vector<double> &baseline)
+{
+    const std::size_t n = line.size();
+    if (n < 32U) return false;
+    if (!(binHz > 0.0)) binHz = 3000.0 / static_cast<double>(n - 1U);
+    const bool narrowHint = receiverWidthHz >= 50.0 && receiverWidthHz <= 1000.0;
+    const double windowHz = narrowHint ? clampValue(receiverWidthHz * 0.22, 20.0, 100.0) : 65.0;
+    const std::size_t half = std::max<std::size_t>(2U, static_cast<std::size_t>(windowHz / binHz / 2.0));
+    const std::size_t minSpan = std::max<std::size_t>(8U, static_cast<std::size_t>(
+        (narrowHint ? receiverWidthHz * 0.45 : 80.0) / binHz));
+    std::vector<double> local(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const auto first = i > half ? i - half : 0U;
+        const auto last = std::min(n - 1U, i + half);
+        local[i] = quantile(std::vector<double>(line.begin() + first, line.begin() + last + 1U), 0.10);
+    }
+    bool changed = false;
+    for (std::size_t start = 0; start < n;) {
+        if (local[start] - baseline[start] < 12.0) { ++start; continue; }
+        std::size_t end = start;
+        while (end + 1U < n && local[end + 1U] - baseline[end + 1U] >= 12.0) ++end;
+        const std::size_t span = end - start + 1U;
+        if (span >= minSpan && span < n / 2U) {
+            const std::size_t inset = span / 4U;
+            const std::vector<double> core(local.begin() + start + inset, local.begin() + end - inset + 1U);
+            // Reject sloping skirts of strong carriers. A filter has a noise
+            // plateau; a single Gaussian/windowed carrier does not.
+            if (quantile(core, 0.80) - quantile(core, 0.20) < 10.0 ||
+                (narrowHint && span * binHz <= 1.6 * receiverWidthHz)) {
+                // Estimate once from the actual interior samples. Taking a
+                // quantile of rolling quantiles would bias noisy PCM twice
+                // downward and still paint the passband hot.
+                const std::vector<double> interior(line.begin() + start + inset,
+                                                    line.begin() + end - inset + 1U);
+                const double floor = quantile(interior, 0.20);
+                const std::size_t lo = start > half ? start - half : 0U;
+                const std::size_t hi = std::min(n - 1U, end + half);
+                for (std::size_t i = lo; i <= hi; ++i) {
+                    const double target = std::min(floor, local[i] + 6.0);
+                    double weight = 1.0;
+                    if (i < start) weight = static_cast<double>(i - lo) / std::max<std::size_t>(1U, start - lo);
+                    if (i > end) weight = static_cast<double>(hi - i) / std::max<std::size_t>(1U, hi - end);
+                    weight = weight * weight * (3.0 - 2.0 * weight);
+                    baseline[i] += std::max(0.0, target - baseline[i]) * weight;
+                }
+                changed = true;
+            }
+        }
+        start = end + 1U;
+    }
+    return changed;
+}
+
 } // namespace
 
 void WaterfallLeveler::reset()
@@ -328,7 +386,8 @@ void WaterfallLeveler::reset()
 }
 
 WaterfallLevelResult WaterfallLeveler::update(
-    const std::vector<double> &dbLine, double elapsedSeconds)
+    const std::vector<double> &dbLine, double elapsedSeconds,
+    double binHz, double receiverWidthHz, bool correctNarrowBand)
 {
     (void)elapsedSeconds; // flattening is intentionally per-row.
     WaterfallLevelResult result;
@@ -345,6 +404,8 @@ WaterfallLevelResult WaterfallLeveler::update(
     const std::size_t validEnd = dbLine.size() - 1U;
 
     result.baselineDb = lowerEnvelopePolynomial(dbLine, validBegin, validEnd);
+    if (correctNarrowBand)
+        result.narrowBandCorrected = stabilizeNarrowShelf(dbLine, binHz, receiverWidthHz, result.baselineDb);
     std::vector<double> representative(result.baselineDb.begin(),
                                        result.baselineDb.end());
     result.floorDb = quantile(representative, 0.50);

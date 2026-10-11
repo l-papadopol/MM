@@ -11,9 +11,11 @@ void require(bool condition, const std::string& name) {
 }
 
 void receive(const std::string& text, double offset = 0.0, bool adjacent = false,
-             bool manual = false, int rate = kSampleRate) {
+             bool manual = false, int rate = kSampleRate,
+             double speed = 20.0, double hint = 20.0) {
   SignalOptions signal;
   signal.frequencyHz = 700.0;
+  signal.wpm = speed;
   signal.noiseAmplitude = 0.005;
   signal.portableRandom = true;
   signal.riseTimeMs = 5.0;
@@ -37,7 +39,11 @@ void receive(const std::string& text, double offset = 0.0, bool adjacent = false
   decoder.setToneHz(700.0 - offset);
   decoder.setAfcEnabled(true);
   decoder.setAutoWpm(!manual);
+  decoder.setWpm(hint);
   std::string output;
+  QStringList diagnostics;
+  QObject::connect(&decoder, &CwDecoder::liveLogLine,
+      [&](int rank, const QString& line) { if (rank == 0) diagnostics.append(line); });
   QObject::connect(&decoder, &CwDecoder::priorityTextReceived,
       [&](int rank, const QString& value) { if (rank == 0) output += value.toStdString(); });
   for (std::size_t p = 0; p < audio.size(); p += 1024U) {
@@ -49,8 +55,12 @@ void receive(const std::string& text, double offset = 0.0, bool adjacent = false
   }
   const std::string name = text + " offset=" + std::to_string(offset) +
       " adjacent=" + std::to_string(adjacent) + " manual=" + std::to_string(manual) +
-      " rate=" + std::to_string(rate);
-  if (normalize(output) != text) std::cerr << "Received: " << normalize(output) << '\n';
+      " rate=" + std::to_string(rate) + " speed=" + std::to_string(speed) +
+      " hint=" + std::to_string(hint);
+  if (normalize(output) != text) {
+    std::cerr << "Received: " << normalize(output) << '\n';
+    for (const QString& line : diagnostics) std::cerr << line.toStdString() << '\n';
+  }
   require(normalize(output) == text, name);
   if (offset != 0.0) require(std::abs(decoder.trackedToneHz(0) - 700.0) < 3.0, "AFC converges");
 }
@@ -100,6 +110,8 @@ int main(int argc, char** argv) {
     receive("CQ CQ DE IZ6NNH 599", 0.0, true);
     receive("TEST", 0.0, false, true);
     for (int rate : {44100, 96000}) receive("CQ CQ DE IZ6NNH 599", 0.0, false, false, rate);
+    receive("CQ DE TEST 599", 0.0, false, false, kSampleRate, 50.0, 20.0);
+    receive("CQ DE TEST 599", 0.0, false, false, kSampleRate, 35.0, 5.0);
     filterAndManualClock();
   } catch (const std::exception& error) {
     std::cerr << "CW integration failed: " << error.what() << '\n';
