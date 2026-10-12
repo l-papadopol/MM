@@ -22,11 +22,11 @@ jobs:
       - name: Install build and runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake ninja-build pkg-config python3 dpkg-dev \
+          sudo apt-get install -y build-essential cmake ninja-build pkg-config python3 dpkg-dev patchelf \
             libgl1-mesa-dev libhamlib-dev qtbase5-dev qttools5-dev qttools5-dev-tools \
             qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev libqt5serialport5-dev \
             libqt5opengl5-dev qml-module-qtquick2 qml-module-qtquick-window2 \
-            qml-module-qtlocation qml-module-qtpositioning libqt5multimedia5-plugins libqt5sql5-sqlite
+            qml-module-qtlocation qml-module-qtpositioning libqt5multimedia5-plugins libqt5sql5-sqlite qtwayland5
       - name: Build and test
         run: |
           cmake -S . -B build-installer -G Ninja -DCMAKE_BUILD_TYPE=Release \
@@ -41,6 +41,10 @@ jobs:
         run: |
           cmake --install build-installer --prefix "$PWD/dist/linux"
           bash scripts/package_linux_github.sh
+      - name: Verify portable runtime without system Qt or Hamlib
+        run: |
+          docker run --rm -v "$PWD/dist/packages:/packages:ro" -v "$PWD/scripts:/checks:ro" ubuntu:24.04 \
+            bash -c 'apt-get update && apt-get install -y python3 binutils libgl1 libegl1 fonts-dejavu-core && python3 /checks/test_linux_portable.py /packages/*.tar.gz'
       - uses: actions/upload-artifact@v4
         with:
           name: portable-ubuntu24-x64
@@ -67,10 +71,10 @@ jobs:
     steps:
       - name: Install tools and Qt
         run: |
-          dnf install -y git tar gzip gcc-c++ cmake ninja-build python3 pkgconf-pkg-config \
+          dnf install -y git tar gzip gcc-c++ cmake ninja-build python3 pkgconf-pkg-config patchelf \
             hamlib-devel qt5-qtbase-devel qt5-qttools-devel qt5-qtmultimedia-devel \
             qt5-qtserialport-devel qt5-qtdeclarative-devel qt5-qtlocation-devel \
-            mesa-libGL-devel rpm-build which findutils
+            qt5-qtwayland openssl-libs mesa-libGL-devel rpm-build which findutils
       - uses: actions/checkout@v4
       - name: Build and test
         run: |
@@ -105,6 +109,21 @@ jobs:
           path: dist/packages/*-Setup.run
           if-no-files-found: error
 
+  fedora-portable-check:
+    name: Fedora portable without system Qt or Hamlib
+    needs: fedora
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: portable-fedora43-x64
+          path: portable
+      - name: Verify isolated runtime
+        run: |
+          docker run --rm -v "$PWD/portable:/packages:ro" -v "$PWD/scripts:/checks:ro" fedora:43 \
+            bash -c 'dnf install -y python3 binutils mesa-libGL mesa-libEGL dejavu-sans-fonts && python3 /checks/test_linux_portable.py /packages/*.tar.gz'
+
   windows:
     name: Windows x64 portable and automatic CPU installer
     runs-on: windows-2022
@@ -121,7 +140,7 @@ jobs:
             mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-tools
             mingw-w64-x86_64-qt5-multimedia mingw-w64-x86_64-qt5-serialport
             mingw-w64-x86_64-qt5-declarative mingw-w64-x86_64-qt5-location
-            mingw-w64-x86_64-openssl mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-openssl mingw-w64-x86_64-libusb mingw-w64-x86_64-angleproject
       - name: Ensure Inno Setup is available
         shell: pwsh
         run: |
@@ -207,15 +226,7 @@ jobs:
       - name: Verify installation and reinstall
         env:
           QT_QPA_PLATFORM: offscreen
-        run: |
-          package=(dist/macos/*.pkg)
-          sudo installer -pkg "${package[0]}" -target /
-          test -f /Applications/MadModem.app/Contents/MacOS/managed-install.flag
-          mkdir -p "$HOME/Library/Application Support/MadModem"
-          printf 'preserve user data\n' > "$HOME/Library/Application Support/MadModem/installer-test.txt"
-          sudo installer -pkg "${package[0]}" -target /
-          grep -qx 'preserve user data' "$HOME/Library/Application Support/MadModem/installer-test.txt"
-          /Applications/MadModem.app/Contents/MacOS/MadModem --version
+        run: bash scripts/test_macos_installer.sh
       - uses: actions/upload-artifact@v4
         with:
           name: installer-macos-${{ matrix.arch }}

@@ -97,6 +97,7 @@ public:
 #include "tests/RuntimeWorkersRegression.h"
 #include "tests/ArchitectureRegression.h"
 #include "tests/WindowRotatorRegression.h"
+#include "tests/LinuxPortableRuntimeRegression.h"
 
 int main(int argc, char *argv[])
 {
@@ -142,6 +143,8 @@ int main(int argc, char *argv[])
     commandLine.addOption(architectureRegressionOption);
     const QCommandLineOption runtimeRegressionOption(QStringLiteral("runtime-regression"),QStringLiteral("Check RX worker and asynchronous CAT without radio hardware."));
     const QCommandLineOption windowRegressionOption(QStringLiteral("window-rotator-regression"),QStringLiteral("Check main-window popups and manual rotator controls without radio hardware."));
+    const QCommandLineOption portableRuntimeOption(QStringLiteral("portable-runtime-regression"), QStringLiteral("Verify bundled Linux plugins, QML and TLS without radio hardware."));
+    commandLine.addOption(portableRuntimeOption);
     commandLine.addOption(windowRegressionOption);
     commandLine.addOption(runtimeRegressionOption);
     commandLine.addOption(uiRegressionOption);
@@ -257,6 +260,7 @@ int main(int argc, char *argv[])
         return allOk ? 0 : 3;
     }
 
+    if (commandLine.isSet(portableRuntimeOption)) return runLinuxPortableRuntimeRegression();
     if (commandLine.isSet(windowRegressionOption)) return runWindowRotatorRegression(app);
     if (commandLine.isSet(architectureRegressionOption)) return runArchitectureRegression(app);
     if (commandLine.isSet(runtimeRegressionOption)) return runRuntimeWorkersRegression(app);

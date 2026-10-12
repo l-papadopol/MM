@@ -13,8 +13,13 @@ Installation is optional. The **Build installers** workflow publishes separate
   into a writable folder and run `bin/MadModem.exe`. Use legacy if unsure; automatic
   CPU selection is provided by Setup.exe, not by the two separate ZIPs.
 - Linux: ZIP and TAR.GZ for Ubuntu 24.04 and Fedora 43. Extract and run
-  `bin/MadModem`. Matching Qt5 and Hamlib runtime dependencies must already be
-  installed. These archives are not self-contained or universal Linux packages.
+  `AppRun` (or `bin/MadModem`). Qt5, Hamlib, Qt plugins, QML modules, OpenSSL
+  and their non-system dependencies are bundled. The launcher uses only the
+  private library/plugin directories; do not start `MadModem.bin` directly.
+  Select the matching distribution: glibc and graphics drivers remain supplied
+  by the host. These are not universal Linux binaries. Runtime provenance and
+  license texts are included. CI checks the relocated archive in a clean
+  distribution container without Qt or Hamlib installed.
 - macOS: app ZIP and DMG for each architecture, alongside the PKG.
 
 Portable archives are uploaded before installer creation, so they remain
@@ -59,7 +64,11 @@ may be required by the package manager to obtain missing dependencies.
 
 Open the Intel `x86_64` or Apple Silicon `arm64` PKG for macOS 15 or later. Apple's
 Installer presents the license and installs to `/Applications/MadModem.app`.
-Subsequent packages update the same bundle. The current packages are ad-hoc
+Subsequent packages replace the same bundle, removing obsolete program files.
+Executable-adjacent portable data is preserved under
+`/Library/Application Support/MadModem/Portable Backups` before replacement.
+MM migrates the saved default settings/logbook on first launch if user-folder
+copies do not already exist; custom files remain available in the backup. The current packages are ad-hoc
 signed, without Developer ID signing or notarization. Windows installers are
 also unsigned; operating-system trust warnings may appear.
 

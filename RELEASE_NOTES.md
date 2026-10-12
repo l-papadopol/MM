@@ -1,9 +1,14 @@
 # MadModem 0.6.1
 
+- macOS: fix fresh PKG installs silently skipping the app; preserve portable data before replacing an existing bundle.
+- Windows: install and deploy the optional MSYS2 ANGLE runtime required by windeployqt; retain strict DLL dependency checks.
+
 - Distribution: retain standalone Windows ZIPs, Linux ZIP/TAR.GZ and macOS ZIP/DMG alongside the optional installers. Publish portable and installer downloads separately.
 - Windows menu verification: add a native-platform startup/maximize/restore regression to CI alongside offscreen tests; retain the earlier fix that removed forced fullscreen startup.
 
 - Windows: one installer automatically selects the compatible legacy or AVX2/FMA build, creates shortcuts and supports installation updates and uninstall.
+- Linux portable: bundle Qt5, Hamlib, Qt audio/display plugins, QML map modules, OpenSSL and their dependencies. Separate Qt/Hamlib installation is no longer required.
+- Linux packaging: check runtime dependency closure and verify relocated archives in clean distribution containers without system Qt or Hamlib.
 - Linux: distribution-specific installers for Ubuntu 24.04 and Fedora 43 use native package management and dependency resolution.
 - macOS: native PKG installers for Intel and Apple Silicon install to Applications.
 - Installers display the author's copyright and the unmodified GNU GPLv3; interactive installation requires acceptance.

@@ -33,5 +33,20 @@ int main(int argc, char **argv) {
     }
     const QString empty = storage.filePath("fresh/user");
     check(MadModemInstallation::userFile(install, empty, "new-log.adi") == empty + "/new-log.adi" && QDir(empty).exists(), "new install creates user directory without inventing a log");
+    const QString backups = storage.filePath("Portable Backups");
+    QDir().mkpath(backups + "/20261011T100000Z-old");
+    QDir().mkpath(backups + "/20261011T110000Z-new");
+    const QString saved = backups + "/20261011T110000Z-new/settings.mad";
+    check(write(backups + "/20261011T100000Z-old/settings.mad", "older") && write(saved, "latest portable settings"), "installer snapshots available");
+    QFile::remove(install + "/settings.mad");
+    const QString migrated = storage.filePath("mac-user");
+    check(MadModemInstallation::userFile(install, migrated, "settings.mad", backups) == migrated + "/settings.mad" &&
+          read(migrated + "/settings.mad") == "latest portable settings" && read(saved) == "latest portable settings",
+          "atomic Mac upgrade migrates preserved portable data without changing backup");
+    check(write(migrated + "/settings.mad", "current user settings") &&
+          MadModemInstallation::userFile(install, migrated, "settings.mad", backups) == migrated + "/settings.mad" &&
+          read(migrated + "/settings.mad") == "current user settings", "Mac reinstall keeps newer user settings");
+    check(MadModemInstallation::userFile(install, storage.filePath("blocked/child"), "settings.mad", backups) == saved,
+          "failed Mac migration retains access to preserved data");
     return all ? 0 : 1;
 }

@@ -2,6 +2,10 @@
 
 ## 0.6.1 — 2026-10-11
 
+- macOS: fix fresh PKG installs silently skipping the app; preserve portable data before replacing an existing bundle.
+- Windows: install and deploy the optional MSYS2 ANGLE runtime required by windeployqt; retain strict DLL dependency checks.
+
+- Bundle Linux Qt5/Hamlib runtime, plugins, QML and TLS dependencies, with isolated-container validation and license provenance.
 - Publish portable archives alongside installers on all platforms; keep installation optional.
 - Run the startup menu regression with the native Windows backend as well as offscreen.
 

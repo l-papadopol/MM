@@ -31,9 +31,10 @@ found = False
 for component in components:
     if component.get('RootRelativeBundlePath') == 'Applications/MadModem.app':
         component['BundleIsRelocatable'] = False
-        # Merge/replace owned files, preserving old portable settings/logbooks
-        # until the managed application copies them to the user's data folder.
-        component['BundleOverwriteAction'] = 'update'
+        # 'update' skips the entire bundle on a fresh Mac. 'upgrade' installs
+        # both fresh and existing copies and removes stale program files.
+        # The preinstall script preserves legacy portable data outside the bundle.
+        component['BundleOverwriteAction'] = 'upgrade'
         found = True
 if not found:
     raise SystemExit('Main application missing from component analysis')
@@ -41,7 +42,12 @@ p.write_bytes(plistlib.dumps(components))
 PY
 mkdir -p "$work/resources"
 cat "$root/packaging/COPYRIGHT.txt" "$root/COPYING" > "$work/resources/INSTALLER_LICENSE.txt"
+mkdir -p "$work/scripts"
+cp "$root/packaging/macos/scripts/preinstall" "$work/scripts/preinstall"
+# Uploading sources through GitHub's web UI may lose executable file modes.
+chmod 755 "$work/scripts/preinstall"
 pkgbuild --root "$work/root" --component-plist "$work/components.plist" \
+    --scripts "$work/scripts" \
     --identifier org.iz6nnh.madmodem --version "$version" --install-location / \
     "$work/MadModem-component.pkg"
 cat > "$work/distribution.xml" <<XML

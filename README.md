@@ -25,11 +25,11 @@ MM è scritto in **C++/Qt**, è pensato per **Linux, Windows e macOS** e il codi
 | Sistema | Senza installazione | Installer |
 | --- | --- | --- |
 | Windows 10/11 a 64 bit | ZIP separati legacy e AVX2/FMA; estrarre e avviare `bin/MadModem.exe`. Nel dubbio scegliere legacy. | Un unico `Setup.exe` sceglie automaticamente la variante compatibile con CPU e sistema operativo. |
-| Ubuntu 24.04 / distribuzioni compatibili | ZIP o TAR.GZ Ubuntu24.04; avviare `bin/MadModem`. | `Ubuntu24.04-…-Setup.run`, con DEB e dipendenze gestite da APT. |
-| Fedora 43 | ZIP o TAR.GZ Fedora43; avviare `bin/MadModem`. | `…fc43…-Setup.run`, con RPM e dipendenze gestite da DNF. |
+| Ubuntu 24.04 / distribuzioni compatibili | ZIP o TAR.GZ Ubuntu24.04; avviare `AppRun`. | `Ubuntu24.04-…-Setup.run`, con DEB e dipendenze gestite da APT. |
+| Fedora 43 | ZIP o TAR.GZ Fedora43; avviare `AppRun`. | `…fc43…-Setup.run`, con RPM e dipendenze gestite da DNF. |
 | macOS 15 o successivo | ZIP dell'app o DMG, dedicati a Intel oppure Apple Silicon. | `unsigned.pkg` dedicato all'architettura. |
 
-Gli archivi Linux richiedono le librerie runtime Qt5 e Hamlib della distribuzione indicata; non sono AppImage autonomi. Per aggiornare una copia portabile, chiudere MM e conservare `settings.mad`, logbook ADIF e registrazioni prima di sostituire i file del programma.
+Gli archivi Linux includono Qt5, Hamlib, i plugin Qt e i moduli QML necessari. Non serve installare separatamente Qt o Hamlib. Scegliere il pacchetto della propria distribuzione: glibc, driver grafici e servizi desktop/audio restano quelli del sistema. Per aggiornare una copia portabile, chiudere MM e conservare `settings.mad`, logbook ADIF e registrazioni prima di sostituire i file del programma.
 
 Gli installer mostrano il copyright di **Papadopol Lucian-Ioan** e la **GNU GPLv3**. La procedura interattiva richiede l'accettazione della licenza. Su Linux avviare `bash nome-del-file-Setup.run`: viene mostrata la licenza in una finestra, se Zenity è disponibile, oppure nel terminale.
 
@@ -75,11 +75,11 @@ MM is written in **C++/Qt**, targets **Linux, Windows and macOS**, and its sourc
 | Platform | Without installation | Installer |
 | --- | --- | --- |
 | Windows 10/11, 64-bit | Separate legacy and AVX2/FMA ZIPs; extract and run `bin/MadModem.exe`. Choose legacy if unsure. | One `Setup.exe` selects the variant supported by the CPU and OS. |
-| Ubuntu 24.04 / compatible distributions | Ubuntu24.04 ZIP or TAR.GZ; run `bin/MadModem`. | `Ubuntu24.04-…-Setup.run`, backed by DEB and APT. |
-| Fedora 43 | Fedora43 ZIP or TAR.GZ; run `bin/MadModem`. | `…fc43…-Setup.run`, backed by RPM and DNF. |
+| Ubuntu 24.04 / compatible distributions | Ubuntu24.04 ZIP or TAR.GZ; run `AppRun`. | `Ubuntu24.04-…-Setup.run`, backed by DEB and APT. |
+| Fedora 43 | Fedora43 ZIP or TAR.GZ; run `AppRun`. | `…fc43…-Setup.run`, backed by RPM and DNF. |
 | macOS 15 or later | App ZIP or DMG, separately for Intel and Apple Silicon. | Architecture-specific `unsigned.pkg`. |
 
-Linux archives require the named distribution's Qt5 and Hamlib runtime libraries; they are not self-contained AppImages. Before updating a portable copy, close MM and preserve `settings.mad`, ADIF logbooks and recordings when replacing program files.
+Linux archives bundle Qt5, Hamlib, required Qt plugins and QML modules. No separate Qt or Hamlib installation is needed. Choose the matching distribution build: glibc, graphics drivers and desktop/audio services remain provided by the host. Before updating a portable copy, close MM and preserve `settings.mad`, ADIF logbooks and recordings when replacing program files.
 
 Installers display **Papadopol Lucian-Ioan's copyright** and the **GNU GPLv3**. Interactive installation requires license acceptance. On Linux, run `bash installer-filename-Setup.run`; the license opens in a window when Zenity is available, otherwise in the terminal.
 

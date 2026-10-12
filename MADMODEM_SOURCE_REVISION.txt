@@ -1,1 +1,1 @@
-0.6.1-source-r2-portable-and-installers
+0.6.1-source-r4-macos-windows-packaging-fixes

@@ -47,6 +47,19 @@ if [[ -z "$WINDEPLOYQT_BIN" ]]; then
 fi
 printf '==> Qt deploy tool: %s\n' "$WINDEPLOYQT_BIN"
 
+# Qt5 in MSYS2 lists ANGLE as optional, so installing Qt alone does not provide
+# the DLLs that windeployqt tries to deploy for the dynamic OpenGL backend.
+QT_RUNTIME_BIN="${MINGW_PREFIX:-/mingw64}/bin"
+for dll in libGLESv2.dll libEGL.dll; do
+    if [[ ! -f "$QT_RUNTIME_BIN/$dll" ]]; then
+        echo "ERROR: missing $dll. Install mingw-w64-x86_64-angleproject before packaging." >&2
+        exit 1
+    fi
+done
+DEPLOY_OPTIONS=(--release --compiler-runtime)
+if [[ ! -f "$QT_RUNTIME_BIN/opengl32sw.dll" ]]; then
+    DEPLOY_OPTIONS+=(--no-opengl-sw)
+fi
 mkdir -p "$OUT_DIR"
 
 copy_common_payload() {
@@ -369,8 +382,13 @@ package_variant() {
     copy_common_payload "$package_dir" "$package_dir/bin"
 
     # Qt deployment: frameworks/plugins/translations and MinGW compiler runtime.
-    "$WINDEPLOYQT_BIN" --release --compiler-runtime --qmldir "$ROOT_DIR/qml" "$package_dir/bin/$APP_NAME.exe" || \
-        "$WINDEPLOYQT_BIN" --release --compiler-runtime "$package_dir/bin/$APP_NAME.exe"
+    "$WINDEPLOYQT_BIN" "${DEPLOY_OPTIONS[@]}" --qmldir "$ROOT_DIR/qml" "$package_dir/bin/$APP_NAME.exe"
+    # Do not retry without QML: that can hide a broken map deployment.
+    for dll in libGLESv2.dll libEGL.dll; do
+        cp -f "$QT_RUNTIME_BIN/$dll" "$package_dir/bin/$dll"
+    done
+    mkdir -p "$package_dir/licenses/ANGLE"
+    cp "${MINGW_PREFIX:-/mingw64}/share/licenses/angleproject/LICENSE" "$package_dir/licenses/ANGLE/LICENSE"
 
     # If qhelpgenerator produced .qch files in this build, include them.
     for lang in en it fr de no cs; do
