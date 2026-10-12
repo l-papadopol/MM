@@ -1,5 +1,7 @@
 #pragma once
 #include <QApplication>
+#include <QFontDatabase>
+#include <QRawFont>
 #include <QDirIterator>
 #include <QPluginLoader>
 #include <QTextStream>
@@ -15,6 +17,9 @@ inline int runLinuxPortableRuntimeRegression()
     const QDir root(QCoreApplication::applicationDirPath() + QStringLiteral("/.."));
     QTextStream out(stdout);
     bool ok = true;
+    if (QFontDatabase().families().isEmpty() || !QRawFont::fromFont(QApplication::font()).isValid()) {
+        out << "FAIL portable font discovery/rasterization\n"; ok = false;
+    }
     for (const QString &group : {QStringLiteral("plugins"), QStringLiteral("qml")}) {
         const QString directory = root.filePath(group);
         if (!QDir(directory).exists()) { out << "FAIL missing " << directory << '\n'; ok = false; }

@@ -1,5 +1,10 @@
 # MadModem 0.6.1
 
+- Windows installer verification: prevent modal version dialogs, use the native platform plugin, bound every process wait and retain diagnostic logs.
+
+- macOS installer verification: use the bundled Cocoa platform plugin instead of forcing the absent offscreen plugin; check the installed application version.
+- Linux portable: require Qt Location/Positioning at build time and add the missing Ubuntu development dependency; include Fontconfig configuration and validate font rendering.
+
 - macOS: fix fresh PKG installs silently skipping the app; preserve portable data before replacing an existing bundle.
 - Windows: install and deploy the optional MSYS2 ANGLE runtime required by windeployqt; retain strict DLL dependency checks.
 

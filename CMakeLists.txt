@@ -119,15 +119,22 @@ set(CMAKE_AUTORCC ON)
 # Qt detection
 # -------------------------------------------------------------------------
 
+option(MADMODEM_REQUIRE_QT_LOCATION
+    "Require Qt Quick/Location/Positioning for distribution builds instead of an offline-only map."
+    OFF)
 find_package(Qt6 QUIET COMPONENTS Widgets SerialPort Multimedia OpenGLWidgets PrintSupport Network)
-
 if(Qt6_FOUND)
     set(QT Qt6)
-    find_package(Qt6 QUIET COMPONENTS Quick Qml Location Positioning)
 else()
     find_package(Qt5 REQUIRED COMPONENTS Widgets SerialPort Multimedia PrintSupport Network)
     set(QT Qt5)
-    find_package(Qt5 QUIET COMPONENTS Quick Qml Location Positioning)
+endif()
+# Optional package searches can reset Qt*_FOUND. Keep the selected Qt family
+# stable, including Help and OpenGL links below.
+if(MADMODEM_REQUIRE_QT_LOCATION)
+    find_package(${QT} REQUIRED COMPONENTS Quick Qml Positioning Location)
+else()
+    find_package(${QT} QUIET COMPONENTS Quick Qml Positioning Location)
 endif()
 
 set(MADMODEM_WITH_QT_LOCATION OFF)
@@ -142,11 +149,7 @@ endif()
 # Optional Qt Help backend
 # -------------------------------------------------------------------------
 
-if(Qt6_FOUND)
-    find_package(Qt6 QUIET COMPONENTS Help)
-else()
-    find_package(Qt5 QUIET COMPONENTS Help)
-endif()
+find_package(${QT} QUIET COMPONENTS Help)
 
 set(MADMODEM_WITH_QT_HELP OFF)
 if(TARGET ${QT}::Help)
@@ -679,7 +682,7 @@ if(MADMODEM_WITH_QT_HELP)
     target_compile_definitions(MadModem PRIVATE MADMODEM_WITH_QT_HELP=1)
     target_link_libraries(MadModem PRIVATE ${QT}::Help)
 endif()
-if(Qt6_FOUND)
+if(QT STREQUAL "Qt6")
     target_link_libraries(MadModem PRIVATE Qt6::OpenGLWidgets)
 endif()
 

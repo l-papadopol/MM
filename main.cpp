@@ -120,6 +120,19 @@ int main(int argc, char *argv[])
     app.setApplicationDisplayName(QStringLiteral(MADMODEM_VERSION_DISPLAY));
     app.setWindowIcon(QIcon(":/icons/madmodem.png"));
 
+    // Windows GUI executables can make QCommandLineParser::showVersion open
+    // a modal message box when no console is attached. Keep the standalone
+    // version probe noninteractive, while still initializing Qt and its native
+    // platform plugin above (the installer smoke test relies on that).
+    const QStringList startupArguments = app.arguments();
+    if (startupArguments.size() == 2 &&
+        (startupArguments.at(1) == QStringLiteral("--version") ||
+         startupArguments.at(1) == QStringLiteral("-v"))) {
+        std::fprintf(stdout, "MadModem %s\n", MADMODEM_VERSION_STRING);
+        std::fflush(stdout);
+        return 0;
+    }
+
     QCommandLineParser commandLine;
     commandLine.setApplicationDescription(QStringLiteral("MadModem cross-platform amateur-radio modem"));
     commandLine.addHelpOption();

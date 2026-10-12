@@ -165,6 +165,9 @@ def main():
         dynamic = run('readelf', '-d', file).stdout
         if '(RPATH)' in dynamic or '(RUNPATH)' in dynamic:
             run('patchelf', '--remove-rpath', file)
+    fonts = root / 'etc/fonts'
+    fonts.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(Path(__file__).resolve().parents[1] / 'packaging/linux/fonts.conf', fonts / 'fonts.conf')
     (root / 'bin/qt.conf').write_text('[Paths]\nPrefix=..\nLibraries=lib\nPlugins=plugins\nQml2Imports=qml\n')
     binary.rename(root / 'bin/MadModem.bin')
     binary.write_text('''#!/bin/sh
@@ -175,6 +178,8 @@ export QT_PLUGIN_PATH="$MM_ROOT/plugins"
 export QT_QPA_PLATFORM_PLUGIN_PATH="$MM_ROOT/plugins/platforms"
 export QML2_IMPORT_PATH="$MM_ROOT/qml"
 export QML_IMPORT_PATH="$MM_ROOT/qml"
+export FONTCONFIG_PATH="$MM_ROOT/etc/fonts"
+export FONTCONFIG_FILE="$MM_ROOT/etc/fonts/fonts.conf"
 exec "$MM_ROOT/bin/MadModem.bin" "$@"
 ''')
     binary.chmod(0o755)

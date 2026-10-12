@@ -19,6 +19,13 @@ with tempfile.TemporaryDirectory(prefix='mm portable ') as temp:
     env = dict(os.environ, LD_LIBRARY_PATH=str(root / 'lib'), QT_QPA_PLATFORM='offscreen',
                QT_QUICK_BACKEND='software', HOME=str(work / 'home'))
     Path(env['HOME']).mkdir()
+    runtime = work / 'xdg-runtime'
+    runtime.mkdir(mode=0o700)
+    env['XDG_RUNTIME_DIR'] = str(runtime)
+    assert (root / 'etc/fonts/fonts.conf').is_file()
+    # A launcher must override stale font configuration from the calling shell.
+    env['FONTCONFIG_PATH'] = str(work / 'missing-fontconfig')
+    env['FONTCONFIG_FILE'] = str(work / 'missing-fontconfig/fonts.conf')
     for key in ('QT_PLUGIN_PATH', 'QT_QPA_PLATFORM_PLUGIN_PATH', 'QML_IMPORT_PATH', 'QML2_IMPORT_PATH'):
         env.pop(key, None)
     for file in root.rglob('*'):
@@ -28,5 +35,10 @@ with tempfile.TemporaryDirectory(prefix='mm portable ') as temp:
     # Invoke through both public entry points, outside the package working directory.
     for executable, option in [('AppRun', '--version'), ('bin/MadModem', '--portable-runtime-regression'),
                                ('AppRun', '--window-rotator-regression')]:
-        subprocess.run([str(root / executable), option], cwd=work, env=env, check=True, timeout=90)
+        result = subprocess.run([str(root / executable), option], cwd=work, env=env,
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=90)
+        print(result.stdout, end='')
+        print(result.stderr, end='', file=sys.stderr)
+        result.check_returncode()
+        assert 'Fontconfig error:' not in result.stderr, 'Broken portable font configuration'
     print('PASS: relocated portable runtime in clean host without Qt or Hamlib')

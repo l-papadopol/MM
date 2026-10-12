@@ -30,8 +30,10 @@ jobs:
           if [ "${{ matrix.qt }}" = "5" ]; then
             sudo apt-get install -y --no-install-recommends \
               qtbase5-dev qttools5-dev qttools5-dev-tools \
-              qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev \
-              libqt5serialport5-dev libqt5opengl5-dev
+              qtdeclarative5-dev qtlocation5-dev qtpositioning5-dev qtmultimedia5-dev \
+              libqt5serialport5-dev libqt5opengl5-dev \
+              qml-module-qtquick2 qml-module-qtquick-window2 \
+              qml-module-qtlocation qml-module-qtpositioning
           else
             sudo apt-get install -y --no-install-recommends \
               qt6-base-dev qt6-tools-dev qt6-multimedia-dev \
@@ -42,6 +44,8 @@ jobs:
         run: |
           cmake -S . -B build-ci -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=${{ matrix.qt == 5 && 'ON' || 'OFF' }} \
+            -DMADMODEM_REQUIRE_QT_LOCATION=${{ matrix.qt == 5 && 'ON' || 'OFF' }} \
             -DMADMODEM_REQUIRE_HAMLIB=ON \
             -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
             -DMADMODEM_NATIVE_OPTIMIZE=OFF \

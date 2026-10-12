@@ -39,5 +39,11 @@ for backup in "$backups"/*; do
 done
 [[ $found -eq 1 ]]
 codesign --verify --deep --strict "$app"
-"$app/Contents/MacOS/MadModem" --version
+# Test the deployed native backend, not the build toolchain's offscreen plugin.
+# --version constructs QApplication too, so it must load a platform plugin.
+test -f "$app/Contents/PlugIns/platforms/libqcocoa.dylib"
+installed_version="$(env -u QT_PLUGIN_PATH -u QT_QPA_PLATFORM_PLUGIN_PATH \
+    QT_QPA_PLATFORM=cocoa "$app/Contents/MacOS/MadModem" --version)"
+printf '%s\n' "$installed_version"
+[[ "$installed_version" == "MadModem $version" ]]
 echo 'PASS macOS fresh install, reinstall, stale-file removal, portable data preservation and signed-bundle integrity'

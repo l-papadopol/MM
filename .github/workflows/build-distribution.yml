@@ -24,13 +24,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake ninja-build pkg-config python3 dpkg-dev patchelf \
             libgl1-mesa-dev libhamlib-dev qtbase5-dev qttools5-dev qttools5-dev-tools \
-            qtdeclarative5-dev qtlocation5-dev qtmultimedia5-dev libqt5serialport5-dev \
+            qtdeclarative5-dev qtlocation5-dev qtpositioning5-dev qtmultimedia5-dev libqt5serialport5-dev \
             libqt5opengl5-dev qml-module-qtquick2 qml-module-qtquick-window2 \
             qml-module-qtlocation qml-module-qtpositioning libqt5multimedia5-plugins libqt5sql5-sqlite qtwayland5
       - name: Build and test
         run: |
           cmake -S . -B build-installer -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON -DHAMLIB_ROOT=/usr \
+            -DMADMODEM_REQUIRE_QT_LOCATION=ON \
             -DMADMODEM_REQUIRE_HAMLIB=ON -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
             -DMADMODEM_AVX2_BUILD=OFF -DMADMODEM_NATIVE_OPTIMIZE=OFF -DBUILD_TESTING=ON
           cmake --build build-installer --parallel 2
@@ -80,6 +81,7 @@ jobs:
         run: |
           cmake -S . -B build-installer -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON -DHAMLIB_ROOT=/usr \
+            -DMADMODEM_REQUIRE_QT_LOCATION=ON \
             -DMADMODEM_REQUIRE_HAMLIB=ON -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
             -DMADMODEM_AVX2_BUILD=OFF -DMADMODEM_NATIVE_OPTIMIZE=OFF -DBUILD_TESTING=ON
           cmake --build build-installer --parallel 2
@@ -181,7 +183,15 @@ jobs:
         run: bash scripts/package_windows_installer.sh
       - name: Verify installation, CPU choice, reinstall and uninstall
         shell: pwsh
+        timeout-minutes: 12
         run: ./scripts/test_windows_installer.ps1
+      - name: Preserve Windows installer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-logs
+          path: ${{ runner.temp }}/madmodem-installer-logs/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: installer-windows-x64
@@ -224,8 +234,6 @@ jobs:
       - name: Create PKG installer
         run: bash scripts/package_macos_installer.sh
       - name: Verify installation and reinstall
-        env:
-          QT_QPA_PLATFORM: offscreen
         run: bash scripts/test_macos_installer.sh
       - uses: actions/upload-artifact@v4
         with:
