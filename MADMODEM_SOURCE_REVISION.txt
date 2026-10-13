@@ -1,1 +1,1 @@
-0.6.1-source-r7-windows-installer-bounded-checks
+0.6.1-source-r8-macos-portable-runtime-dmg-fix

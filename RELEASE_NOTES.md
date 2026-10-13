@@ -1,5 +1,7 @@
 # MadModem 0.6.1
 
+- macOS portable: stage DMG contents separately, retry transient resource-busy failures, validate all bundled library paths and require a valid final ad-hoc signature.
+
 - Windows installer verification: prevent modal version dialogs, use the native platform plugin, bound every process wait and retain diagnostic logs.
 
 - macOS installer verification: use the bundled Cocoa platform plugin instead of forcing the absent offscreen plugin; check the installed application version.

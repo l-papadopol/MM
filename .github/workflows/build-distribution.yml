@@ -223,6 +223,7 @@ jobs:
           bash scripts/build_macos.sh -DMADMODEM_NATIVE_OPTIMIZE=OFF -DBUILD_TESTING=ON
           ctest --test-dir "build-macos-$MADMODEM_OSX_ARCHITECTURES" --output-on-failure
       - name: Bundle runtime and create portable archives
+        timeout-minutes: 15
         run: bash scripts/package_macos.sh
       - uses: actions/upload-artifact@v4
         with:

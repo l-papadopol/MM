@@ -52,7 +52,7 @@ mkdir -p "$APP_PATH/Contents/MacOS"
 # VirtualKeyboard...), which broke arm64 packaging.  MadModem only needs the
 # small QML map files plus QtQuick/QtLocation/QtPositioning imports, copied
 # explicitly below.
-"$MACDEPLOYQT" "$APP_PATH" -verbose=2 || {
+"$MACDEPLOYQT" "$APP_PATH" -verbose=2 -no-codesign || {
     echo "ERROR: macdeployqt failed" >&2
     exit 1
 }
@@ -245,42 +245,9 @@ while [[ -n "$queue" ]]; do
     queue="$(printf '%s\n' "$next_queue" | sed '/^$/d' | sort -u)"
 done
 
-fix_qt_install_names() {
-    local bin="$1"
-    [[ -e "$bin" ]] || return 0
-    local prefix="@executable_path/../Frameworks"
-    case "$bin" in
-        "$FW_DIR"/*) prefix="@loader_path/../../.." ;;
-    esac
-
-    # If this file is itself a Qt framework binary, set a portable install id.
-    local self_fw=""
-    self_fw="$(printf '%s\n' "$bin" | sed -n 's#.*Frameworks/\(Qt[A-Za-z0-9_]*\)\.framework/Versions/A/\1$#\1#p')"
-    if [[ -n "$self_fw" ]]; then
-        install_name_tool -id "@rpath/${self_fw}.framework/Versions/A/${self_fw}" "$bin" 2>/dev/null || true
-    fi
-
-    otool -L "$bin" 2>/dev/null | awk 'NR>1 {print $1}' | while IFS= read -r ref; do
-        local fw
-        fw="$(framework_name_from_ref "$ref")"
-        [[ -n "$fw" ]] || continue
-        local portable_ref="$prefix/${fw}.framework/Versions/A/${fw}"
-        if [[ "$ref" != "$portable_ref" ]]; then
-            install_name_tool -change "$ref" "$portable_ref" "$bin" 2>/dev/null || true
-        fi
-    done
-}
-
-# Normalize Qt install names for the executable and every copied framework.
-collect_macho_files | while IFS= read -r bin; do
-    fix_qt_install_names "$bin"
-done
-
-# Do not run dylibbundler here.  On GitHub macOS arm64 it can wipe or
-# rewrite Contents/Frameworks after macdeployqt/manual Qt framework deployment,
-# producing the exact empty-Frameworks package seen in CI.  macdeployqt already
-# copies Homebrew dylibs referenced by the app; the validation below catches
-# remaining Qt framework problems before upload.
+# Qt frameworks are copied above; the final Python pass also relocates every
+# non-Qt dylib (including transitive WebP/Brotli dependencies) and validates
+# actual resolved paths, before applying the final ad-hoc signature.
 
 verify_qt_framework_closure() {
     local missing=0
@@ -316,7 +283,6 @@ verify_qt_framework_closure() {
         exit 1
     fi
 }
-verify_qt_framework_closure
 
 cat > "$APP_PATH/Contents/MacOS/BUILD_INFO.txt" <<TXT
 MadModem macOS package
@@ -330,23 +296,27 @@ Frameworks bundled:
 $(find "$FW_DIR" -maxdepth 1 -name 'Qt*.framework' -print | sed 's#^.*/##' | sort)
 TXT
 
+runtime_options=(--brew-prefix "$(brew --prefix)")
 if [[ "${MADMODEM_ADHOC_SIGN:-on}" == "on" ]]; then
-    # Ad-hoc signing is not Apple notarization. It just makes the unsigned CI
-    # bundle internally consistent after macdeployqt has copied frameworks.
-    codesign --force --deep --sign - "$APP_PATH" || true
+    runtime_options+=(--sign)
 fi
+python3 "$ROOT_DIR/scripts/fix_macos_runtime.py" "$APP_PATH" \
+    "${runtime_options[@]}"
+verify_qt_framework_closure
 
 rm -f "$ZIP_PATH" "$DMG_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
-hdiutil create -volname "$APP_NAME" -srcfolder "$APP_PATH" -ov -format UDZO "$DMG_PATH"
-
-# Validate the ZIP content that GitHub uploads.  A package with an empty
-# Frameworks directory must never reach a release again.
-if ! unzip -l "$ZIP_PATH" | grep -q 'MadModem.app/Contents/Frameworks/QtSerialPort.framework/Versions/A/QtSerialPort'; then
-    echo "ERROR: packaged ZIP does not contain QtSerialPort.framework binary" >&2
-    unzip -l "$ZIP_PATH" | grep 'MadModem.app/Contents/Frameworks' >&2 || true
-    exit 1
-fi
+# Read the archive directly: grep -q on unzip -l can cause SIGPIPE under pipefail.
+python3 - "$ZIP_PATH" <<'PYZIP'
+import sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    required = 'MadModem.app/Contents/Frameworks/QtSerialPort.framework/Versions/A/QtSerialPort'
+    if required not in archive.namelist():
+        raise SystemExit('ERROR: packaged ZIP is missing QtSerialPort')
+    if archive.testzip() is not None:
+        raise SystemExit('ERROR: corrupt macOS ZIP')
+PYZIP
+bash "$ROOT_DIR/scripts/create_macos_dmg.sh" "$APP_PATH" "$DMG_PATH"
 
 printf 'Packaged ZIP: %s\n' "$ZIP_PATH"
 printf 'Packaged DMG: %s\n' "$DMG_PATH"
