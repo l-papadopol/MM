@@ -1,1 +1,1 @@
-0.6.1-source-r9-macos-signing-and-lean-ci
+0.6.1-source-r10-github-release-downloads

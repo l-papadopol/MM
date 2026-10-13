@@ -232,3 +232,28 @@ jobs:
           name: installer-macos-${{ matrix.arch }}
           path: dist/macos/*.pkg
           if-no-files-found: error
+
+  publish-release:
+    name: Publish installers and portable downloads to Releases
+    needs: [ubuntu, fedora, fedora-portable-check, windows, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: portable-*
+          merge-multiple: true
+          path: release-assets
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installer-*
+          merge-multiple: true
+          path: release-assets
+      - name: Publish downloadable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/publish_github_release.sh release-assets

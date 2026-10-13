@@ -6,8 +6,19 @@ and require acceptance before installing.
 
 ## Portable downloads remain available
 
-Installation is optional. The **Build installers** workflow publishes separate
-`portable-*` and `installer-*` artifacts from the same source revision:
+Installation is optional. After every platform job succeeds, **Build installers**
+publishes the following downloads under **Releases → Assets**, with `SHA256SUMS.txt`.
+Version tags (for example `v0.6.1`) publish official releases; builds from a branch
+publish numbered prereleases (`build-0.6.1-N`). Manual runs follow the same rule:
+select the version tag to publish an official release. Existing release notes are
+preserved when uploading to an existing release. The workflow also retains the
+separate `portable-*` and `installer-*` Actions artifacts from the same revision.
+Publication uses the built-in GitHub token with `contents: write` only in the
+publish job; no personal access token is required. Repository or organization
+policies must allow this permission. Existing immutable releases cannot be
+overwritten; publish a new version tag instead.
+
+Downloads:
 
 - Windows: legacy and AVX2/FMA standalone ZIPs with their runtime DLLs. Extract
   into a writable folder and run `bin/MadModem.exe`. Use legacy if unsure; automatic

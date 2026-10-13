@@ -39,7 +39,7 @@ Le finestre si ridimensionano trascinando bordi o angoli; i contenuti mantengono
 
 La suite completa di regressione si avvia solo manualmente da **Actions → Full regression suite (manual)**. La pipeline dei pacchetti compila l’app e verifica dipendenze, avvio e installer senza ricompilare ed eseguire l’intera suite.
 
-I pacchetti vengono creati dal workflow GitHub **Build installers**, automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Scaricarli dagli artifact della compilazione completata: `portable-*` per gli archivi, `installer-*` per gli installer. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
+Il workflow GitHub **Build installers** crea i pacchetti automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Quando tutte le piattaforme hanno completato la compilazione e i controlli, pubblica installer, archivi portabili e checksum SHA256 nella sezione **Releases → Assets**. Un tag corrispondente alla versione, per esempio `v0.6.1`, pubblica la release ufficiale; una compilazione da un ramo crea una prerelease `build-0.6.1-N`, senza modificare la release stabile. Per una release ufficiale manuale, selezionare il tag corretto in **Run workflow**. Gli artifact `portable-*` e `installer-*` rimangono disponibili anche in Actions. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
 
 ### Stato del progetto
 
@@ -91,7 +91,7 @@ Resize windows by dragging their edges or corners. Layouts retain a usable minim
 
 The full regression suite runs only on demand through **Actions → Full regression suite (manual)**. Package builds retain dependency, startup and installer checks without compiling or running the full regression suite.
 
-GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Download the completed run's `portable-*` artifacts for archives or `installer-*` artifacts for installers. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
+GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Once all platform builds and checks succeed, installers, portable archives and SHA256 checksums are published under **Releases → Assets**. A tag matching the source version, such as `v0.6.1`, publishes an official release; branch builds publish numbered prereleases such as `build-0.6.1-N`, leaving the stable release unchanged. To publish an official release manually, select its version tag in **Run workflow**. The `portable-*` and `installer-*` artifacts also remain available in Actions. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
 
 ### Project status
 

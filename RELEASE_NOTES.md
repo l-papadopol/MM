@@ -1,5 +1,6 @@
 # MadModem 0.6.1
 
+- Releases: automatically publish installers, portable archives and SHA256 checksums after all platform jobs succeed; version tags publish official releases, branch builds publish numbered prereleases.
 - CI: run the full regression suite manually; distribution builds skip regression executables and retain package/install verification.
 
 - macOS signing: move data into Resources with compatible relative links, sign nested code before bundle executables, and use the same signing path for portable and installer packages.
