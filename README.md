@@ -24,14 +24,14 @@ MM è scritto in **C++/Qt**, è pensato per **Linux, Windows e macOS** e il codi
 
 | Sistema | Senza installazione | Installer |
 | --- | --- | --- |
-| Windows 10/11 a 64 bit | ZIP separati legacy e AVX2/FMA; estrarre e avviare `bin/MadModem.exe`. Nel dubbio scegliere legacy. | Un unico `Setup.exe` sceglie automaticamente la variante compatibile con CPU e sistema operativo. |
-| Ubuntu 24.04 / distribuzioni compatibili | ZIP o TAR.GZ Ubuntu24.04; avviare `AppRun`. | `Ubuntu24.04-…-Setup.run`, con DEB e dipendenze gestite da APT. |
-| Fedora 43 | ZIP o TAR.GZ Fedora43; avviare `AppRun`. | `…fc43…-Setup.run`, con RPM e dipendenze gestite da DNF. |
-| macOS 15 o successivo | ZIP dell'app o DMG, dedicati a Intel oppure Apple Silicon. | `unsigned.pkg` dedicato all'architettura. |
+| Windows 10/11 a 64 bit | ZIP separati `Portable-Compatible` e `Portable-AVX2-FMA`; estrarre e avviare `bin/MadModem.exe`. Nel dubbio scegliere `Compatible`. | Un unico `Installer-AutoCPU.exe` sceglie automaticamente la variante compatibile con CPU e sistema operativo. |
+| Ubuntu 24.04 / distribuzioni compatibili | ZIP o TAR.GZ Ubuntu24.04; avviare `AppRun`. | `Linux-Ubuntu24.04-64bit-Installer.run`, con DEB e dipendenze gestite da APT. |
+| Fedora 43 | ZIP o TAR.GZ Fedora43; avviare `AppRun`. | `Linux-Fedora43-64bit-Installer.run`, con RPM e dipendenze gestite da DNF. |
+| macOS 15 o successivo | ZIP dell'app o DMG, dedicati a Intel oppure Apple Silicon. | `Intel-Installer.pkg` oppure `AppleSilicon-Installer.pkg`. |
 
 Gli archivi Linux includono Qt5, Hamlib, i plugin Qt, i moduli QML necessari e una configurazione Fontconfig portabile. Non serve installare separatamente Qt o Hamlib. Scegliere il pacchetto della propria distribuzione: glibc, driver grafici e servizi desktop/audio restano quelli del sistema. Per aggiornare una copia portabile, chiudere MM e conservare `settings.mad`, logbook ADIF e registrazioni prima di sostituire i file del programma.
 
-Gli installer mostrano il copyright di **Papadopol Lucian-Ioan** e la **GNU GPLv3**. La procedura interattiva richiede l'accettazione della licenza. Su Linux avviare `bash nome-del-file-Setup.run`: viene mostrata la licenza in una finestra, se Zenity è disponibile, oppure nel terminale.
+Gli installer mostrano il copyright di **Papadopol Lucian-Ioan** e la **GNU GPLv3**. La procedura interattiva richiede l'accettazione della licenza. Su Linux avviare `bash nome-del-file-Installer.run`: viene mostrata la licenza in una finestra, se Zenity è disponibile, oppure nel terminale.
 
 Per aggiornare, chiudere MM ed eseguire il nuovo installer: viene aggiornata la stessa installazione. Preferenze e logbook delle installazioni gestite risiedono nelle cartelle dell'utente. Se si passa da una vecchia copia portabile conservata altrove, seguire le [istruzioni di migrazione](docs/platform/INSTALLERS.md) prima di rimuoverla.
 
@@ -76,14 +76,14 @@ MM is written in **C++/Qt**, targets **Linux, Windows and macOS**, and its sourc
 
 | Platform | Without installation | Installer |
 | --- | --- | --- |
-| Windows 10/11, 64-bit | Separate legacy and AVX2/FMA ZIPs; extract and run `bin/MadModem.exe`. Choose legacy if unsure. | One `Setup.exe` selects the variant supported by the CPU and OS. |
-| Ubuntu 24.04 / compatible distributions | Ubuntu24.04 ZIP or TAR.GZ; run `AppRun`. | `Ubuntu24.04-…-Setup.run`, backed by DEB and APT. |
-| Fedora 43 | Fedora43 ZIP or TAR.GZ; run `AppRun`. | `…fc43…-Setup.run`, backed by RPM and DNF. |
-| macOS 15 or later | App ZIP or DMG, separately for Intel and Apple Silicon. | Architecture-specific `unsigned.pkg`. |
+| Windows 10/11, 64-bit | Separate `Portable-Compatible` and `Portable-AVX2-FMA` ZIPs; extract and run `bin/MadModem.exe`. Choose `Compatible` if unsure. | One `Installer-AutoCPU.exe` selects the variant supported by the CPU and OS. |
+| Ubuntu 24.04 / compatible distributions | Ubuntu24.04 ZIP or TAR.GZ; run `AppRun`. | `Linux-Ubuntu24.04-64bit-Installer.run`, backed by DEB and APT. |
+| Fedora 43 | Fedora43 ZIP or TAR.GZ; run `AppRun`. | `Linux-Fedora43-64bit-Installer.run`, backed by RPM and DNF. |
+| macOS 15 or later | App ZIP or DMG, separately for Intel and Apple Silicon. | `Intel-Installer.pkg` or `AppleSilicon-Installer.pkg`. |
 
 Linux archives bundle Qt5, Hamlib, required Qt plugins, QML modules and a portable Fontconfig configuration. No separate Qt or Hamlib installation is needed. Choose the matching distribution build: glibc, graphics drivers and desktop/audio services remain provided by the host. Before updating a portable copy, close MM and preserve `settings.mad`, ADIF logbooks and recordings when replacing program files.
 
-Installers display **Papadopol Lucian-Ioan's copyright** and the **GNU GPLv3**. Interactive installation requires license acceptance. On Linux, run `bash installer-filename-Setup.run`; the license opens in a window when Zenity is available, otherwise in the terminal.
+Installers display **Papadopol Lucian-Ioan's copyright** and the **GNU GPLv3**. Interactive installation requires license acceptance. On Linux, run `bash installer-filename-Installer.run`; the license opens in a window when Zenity is available, otherwise in the terminal.
 
 To update, close MM and run the new installer. It updates the existing installation while keeping managed-install preferences and logbooks in user folders. When switching from a portable copy stored elsewhere, follow the [migration instructions](docs/platform/INSTALLERS.md) before removing it.
 

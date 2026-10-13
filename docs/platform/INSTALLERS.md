@@ -20,9 +20,9 @@ overwritten; publish a new version tag instead.
 
 Downloads:
 
-- Windows: legacy and AVX2/FMA standalone ZIPs with their runtime DLLs. Extract
-  into a writable folder and run `bin/MadModem.exe`. Use legacy if unsure; automatic
-  CPU selection is provided by Setup.exe, not by the two separate ZIPs.
+- Windows: `Portable-Compatible` (legacy) and `Portable-AVX2-FMA` ZIPs with their runtime DLLs. Extract
+  into a writable folder and run `bin/MadModem.exe`. Use `Compatible` if unsure; automatic
+  CPU selection is provided by `Installer-AutoCPU.exe`, not by the two separate ZIPs.
 - Linux: ZIP and TAR.GZ for Ubuntu 24.04 and Fedora 43. Extract and run
   `AppRun` (or `bin/MadModem`). Qt5, Hamlib, Qt plugins, QML modules, OpenSSL
   and their non-system dependencies are bundled. The launcher uses only the
@@ -31,7 +31,9 @@ Downloads:
   by the host. These are not universal Linux binaries. Runtime provenance and
   license texts are included. CI checks the relocated archive in a clean
   distribution container without Qt or Hamlib installed.
-- macOS: app ZIP and DMG for each architecture, alongside the PKG.
+- macOS: `Intel` or `AppleSilicon` identifies the processor family. `Installer.pkg`
+  installs the app; `Portable.zip` contains the app bundle; `DiskImage.dmg` is a
+  mountable disk image. Apple Silicon means Macs with Apple M-series processors.
 
 Portable archives are uploaded before installer creation, so they remain
 available if a subsequent installer packaging step fails. Keep settings, ADIF
@@ -40,7 +42,7 @@ are added only to the installer payload, never to the portable archives.
 
 ## Windows
 
-Run `MadModem-0.6.1-Windows-x64-Setup.exe`. The installer selects the AVX2 build
+Run `MadModem-0.6.1-Windows-64bit-Installer-AutoCPU.exe`. The installer selects the AVX2 build
 only when the CPU supports SSE4.2, FMA, XSAVE, OSXSAVE, AVX and AVX2, and the
 operating system enables the XMM/YMM register state. Otherwise it selects legacy.
 Both variants are 64-bit; legacy does not mean 32-bit Windows.
@@ -56,10 +58,10 @@ User data is not included in the uninstall file list.
 Choose the installer matching the distribution, then run:
 
 ```bash
-bash MadModem-0.6.1-1-Ubuntu24.04-amd64-Setup.run
+bash MadModem-0.6.1-Linux-Ubuntu24.04-64bit-Installer.run
 ```
 
-Use the Fedora `fc43` installer on Fedora 43. The license appears in a Zenity
+Use the `Linux-Fedora43-64bit-Installer.run` package on Fedora 43. The license appears in a Zenity
 window when available, otherwise in the terminal. The installer then requests
 installation privileges and delegates dependency resolution and updates to APT
 or DNF. No manual extraction directory is needed. Start MM from the applications
@@ -73,7 +75,7 @@ may be required by the package manager to obtain missing dependencies.
 
 ## macOS
 
-Open the Intel `x86_64` or Apple Silicon `arm64` PKG for macOS 15 or later. Apple's
+Open the `Intel-Installer.pkg` or `AppleSilicon-Installer.pkg` for macOS 15 or later. Apple's
 Installer presents the license and installs to `/Applications/MadModem.app`.
 Subsequent packages replace the same bundle, removing obsolete program files.
 Executable-adjacent portable data is preserved under

@@ -1,5 +1,6 @@
 # MadModem 0.6.1
 
+- Downloads: clear filenames identify Windows/Linux/macOS, installer or portable package, and Intel/Apple Silicon or Windows CPU compatibility. Previous filenames are replaced after successful upload.
 - Releases: automatically publish installers, portable archives and SHA256 checksums after all platform jobs succeed; version tags publish official releases, branch builds publish numbered prereleases.
 - CI: run the full regression suite manually; distribution builds skip regression executables and retain package/install verification.
 
