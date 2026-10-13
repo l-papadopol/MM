@@ -20,7 +20,7 @@ for document in COPYING LICENSE.md AUTHORS.md THIRD_PARTY_NOTICES.md; do
 done
 printf 'MadModem managed installation\n' > "$installed/Contents/MacOS/managed-install.flag"
 # The marker changes the bundle seal. This is ad-hoc signing, not notarization.
-codesign --force --deep --sign - "$installed"
+python3 "$root/scripts/fix_macos_runtime.py" "$installed" --sign-only
 pkgbuild --analyze --root "$work/root" "$work/components.plist"
 python3 - "$work/components.plist" <<'PY'
 import plistlib, sys

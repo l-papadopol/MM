@@ -76,7 +76,8 @@ build_variant() {
         -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
         -DMADMODEM_REQUIRE_HAMLIB=ON \
         -DMADMODEM_AUTOBUILD_HAMLIB=OFF \
-        -DMADMODEM_AVX2_BUILD="$avx2"
+        -DMADMODEM_AVX2_BUILD="$avx2" \
+        -DBUILD_TESTING="${MADMODEM_BUILD_TESTING:-OFF}"
 
     cmake --build "$build_dir" --config "$BUILD_TYPE" --parallel "$JOBS"
 

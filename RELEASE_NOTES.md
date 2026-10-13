@@ -1,5 +1,9 @@
 # MadModem 0.6.1
 
+- CI: run the full regression suite manually; distribution builds skip regression executables and retain package/install verification.
+
+- macOS signing: move data into Resources with compatible relative links, sign nested code before bundle executables, and use the same signing path for portable and installer packages.
+
 - macOS portable: stage DMG contents separately, retry transient resource-busy failures, validate all bundled library paths and require a valid final ad-hoc signature.
 
 - Windows installer verification: prevent modal version dialogs, use the native platform plugin, bound every process wait and retain diagnostic logs.
@@ -27,4 +31,4 @@
 - Updated application metadata, Windows resources, translations, localized help, README and build documentation to 0.6.1.
 - Retained the CW acquisition, CAT/PTT, narrow-band waterfall, FT scheduling, RTTY, logbook and contest-export improvements from the preceding release.
 
-Installer production includes native build, CTest and installation/reinstallation checks on GitHub. Windows/macOS packages remain unsigned; no automatic update-download service is included.
+Installer production includes native build and package/installation/reinstallation checks on GitHub. The full regression suite is available through the separate manual workflow. Windows/macOS packages remain unsigned; no automatic update-download service is included.

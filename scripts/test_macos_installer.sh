@@ -16,7 +16,8 @@ if [[ -e "$app" ]]; then
 fi
 sudo installer -pkg "$package" -target /
 test -x "$app/Contents/MacOS/MadModem"
-test -f "$app/Contents/MacOS/managed-install.flag"
+test -L "$app/Contents/MacOS/managed-install.flag"
+test -f "$app/Contents/Resources/managed-install.flag"
 codesign --verify --deep --strict "$app"
 mkdir -p "$HOME/Library/Application Support/MadModem"
 printf 'preserve user data\n' > "$HOME/Library/Application Support/MadModem/installer-test.txt"
@@ -25,7 +26,8 @@ printf 'preserve portable settings\n' | sudo tee "$app/Contents/MacOS/settings.m
 printf 'preserve portable logbook\n' | sudo tee "$app/Contents/MacOS/logbook.adi" >/dev/null
 sudo touch "$app/Contents/obsolete-program-file"
 sudo installer -pkg "$package" -target /
-test -f "$app/Contents/MacOS/managed-install.flag"
+test -L "$app/Contents/MacOS/managed-install.flag"
+test -f "$app/Contents/Resources/managed-install.flag"
 test ! -e "$app/Contents/obsolete-program-file"
 grep -qx 'preserve user data' "$HOME/Library/Application Support/MadModem/installer-test.txt"
 backups='/Library/Application Support/MadModem/Portable Backups'

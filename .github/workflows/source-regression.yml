@@ -1,8 +1,7 @@
-name: Source and native regression tests
+name: Full regression suite (manual)
 
+# Full decoder/architecture regression runs are opt-in, separate from packaging.
 on:
-  push:
-  pull_request:
   workflow_dispatch:
 
 permissions:

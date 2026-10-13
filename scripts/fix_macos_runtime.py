@@ -3,6 +3,7 @@
 import argparse
 import os
 from pathlib import Path
+import plistlib
 import re
 import shutil
 import stat
@@ -125,14 +126,60 @@ def verify(app):
     print('PASS all Mach-O dependency paths resolve inside the bundle or macOS', flush=True)
 
 
+def prepare_resources(app):
+    """Keep data in Resources; relative links preserve existing runtime paths."""
+    macos = app / 'Contents/MacOS'
+    resources = app / 'Contents/Resources'
+    resources.mkdir(parents=True, exist_ok=True)
+    for name in ('cty.csv', 'rtty_rules', 'cw_rules', 'BUILD_INFO.txt', 'help', 'managed-install.flag'):
+        source, target = macos / name, resources / name
+        if source.is_symlink():
+            if source.resolve() != target.resolve() or not target.exists():
+                raise RuntimeError(f'Invalid bundle resource link: {source}')
+            continue
+        if not source.exists():
+            continue
+        if source.is_dir():
+            shutil.copytree(source, target, dirs_exist_ok=True)
+            shutil.rmtree(source)
+        else:
+            source.replace(target)
+        source.symlink_to('../Resources/' + name)
+    # Do not seal accidental user data into a release, or sign data as code.
+    for path in macos.iterdir():
+        if path.is_symlink():
+            if not path.exists() or not path.resolve().is_relative_to(app):
+                raise RuntimeError(f'Broken/external bundle link: {path}')
+        elif not macho(path):
+            raise RuntimeError(f'Unexpected non-code file in Contents/MacOS: {path}')
+
+
+def bundle_executable(bundle):
+    """codesign on a bundle's main binary can sign its entire enclosing bundle."""
+    if bundle.suffix == '.framework':
+        info = bundle / 'Resources/Info.plist'
+        directory = bundle
+    else:
+        info = bundle / 'Contents/Info.plist'
+        directory = bundle / 'Contents/MacOS'
+    if info.is_file():
+        with info.open('rb') as file:
+            name = plistlib.load(file).get('CFBundleExecutable')
+        if name:
+            return (directory / name).resolve()
+    return (directory / bundle.stem).resolve()
+
+
 def sign(app):
-    # Sign from the inside out after every install_name_tool/resource change.
-    # In particular, macdeployqt can leave copied Brotli/WebP dylibs with stale signatures.
-    for binary in binaries(app):
-        run('codesign', '--force', '--sign', '-', binary)
+    # Never sign a bundle main binary during the leaf pass: codesign may treat
+    # that operation as signing the entire bundle before its children are ready.
     containers = sorted((p for p in app.rglob('*') if p.is_dir() and not p.is_symlink()
                          and p.suffix in {'.framework', '.app', '.xpc', '.bundle'}),
                         key=lambda p: len(p.parts), reverse=True)
+    main_binaries = {bundle_executable(p) for p in containers + [app]}
+    for binary in binaries(app):
+        if binary not in main_binaries:
+            run('codesign', '--force', '--sign', '-', binary)
     for container in containers:
         run('codesign', '--force', '--sign', '-', container)
     run('codesign', '--force', '--sign', '-', app)
@@ -143,12 +190,19 @@ def sign(app):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('app', type=Path)
-    parser.add_argument('--brew-prefix', type=Path, required=True)
+    parser.add_argument('--brew-prefix', type=Path)
+    parser.add_argument('--sign-only', action='store_true', help='Re-seal an already relocated installer bundle')
     parser.add_argument('--sign', action='store_true')
     args = parser.parse_args()
     app = args.app.resolve()
-    repair(app, args.brew_prefix)
-    if args.sign:
+    if not args.sign_only and args.brew_prefix is None:
+        parser.error('--brew-prefix is required when deploying libraries')
+    prepare_resources(app)
+    if args.sign_only:
+        verify(app)
+    else:
+        repair(app, args.brew_prefix)
+    if args.sign or args.sign_only:
         sign(app)
 
 

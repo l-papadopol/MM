@@ -37,6 +37,8 @@ Per aggiornare, chiudere MM ed eseguire il nuovo installer: viene aggiornata la 
 
 Le finestre si ridimensionano trascinando bordi o angoli; i contenuti mantengono una dimensione minima utilizzabile. L'editor SSTV permette di scorrere gli strumenti anche su schermi più piccoli.
 
+La suite completa di regressione si avvia solo manualmente da **Actions → Full regression suite (manual)**. La pipeline dei pacchetti compila l’app e verifica dipendenze, avvio e installer senza ricompilare ed eseguire l’intera suite.
+
 I pacchetti vengono creati dal workflow GitHub **Build installers**, automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Scaricarli dagli artifact della compilazione completata: `portable-*` per gli archivi, `installer-*` per gli installer. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
 
 ### Stato del progetto
@@ -86,6 +88,8 @@ Installers display **Papadopol Lucian-Ioan's copyright** and the **GNU GPLv3**. 
 To update, close MM and run the new installer. It updates the existing installation while keeping managed-install preferences and logbooks in user folders. When switching from a portable copy stored elsewhere, follow the [migration instructions](docs/platform/INSTALLERS.md) before removing it.
 
 Resize windows by dragging their edges or corners. Layouts retain a usable minimum size, and SSTV editing tools remain scrollable on smaller displays.
+
+The full regression suite runs only on demand through **Actions → Full regression suite (manual)**. Package builds retain dependency, startup and installer checks without compiling or running the full regression suite.
 
 GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Download the completed run's `portable-*` artifacts for archives or `installer-*` artifacts for installers. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
 
