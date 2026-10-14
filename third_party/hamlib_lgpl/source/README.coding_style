@@ -1,0 +1,281 @@
+This document supersedes any other prior documentation or commentary regarding
+the formatting of the Hamlib C and C++ source code.  This document does not
+apply to the Autotools build system, i.e. configure.ac, Makefile.am or the
+Autoconf macros in the 'macros/' directory.
+
+
+0. Background
+
+Throughout its life, a number of coding styles have found their way into the
+Hamlib source tree.  Besides lacking a readable consistency, recent compilers
+have reported logic errors likely due to inconsistent formatting.  Such errors
+can escape notice during casual scanning of a source file.
+
+
+1. Objective
+
+Adopt certain mandatory and recommended coding guidelines to aid in
+readability of the Hamlib C source code and avoid logic errors due to
+inconsistent code formatting to the extent possible.
+
+
+2. Mandatory rules
+
+* The use of tab characters, ASCII hexadecimal 0x09, shall no longer be
+  permitted for the indentation and alignment of C or C++ source or header
+  files, only spaces, ASCII hexadecimal 0x20, shall be used for indentation
+  and alignment.  The use of the '\t' escape sequence in rig_debug() output,
+  static strings, and the like is permitted.
+
+* Indentation shall be 4 spaces.  Alignment shall consist of the number of
+  spaces necessary after indentation.
+
+Discussion: Plenty has been written regarding the use of the tab character in
+source files and the proper setup of the various editors.  There is no point
+in rehashing that here, except to say that spaces are universal.  Modern
+editors are configurable to setting indents to four spaces and tab stops to
+four spaces.
+
+* Bare conditionals shall be avoided.  All conditionals--'if', 'else', 'for',
+  'while', and 'do while' shall have their statements enclosed in braces.
+
+  NOTE: Exceptions will be allowed in certain rare circumstances.  See
+  Recommended coding style bullet points below.
+
+Discussion:  Consider this conditional:
+
+             if (something);
+                do_that();
+
+No harm, eh?  Look again.  The programmer gave the 'if' conditional a null
+statement with the trailing ';' at the end of the line and also indented the
+'do_that();' statement.  As a result, 'do_that()' will be called whether
+'something' is true or not.  Is that what the programmer intended?
+
+If, instead, the code is formatted to:
+
+             if (something)
+             {
+                ;
+                do_that();
+             }
+
+the null statement becomes harmless and 'do_that()' is called depending on the
+truth of 'something'.
+
+Here proper indentation and alignment is only half the battle in finding such
+bugs, enclosing all statement blocks in braces is the other half.
+
+Patch submissions will be checked for adherence to these two rules.  While
+patches won't be rejected outright, the corrections will be applied and the
+patch set rebased before being pushed to the repositories.
+
+
+3. Recommended coding style
+
+The following bullet points follow the formatting the Artistic Style code
+formatter will apply when using the included 'scripts/astylerc' configuration
+file.  Any version from 2.03 or later should work.  It can be invoked from a
+backend directory as follows:
+
+    $ astyle --options=../scripts/astylerc moonmelter.c
+
+The old file will be copied to 'moonmelter.c.orig' as a back up.
+
+* Brace style is Allman where the opening brace of a function definition is on
+  a new line in the far left column following the function signature.
+
+  For conditionals, the opening brace is also on a new line after the
+  conditional test and aligned in the same column as the first letter of the
+  keyword.
+
+  In all cases the closing brace is on a line of its own and lines up
+  vertically with the opening brace.
+
+  The 'else', 'else if', or 'while' from a 'do while' loop keywords are not
+  cuddled after the closing brace but placed on a new line after the closing
+  brace of the previous block.
+
+* Indents are four spaces as detailed above.  Each level of code should be one
+  indent further to the right.
+
+* Isolate conditional blocks with a blank line before and after.  Like
+  paragraphs in prose that focus on a topic, it's important that conditionals
+  be obvious to the reader.  An exception is where another conditional follows
+  immediately on the next line.  Indentation is sufficient.
+
+* No space between parentheses and the enclosed characters.
+
+* One space on either side of operators and between function arguments.
+
+* One space between a conditional key word and its opening parentheses.
+
+* No space between a function name and its opening parentheses.
+
+* No space between a pointer operator ('*') and the pointer name.  Likewise
+  for the address operator ('&').  Exception:  In a function prototype and
+  definition, a space should be put between the '*' operator and the
+  function/macro name to indicate a pointer is returned, not that the
+  function/macro name is an assigned pointer value.
+
+* Keep code lines under 80 characters.  This will require some judgement on
+  where the break works best.  A couple of keys are, a) break conditionals
+  before a comparison operator so it appears at the beginning of the next
+  line, and, b) when breaking a function call, put all arguments on their own
+  line.  It is sometimes necessary for strings to go beyond the 80 character
+  point.  This is fine.  If needed, a C compiler will concatenate strings that
+  are split across multiple lines.
+
+* Avoid trailing comments when possible.  Comments should precede the
+  statement(s) they describe.
+
+* One line conditionals should enclose the statement in braces, as in:
+
+      if (whatsit == 5) { return whatsit; }
+
+  or:
+
+      do { x++; } while (x < 10)
+
+  When choosing not to use braces on a simple one line conditional, please
+  comment your intention:
+
+      /* NOP unless x is true. */
+      while (!x);
+
+3.1 Shell scripts
+
+Shell scripts should be written for POSIX portability as much as possible.
+Avoid using '/bin/bash' in the shebang line.  Use '/bin/sh' instead to allow
+for use of the system shell (some systems may not have Bash installed at all!)
+when the script is run.  The caveat is that some favorite Bash extensions are
+not POSIX portable so care is needed.  To help avoid the pitfalls, various
+tools exist such as 'checkbashisms' which will report syntax that is not
+portable.
+
+* Use four space indents as with the C style above.
+
+* Vertical space around conditional blocks can aid readability (newlines are
+  cheap!).
+
+* Try to keep line length between 80 and 100 characters if possible.
+  Backslashes (\) can sometimes be used to break up long lines.  Be careful as
+  the shell is often less forgiving than the C compiler with extra spaces.
+  Experiment.
+
+* Avoid the use of backticks (`) to invoke a subshell, also known as the grave
+  accent and backquote, in shell scripts, configure.ac, any Makefile.am, or
+  .m4 files we maintain.  While their use will likely be long supported, they
+  do require some care in use and can be difficult to read on the screen.
+
+  The preferred construct is to use parentheses to invoke a subshell and the
+  '$()' construct when the output of the command is intended to be captured in
+  a shell variable.  This answer covers the reasoning well:
+
+        https://unix.stackexchange.com/a/126928
+
+  In Makefile.am files use the '$$()' construct to capture subshell command
+  output into a make variable.
+
+  Exceptions:
+
+  Files intended to be formatted in Markdown syntax use backticks as a
+  formatting cue.  In these files such use is permitted.
+
+  There are a number of files sourced from the GNU Project where the
+  backtick is used extensively as an opening single quote character.  As we
+  don't usually maintain these files except to update them as needed, these
+  rules are waived for those files.
+
+3.2 Python
+
+Python authors are already well aware of the classic PEP8 and need no further
+instruction on the matter.
+
+3.3 Perl
+
+Perl authors already know their code can resemble modem line noise and it will
+work flawlessly.  Somehow.
+
+3.4 Makefile
+
+When indenting a line in a Makefile.am (and the resulting Makefile) that a
+real Tab character (0x09) is required.  Spaces will cause 'make' errors.
+
+3.5 Markdown
+
+Markdown (https://daringfireball.net/projects/markdown/) is characterized by
+the use of various characters, indentation, and spaces to generate HTML markup
+by various tools.  There are several dialects of Markdown in use.  The most
+pertinent dialect for our use is GitHub Flavored Markdown
+(https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax)
+
+Besides its conversion to HTML, the intention of Markdown is readable text
+files where the formatting cues don't distract from reading the text.  Sites
+like GitHub will process these files on the fly and render them in HTML.
+
+For Markdown files included in Hamlib, consider these suggestions:
+
+ - Markdown files should have an extension of .md
+ - Spaces should be used instead of tabs.
+ - Text width should be limited to 80-100 characters with 80 preferred.
+
+
+4. Use of code formatting tools
+
+There are a number of tools that can be used to format the source code.  Some
+are standalone and others are part of an editor or IDE.
+
+4.1 astyle
+
+Use of the Artistic Style (astyle) formatter (http://astyle.sourceforge.net/)
+with the included options file ('scripts/astylerc') will provide most of the
+objectives outlined above.  Some manual formatting may be required.  For
+example, if a line is already less than 80 characters and ends with an
+operator, astyle will not move the operator to the beginning of the next line
+where it is preferred.
+
+4.2 GNU Indent
+
+GNU Indent lacked a few of the features of astyle for padding conditional
+blocks and enforcing spaces around operators and between comma separated
+arguments (if I'm mistaken, please provide a working example--N0NB).
+Otherwise, acceptable results should be possible.
+
+4.3 GNU Emacs
+
+GNU Emacs with the included C Mode can be configured to provide acceptable
+formatting while editing source files.  Eventually a custom Hamlib style elisp
+file will be included in the 'scripts/' directory.
+
+Useful minor modes include:
+
+modeline-char:             Displays the character and its Unicode value on the
+                           modeline.
+fill-column-indicator:     Draws a vertical line at fill column.
+
+highlight-numbers:         Applies a color face to numeric constants.
+
+highlight-parentheses:     Highlights parentheses and the nesting braces
+                           around point (cursor).
+cwarn:                     Parses the C code for harmful constructs.
+
+whitespace:                Shows whitespace--tabs, spaces, and newlines in the
+                           buffer.
+
+4.4 Other editors & IDEs
+
+Other editors and IDEs likely have various ways to apply ones preferred
+style.  The main things to configure are having the <Tab> key produce four
+spaces and that tab stops be every four positions across the screen (if
+configurable).
+
+
+5 Summary
+
+Hamlib source code is no place for an entry into the obfuscated C contest!
+Many of us are hobbyists and write this for fun.  Easy to read and understand
+logic is preferred over a clever solution.  If your solution must be written
+in a clever fashion, please document it well in your comments.
+
+73, Nate, N0NB

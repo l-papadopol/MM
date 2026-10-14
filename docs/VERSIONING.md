@@ -1,0 +1,19 @@
+# MadModem versioning
+
+MadModem public packages use `MAJOR.MINOR.PATCH` version numbers.
+
+Current release: **0.6.2**.
+
+The version must agree in all release metadata:
+
+- `MADMODEM_VERSION.txt`
+- `MadModemVersion.h`
+- the CMake `project(... VERSION ...)` declaration
+- release/package names
+- current README, release notes and localized help metadata
+
+Development-only suffixes such as `.experimental` or `labNN` belong to temporary branches and test artifacts. They are not part of the 0.6.2 release identifier.
+
+Run `scripts/ci_release_version_guard.sh` before packaging. A full source archive should be named with the public version and preserve executable permissions on shell scripts.
+
+Windows resource tuples and the six Qt Help namespaces must match the same version. Source revisions distinguish packaging updates without changing the public version.
