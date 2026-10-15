@@ -1,3 +1,4 @@
+#include "updates/UpdateController.h"
 #include "logbook/AsyncLogbook.h"
 #include "runtime/WeakSignalTxPreparer.h"
 #include "logbook/CqWwRtty.h"
@@ -1685,6 +1686,17 @@ MainWindow::MainWindow(QWidget *parent)
     updateWaterfallMarkers();
     updateTxPreview();
     queueLogbookIndexRebuild();
+
+    new UpdateController(this, ui->menuHelp, [this] {
+        return !m_runtimeShutdownComplete && !m_closeAwaitingLogbook &&
+            canApplyScheduledQsyNow() && !m_txPreparationPending &&
+            !m_ft8AudioStartRequested && !m_pendingFt8PttPrearmed &&
+            !m_nativeWeakSignalTxPending && !m_offlineAnalysisActive &&
+            !m_ftSession.cqRepeatActive && !m_radioTelescopeScanActive &&
+            !(Ft8Mode::isFamilyMode(ui->cmbMode->currentText()) &&
+              m_chkFt8FullAutoQso && m_chkFt8FullAutoQso->isChecked()) &&
+            !(m_logbookStore && (m_logbookStore->busy() || m_logbookStore->hasUnsaved()));
+    });
 
     appendLog("MM started.");
     appendLog("Settings file: " + AppSettings::settingsFilePath());
@@ -22654,6 +22666,8 @@ void MainWindow::showAboutMadModem()
         "<p><b>Author:</b> Papadopol Lucian-Ioan, IZ6NNH<br>"
         "<b>Website:</b> www.madexp.it<br>"
         "<b>License:</b> GPLv3</p>"
+        "<p><b>Principal tester:</b> IK7IMK Nick<br>"
+        "Testing, valuable advice and new ideas.</p>"
         "<p><b>Modes:</b> FT8/FT4, CW, RTTY, BPSK/QPSK, MFSK, "
         "SSTV, WEFAX, Feld Hell / FSK-105, MSK144 and Q65.</p>"
         "<p><b>Includes:</b> CAT/PTT via Hamlib/HRD, rotator control, "

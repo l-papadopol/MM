@@ -20,6 +20,7 @@ struct CwBandSkimmer::Lane {
 
 CwBandSkimmer::CwBandSkimmer() { m_resampler.configure(12000); }
 CwBandSkimmer::~CwBandSkimmer() = default;
+void CwBandSkimmer::setChannelLimit(int limit) { m_channelLimit = std::clamp(limit, 2, 16); }
 void CwBandSkimmer::reset() {
     m_lanes.clear(); m_history.clear(); m_resampler.reset(); m_audioTime = 0;
 }
@@ -47,7 +48,7 @@ void CwBandSkimmer::process(const QVector<float>& audio, int rate,
         const bool existing = m_lanes.count(c.channelIndex) != 0;
         if (!existing && (c.ageFrames < 4 || c.stableFrames < 3 || c.confidence < .45f || c.snrDb < 9.f)) continue;
         selected.push_back(c); active.insert(c.channelIndex);
-        if (selected.size() >= kSkimmerChannels) break;
+        if (selected.size() >= static_cast<std::size_t>(m_channelLimit)) break;
     }
     for (auto it = m_lanes.begin(); it != m_lanes.end();) {
         if (!active.count(it->first)) it = m_lanes.erase(it); else ++it;
@@ -57,7 +58,7 @@ void CwBandSkimmer::process(const QVector<float>& audio, int rate,
         bool created = false;
         if (found == m_lanes.end()) {
             if (carrier.ageFrames < 4 || carrier.stableFrames < 3 || carrier.confidence < 0.45f || carrier.snrDb < 9.f ||
-                m_lanes.size() >= kSkimmerChannels) continue;
+                m_lanes.size() >= static_cast<std::size_t>(m_channelLimit)) continue;
             auto lane = std::make_unique<Lane>();
             lane->spot.id = m_nextId++;
             lane->spot.frequencyHz = carrier.audioFrequencyHz;

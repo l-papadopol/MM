@@ -14,6 +14,9 @@ The project uses an AI-assisted coding workflow under human direction. The autho
 
 ### MSHV / WSJT-X-related FT material
 
+MSHV Copyright (C) 2015 Hrisimir Hristov — LZ2HV.
+Upstream project and source: https://sourceforge.net/projects/mshv/
+
 Location: `third_party/mshv_gpl/port/`
 
 Used for FT8/FT4 protocol support, including message packing/unpacking, generators, CRC/LDPC helpers and related FT support code.

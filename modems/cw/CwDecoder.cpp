@@ -353,7 +353,7 @@ void CwDecoder::processAudioBlock(const AudioBlock &block)
                                 static_cast<std::size_t>(block.samples.size()),
                                 static_cast<double>(block.sampleRate));
     if (m_bandSkimmerEnabled) {
-        m_bandSkimmer.process(block.samples, block.sampleRate, m_skimmer->channelStates());
+        m_bandSkimmer.submit(block, m_skimmer->channelStates());
         m_bandPublishSamples += block.samples.size();
         if (m_bandPublishSamples >= block.sampleRate / 5) {
             m_bandPublishSamples = 0;
@@ -718,6 +718,9 @@ void CwDecoder::emitSkimmerStatus(bool force)
             parts << QStringLiteral("B:%1Hz").arg(qRound(m_secondaryToneHz));
         }
     }
+    if (m_bandSkimmerEnabled)
+        parts << QStringLiteral("Skimmer ≤%1 · overruns:%2")
+                     .arg(m_bandSkimmer.channelLimit()).arg(m_bandSkimmer.overloads());
     emit statusChanged(QStringLiteral("CW native RX: %1 · carrier scanner active")
                            .arg(parts.join(QStringLiteral(" · "))));
 }

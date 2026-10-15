@@ -1757,6 +1757,144 @@ for _lang, _values in {'cs': {'cw_filter_alignment_help': 'Při úzkém CW filtr
                                                                              'rotatorkontrolleren.'}}.items():
     KEY_EXACT.setdefault(_lang, {}).update(_values)
 
+# Stable-release update controls and messages.
+for _lang, _values in {'it': {'text.check_for_updates': 'Controlla aggiornamenti…',
+        'text.check_for_updates_at_startup': 'Controlla aggiornamenti all’avvio',
+        'update_idle': 'Ferma trasmissione, TX automatico e operazioni attive prima di aggiornare.',
+        'update_invalid': 'Informazioni sulla release non valide.',
+        'update_current': 'Non è disponibile una versione stabile più recente.',
+        'update_network': 'Impossibile recuperare l’aggiornamento. Controlla la connessione e riprova dal menu '
+                          'Aiuto.',
+        'update_no_package': 'Esiste una versione più recente, ma manca un pacchetto completo adatto a questa '
+                             'installazione. Apertura della pagina delle release.',
+        'update_offer': 'È disponibile MadModem %1. Scaricare l’aggiornamento?\n'
+                        '\n'
+                        'Versione attuale: %2\n'
+                        'Pacchetto: %3',
+        'update_installer_info': 'Dopo la verifica puoi chiudere MM e avviare l’installer. Impostazioni e logbook '
+                                 'vengono conservati; l’installer può richiedere l’accettazione della licenza o '
+                                 'l’autorizzazione del sistema.',
+        'update_portable_info': 'La copia portabile rimarrà portabile. Dopo la conferma MM si chiude, viene '
+                                'conservato un backup completo accanto alla cartella del programma, il pacchetto '
+                                'viene sostituito e MM riparte.',
+        'update_checksum_missing': 'La release non contiene il checksum di questo pacchetto. Aggiornamento '
+                                   'annullato.',
+        'update_storage': 'Impossibile creare la cartella di download dell’aggiornamento.',
+        'update_downloading': 'Download dell’aggiornamento…',
+        'update_cancel': 'Annulla',
+        'update_corrupt': 'Download fallito o checksum non corrispondente. Nessun file del programma è stato '
+                          'modificato.',
+        'update_wait': 'Aggiornamento scaricato. Ferma le operazioni attive prima di installarlo dalla cartella '
+                       'di download.',
+        'update_install': 'Download verificato. Chiudere MadModem e applicare ora l’aggiornamento?',
+        'update_launch_failed': 'Impossibile avviare l’aggiornamento. L’installazione attuale non è stata '
+                                'modificata.'},
+ 'fr': {'text.check_for_updates': 'Rechercher des mises à jour…',
+        'text.check_for_updates_at_startup': 'Rechercher des mises à jour au démarrage',
+        'update_idle': 'Arrêtez la transmission, le TX automatique et les opérations actives avant la mise à '
+                       'jour.',
+        'update_invalid': 'Informations de version non valides.',
+        'update_current': 'Aucune version stable plus récente n’est disponible.',
+        'update_network': 'Impossible de récupérer la mise à jour. Vérifiez la connexion et réessayez depuis '
+                          'Aide.',
+        'update_no_package': 'Une version plus récente existe, mais aucun paquet complet ne correspond à cette '
+                             'installation. Ouverture de la page des versions.',
+        'update_offer': 'MadModem %1 est disponible. Télécharger la mise à jour ?\n'
+                        '\n'
+                        'Version actuelle : %2\n'
+                        'Paquet : %3',
+        'update_installer_info': 'Après vérification, vous pourrez fermer MM et lancer l’installateur. Les '
+                                 'réglages et journaux sont conservés ; l’installateur peut demander '
+                                 'l’acceptation de la licence ou une autorisation du système.',
+        'update_portable_info': 'La copie portable restera portable. Après confirmation, MM se ferme, une '
+                                'sauvegarde complète est conservée à côté du dossier du programme, le paquet est '
+                                'remplacé et MM redémarre.',
+        'update_checksum_missing': 'Cette version ne contient pas la somme de contrôle du paquet. Mise à jour '
+                                   'annulée.',
+        'update_storage': 'Impossible de créer le dossier de téléchargement de la mise à jour.',
+        'update_downloading': 'Téléchargement de la mise à jour…',
+        'update_cancel': 'Annuler',
+        'update_corrupt': 'Échec du téléchargement ou somme de contrôle incorrecte. Aucun fichier du programme '
+                          'n’a été modifié.',
+        'update_wait': 'Mise à jour téléchargée. Arrêtez les opérations actives avant de l’installer depuis le '
+                       'dossier de téléchargement.',
+        'update_install': 'Téléchargement vérifié. Fermer MadModem et appliquer la mise à jour maintenant ?',
+        'update_launch_failed': 'Impossible de démarrer la mise à jour. L’installation actuelle est inchangée.'},
+ 'de': {'text.check_for_updates': 'Nach Updates suchen…',
+        'text.check_for_updates_at_startup': 'Beim Start nach Updates suchen',
+        'update_idle': 'Beenden Sie vor dem Update die Übertragung, automatisches TX und aktive Vorgänge.',
+        'update_invalid': 'Ungültige Versionsinformationen.',
+        'update_current': 'Keine neuere stabile Version verfügbar.',
+        'update_network': 'Das Update konnte nicht abgerufen werden. Prüfen Sie die Verbindung und versuchen Sie '
+                          'es über Hilfe erneut.',
+        'update_no_package': 'Eine neuere Version ist verfügbar, aber kein vollständiges Paket passt zu dieser '
+                             'Installation. Die Versionsseite wird geöffnet.',
+        'update_offer': 'MadModem %1 ist verfügbar. Update herunterladen?\n\nAktuelle Version: %2\nPaket: %3',
+        'update_installer_info': 'Nach der Prüfung können Sie MM schließen und das Installationsprogramm starten. '
+                                 'Einstellungen und Logbücher bleiben erhalten; das Installationsprogramm kann '
+                                 'eine Lizenzbestätigung oder Systemfreigabe verlangen.',
+        'update_portable_info': 'Die portable Kopie bleibt portabel. Nach der Bestätigung wird MM geschlossen, '
+                                'eine vollständige Sicherung neben dem Programmordner angelegt, das Paket ersetzt '
+                                'und MM neu gestartet.',
+        'update_checksum_missing': 'Diese Veröffentlichung enthält keine Prüfsumme für das Paket. Update '
+                                   'abgebrochen.',
+        'update_storage': 'Der Downloadordner für das Update konnte nicht erstellt werden.',
+        'update_downloading': 'Update wird heruntergeladen…',
+        'update_cancel': 'Abbrechen',
+        'update_corrupt': 'Download fehlgeschlagen oder Prüfsumme stimmt nicht überein. Keine Programmdateien '
+                          'wurden geändert.',
+        'update_wait': 'Update heruntergeladen. Beenden Sie aktive Vorgänge, bevor Sie es aus dem Downloadordner '
+                       'installieren.',
+        'update_install': 'Download geprüft. MadModem schließen und das Update jetzt anwenden?',
+        'update_launch_failed': 'Das Update konnte nicht gestartet werden. Die aktuelle Installation ist '
+                                'unverändert.'},
+ 'no': {'text.check_for_updates': 'Se etter oppdateringer…',
+        'text.check_for_updates_at_startup': 'Se etter oppdateringer ved oppstart',
+        'update_idle': 'Stopp sending, automatisk TX og aktive operasjoner før oppdatering.',
+        'update_invalid': 'Ugyldig utgivelsesinformasjon.',
+        'update_current': 'Ingen nyere stabil utgivelse er tilgjengelig.',
+        'update_network': 'Kunne ikke hente oppdateringen. Kontroller forbindelsen og prøv igjen fra Hjelp.',
+        'update_no_package': 'En nyere utgivelse finnes, men ingen komplett pakke passer denne installasjonen. '
+                             'Åpner utgivelsessiden.',
+        'update_offer': 'MadModem %1 er tilgjengelig. Last ned oppdateringen?\n\nNåværende versjon: %2\nPakke: %3',
+        'update_installer_info': 'Etter kontroll kan du lukke MM og starte installasjonsprogrammet. Innstillinger '
+                                 'og loggbøker beholdes; installasjonsprogrammet kan be om lisensaksept eller '
+                                 'systemtillatelse.',
+        'update_portable_info': 'Den portable kopien forblir portabel. Etter bekreftelse lukkes MM, en full '
+                                'sikkerhetskopi beholdes ved siden av programmappen, pakken erstattes og MM '
+                                'starter på nytt.',
+        'update_checksum_missing': 'Utgivelsen mangler kontrollsum for denne pakken. Oppdateringen er avbrutt.',
+        'update_storage': 'Kan ikke opprette nedlastingsmappen for oppdateringen.',
+        'update_downloading': 'Laster ned oppdatering…',
+        'update_cancel': 'Avbryt',
+        'update_corrupt': 'Nedlastingen feilet eller kontrollsummen stemmer ikke. Ingen programfiler ble endret.',
+        'update_wait': 'Oppdateringen er lastet ned. Stopp aktive operasjoner før installasjon fra '
+                       'nedlastingsmappen.',
+        'update_install': 'Nedlastingen er kontrollert. Lukk MadModem og bruk oppdateringen nå?',
+        'update_launch_failed': 'Kunne ikke starte oppdateringen. Den nåværende installasjonen er uendret.'},
+ 'cs': {'text.check_for_updates': 'Zkontrolovat aktualizace…',
+        'text.check_for_updates_at_startup': 'Kontrolovat aktualizace při spuštění',
+        'update_idle': 'Před aktualizací zastavte vysílání, automatické TX a aktivní operace.',
+        'update_invalid': 'Neplatné informace o vydání.',
+        'update_current': 'Není dostupná novější stabilní verze.',
+        'update_network': 'Aktualizaci nelze získat. Zkontrolujte připojení a zkuste to znovu z nabídky Nápověda.',
+        'update_no_package': 'Existuje novější vydání, ale pro tuto instalaci není úplný odpovídající balíček. '
+                             'Otevírá se stránka vydání.',
+        'update_offer': 'Je dostupný MadModem %1. Stáhnout aktualizaci?\n\nAktuální verze: %2\nBalíček: %3',
+        'update_installer_info': 'Po ověření můžete zavřít MM a spustit instalátor. Nastavení a deníky zůstanou '
+                                 'zachovány; instalátor může vyžadovat souhlas s licencí nebo oprávnění systému.',
+        'update_portable_info': 'Přenosná kopie zůstane přenosná. Po potvrzení se MM zavře, vedle složky programu '
+                                'se uloží úplná záloha, balíček se nahradí a MM se znovu spustí.',
+        'update_checksum_missing': 'Vydání neobsahuje kontrolní součet tohoto balíčku. Aktualizace zrušena.',
+        'update_storage': 'Nelze vytvořit složku pro stažení aktualizace.',
+        'update_downloading': 'Stahování aktualizace…',
+        'update_cancel': 'Zrušit',
+        'update_corrupt': 'Stažení selhalo nebo nesouhlasí kontrolní součet. Žádné soubory programu se nezměnily.',
+        'update_wait': 'Aktualizace stažena. Před instalací ze složky stažených souborů zastavte aktivní operace.',
+        'update_install': 'Stažení ověřeno. Zavřít MadModem a nyní použít aktualizaci?',
+        'update_launch_failed': 'Aktualizaci nelze spustit. Současná instalace zůstala beze změn.'}}.items():
+    KEY_EXACT.setdefault(_lang, {}).update(_values)
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

@@ -111,3 +111,9 @@ existing path behavior.
 
 Updates are applied by running the next installer. This release does not include
 an automatic download/update service.
+
+## In-application updates
+
+At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as v0.6.3, is required to offer an update; replacing assets of v0.6.2 does not trigger it.
+
+GitHub HTTPS and SHA-256 protect transfer integrity; the checksum is not an independent publisher signature. Windows remains unsigned and macOS ad-hoc signed. The downloaded installer can require normal OS authorization. A non-writable portable folder or an unsupported distribution requires a manual update. Native Windows/macOS helper behavior must be verified on those systems.

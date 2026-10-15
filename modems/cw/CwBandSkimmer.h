@@ -5,12 +5,13 @@
 #include <map>
 #include <memory>
 
-// Owned exclusively by CwDecoder on the existing RX worker.
+// Owned exclusively by its processing worker.
 class CwBandSkimmer {
 public:
     CwBandSkimmer();
     ~CwBandSkimmer();
     void reset();
+    void setChannelLimit(int limit);
     void process(const QVector<float>& audio, int sampleRate,
                  const std::vector<madmodem::cwskimmer::CwSkimmerChannelState>& carriers);
     QVector<SkimmerSpot> spots() const;
@@ -21,4 +22,5 @@ private:
     QVector<float> m_history;
     quint64 m_nextId = 1;
     double m_audioTime = 0;
+    int m_channelLimit = 16;
 };

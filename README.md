@@ -20,7 +20,7 @@ MM è scritto in **C++/Qt**, è pensato per **Linux, Windows e macOS** e il codi
 
 ### Skimmer CW e RTTY
 
-Nel pannello CW, abilita **Skimmer** e scegli **Testo** oppure **Solo CQ**. Lo skimmer decodifica fino a 16 portanti indipendenti nella banda audio ricevuta da 100 a 3500 Hz; non riceve le frequenze escluse dal filtro della radio. Il testo scorre in colonne accanto alle portanti. La vista Solo CQ mostra un nominativo dopo due letture concordanti nel contesto di una chiamata CQ. Per segnali molto vicini usa lo zoom del waterfall: le colonne che non trovano spazio vengono indicate, senza sovrapporre il testo. I ricevitori manuali RX A e RX B restano disponibili.
+Nel pannello CW, abilita **Skimmer** e scegli **Testo** oppure **Solo CQ**. Lo skimmer decodifica fino a 16 portanti indipendenti nella banda audio ricevuta da 100 a 3500 Hz; non riceve le frequenze escluse dal filtro della radio. Il testo scorre in colonne accanto alle portanti. La vista Solo CQ mostra un nominativo dopo due letture concordanti nel contesto di una chiamata CQ. Per segnali molto vicini usa lo zoom del waterfall: le colonne che non trovano spazio vengono indicate, senza sovrapporre il testo. I ricevitori manuali RX A e RX B restano disponibili. Lo skimmer CW usa un thread separato e adatta il numero di canali al carico, senza azzerare RX A/B in caso di sovraccarico.
 
 In **RTTY** trovi gli stessi comandi Skimmer e Testo/Solo CQ. Il controllo **Canali** sceglie 2–16 decoder indipendenti (12 iniziali), ciascuno con stato lettere/cifre proprio. Tutte le coppie usano baud, shift e polarità del preset selezionato. Lo skimmer segue le coppie senza modificare lo shift; il terminale e il QSO rimangono legati alla stazione scelta manualmente. Nessun testo skimmer avvia TX o registra automaticamente contatti.
 
@@ -45,6 +45,10 @@ Le finestre si ridimensionano trascinando bordi o angoli; i contenuti mantengono
 
 
 Il workflow GitHub **Build installers** crea i pacchetti automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Quando tutte le piattaforme hanno completato la compilazione e i controlli, pubblica installer, archivi portabili e checksum SHA256 nella sezione **Releases → Assets**. Un tag corrispondente alla versione, per esempio `v0.6.2`, pubblica la release ufficiale; una compilazione da un ramo crea una prerelease `build-0.6.2-N`, senza modificare la release stabile. Per una release ufficiale manuale, selezionare il tag corretto in **Run workflow**. Gli artifact `portable-*` e `installer-*` rimangono disponibili anche in Actions. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
+
+### Aggiornamenti dall’app
+
+All’avvio MM controlla le release stabili di l-papadopol/MM su GitHub. Il menu Aiuto offre un controllo manuale e l’opzione per disattivare il controllo iniziale. Bozze, prerelease e versioni uguali o precedenti vengono ignorate. Conferma il download e poi la chiusura di MM per applicarlo. Prima ferma TX e operazioni automatiche. Servono il pacchetto corretto e SHA256SUMS.txt. Le installazioni gestite aprono il proprio installer; restano le richieste di licenza e autorizzazione del sistema. Le copie portabili restano tali: viene conservato un backup completo accanto alla cartella del programma, impostazioni e logbook vengono preservati e MM riparte dopo una verifica della versione con tempo limite. Se la verifica fallisce, viene ripristinata la cartella precedente. Conserva il backup finché non hai provato l’aggiornamento. Windows conserva la variante CPU della copia portabile; gli installer la scelgono automaticamente. La selezione Linux automatica supporta solo Ubuntu 24.04 e Fedora 43. Occorre una nuova versione stabile numerica, per esempio v0.6.3: sostituire i file della v0.6.2 non attiva l’aggiornamento.
 
 ### Stato del progetto
 
@@ -102,6 +106,10 @@ Resize windows by dragging their edges or corners. Layouts retain a usable minim
 
 
 GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Once all platform builds and checks succeed, installers, portable archives and SHA256 checksums are published under **Releases → Assets**. A tag matching the source version, such as `v0.6.2`, publishes an official release; branch builds publish numbered prereleases such as `build-0.6.2-N`, leaving the stable release unchanged. To publish an official release manually, select its version tag in **Run workflow**. The `portable-*` and `installer-*` artifacts also remain available in Actions. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
+
+### Updates from the app
+
+At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as v0.6.3, is required to offer an update; replacing assets of v0.6.2 does not trigger it.
 
 ### Project status
 

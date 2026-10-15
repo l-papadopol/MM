@@ -1,5 +1,10 @@
 # MadModem 0.6.2
 
+- CW skimmer: isolated band decoding from RX A/B in a bounded worker with adaptive capacity, preventing skimmer overload from resetting selected-receiver history.
+- Updates: added optional startup checks for stable GitHub releases, verified downloads and consent-based installation. Portable copies retain their format and receive a full backup with rollback after a failed version check.
+- About: credited IK7IMK Nick as principal tester and contributor of advice and ideas.
+- Installer license: removed the unrelated MSHV project footer from the main GPL text; upstream copyright notices remain with the third-party components.
+
 - RTTY: added an optional band skimmer with 2–16 independent Mark/Space receivers, separate Baudot letters/figures states and shared anti-aliased audio resampling.
 - RTTY skimmer: follows the selected baud, shift and polarity; tracks each pair while preserving tone spacing, rejects transient detections and suppresses duplicate sideband receivers.
 - CW: retained simultaneous decoding of up to 16 independent carriers alongside manual RX A and RX B.

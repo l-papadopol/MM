@@ -1,5 +1,7 @@
 # MadModem changelog
 
+0.6.2 R2: isolated/adaptive CW band worker; GitHub stable-release updater with verified downloads and portable backup/rollback; IK7IMK Nick tester credit; corrected main installer license footer.
+
 ## 0.6.2
 
 RTTY band skimmer with independent receivers, Text/CQ waterfall views and bounded worker processing. Shared CW/RTTY overlay and CQ recognition; persistent pair acquisition suppresses sideband duplicates. Full multilingual help refresh, source cleanup and aligned release metadata. See [release notes](RELEASE_NOTES.md) for operating details.

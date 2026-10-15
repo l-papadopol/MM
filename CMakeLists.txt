@@ -362,6 +362,7 @@ endif()
 add_executable(MadModem
     main.cpp
     mainwindow.cpp
+    updates/UpdateController.cpp updates/UpdateController.h
     mainwindow.h
     mainwindow.ui
     resources.qrc
@@ -465,7 +466,7 @@ add_executable(MadModem
     modems/mfsk/MfskDecoder.cpp
     modems/cw/CwDecoder.h
     modems/cw/CwDecoder.cpp
-    modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h dsp/text/SkimmerSpot.h dsp/text/SkimmerCqTracker.h
+    modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h modems/cw/CwBandSkimmerWorker.h dsp/text/SkimmerSpot.h dsp/text/SkimmerCqTracker.h
     modems/hell/HellschreiberDecoder.h
     modems/hell/HellschreiberDecoder.cpp
     modems/ft8/Ft8Mode.h
@@ -1209,7 +1210,7 @@ if(BUILD_TESTING)
     add_executable(madmodem_cw_integration_regression
         tests/CwIntegrationRegression.cpp tests/CwTestSignal.h
         modems/cw/CwDecoder.cpp modems/cw/CwDecoder.h
-        modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h
+        modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h modems/cw/CwBandSkimmerWorker.h
         dsp/text/LinearResampler.cpp)
     target_include_directories(madmodem_cw_integration_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(madmodem_cw_integration_regression PRIVATE

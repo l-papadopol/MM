@@ -1,4 +1,8 @@
 <RCC>
+    <qresource prefix="/updates">
+        <file alias="apply_portable.sh">updates/apply_portable.sh</file>
+        <file alias="apply_portable.ps1">updates/apply_portable.ps1</file>
+    </qresource>
     <qresource prefix="/icons">
         <file alias="madmodem.png">icons/madmodem_512.png</file>
         <file alias="madmodem_16.png">icons/madmodem_16.png</file>

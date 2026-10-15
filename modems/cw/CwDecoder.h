@@ -2,7 +2,7 @@
 #define CWDECODER_H
 
 #include "../../audio/AudioBlock.h"
-#include "CwBandSkimmer.h"
+#include "CwBandSkimmerWorker.h"
 #include "../../dsp/FrequencyMarker.h"
 
 #include <QObject>
@@ -157,7 +157,7 @@ private:
     bool m_autoBandwidth = true;
     double m_afcRangeHz = 20.0;
 
-    CwBandSkimmer m_bandSkimmer;
+    CwBandSkimmerWorker m_bandSkimmer;
     bool m_bandSkimmerEnabled = false;
     qint64 m_bandPublishSamples = 0;
     int m_sampleRate = 0;

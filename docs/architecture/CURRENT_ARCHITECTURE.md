@@ -16,7 +16,7 @@ separately from GUI interaction.
 - CW contains one native implementation under `modems/cw/skimmer/`: a
   full-passband carrier scanner plus independent exact-tone RX A/RX B receivers
   and a shared soft-decision Bayesian timing implementation. The optional band skimmer
-  adds up to 16 independent receivers in the existing RX worker. Diagnostics are passive.
+  adds 2–16 receivers in a separate bounded worker with adaptive capacity. Skimmer overflow does not reset RX A/B. Diagnostics are passive.
 - MSK144 uses one self-contained RX/TX implementation under `modems/msk144/`,
   including full frames and MSK40 hashed short messages.
 - Q65A/B/C/D use one always-built implementation under `modems/q65/`. The
@@ -45,3 +45,5 @@ separately from GUI interaction.
 Managed installation paths live in `utils/InstallationPaths.h`; portable behavior is retained without `managed-install.flag`. Shared custom-window resizing lives in `utils/WindowResize.cpp`.
 
 RTTY band processing uses independent per-pair ITA2 decoders with one shared resampler. The selected terminal remains separate. CW and RTTY share bounded value snapshots, CQ token recognition and waterfall placement. See [skimmer architecture](../skimmers/README.md). Full CTest execution is manual; package CI retains targeted deployment and installer checks.
+
+`updates/UpdateController` performs asynchronous stable-release discovery and verified downloads. Native installers handle managed copies; detached portable helpers wait for process exit, back up the folder, check the new executable with a deadline and restore on failure. TX, pending QSO and unsaved logbook state block update application.

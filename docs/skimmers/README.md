@@ -4,7 +4,9 @@
 
 `runtime/RxDecoderWorker` owns continuous RX processing on its worker. RTTY's selected receiver receives the conditioned pair; `RttyMultiDecoder` receives the full input block, so the selected narrow software filter cannot hide the other stations. The radio's physical passband still limits both.
 
-`CwBandSkimmer` and `RttyMultiDecoder` each resample once to 12 kHz using the anti-aliased `LinearResampler`. Per-station DSP is independent but runs in the existing RX worker; there is no operating-system thread per station. CW selected RX A/B keep their dedicated timing tasks. The CW band receivers use `CwRelativeTimingTask` inline on the RX owner.
+`CwBandSkimmer` and `RttyMultiDecoder` each resample once to 12 kHz using the anti-aliased `LinearResampler`. RTTY lane DSP remains in the existing RX worker. CW band DSP belongs to one separate `CwBandSkimmerWorker` thread; there is no operating-system thread per band station. CW selected RX A/B keep their dedicated timing tasks. The CW band receivers use `CwRelativeTimingTask` inline on their band worker.
+
+The CW queue holds at most 0.75 seconds or 96 blocks. Overflow invalidates only band state and reduces its capacity; A/B remain continuous. Wall-time load adapts the cap between 2 and 16 channels, with slow recovery after sustained headroom. Generation checks discard stale results after reset. Only bounded value snapshots cross the mutex; DSP and thread joins never run under that mutex. The worker is joined on destruction. Offline input can outpace this live skimmer; use real-time pacing when evaluating it.
 
 This is simultaneous stream decoding, not unlimited CPU parallelism. Channel counts, pre-roll, text history and display rate are bounded. Weak-signal decoder jobs, TX preparation and CAT remain in their existing workers.
 
