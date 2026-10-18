@@ -4,7 +4,7 @@
 
 | Platform | Build | Downloads |
 | --- | --- | --- |
-| Windows x64 | MSYS2/MinGW64, Qt5; compatible and AVX2/FMA | Two portable ZIPs, one AutoCPU installer |
+| Windows x64 | MSYS2/UCRT64 (GCC), Qt5; compatible and AVX2/FMA | Two portable ZIPs, one AutoCPU installer |
 | Ubuntu 24.04 x64 | Qt5, Hamlib | Portable ZIP/TAR.GZ and native-package installer |
 | Fedora 43 x64 | Qt5, Hamlib | Portable ZIP/TAR.GZ and native-package installer |
 | macOS Intel | Qt6/Homebrew, macOS 15 target | App ZIP, DMG and PKG |

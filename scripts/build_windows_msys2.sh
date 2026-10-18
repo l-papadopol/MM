@@ -5,11 +5,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="MadModem"
 BUILD_TYPE="${BUILD_TYPE:-Release}"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
-HAMLIB_PREFIX="${HAMLIB_WIN_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-msys2-mingw64}"
 BUILD_LEGACY="${MADMODEM_WINDOWS_BUILD_LEGACY:-on}"
 BUILD_AVX2="${MADMODEM_WINDOWS_BUILD_AVX2:-on}"
 
-export PATH="${MINGW_PREFIX:-/mingw64}/bin:/usr/bin:$PATH"
+# MSYS2 exports these for the selected shell. Default to the supported UCRT64
+# environment when the script is launched without the launcher variables.
+export MINGW_PREFIX="${MINGW_PREFIX:-/ucrt64}"
+MSYS2_PACKAGE_PREFIX="${MINGW_PACKAGE_PREFIX:-mingw-w64-ucrt-x86_64}"
+export PATH="$MINGW_PREFIX/bin:/usr/bin:$PATH"
+HAMLIB_PREFIX="${HAMLIB_WIN_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-msys2-${MINGW_PREFIX##*/}}"
 
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) ;;
@@ -20,9 +24,9 @@ find_windeployqt() {
     local candidate
     for candidate in \
         "${WINDEPLOYQT:-}" \
-        "${MINGW_PREFIX:-/mingw64}/bin/windeployqt.exe" \
-        "${MINGW_PREFIX:-/mingw64}/bin/windeployqt-qt5.exe" \
-        "${MINGW_PREFIX:-/mingw64}/bin/windeployqt6.exe" \
+        "$MINGW_PREFIX/bin/windeployqt.exe" \
+        "$MINGW_PREFIX/bin/windeployqt-qt5.exe" \
+        "$MINGW_PREFIX/bin/windeployqt6.exe" \
         windeployqt windeployqt-qt5 windeployqt6; do
         [[ -z "$candidate" ]] && continue
         if command -v "$candidate" >/dev/null 2>&1; then
@@ -44,7 +48,7 @@ rm -f "$ROOT_DIR/VERSION" "$ROOT_DIR/version" 2>/dev/null || true
 find "$ROOT_DIR" -type f -name "*.sh" -exec chmod u+rx,go+rx {} + 2>/dev/null || true
 
 if ! command -v cmake >/dev/null 2>&1 || ! command -v ninja >/dev/null 2>&1; then
-    echo "ERROR: cmake/ninja not found. Install mingw-w64-x86_64-cmake and mingw-w64-x86_64-ninja." >&2
+    echo "ERROR: cmake/ninja not found. Install ${MSYS2_PACKAGE_PREFIX}-cmake and ${MSYS2_PACKAGE_PREFIX}-ninja." >&2
     exit 1
 fi
 WINDEPLOYQT_BIN="$(find_windeployqt || true)"
@@ -55,8 +59,9 @@ else
     printf '==> Qt deploy tool: %s\n' "$WINDEPLOYQT_BIN"
 fi
 
-printf '==> Building bundled Hamlib for MSYS2/MinGW64\n'
+printf '==> Building bundled Hamlib for MSYS2 (%s)\n' "$MINGW_PREFIX"
 HAMLIB_PREFIX="$HAMLIB_PREFIX" \
+HAMLIB_BUILD_DIR="${HAMLIB_BUILD_DIR:-$ROOT_DIR/third_party/hamlib_lgpl/build-msys2-${MINGW_PREFIX##*/}}" \
 HAMLIB_STATIC=on HAMLIB_SHARED=off HAMLIB_AUTORECONF=always JOBS="$JOBS" \
 CC="${CC:-gcc}" CXX="${CXX:-g++}" AR="${AR:-ar}" RANLIB="${RANLIB:-ranlib}" \
 STRIP="${STRIP:-strip}" WINDRES="${WINDRES:-windres}" \
@@ -72,7 +77,8 @@ build_variant() {
     printf '\n==> Configuring %s Windows %s package (AVX2=%s)\n' "$APP_NAME" "$variant" "$avx2"
     cmake -S "$ROOT_DIR" -B "$build_dir" -G Ninja \
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-        -DCMAKE_PREFIX_PATH="${MINGW_PREFIX:-/mingw64}" \
+        -DCMAKE_PREFIX_PATH="$MINGW_PREFIX" \
+        -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=ON \
         -DHAMLIB_ROOT="$HAMLIB_PREFIX" \
         -DMADMODEM_REQUIRE_HAMLIB=ON \
         -DMADMODEM_AUTOBUILD_HAMLIB=OFF \

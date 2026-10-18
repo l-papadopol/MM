@@ -1,5 +1,11 @@
 # MadModem changelog
 
+## 0.6.3 source R2 — Windows UCRT64 packaging
+
+- Migrated the installer workflow and its complete package list from deprecated MINGW64 to UCRT64.
+- Aligned build/deploy paths, isolated Hamlib build/install prefixes by environment and removed cross-environment DLL fallback.
+- Kept public version 0.6.3, both CPU variants, installer/portable asset names, Native R12, Neural R13 and the FT clock fix.
+
 ## 0.6.3 — Native R12 and Neural R13
 
 - Two CW RX A/B choices only: Native R12 (default) and Neural R13 (experimental). Native algorithms, R13 numerical weights and R13 CTC search parameters are unchanged.

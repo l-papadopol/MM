@@ -1,5 +1,9 @@
 # MadModem 0.6.3
 
+Windows packaging revision R2 moves the GitHub build to MSYS2 UCRT64, including
+Qt5, OpenSSL, ANGLE and Hamlib. Runtime DLLs are resolved from the same environment.
+The application version remains 0.6.3; CW engines and the FT clock fix are unchanged.
+
 ## 0.6.3 — Native R12 and Neural R13
 
 - Two CW RX A/B choices only: Native R12 (default) and Neural R13 (experimental). Native algorithms, R13 numerical weights and R13 CTC search parameters are unchanged.

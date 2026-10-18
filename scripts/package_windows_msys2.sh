@@ -8,7 +8,11 @@ OUT_DIR="${MADMODEM_PACKAGE_OUT_DIR:-$ROOT_DIR/dist/packages}"
 BUILD_LEGACY="${MADMODEM_WINDOWS_BUILD_LEGACY:-on}"
 BUILD_AVX2="${MADMODEM_WINDOWS_BUILD_AVX2:-on}"
 
-export PATH="${MINGW_PREFIX:-/mingw64}/bin:/usr/bin:$PATH"
+# MSYS2 exports these for the selected shell. Default to the supported UCRT64
+# environment when the script is launched without the launcher variables.
+export MINGW_PREFIX="${MINGW_PREFIX:-/ucrt64}"
+MSYS2_PACKAGE_PREFIX="${MINGW_PACKAGE_PREFIX:-mingw-w64-ucrt-x86_64}"
+export PATH="$MINGW_PREFIX/bin:/usr/bin:$PATH"
 
 case "$(uname -s)" in
     MINGW*|MSYS*|CYGWIN*) ;;
@@ -19,9 +23,9 @@ find_windeployqt() {
     local candidate
     for candidate in \
         "${WINDEPLOYQT:-}" \
-        "${MINGW_PREFIX:-/mingw64}/bin/windeployqt.exe" \
-        "${MINGW_PREFIX:-/mingw64}/bin/windeployqt-qt5.exe" \
-        "${MINGW_PREFIX:-/mingw64}/bin/windeployqt6.exe" \
+        "$MINGW_PREFIX/bin/windeployqt.exe" \
+        "$MINGW_PREFIX/bin/windeployqt-qt5.exe" \
+        "$MINGW_PREFIX/bin/windeployqt6.exe" \
         windeployqt windeployqt-qt5 windeployqt6; do
         [[ -z "$candidate" ]] && continue
         if command -v "$candidate" >/dev/null 2>&1; then
@@ -39,20 +43,20 @@ find_windeployqt() {
 WINDEPLOYQT_BIN="$(find_windeployqt || true)"
 if [[ -z "$WINDEPLOYQT_BIN" ]]; then
     echo "ERROR: windeployqt not found." >&2
-    echo "Checked windeployqt, windeployqt-qt5, windeployqt6 and ${MINGW_PREFIX:-/mingw64}/bin." >&2
-    echo "Install/verify mingw-w64-x86_64-qt5-tools or the matching Qt tools package." >&2
+    echo "Checked windeployqt, windeployqt-qt5, windeployqt6 and $MINGW_PREFIX/bin." >&2
+    echo "Install/verify ${MSYS2_PACKAGE_PREFIX}-qt5-tools or the matching Qt tools package." >&2
     echo "Available deploy tools:" >&2
-    ls -la "${MINGW_PREFIX:-/mingw64}/bin"/*deploy*qt* 2>/dev/null || true
+    ls -la "$MINGW_PREFIX/bin"/*deploy*qt* 2>/dev/null || true
     exit 1
 fi
 printf '==> Qt deploy tool: %s\n' "$WINDEPLOYQT_BIN"
 
 # Qt5 in MSYS2 lists ANGLE as optional, so installing Qt alone does not provide
 # the DLLs that windeployqt tries to deploy for the dynamic OpenGL backend.
-QT_RUNTIME_BIN="${MINGW_PREFIX:-/mingw64}/bin"
+QT_RUNTIME_BIN="$MINGW_PREFIX/bin"
 for dll in libGLESv2.dll libEGL.dll; do
     if [[ ! -f "$QT_RUNTIME_BIN/$dll" ]]; then
-        echo "ERROR: missing $dll. Install mingw-w64-x86_64-angleproject before packaging." >&2
+        echo "ERROR: missing $dll. Install ${MSYS2_PACKAGE_PREFIX}-angleproject before packaging." >&2
         exit 1
     fi
 done
@@ -181,9 +185,8 @@ is_optional_runtime_dll() {
 
 runtime_search_dirs() {
     printf '%s\n' \
-        "${MINGW_PREFIX:-/mingw64}/bin" \
-        "${HAMLIB_WIN_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-msys2-mingw64}/bin" \
-        "$ROOT_DIR/third_party/hamlib_lgpl/install-msys2-mingw64/bin"
+        "$MINGW_PREFIX/bin" \
+        "${HAMLIB_WIN_PREFIX:-$ROOT_DIR/third_party/hamlib_lgpl/install-msys2-${MINGW_PREFIX##*/}}/bin"
 }
 
 find_dll_in_search_dirs() {
@@ -208,7 +211,7 @@ find_dll_in_search_dirs() {
 # the offline map even though the normal DLL dependency closure is complete.
 bundle_qt_ssl_runtime() {
     local package_dir="$1"
-    local mingw_prefix="${MINGW_PREFIX:-/mingw64}"
+    local mingw_prefix="$MINGW_PREFIX"
     local bin_dir="$mingw_prefix/bin"
     local copied_ssl=0
     local copied_crypto=0
@@ -388,7 +391,7 @@ package_variant() {
         cp -f "$QT_RUNTIME_BIN/$dll" "$package_dir/bin/$dll"
     done
     mkdir -p "$package_dir/licenses/ANGLE"
-    cp "${MINGW_PREFIX:-/mingw64}/share/licenses/angleproject/LICENSE" "$package_dir/licenses/ANGLE/LICENSE"
+    cp "$MINGW_PREFIX/share/licenses/angleproject/LICENSE" "$package_dir/licenses/ANGLE/LICENSE"
 
     # If qhelpgenerator produced .qch files in this build, include them.
     for lang in en it fr de no cs; do

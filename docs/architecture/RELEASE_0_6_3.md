@@ -1,6 +1,6 @@
 # MadModem 0.6.3 source release
 
-Source revision: `0.6.3-source-native-r12-neural-r13`.
+Source revision: `0.6.3-source-r2-ucrt64-native-r12-neural-r13`.
 
 ## Delivered behavior
 
@@ -63,3 +63,35 @@ and tests with a physical radio have not been run for this release. The Linux
 GUI check uses the offscreen Qt backend; waterfall OpenGL rendering is outside
 that check. Qt Location/Qt Help were unavailable in this build environment;
 the existing offline-map and embedded-HTML fallbacks were used.
+
+## Windows packaging revision R2
+
+The previous GitHub job failed during MSYS2 package installation with
+`target not found: mingw-w64-x86_64-libusb`, before compiling the application.
+The live MINGW64 repository no longer contains that package. The UCRT64
+repository contains libusb and all the Qt5/ANGLE/OpenSSL dependencies required
+by this project.
+
+R2 changes the workflow to `msystem: UCRT64` and uses
+`mingw-w64-ucrt-x86_64-*` packages throughout. Build and deployment scripts
+resolve tools and runtime DLLs from the selected prefix, defaulting to `/ucrt64`.
+Hamlib's build and install directories are specific to that prefix; the DLL
+search no longer falls back to a MINGW64 installation. Qt5 is explicitly
+selected. Both CPU variants and published asset names remain unchanged.
+
+Checks: both edited shell scripts pass `bash -n`; workflow YAML parses; every
+one of its 20 requested package/group/provider entries exists in the current
+MSYS2 repository databases. The consolidated release suite passes 7/7. All
+application C/C++ sources and neural model files remain byte-identical to the
+preceding 0.6.3 source archive. No decoder retraining or Linux rebuild is needed
+for this packaging-only revision. The Windows compilation and installer tests
+must be rerun on GitHub; they have not been executed in this Linux environment.
+
+References, checked 2026-10-18:
+
+- https://www.msys2.org/news/#2026-03-15-deprecating-the-mingw64-environment
+- https://www.msys2.org/docs/environments/
+- https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-libusb
+- https://repo.msys2.org/mingw/ucrt64/ucrt64.db
+- https://repo.msys2.org/mingw/mingw64/mingw64.db
+- https://repo.msys2.org/msys/x86_64/msys.db
