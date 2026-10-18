@@ -1,21 +1,12 @@
-# MadModem 0.6.2
+# MadModem 0.6.3
 
-- CW skimmer: isolated band decoding from RX A/B in a bounded worker with adaptive capacity, preventing skimmer overload from resetting selected-receiver history.
-- Updates: added optional startup checks for stable GitHub releases, verified downloads and consent-based installation. Portable copies retain their format and receive a full backup with rollback after a failed version check.
-- About: credited IK7IMK Nick as principal tester and contributor of advice and ideas.
-- Installer license: removed the unrelated MSHV project footer from the main GPL text; upstream copyright notices remain with the third-party components.
+## 0.6.3 — Native R12 and Neural R13
 
-- RTTY: added an optional band skimmer with 2–16 independent Mark/Space receivers, separate Baudot letters/figures states and shared anti-aliased audio resampling.
-- RTTY skimmer: follows the selected baud, shift and polarity; tracks each pair while preserving tone spacing, rejects transient detections and suppresses duplicate sideband receivers.
-- CW: retained simultaneous decoding of up to 16 independent carriers alongside manual RX A and RX B.
-- Waterfall: both skimmers offer vertically scrolling station text or confirmed CQ callsigns. Columns avoid neighbouring text and traces; a zoom indicator identifies columns that cannot fit.
-- CQ recognition: shared committed-token processing requires two matching callsigns in CQ context, including repeated CQ cycles, and expires old identifications.
-- RX: bounded channel counts, one-second acquisition history, limited text history and batched display updates. Tracking resets after missing audio, retuning, format changes or local transmission.
-- UI: restored visible RTTY skimmer controls and retained the optional selected-station text trail when the skimmer is disabled.
-- Documentation: refreshed all 72 help pages in six languages, the GitHub README, build/distribution instructions and developer references.
-- Sources: removed obsolete verification logs, screenshots and revision patches; consolidated skimmer documentation and removed unused RTTY controls and legacy callout code.
-- Updated application metadata, Windows resources, translations and help namespaces to 0.6.2.
+- Two CW RX A/B choices only: Native R12 (default) and Neural R13 (experimental). Native algorithms, R13 numerical weights and R13 CTC search parameters are unchanged.
+- Removed the older neural runtime paths and their bundled weights. Old saved CTC/Envelope selections migrate to Neural R13; unknown settings fall back to Native R12.
+- Pinned the FT clock outside the mode settings scroll area, above QRZ. Removed the nested FT sequencer summary and duplicated period/next-message labels above the clock. Sequencer details remain in the clock tooltip; the live TX banner and message selection continue to update.
+- Updated public version, Windows resources, localized help and UI strings to 0.6.3. Removed obsolete training files, caches and generated build products from this source delivery.
+- Validation details: `docs/architecture/RELEASE_0_6_3.md`. Historical R12/R13 benchmark reports describe those earlier source packages.
 
-Installer and portable packages remain available on Windows, Linux and macOS. Windows retains automatic CPU selection in the installer. Linux portable packages include Qt5 and Hamlib. macOS packages use ad-hoc signing, without Developer ID notarization; Windows installers are unsigned.
 
-Skimmers process the audio actually received from the radio, between 100 and 3500 Hz. Narrow radio filters, overlapping signals and QRM limit coverage and decoding. Skimmer output does not start TX, move an antenna or save a QSO. Native package builds and hardware/on-air verification remain necessary on the target systems.
+Native Windows/macOS builds and tests on a connected radio remain to be run.

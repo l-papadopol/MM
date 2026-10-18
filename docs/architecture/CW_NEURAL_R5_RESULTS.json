@@ -1,0 +1,453 @@
+{
+  "model": "mm-cw-tcn-ctc-v1",
+  "source": "Independent synthetic waveforms; no live radio recordings.",
+  "test_seed_start": 1900000,
+  "records": 60,
+  "characters": 523,
+  "character_error_rate": 0.14149139579349904,
+  "exact_records": 26,
+  "python_cpp_max_logits_error": 9.5367431640625e-06,
+  "chunk_results": {
+    "17": "CQ CQDEIZ6NNHTEST73",
+    "997": "CQ CQDEIZ6NNHTEST73",
+    "4096": "CQ CQDEIZ6NNHTEST73"
+  },
+  "negative_records": [
+    {
+      "input": "silence",
+      "decoded": ""
+    },
+    {
+      "input": "white_noise",
+      "decoded": ""
+    },
+    {
+      "input": "steady_carrier",
+      "decoded": ""
+    }
+  ],
+  "audio_seconds": 403.0183985260771,
+  "process_seconds_including_startup": 2.63188442900082,
+  "details": [
+    {
+      "seed": 1900000,
+      "rate": 8000,
+      "reference": "KXMC US",
+      "decoded": "KXMC US",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900001,
+      "rate": 16000,
+      "reference": "J0O FRV",
+      "decoded": "J0ORFRV",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900002,
+      "rate": 44100,
+      "reference": "6ZABH2?K I",
+      "decoded": "6ZABH2?KI",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900003,
+      "rate": 48000,
+      "reference": "9BNR",
+      "decoded": "9BNR",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900004,
+      "rate": 8000,
+      "reference": ",/,OFB",
+      "decoded": ",/,OFB",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900005,
+      "rate": 16000,
+      "reference": ". 3C2H",
+      "decoded": ". 3C2H",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900006,
+      "rate": 44100,
+      "reference": "?JB4O0HVO",
+      "decoded": "?JB4O07HVO",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900007,
+      "rate": 48000,
+      "reference": "03PT?3ZC",
+      "decoded": "03PT?3ZC",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900008,
+      "rate": 8000,
+      "reference": "HM,B23KV //8",
+      "decoded": "HMA,B23KV/C/8",
+      "edit_distance": 3
+    },
+    {
+      "seed": 1900009,
+      "rate": 16000,
+      "reference": "LI3 Q",
+      "decoded": "LI3 Q",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900010,
+      "rate": 44100,
+      "reference": "L7,L 8",
+      "decoded": "L7,L8",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900011,
+      "rate": 48000,
+      "reference": "N2OGIR5/DF",
+      "decoded": "N2OGIR5/DF",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900012,
+      "rate": 8000,
+      "reference": "OBGH92DW N7AB",
+      "decoded": "OBGH92DWN7AB",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900013,
+      "rate": 16000,
+      "reference": ",C ZT099/",
+      "decoded": ",CZT099/",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900014,
+      "rate": 44100,
+      "reference": "3YGHM",
+      "decoded": "3YGH5H5M",
+      "edit_distance": 3
+    },
+    {
+      "seed": 1900015,
+      "rate": 48000,
+      "reference": "NR8CHISZ9RO 3",
+      "decoded": "NR8CHEIISZ?Z99RO3",
+      "edit_distance": 6
+    },
+    {
+      "seed": 1900016,
+      "rate": 8000,
+      "reference": ",A9RHN9 1L01",
+      "decoded": ",A9RRHN910L01",
+      "edit_distance": 3
+    },
+    {
+      "seed": 1900017,
+      "rate": 16000,
+      "reference": "QA 6BVH9",
+      "decoded": "QQA 6BVH9",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900018,
+      "rate": 44100,
+      "reference": "PN,E5.7GXQZ",
+      "decoded": "PN,E5.7GXQQZ",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900019,
+      "rate": 48000,
+      "reference": "LP 239ZX",
+      "decoded": "LP 239ZX",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900020,
+      "rate": 8000,
+      "reference": "AL250L .YKVQ",
+      "decoded": "AL250L.YKVQ",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900021,
+      "rate": 16000,
+      "reference": "O45T?9OG.N,6",
+      "decoded": "O45T?8?9OG.N,6",
+      "edit_distance": 2
+    },
+    {
+      "seed": 1900022,
+      "rate": 44100,
+      "reference": ",XPZ73C",
+      "decoded": ",XPZ73C",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900023,
+      "rate": 48000,
+      "reference": "7GDN.0XWC",
+      "decoded": "7GDN.0XWC",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900024,
+      "rate": 8000,
+      "reference": "I7KHOR13F",
+      "decoded": "I7KHOR13F",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900025,
+      "rate": 16000,
+      "reference": "EAXFR G",
+      "decoded": "EAXFLRG",
+      "edit_distance": 2
+    },
+    {
+      "seed": 1900026,
+      "rate": 44100,
+      "reference": "A S95",
+      "decoded": "A SIS95",
+      "edit_distance": 2
+    },
+    {
+      "seed": 1900027,
+      "rate": 48000,
+      "reference": "TN6 Y,JUL",
+      "decoded": "TNDN6 Y,JUL",
+      "edit_distance": 2
+    },
+    {
+      "seed": 1900028,
+      "rate": 8000,
+      "reference": "64I2",
+      "decoded": "64I2",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900029,
+      "rate": 16000,
+      "reference": "F9M MS",
+      "decoded": "F9M MS",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900030,
+      "rate": 44100,
+      "reference": "VY 4NX",
+      "decoded": "VY4NX",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900031,
+      "rate": 48000,
+      "reference": "7L 2K",
+      "decoded": "7C7L YJ2K",
+      "edit_distance": 4
+    },
+    {
+      "seed": 1900032,
+      "rate": 8000,
+      "reference": "HOA EORLJ",
+      "decoded": "HOA EORLJ",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900033,
+      "rate": 16000,
+      "reference": "9B4R1RL03D",
+      "decoded": "9B4R1RL03D",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900034,
+      "rate": 44100,
+      "reference": "OT8Z7 NLT",
+      "decoded": "OT8Z7NLT",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900035,
+      "rate": 48000,
+      "reference": "VC7 7.,VZP",
+      "decoded": "VC77.,VZP",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900036,
+      "rate": 8000,
+      "reference": "K7W CPL,",
+      "decoded": "K7W GCPL,",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900037,
+      "rate": 16000,
+      "reference": "SYKWSJ4G9?",
+      "decoded": "SYKWSJ4G9?",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900038,
+      "rate": 44100,
+      "reference": "V2C Z6BQ4AG",
+      "decoded": "V2C Z6BQ4AG",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900039,
+      "rate": 48000,
+      "reference": "4AD PQK,4V",
+      "decoded": "4AD PQK,4V",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900040,
+      "rate": 8000,
+      "reference": "HIUJPP1B",
+      "decoded": "HIUJPP1B",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900041,
+      "rate": 16000,
+      "reference": "2 GAV",
+      "decoded": "2 GAV",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900042,
+      "rate": 44100,
+      "reference": "O.7 .BM.9",
+      "decoded": "O.7.BM.9",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900043,
+      "rate": 48000,
+      "reference": "4E R?,8",
+      "decoded": "4ER?,8",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900044,
+      "rate": 8000,
+      "reference": "05O5O GE62",
+      "decoded": "05O5OGE62",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900045,
+      "rate": 16000,
+      "reference": "CVGVWSH,54R",
+      "decoded": "CVGVWSH,54R",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900046,
+      "rate": 44100,
+      "reference": "EPZSEXD CG0A5",
+      "decoded": "EFPLPSHSNEVXV4DKGCG10TAH5",
+      "edit_distance": 14
+    },
+    {
+      "seed": 1900047,
+      "rate": 48000,
+      "reference": "SIT253",
+      "decoded": "SIT253",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900048,
+      "rate": 8000,
+      "reference": "YCQ3ESBP13X,",
+      "decoded": "YCQ3ESHSBP13X,",
+      "edit_distance": 2
+    },
+    {
+      "seed": 1900049,
+      "rate": 16000,
+      "reference": "D2?H1 /F",
+      "decoded": "D32J?H1/F",
+      "edit_distance": 3
+    },
+    {
+      "seed": 1900050,
+      "rate": 44100,
+      "reference": "JQO CQ",
+      "decoded": "J2JQOCQ",
+      "edit_distance": 3
+    },
+    {
+      "seed": 1900051,
+      "rate": 48000,
+      "reference": "H4PKD 5PMD",
+      "decoded": "H4PKD5PMD",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900052,
+      "rate": 8000,
+      "reference": "KY.KE7KBG,L",
+      "decoded": "KY.KE7KBG,L",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900053,
+      "rate": 16000,
+      "reference": "KSHEL/TC53W",
+      "decoded": "KSHEL/TC53W",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900054,
+      "rate": 44100,
+      "reference": "OD52N0PZ?",
+      "decoded": "OD52N0PZ?",
+      "edit_distance": 0
+    },
+    {
+      "seed": 1900055,
+      "rate": 48000,
+      "reference": "? R9ZL,FJ20IC",
+      "decoded": "? SR9ZL,FJ3J2J0IC",
+      "edit_distance": 4
+    },
+    {
+      "seed": 1900056,
+      "rate": 8000,
+      "reference": "CKNW,3/S UG",
+      "decoded": "CKNW,3/SUG",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900057,
+      "rate": 16000,
+      "reference": "LSQR HD",
+      "decoded": "LSQRHD",
+      "edit_distance": 1
+    },
+    {
+      "seed": 1900058,
+      "rate": 44100,
+      "reference": "YKA CTR8Q",
+      "decoded": "YKACTRD8Q",
+      "edit_distance": 2
+    },
+    {
+      "seed": 1900059,
+      "rate": 48000,
+      "reference": "Y JEHXK,82",
+      "decoded": "Y JEHXK,82",
+      "edit_distance": 0
+    }
+  ]
+}

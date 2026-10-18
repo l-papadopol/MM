@@ -1,3 +1,4 @@
+#include "FrequencyScaleTicks.h"
 #include "WaterfallWidget.h"
 #include "../utils/SystemResourceManager.h"
 
@@ -691,7 +692,7 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
         const QColor labelBackground(235, 235, 235, 225);
         const QColor labelBorder(80, 80, 80, 210);
         const QColor labelText(15, 15, 15);
-        const int divisions = 7;
+        int previousBottom = -100;
         const int labelPaddingX = 4;
         const int labelPaddingY = 1;
         QFont labelFont = painter.font();
@@ -702,13 +703,13 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
         const int sideWidth = rightScaleBandWidth();
         const int sideLeft = qMax(0, width() - sideWidth);
         painter.fillRect(QRect(sideLeft, 0, sideWidth, height()), bandBackground);
-        for (int i = 0; i <= divisions; ++i) {
-            const double ratio = static_cast<double>(i) / static_cast<double>(divisions);
-            const double freq = m_minHz + ratio * (m_maxHz - m_minHz);
+        auto ticks = FrequencyScaleTicks::values(m_minHz, m_maxHz, height()*2);
+        std::sort(ticks.begin(), ticks.end(), [this](double a, double b) { return frequencyToY(a)<frequencyToY(b); });
+        for (double freq : ticks) {
             const int y = frequencyToY(freq);
             painter.setPen(gridColor);
             painter.drawLine(0, y, qMax(0, sideLeft - 1), y);
-            const QString label = QString::number(static_cast<int>(freq)) + " Hz";
+            const QString label = QString::number(qRound(freq)) + " Hz";
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
             const int textWidth = fm.horizontalAdvance(label);
 #else
@@ -719,6 +720,8 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
                             qBound(2, y - labelHeight / 2, qMax(2, height() - labelHeight - 2)),
                             textWidth + (labelPaddingX * 2),
                             labelHeight);
+            if (labelRect.top() <= previousBottom + 4) continue;
+            previousBottom = labelRect.bottom();
             painter.fillRect(labelRect, labelBackground);
             painter.setPen(labelBorder);
             painter.drawRect(labelRect.adjusted(0, 0, -1, -1));
@@ -735,7 +738,7 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
     const QColor labelBorder(80, 80, 80, 210);
     const QColor labelText(15, 15, 15);
 
-    const int divisions = 9;
+    int previousRight = -100;
     const int labelPaddingX = 4;
     const int labelPaddingY = 1;
 
@@ -751,15 +754,13 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
 
     painter.fillRect(QRect(0, bandTop, width(), bandHeight), bandBackground);
 
-    for (int i = 0; i <= divisions; ++i) {
-        const double ratio = static_cast<double>(i) / static_cast<double>(divisions);
-        const int x = static_cast<int>(ratio * static_cast<double>(width() - 1));
+    for (double freq : FrequencyScaleTicks::values(visibleMinHz(), visibleMaxHz(), width())) {
+        const int x = frequencyToX(freq);
 
         painter.setPen(gridColor);
         painter.drawLine(x, 0, x, qMax(0, bandTop - 1));
 
-        const double freq = visibleMinHz() + ratio * (visibleMaxHz() - visibleMinHz());
-        const QString label = QString::number(static_cast<int>(freq)) + " Hz";
+        const QString label = QString::number(qRound(freq)) + " Hz";
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
         const int textWidth = fm.horizontalAdvance(label);
@@ -785,6 +786,8 @@ void WaterfallWidget::drawFrequencyScale(QPainter &painter)
             labelHeight
             );
 
+        if (labelRect.left() <= previousRight + 5) continue;
+        previousRight = labelRect.right();
         painter.fillRect(labelRect, labelBackground);
         painter.setPen(labelBorder);
         painter.drawRect(labelRect.adjusted(0, 0, -1, -1));

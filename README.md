@@ -1,5 +1,11 @@
 # MadModem
 
+**0.6.3 — CW:** due soli motori RX A/B: **Nativo R12** (predefinito) e **Neural R13** (sperimentale). Rimossi i vecchi motori e i pesi neurali superati; le relative impostazioni migrano a R13. Orologio FT sempre visibile fuori dall’area scorrevole, senza il riepilogo duplicato sopra il quadrante.
+
+Nel test su 32 QSO sintetici nuovi, gli errori del neurale scendono da 96 a 21; sui due estratti radio di sviluppo, da 127 a 92. Il nativo resta migliore sui QSO sintetici e sull'ARRL pulito. [Confronto completo, costo CPU e limiti](docs/architecture/CW_NEURAL_R13_RESULTS.md) · [Pubblicazioni e ricerca](docs/architecture/CW_NEURAL_R13_RESEARCH.md).
+
+**0.6.3 — CW:** only **Native R12** (default) and **Neural R13** (experimental) are available for RX A/B. Retired neural selections migrate to R13. The FT clock stays visible outside the settings scroll area, without duplicated sequencer labels above it. See the [release checks](docs/architecture/RELEASE_0_6_3.md) and historical [R13 results](docs/architecture/CW_NEURAL_R13_RESULTS.md).
+
 ## 🇮🇹 Italiano
 
 **MadModem (MM)** è un programma libero per radioamatori che riunisce in un'unica applicazione modi digitali, waterfall, controllo della radio, rotore e logbook.
@@ -24,7 +30,7 @@ Nel pannello CW, abilita **Skimmer** e scegli **Testo** oppure **Solo CQ**. Lo s
 
 In **RTTY** trovi gli stessi comandi Skimmer e Testo/Solo CQ. Il controllo **Canali** sceglie 2–16 decoder indipendenti (12 iniziali), ciascuno con stato lettere/cifre proprio. Tutte le coppie usano baud, shift e polarità del preset selezionato. Lo skimmer segue le coppie senza modificare lo shift; il terminale e il QSO rimangono legati alla stazione scelta manualmente. Nessun testo skimmer avvia TX o registra automaticamente contatti.
 
-### Installazione e aggiornamenti — 0.6.2
+### Installazione e aggiornamenti — 0.6.3
 
 **Installer e pacchetti portabili rimangono entrambi disponibili. L'installazione è facoltativa.**
 
@@ -44,15 +50,23 @@ Per aggiornare, chiudere MM ed eseguire il nuovo installer: viene aggiornata la 
 Le finestre si ridimensionano trascinando bordi o angoli; i contenuti mantengono una dimensione minima utilizzabile. L'editor SSTV permette di scorrere gli strumenti anche su schermi più piccoli.
 
 
-Il workflow GitHub **Build installers** crea i pacchetti automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Quando tutte le piattaforme hanno completato la compilazione e i controlli, pubblica installer, archivi portabili e checksum SHA256 nella sezione **Releases → Assets**. Un tag corrispondente alla versione, per esempio `v0.6.2`, pubblica la release ufficiale; una compilazione da un ramo crea una prerelease `build-0.6.2-N`, senza modificare la release stabile. Per una release ufficiale manuale, selezionare il tag corretto in **Run workflow**. Gli artifact `portable-*` e `installer-*` rimangono disponibili anche in Actions. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
+Il workflow GitHub **Build installers** crea i pacchetti automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Quando tutte le piattaforme hanno completato la compilazione e i controlli, pubblica installer, archivi portabili e checksum SHA256 nella sezione **Releases → Assets**. Un tag corrispondente alla versione, per esempio `v0.6.3`, pubblica la release ufficiale; una compilazione da un ramo crea una prerelease `build-0.6.3-N`, senza modificare la release stabile. Per una release ufficiale manuale, selezionare il tag corretto in **Run workflow**. Gli artifact `portable-*` e `installer-*` rimangono disponibili anche in Actions. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
 
 ### Aggiornamenti dall’app
 
-All’avvio MM controlla le release stabili di l-papadopol/MM su GitHub. Il menu Aiuto offre un controllo manuale e l’opzione per disattivare il controllo iniziale. Bozze, prerelease e versioni uguali o precedenti vengono ignorate. Conferma il download e poi la chiusura di MM per applicarlo. Prima ferma TX e operazioni automatiche. Servono il pacchetto corretto e SHA256SUMS.txt. Le installazioni gestite aprono il proprio installer; restano le richieste di licenza e autorizzazione del sistema. Le copie portabili restano tali: viene conservato un backup completo accanto alla cartella del programma, impostazioni e logbook vengono preservati e MM riparte dopo una verifica della versione con tempo limite. Se la verifica fallisce, viene ripristinata la cartella precedente. Conserva il backup finché non hai provato l’aggiornamento. Windows conserva la variante CPU della copia portabile; gli installer la scelgono automaticamente. La selezione Linux automatica supporta solo Ubuntu 24.04 e Fedora 43. Occorre una nuova versione stabile numerica, per esempio v0.6.3: sostituire i file della v0.6.2 non attiva l’aggiornamento.
+All’avvio MM controlla le release stabili di l-papadopol/MM su GitHub. Il menu Aiuto offre un controllo manuale e l’opzione per disattivare il controllo iniziale. Bozze, prerelease e versioni uguali o precedenti vengono ignorate. Conferma il download e poi la chiusura di MM per applicarlo. Prima ferma TX e operazioni automatiche. Servono il pacchetto corretto e SHA256SUMS.txt. Le installazioni gestite aprono il proprio installer; restano le richieste di licenza e autorizzazione del sistema. Le copie portabili restano tali: viene conservato un backup completo accanto alla cartella del programma, impostazioni e logbook vengono preservati e MM riparte dopo una verifica della versione con tempo limite. Se la verifica fallisce, viene ripristinata la cartella precedente. Conserva il backup finché non hai provato l’aggiornamento. Windows conserva la variante CPU della copia portabile; gli installer la scelgono automaticamente. La selezione Linux automatica supporta solo Ubuntu 24.04 e Fedora 43. Occorre una nuova versione stabile numerica, per esempio v0.6.4: sostituire i file della v0.6.3 non attiva l’aggiornamento.
+
+### Nominativi e vista CW/RTTY
+
+La sottolineatura riconosce il formato di un nominativo; i colori riflettono il logbook locale, non una validazione QRZ. Seleziona un nominativo nel testo RX o nel modulo QSO per mostrarlo nel pannello QRZ in basso a destra. Apri direttamente la pagina QRZ oppure collega un account con accesso XML QRZ per i dettagli della stazione. Si salva solo il nome utente: password e sessione restano in memoria fino alla chiusura di MM. Le ricerche sono asincrone e memorizzate in cache per dieci minuti. I dati QRZ non confermano la decodifica né la posizione operativa attuale e non sovrascrivono i campi QSO né muovono il rotore.
+
+Trascina il separatore orizzontale sopra il waterfall per cambiarne l’altezza. Una vista più alta mostra più caratteri per colonna dello skimmer; l’altezza viene ricordata. La scala completa 100–3000 Hz usa tacche a 100, 400, 700, 1000, 1400, 1800, 2200, 2600 e 3000 Hz. Le viste ingrandite usano frequenze arrotondate nelle posizioni reali. Apri Trasmissione CW nel pannello del modo CW. Scegli Tono audio tramite SSB/Data per il metodo audio esistente, oppure KEY seriale (RTS/DTR) per un’interfaccia collegata all’ingresso tasto CW. Seleziona porta COM e linea KEY effettive, imposta la radio in CW e abilita BK-IN se non scegli una linea PTT. L’altra linea della stessa porta può fornire il PTT con anticipo/coda configurabili; KEY e PTT devono usare linee diverse. Il KEY seriale non invia audio TX ed esclude la forzatura CAT del modo CW audio, quindi non porta la radio in USB-D. WPM, testo e macro contest sono condivisi col CW audio; il carattere evidenziato segue gli impulsi KEY. USB e sistema operativo non garantiscono full QSK o precisione da manipolatore hardware.
+
+Una porta KEY dedicata mantiene disponibile la CAT. Per condividere la porta CAT seriale, imposta prima controllo di flusso CAT Nessuno ed entrambe le linee DTR e RTS forzate a OFF in Audio/PTT/CAT. MM chiude la CAT per la durata del messaggio e la riconnette dopo la chiusura della porta da parte del keyer. Stop interrompe l’attesa di un punto/linea e tenta il rilascio KEY/PTT. Senza conferma del rilascio vengono bloccati ulteriori TX: ricollega l’interfaccia e premi Stop per ritentare soltanto OFF. Un ritardo eccessivo interrompe il messaggio invece di produrre raffiche di recupero. Verifica cablaggio e tempi sulla radio effettiva prima dell’uso in contest.
 
 ### Stato del progetto
 
-MadModem è alla versione **0.6.2**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
+MadModem è alla versione **0.6.3**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
 
 Per compilazione, configurazione e dettagli tecnici trovate la documentazione nella cartella [`docs`](docs/README.md).
 
@@ -85,7 +99,7 @@ In the CW panel, enable **Skimmer** and select **Text** or **CQ calls only**. Th
 
 **RTTY** provides the same Skimmer and Text/CQ controls. **Channels** selects 2–16 independent decoders (12 by default), each with its own letters/figures state. All pairs use the selected baud, shift and polarity preset. Pair tracking preserves shift; the main terminal and QSO remain attached to the manually selected station. Skimmer text never starts TX or logs contacts automatically.
 
-### Installation and updates — 0.6.2
+### Installation and updates — 0.6.3
 
 **Installers and portable packages are both available. Installation is optional.**
 
@@ -105,15 +119,23 @@ To update, close MM and run the new installer. It updates the existing installat
 Resize windows by dragging their edges or corners. Layouts retain a usable minimum size, and SSTV editing tools remain scrollable on smaller displays.
 
 
-GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Once all platform builds and checks succeed, installers, portable archives and SHA256 checksums are published under **Releases → Assets**. A tag matching the source version, such as `v0.6.2`, publishes an official release; branch builds publish numbered prereleases such as `build-0.6.2-N`, leaving the stable release unchanged. To publish an official release manually, select its version tag in **Run workflow**. The `portable-*` and `installer-*` artifacts also remain available in Actions. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
+GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Once all platform builds and checks succeed, installers, portable archives and SHA256 checksums are published under **Releases → Assets**. A tag matching the source version, such as `v0.6.3`, publishes an official release; branch builds publish numbered prereleases such as `build-0.6.3-N`, leaving the stable release unchanged. To publish an official release manually, select its version tag in **Run workflow**. The `portable-*` and `installer-*` artifacts also remain available in Actions. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
 
 ### Updates from the app
 
-At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as v0.6.3, is required to offer an update; replacing assets of v0.6.2 does not trigger it.
+At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as v0.6.4, is required to offer an update; replacing assets of v0.6.3 does not trigger it.
+
+### Callsigns and CW/RTTY view
+
+Underlining recognises callsign-shaped text; colours reflect the local logbook, not QRZ validation. Select a call in RX text or the QSO form to display the QRZ panel at lower right. Open the QRZ page directly, or connect an account with QRZ XML access for station details. Only the username is saved: the password and session stay in memory until MM closes. Lookups are asynchronous and cached for ten minutes. QRZ data does not prove correct decoding or current operating location and never overwrites QSO fields or moves the rotator.
+
+Drag the horizontal divider above the waterfall to change its height. Taller views show more characters per skimmer column; the height is remembered. The full 100–3000 Hz scale uses ticks at 100, 400, 700, 1000, 1400, 1800, 2200, 2600 and 3000 Hz. Zoomed views use rounded frequencies at their actual positions. Open CW transmission in the CW mode panel. Choose Audio tone over SSB/Data for the existing audio method, or Serial KEY (RTS/DTR) for a wired CW keying interface. Select the actual COM port and KEY line, put the radio in CW, and enable BK-IN if no PTT line is selected. The optional other line on the same port provides PTT with configurable lead/tail; KEY and PTT must use different lines. Serial KEY sends no TX audio and bypasses audio-CW CAT mode forcing, so it does not switch the radio to USB-D. WPM, text and contest macros remain shared with audio CW; current-character highlighting follows KEY edges. USB and OS timing do not guarantee full QSK or hardware-keyer accuracy.
+
+A dedicated KEY port keeps CAT available. To share its CAT serial port, first set CAT handshaking to None and force both DTR and RTS OFF in Audio/PTT/CAT. MM closes CAT exclusively during the message and reconnects after the KEY worker closes the port. Stop interrupts a dot/dash wait and attempts KEY/PTT release. Missing release confirmation blocks further TX; reconnect the interface and press Stop to retry OFF only. A timing overrun stops the message instead of sending catch-up bursts. Test wiring and timing on the actual radio before contest use.
 
 ### Project status
 
-MadModem is at version **0.6.2**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
+MadModem is at version **0.6.3**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
 
 Build instructions, configuration notes and technical information are available in the [`docs`](docs/README.md) directory.
 

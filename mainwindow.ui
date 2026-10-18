@@ -17,7 +17,7 @@
    </size>
   </property>
   <property name="windowTitle">
-   <string notr="true">MadModem 0.6.2</string>
+   <string notr="true">MadModem 0.6.3</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="mainVerticalLayout">
@@ -578,7 +578,7 @@
           <number>6</number>
          </property>
          <item>
-          <widget class="QStackedWidget" name="stkModeSettings">
+          <widget class="CurrentPageStack" name="stkModeSettings">
            <property name="currentIndex">
             <number>0</number>
            </property>
@@ -1495,6 +1495,14 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>CurrentPageStack</class>
+   <extends>QStackedWidget</extends>
+   <header>widgets/CurrentPageStack.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources />
  <connections />
 </ui>

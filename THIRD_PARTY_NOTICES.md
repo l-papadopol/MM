@@ -139,3 +139,12 @@ claim original authorship of those protocol primitives.
 The imported `DecoderQ65`/`decoderpom` and FFTW header remain under
 `third_party/mshv_gpl/` as attributed reference material. They are not compiled
 or linked into the active Q65 target.
+
+## MM Neural CTC (source R5)
+
+Original MadModem temporal-CNN/CTC runtime, synthetic audio generator and independently
+trained weights: Copyright (C) 2026 Papadopol Lucian-Ioan; GPL-3.0-or-later.
+No DeepCW code or parameter tensors are included. DeepCW repositories were studied
+as architectural references. General CTC and gated recurrent unit techniques are
+identified in `tools/cw_neural/README.md`. Training-only PyTorch/NumPy/SciPy are
+not linked into or required by the MadModem application.

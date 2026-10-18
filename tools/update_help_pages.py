@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from cw_neural_help import HELP as CW_NEURAL_HELP
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,7 +37,11 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                            '<h2>CW and RTTY skimmers</h2><p>Skimmer text and CQ labels are controlled from the '
                            'respective Mode panel. Text uses separate vertical columns, CQ calls use labels. Zoom to '
                            'make room for crowded signals. The RTTY selected-station text trail is replaced while '
-                           'Skimmer is enabled. Neither display starts a transmission or writes a QSO.</p>'),
+                           'Skimmer is enabled. Neither display starts a transmission or writes a QSO.</p>\n'
+                           '<p>Drag the horizontal divider above the waterfall to change its height. Taller views show '
+                           'more characters per skimmer column; the height is remembered. The full 100–3000 Hz scale '
+                           'uses ticks at 100, 400, 700, 1000, 1400, 1800, 2200, 2600 and 3000 Hz. Zoomed views use '
+                           'rounded frequencies at their actual positions.</p>'),
         'text_modes.html': ('Text modes',
                             '<h1>Text modes</h1>\n'
                             '<h2>RTTY: selected station</h2><p>Select the baud/shift preset and normal or reverse '
@@ -134,7 +139,14 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                              'from recognized logbook entries; sessions in the same edition are grouped. Review the '
                              'listed QSOs, exclude unwanted rows and resolve missing exchanges or ambiguous '
                              'assignments before saving. An unrecognized entry needs correct '
-                             'contest/date/mode/exchange data; export does not invent them.</p>'),
+                             'contest/date/mode/exchange data; export does not invent them.</p>\n'
+                             '<p>Underlining recognises callsign-shaped text; colours reflect the local logbook, not '
+                             'QRZ validation. Select a call in RX text or the QSO form to display the QRZ panel at '
+                             'lower right. Open the QRZ page directly, or connect an account with QRZ XML access for '
+                             'station details. Only the username is saved: the password and session stay in memory '
+                             'until MM closes. Lookups are asynchronous and cached for ten minutes. QRZ data does not '
+                             'prove correct decoding or current operating location and never overwrites QSO fields or '
+                             'moves the rotator.</p>'),
         'audio_cat_ptt.html': ('Audio, CAT and PTT',
                                '<h1>Audio, CAT and PTT</h1>\n'
                                '\n'
@@ -230,7 +242,22 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                     '<p>The band skimmer runs in a separate worker with a bounded audio queue. Its capacity adapts '
                     'from 2 to 16 receivers to leave processing headroom. Overload discards only skimmer history, '
                     'never RX A/B history. The CW status shows the current channel limit and skimmer overrun '
-                    'count.</p>'),
+                    'count.</p>\n'
+                    '<p>Open CW transmission in the CW mode panel. Choose Audio tone over SSB/Data for the existing '
+                    'audio method, or Serial KEY (RTS/DTR) for a wired CW keying interface. Select the actual COM port '
+                    'and KEY line, put the radio in CW, and enable BK-IN if no PTT line is selected. The optional '
+                    'other line on the same port provides PTT with configurable lead/tail; KEY and PTT must use '
+                    'different lines. Serial KEY sends no TX audio and bypasses audio-CW CAT mode forcing, so it does '
+                    'not switch the radio to USB-D. WPM, text and contest macros remain shared with audio CW; '
+                    'current-character highlighting follows KEY edges. USB and OS timing do not guarantee full QSK or '
+                    'hardware-keyer accuracy.</p>\n'
+                    '<p>A dedicated KEY port keeps CAT available. To share its CAT serial port, first set CAT '
+                    'handshaking to None and force both DTR and RTS OFF in Audio/PTT/CAT. MM closes CAT exclusively '
+                    'during the message and reconnects after the KEY worker closes the port. Stop interrupts a '
+                    'dot/dash wait and attempts KEY/PTT release. Missing release confirmation blocks further TX; '
+                    'reconnect the interface and press Stop to retry OFF only. A timing overrun stops the message '
+                    'instead of sending catch-up bursts. Test wiring and timing on the actual radio before contest '
+                    'use.</p>'),
         'index.html': ('MM Help',
                        '<h1>MadModem help</h1><p>MadModem combines digital modes, audio/CAT/PTT, FT4/FT8, rotator '
                        'control, Radio Telescope, scheduler, logbook and QSO mapping in one Qt '
@@ -268,7 +295,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                             'restores the previous folder. Keep the backup until the update has been tested. Windows '
                             'keeps the current portable CPU variant; installers choose automatically. Automatic Linux '
                             'selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as '
-                            'v0.6.3, is required to offer an update; replacing assets of v0.6.2 does not trigger '
+                            'v0.6.3, is required to offer an update; replacing assets of v0.6.3 does not trigger '
                             'it.</p>')},
  'it': {'waterfall.html': ('Waterfall e marker',
                            '<h1>Waterfall e marker</h1>\n'
@@ -283,7 +310,11 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                            'rispettivo pannello Modo. Il testo usa colonne verticali distinte; i CQ usano etichette. '
                            'Ingrandisci per dare spazio ai segnali vicini. Con Skimmer attivo viene sostituita la scia '
                            'RTTY della stazione selezionata. Queste visualizzazioni non avviano TX e non registrano '
-                           'QSO.</p>'),
+                           'QSO.</p>\n'
+                           '<p>Trascina il separatore orizzontale sopra il waterfall per cambiarne l’altezza. Una '
+                           'vista più alta mostra più caratteri per colonna dello skimmer; l’altezza viene ricordata. '
+                           'La scala completa 100–3000 Hz usa tacche a 100, 400, 700, 1000, 1400, 1800, 2200, 2600 e '
+                           '3000 Hz. Le viste ingrandite usano frequenze arrotondate nelle posizioni reali.</p>'),
         'text_modes.html': ('Modi testuali',
                             '<h1>Modi testuali</h1>\n'
                             '<h2>RTTY: stazione selezionata</h2><p>Scegli il preset baud/shift e la polarità normale o '
@@ -388,7 +419,15 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                              'deriva dai QSO riconosciuti nel log; le sessioni della stessa edizione vengono riunite. '
                              'Controlla l’anteprima, escludi righe indesiderate e risolvi scambi mancanti o '
                              'assegnazioni ambigue prima di salvare. Un record non riconosciuto richiede contest, '
-                             'data, modo e scambi corretti: l’export non li inventa.</p>'),
+                             'data, modo e scambi corretti: l’export non li inventa.</p>\n'
+                             '<p>La sottolineatura riconosce il formato di un nominativo; i colori riflettono il '
+                             'logbook locale, non una validazione QRZ. Seleziona un nominativo nel testo RX o nel '
+                             'modulo QSO per mostrarlo nel pannello QRZ in basso a destra. Apri direttamente la pagina '
+                             'QRZ oppure collega un account con accesso XML QRZ per i dettagli della stazione. Si '
+                             'salva solo il nome utente: password e sessione restano in memoria fino alla chiusura di '
+                             'MM. Le ricerche sono asincrone e memorizzate in cache per dieci minuti. I dati QRZ non '
+                             'confermano la decodifica né la posizione operativa attuale e non sovrascrivono i campi '
+                             'QSO né muovono il rotore.</p>'),
         'audio_cat_ptt.html': ('Audio, CAT e PTT',
                                '<h1>Audio, CAT e PTT</h1>\n'
                                '\n'
@@ -490,7 +529,23 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                     '<p>Lo skimmer di banda lavora in un thread separato con una coda audio limitata. La capacità si '
                     'adatta da 2 a 16 ricevitori per lasciare margine di elaborazione. Un sovraccarico scarta solo lo '
                     'storico dello skimmer, mai quello di RX A/B. Lo stato CW mostra il limite corrente di canali e il '
-                    'conteggio dei sovraccarichi dello skimmer.</p>'),
+                    'conteggio dei sovraccarichi dello skimmer.</p>\n'
+                    '<p>Apri Trasmissione CW nel pannello del modo CW. Scegli Tono audio tramite SSB/Data per il '
+                    'metodo audio esistente, oppure KEY seriale (RTS/DTR) per un’interfaccia collegata all’ingresso '
+                    'tasto CW. Seleziona porta COM e linea KEY effettive, imposta la radio in CW e abilita BK-IN se '
+                    'non scegli una linea PTT. L’altra linea della stessa porta può fornire il PTT con anticipo/coda '
+                    'configurabili; KEY e PTT devono usare linee diverse. Il KEY seriale non invia audio TX ed esclude '
+                    'la forzatura CAT del modo CW audio, quindi non porta la radio in USB-D. WPM, testo e macro '
+                    'contest sono condivisi col CW audio; il carattere evidenziato segue gli impulsi KEY. USB e '
+                    'sistema operativo non garantiscono full QSK o precisione da manipolatore hardware.</p>\n'
+                    '<p>Una porta KEY dedicata mantiene disponibile la CAT. Per condividere la porta CAT seriale, '
+                    'imposta prima controllo di flusso CAT Nessuno ed entrambe le linee DTR e RTS forzate a OFF in '
+                    'Audio/PTT/CAT. MM chiude la CAT per la durata del messaggio e la riconnette dopo la chiusura '
+                    'della porta da parte del keyer. Stop interrompe l’attesa di un punto/linea e tenta il rilascio '
+                    'KEY/PTT. Senza conferma del rilascio vengono bloccati ulteriori TX: ricollega l’interfaccia e '
+                    'premi Stop per ritentare soltanto OFF. Un ritardo eccessivo interrompe il messaggio invece di '
+                    'produrre raffiche di recupero. Verifica cablaggio e tempi sulla radio effettiva prima dell’uso in '
+                    'contest.</p>'),
         'index.html': ('Guida MM',
                        '<h1>Guida MadModem</h1><p>MadModem riunisce modi digitali, audio/CAT/PTT, FT4/FT8, controllo '
                        'rotore, Radio Telescope, pianificatore, registro QSO e mappa in un’unica interfaccia '
@@ -529,7 +584,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                             'precedente. Conserva il backup finché non hai provato l’aggiornamento. Windows conserva '
                             'la variante CPU della copia portabile; gli installer la scelgono automaticamente. La '
                             'selezione Linux automatica supporta solo Ubuntu 24.04 e Fedora 43. Occorre una nuova '
-                            'versione stabile numerica, per esempio v0.6.3: sostituire i file della v0.6.2 non attiva '
+                            'versione stabile numerica, per esempio v0.6.3: sostituire i file della v0.6.3 non attiva '
                             'l’aggiornamento.</p>')},
  'fr': {'waterfall.html': ('Waterfall et marqueurs',
                            '<h1>Waterfall et marqueurs</h1>\n'
@@ -543,7 +598,12 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                            '<h2>Skimmers CW et RTTY</h2><p>Le panneau Mode correspondant commande texte et indicatifs '
                            'CQ. Le texte utilise des colonnes verticales distinctes, les CQ des étiquettes. Zoomez '
                            'pour séparer les signaux proches. Skimmer remplace la trace RTTY de la station '
-                           'sélectionnée. Ces affichages ne lancent pas TX et n’enregistrent pas de QSO.</p>'),
+                           'sélectionnée. Ces affichages ne lancent pas TX et n’enregistrent pas de QSO.</p>\n'
+                           '<p>Faites glisser le séparateur horizontal au-dessus du waterfall pour modifier sa '
+                           'hauteur. Une vue plus haute affiche davantage de caractères par colonne du skimmer ; la '
+                           'hauteur est mémorisée. L’échelle complète 100–3000 Hz utilise les repères 100, 400, 700, '
+                           '1000, 1400, 1800, 2200, 2600 et 3000 Hz. Les vues agrandies utilisent des fréquences '
+                           'arrondies à leur position réelle.</p>'),
         'text_modes.html': ('Modes texte',
                             '<h1>Modes texte</h1>\n'
                             '<h2>RTTY : station sélectionnée</h2><p>Choisissez le préréglage débit/décalage et la '
@@ -646,7 +706,15 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                              'provient des QSO reconnus ; les sessions d’une même édition sont réunies. Vérifiez '
                              'l’aperçu, excluez les lignes inutiles et corrigez les échanges manquants ou les '
                              'affectations ambiguës avant de sauvegarder. Les données concours, date, mode et échange '
-                             'doivent être correctes : l’export ne les invente pas.</p>'),
+                             'doivent être correctes : l’export ne les invente pas.</p>\n'
+                             '<p>Le soulignement reconnaît le format d’un indicatif ; les couleurs reflètent le '
+                             'journal local, pas une validation QRZ. Sélectionnez un indicatif dans le texte RX ou le '
+                             'formulaire QSO pour l’afficher dans le panneau QRZ en bas à droite. Ouvrez sa page QRZ '
+                             'ou connectez un compte avec accès XML QRZ pour les détails. Seul le nom d’utilisateur '
+                             'est enregistré : le mot de passe et la session restent en mémoire jusqu’à la fermeture '
+                             'de MM. Les recherches sont asynchrones et mises en cache dix minutes. Les données QRZ ne '
+                             'confirment ni le décodage ni la position actuelle et ne modifient jamais le QSO ou le '
+                             'rotateur.</p>'),
         'audio_cat_ptt.html': ('Audio, CAT et PTT',
                                '<h1>Audio, CAT et PTT</h1>\n'
                                '\n'
@@ -749,7 +817,22 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                     '<p>Le skimmer de bande utilise un thread séparé et une file audio limitée. Sa capacité varie de 2 '
                     'à 16 récepteurs pour conserver une marge de calcul. Une surcharge efface uniquement l’historique '
                     'du skimmer, jamais celui de RX A/B. L’état CW indique la limite de canaux et le nombre de '
-                    'surcharges du skimmer.</p>'),
+                    'surcharges du skimmer.</p>\n'
+                    '<p>Ouvrez Transmission CW dans le panneau du mode CW. Choisissez Tonalité audio via SSB/Data pour '
+                    'la méthode audio existante, ou KEY série (RTS/DTR) pour une interface raccordée à l’entrée clé '
+                    'CW. Sélectionnez le port COM et la ligne KEY réels, réglez la radio en CW et activez BK-IN sans '
+                    'ligne PTT. L’autre ligne du même port peut fournir le PTT avec avance/maintien réglables ; KEY et '
+                    'PTT doivent être distincts. KEY série n’envoie pas d’audio TX et ignore le changement de mode CAT '
+                    'du CW audio : la radio reste hors USB-D. Vitesse, texte et macros contest sont partagés avec le '
+                    'CW audio ; la surbrillance suit les impulsions KEY. USB et le système ne garantissent pas le QSK '
+                    'intégral ou la précision d’un manipulateur matériel.</p>\n'
+                    '<p>Un port KEY dédié maintient la CAT disponible. Pour partager le port CAT série, désactivez le '
+                    'contrôle de flux CAT et forcez DTR et RTS sur OFF dans Audio/PTT/CAT. MM ferme la CAT pendant le '
+                    'message et la reconnecte après fermeture du port par le manipulateur. Stop interrompt l’attente '
+                    'd’un point/trait et tente de libérer KEY/PTT. Sans confirmation, les TX suivants sont bloqués : '
+                    'rebranchez l’interface et appuyez sur Stop pour réessayer uniquement OFF. Un retard excessif '
+                    'arrête le message au lieu de produire une rafale de rattrapage. Vérifiez câblage et temporisation '
+                    'sur la radio avant un contest.</p>'),
         'index.html': ('Aide MM',
                        '<h1>Aide MadModem</h1><p>MadModem réunit les modes numériques, audio/CAT/PTT, FT4/FT8, la '
                        'commande du rotateur, le radiotélescope, le planificateur, le journal et la carte QSO dans une '
@@ -789,7 +872,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                             'validation de la mise à jour. Windows conserve la variante CPU portable ; l’installateur '
                             'choisit automatiquement. La sélection Linux automatique couvre uniquement Ubuntu 24.04 et '
                             'Fedora 43. Une nouvelle version stable numérique, par exemple v0.6.3, est nécessaire ; '
-                            'remplacer les fichiers de v0.6.2 ne déclenche pas de mise à jour.</p>')},
+                            'remplacer les fichiers de v0.6.3 ne déclenche pas de mise à jour.</p>')},
  'de': {'waterfall.html': ('Wasserfall und Marker',
                            '<h1>Wasserfall und Marker</h1>\n'
                            '<p>Der Wasserfall zeigt den vom gewählten Modus verwendeten Audiobereich. Ein Linksklick '
@@ -802,7 +885,12 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                            '<h2>CW- und RTTY-Skimmer</h2><p>Text und CQ-Rufzeichen werden im jeweiligen Modusfeld '
                            'gesteuert. Text nutzt getrennte senkrechte Spalten, CQ verwendet Beschriftungen. Bei '
                            'dichten Signalen vergrößern. Skimmer ersetzt die RTTY-Textspur der ausgewählten Station. '
-                           'Diese Anzeigen starten kein TX und schreiben kein QSO.</p>'),
+                           'Diese Anzeigen starten kein TX und schreiben kein QSO.</p>\n'
+                           '<p>Den horizontalen Trenner über dem Wasserfall ziehen, um dessen Höhe zu ändern. Höhere '
+                           'Ansichten zeigen mehr Zeichen pro Skimmerspalte; die Höhe wird gespeichert. Die '
+                           'vollständige Skala von 100–3000 Hz zeigt 100, 400, 700, 1000, 1400, 1800, 2200, 2600 und '
+                           '3000 Hz. Vergrößerte Ansichten zeigen gerundete Frequenzen an ihren tatsächlichen '
+                           'Positionen.</p>'),
         'text_modes.html': ('Textmodi',
                             '<h1>Textmodi</h1>\n'
                             '<h2>RTTY: ausgewählte Station</h2><p>Wählen Sie Baud/Shift-Vorgabe und normale oder '
@@ -906,7 +994,15 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                              'erkannten QSO; Sitzungen derselben Ausgabe werden zusammengefasst. Vorschau prüfen, '
                              'unerwünschte Zeilen ausschließen und fehlende Austausche oder mehrdeutige Zuordnungen '
                              'vor dem Speichern korrigieren. Contest, Datum, Modus und Austausch müssen stimmen; der '
-                             'Export erfindet keine Angaben.</p>'),
+                             'Export erfindet keine Angaben.</p>\n'
+                             '<p>Unterstreichung erkennt das Rufzeichenformat; Farben beziehen sich auf das lokale '
+                             'Logbuch, nicht auf eine QRZ-Prüfung. Ein Rufzeichen im RX-Text oder QSO-Formular '
+                             'auswählen, um es im QRZ-Feld unten rechts anzuzeigen. Die QRZ-Seite direkt öffnen oder '
+                             'ein Konto mit QRZ-XML-Zugang für Stationsdaten verbinden. Nur der Benutzername wird '
+                             'gespeichert; Passwort und Sitzung bleiben bis zum Beenden von MM im Arbeitsspeicher. '
+                             'Abfragen laufen asynchron und werden zehn Minuten zwischengespeichert. QRZ-Daten '
+                             'bestätigen weder die Dekodierung noch den aktuellen Standort und ändern keine QSO-Felder '
+                             'oder Rotorpositionen.</p>'),
         'audio_cat_ptt.html': ('Audio, CAT und PTT',
                                '<h1>Audio, CAT und PTT</h1>\n'
                                '\n'
@@ -1008,7 +1104,22 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                     '<p>Der Bandskimmer läuft in einem eigenen Thread mit begrenzter Audiowarteschlange. Seine '
                     'Kapazität passt sich zwischen 2 und 16 Empfängern an, um Rechenreserve zu lassen. Bei Überlast '
                     'wird nur der Skimmerverlauf verworfen, niemals der Verlauf von RX A/B. Der CW-Status zeigt die '
-                    'Kanalgrenze und die Anzahl der Skimmerüberläufe.</p>'),
+                    'Kanalgrenze und die Anzahl der Skimmerüberläufe.</p>\n'
+                    '<p>CW-Senden im CW-Bedienfeld öffnen. Audioton über SSB/Data verwendet das bisherige '
+                    'Audioverfahren; Serielle KEY-Tastung (RTS/DTR) verwendet eine Schnittstelle am CW-Tasteingang. '
+                    'Tatsächlichen COM-Port und KEY-Leitung wählen, Funkgerät auf CW stellen und ohne PTT-Leitung '
+                    'BK-IN aktivieren. Die andere Leitung desselben Ports kann PTT mit einstellbarem Vor-/Nachlauf '
+                    'liefern; KEY und PTT müssen verschieden sein. Serielle KEY-Tastung sendet kein TX-Audio und '
+                    'umgeht die CAT-Betriebsartumschaltung von Audio-CW, daher erfolgt kein Wechsel zu USB-D. WPM, '
+                    'Text und Contest-Makros bleiben gemeinsam; die Zeichenmarkierung folgt den KEY-Flanken. USB und '
+                    'Betriebssystem garantieren weder vollständiges QSK noch Hardware-Keyer-Präzision.</p>\n'
+                    '<p>Ein eigener KEY-Port erhält CAT. Für einen gemeinsamen seriellen CAT-Port CAT-Flusssteuerung '
+                    'Keine und DTR sowie RTS auf OFF in Audio/PTT/CAT einstellen. MM schließt CAT während der '
+                    'Nachricht und verbindet nach Schließen des KEY-Ports erneut. Stop unterbricht die '
+                    'Punkt-/Strichwartezeit und versucht KEY/PTT freizugeben. Ohne Bestätigung bleibt TX gesperrt: '
+                    'Schnittstelle erneut anschließen und mit Stop nur OFF wiederholen. Übermäßige Verspätung beendet '
+                    'die Nachricht statt Aufholbursts zu senden. Verkabelung und Zeitverhalten vor Contestbetrieb am '
+                    'tatsächlichen Funkgerät prüfen.</p>'),
         'index.html': ('MM-Hilfe',
                        '<h1>MadModem-Hilfe</h1><p>MadModem vereint Digitalmodi, Audio/CAT/PTT, FT4/FT8, '
                        'Rotorsteuerung, Radioteleskop, Planer, Logbuch und QSO-Karte in einer '
@@ -1047,7 +1158,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                             'wiederhergestellt. Behalten Sie die Sicherung, bis das Update geprüft wurde. Windows '
                             'behält die portable CPU-Variante; das Installationsprogramm wählt automatisch. Die '
                             'automatische Linux-Auswahl unterstützt nur Ubuntu 24.04 und Fedora 43. Erforderlich ist '
-                            'eine neue stabile numerische Version, etwa v0.6.3; ersetzte Dateien unter v0.6.2 lösen '
+                            'eine neue stabile numerische Version, etwa v0.6.3; ersetzte Dateien unter v0.6.3 lösen '
                             'kein Update aus.</p>')},
  'no': {'waterfall.html': ('Vannfall og markører',
                            '<h1>Vannfall og markører</h1>\n'
@@ -1060,7 +1171,11 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                            '<h2>CW- og RTTY-skimmere</h2><p>Tekst og CQ-kallesignaler styres fra tilhørende '
                            'Modus-panel. Tekst bruker separate loddrette kolonner, CQ bruker etiketter. Zoom inn ved '
                            'tette signaler. Skimmer erstatter RTTY-tekstsporet for valgt stasjon. Visningene starter '
-                           'ikke TX og lagrer ikke QSO.</p>'),
+                           'ikke TX og lagrer ikke QSO.</p>\n'
+                           '<p>Dra den horisontale skillelinjen over fossefallet for å endre høyden. Høyere visninger '
+                           'viser flere tegn per skimmerkolonne; høyden huskes. Hele skalaen fra 100–3000 Hz viser '
+                           '100, 400, 700, 1000, 1400, 1800, 2200, 2600 og 3000 Hz. Ved zoom brukes avrundede '
+                           'frekvenser på riktige posisjoner.</p>'),
         'text_modes.html': ('Tekstmoduser',
                             '<h1>Tekstmoduser</h1>\n'
                             '<h2>RTTY: valgt stasjon</h2><p>Velg forhåndsinnstilling for baud/skift og normal eller '
@@ -1155,7 +1270,14 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                              'utgave etter navn og dato. Listen bygges fra gjenkjente QSO-er; økter fra samme utgave '
                              'samles. Kontroller forhåndsvisningen, utelat uønskede rader og rett manglende '
                              'utvekslinger eller tvetydige tilordninger før lagring. Konkurranse, dato, modus og '
-                             'utveksling må være riktige; eksporten finner ikke på data.</p>'),
+                             'utveksling må være riktige; eksporten finner ikke på data.</p>\n'
+                             '<p>Understreking gjenkjenner kallesignalformatet; fargene gjenspeiler lokal loggbok, '
+                             'ikke QRZ-verifisering. Velg et kallesignal i RX-teksten eller QSO-skjemaet for å vise '
+                             'det i QRZ-panelet nederst til høyre. Åpne QRZ-siden direkte, eller koble til en konto '
+                             'med QRZ XML-tilgang for stasjonsdetaljer. Bare brukernavnet lagres; passord og økt '
+                             'forblir i minnet til MM lukkes. Oppslag er asynkrone og hurtiglagres i ti minutter. '
+                             'QRZ-data bekrefter ikke dekodingen eller gjeldende sendeposisjon og overskriver aldri '
+                             'QSO-felt eller flytter rotoren.</p>'),
         'audio_cat_ptt.html': ('Lyd, CAT og PTT',
                                '<h1>Lyd, CAT og PTT</h1>\n'
                                '\n'
@@ -1246,7 +1368,20 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                     '<p>Båndskimmeren kjører i en egen tråd med en begrenset lydkø. Kapasiteten tilpasses fra 2 til 16 '
                     'mottakere for å beholde ledig prosessorkapasitet. Overbelastning forkaster bare '
                     'skimmerhistorikken, aldri historikken til RX A/B. CW-statusen viser kanalgrensen og antall '
-                    'køoverløp i skimmeren.</p>'),
+                    'køoverløp i skimmeren.</p>\n'
+                    '<p>Åpne CW-sending i CW-panelet. Velg Lydtone via SSB/Data for eksisterende lydmetode, eller '
+                    'Seriell KEY (RTS/DTR) for et grensesnitt koblet til CW-nøkkelinngangen. Velg faktisk COM-port og '
+                    'KEY-linje, sett radioen i CW og aktiver BK-IN uten PTT-linje. Den andre linjen på samme port kan '
+                    'gi PTT med justerbar forsinkelse før/etter; KEY og PTT må være forskjellige linjer. Seriell KEY '
+                    'sender ingen TX-lyd og omgår CAT-modusbytte for lyd-CW, så radioen skifter ikke til USB-D. WPM, '
+                    'tekst og konkurransemakroer deles med lyd-CW; tegnmarkeringen følger KEY-pulsene. USB og '
+                    'operativsystemet garanterer ikke full QSK eller presisjonen til en maskinvarenøkkel.</p>\n'
+                    '<p>En egen KEY-port beholder CAT. For å dele CAT-serieporten velger du CAT-flytkontroll Ingen og '
+                    'setter DTR og RTS til OFF i Audio/PTT/CAT. MM lukker CAT under meldingen og kobler til igjen '
+                    'etter at nøkkelen har lukket porten. Stop avbryter ventetiden for en prikk/strek og forsøker å '
+                    'frigi KEY/PTT. Uten bekreftelse blokkeres videre TX: koble til grensesnittet igjen og trykk Stop '
+                    'for bare å prøve OFF. For store forsinkelser stopper meldingen fremfor å sende '
+                    'innhentingsutbrudd. Kontroller kabling og tider på den faktiske radioen før konkurransebruk.</p>'),
         'index.html': ('MM-hjelp',
                        '<h1>MadModem-hjelp</h1><p>MadModem samler digitale moduser, lyd/CAT/PTT, FT4/FT8, '
                        'rotorstyring, radioteleskop, planlegger, loggbok og QSO-kart i ett '
@@ -1283,7 +1418,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                             'sikkerhetskopien til oppdateringen er prøvd. Windows beholder den portable CPU-varianten; '
                             'installasjonsprogrammet velger automatisk. Automatisk Linux-valg støtter bare Ubuntu '
                             '24.04 og Fedora 43. Det kreves en ny stabil numerisk versjon, for eksempel v0.6.3; '
-                            'utskifting av filer for v0.6.2 utløser ingen oppdatering.</p>')},
+                            'utskifting av filer for v0.6.3 utløser ingen oppdatering.</p>')},
  'cs': {'waterfall.html': ('Vodopád a značky',
                            '<h1>Vodopád a značky</h1>\n'
                            '<p>Vodopád zobrazuje zvukové pásmo používané zvoleným režimem. Levým kliknutím na signál '
@@ -1295,7 +1430,11 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                            '<h2>Skimmery CW a RTTY</h2><p>Text a značky CQ se ovládají v příslušném panelu Režim. Text '
                            'má samostatné svislé sloupce, CQ používá popisky. Blízké signály oddělte přiblížením. '
                            'Skimmer nahrazuje textovou stopu zvolené stanice RTTY. Zobrazení nespouští TX a neukládá '
-                           'QSO.</p>'),
+                           'QSO.</p>\n'
+                           '<p>Tažením vodorovného oddělovače nad vodopádem změníte jeho výšku. Vyšší zobrazení ukáže '
+                           'více znaků v každém sloupci skimmeru; výška se ukládá. Celá stupnice 100–3000 Hz používá '
+                           'značky 100, 400, 700, 1000, 1400, 1800, 2200, 2600 a 3000 Hz. Při přiblížení se zobrazují '
+                           'zaokrouhlené frekvence na skutečných pozicích.</p>'),
         'text_modes.html': ('Textové režimy',
                             '<h1>Textové režimy</h1>\n'
                             '<h2>RTTY: zvolená stanice</h2><p>Zvolte předvolbu rychlosti/zdvihu a normální nebo '
@@ -1388,7 +1527,14 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                              'názvu a data. Seznam vzniká z rozpoznaných QSO; relace stejného ročníku se spojí. Ověřte '
                              'náhled, vylučte nechtěné řádky a před uložením opravte chybějící výměny nebo '
                              'nejednoznačná přiřazení. Závod, datum, režim a výměna musejí být správné; export si '
-                             'údaje nevymýšlí.</p>'),
+                             'údaje nevymýšlí.</p>\n'
+                             '<p>Podtržení rozpoznává formát volací značky; barvy vycházejí z místního deníku, nikoli '
+                             'z ověření QRZ. Vyberte značku v textu RX nebo formuláři QSO a zobrazí se v panelu QRZ '
+                             'vpravo dole. Otevřete přímo stránku QRZ nebo připojte účet s přístupem QRZ XML pro údaje '
+                             'stanice. Ukládá se pouze uživatelské jméno; heslo a relace zůstávají v paměti do '
+                             'ukončení MM. Vyhledávání běží asynchronně s desetiminutovou mezipamětí. Údaje QRZ '
+                             'nepotvrzují správnost dekódování ani aktuální polohu a nikdy nepřepisují QSO ani '
+                             'nepohybují rotátorem.</p>'),
         'audio_cat_ptt.html': ('Audio, CAT a PTT',
                                '<h1>Audio, CAT a PTT</h1>\n'
                                '\n'
@@ -1478,7 +1624,19 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                     '<p>Pásmový skimmer běží v samostatném vlákně s omezenou zvukovou frontou. Kapacita se '
                     'přizpůsobuje od 2 do 16 přijímačů, aby zůstala rezerva výkonu. Přetížení zahodí pouze historii '
                     'skimmeru, nikdy historii RX A/B. Stav CW ukazuje aktuální limit kanálů a počet přetečení fronty '
-                    'skimmeru.</p>'),
+                    'skimmeru.</p>\n'
+                    '<p>Otevřete Vysílání CW v panelu režimu CW. Zvukový tón přes SSB/Data používá dosavadní zvukovou '
+                    'metodu; Sériové KEY (RTS/DTR) používá rozhraní připojené ke vstupu CW klíče. Vyberte skutečný '
+                    'port COM a linku KEY, nastavte rádio na CW a bez linky PTT zapněte BK-IN. Druhá linka stejného '
+                    'portu může poskytovat PTT s nastavitelným předstihem/doběhem; KEY a PTT musí být různé. Sériové '
+                    'KEY neposílá zvuk TX a obchází přepínání režimu CAT zvukového CW, takže rádio nepřepne do USB-D. '
+                    'WPM, text a soutěžní makra jsou společné; zvýraznění znaku sleduje impulzy KEY. USB a systém '
+                    'nezaručují plné QSK ani přesnost hardwarového klíčovače.</p>\n'
+                    '<p>Samostatný port KEY zachová CAT. Pro sdílení sériového portu CAT nastavte řízení toku CAT '
+                    'Žádné a DTR i RTS na OFF v Audio/PTT/CAT. MM zavře CAT během zprávy a obnoví ho po uzavření portu '
+                    'KEY. Stop přeruší čekání tečky/čárky a zkusí uvolnit KEY/PTT. Bez potvrzení se další TX blokuje: '
+                    'připojte rozhraní znovu a stiskněte Stop pro opakování pouze OFF. Nadměrné zpoždění zastaví '
+                    'zprávu místo doháněcích dávek. Před soutěží ověřte zapojení a časování na skutečném rádiu.</p>'),
         'index.html': ('Nápověda MM',
                        '<h1>Nápověda MadModem</h1><p>MadModem spojuje digitální režimy, audio/CAT/PTT, FT4/FT8, '
                        'ovládání rotátoru, radioteleskop, plánovač, deník a mapu QSO v jediném rozhraní '
@@ -1513,8 +1671,13 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                             'časově omezené kontrole verze. Při selhání kontroly se obnoví předchozí složka. Zálohu '
                             'ponechte do ověření aktualizace. Windows zachová variantu CPU přenosné kopie; instalátor '
                             'ji vybírá automaticky. Automatický výběr pro Linux podporuje pouze Ubuntu 24.04 a Fedoru '
-                            '43. Je nutná nová stabilní číselná verze, například v0.6.3; výměna souborů u v0.6.2 '
+                            '43. Je nutná nová stabilní číselná verze, například v0.6.3; výměna souborů u v0.6.3 '
                             'aktualizaci nespustí.</p>')}}
+
+
+for _lang, _body in CW_NEURAL_HELP.items():
+    _title, _original = PAGES[_lang]['cw.html']
+    PAGES[_lang]['cw.html'] = (_title, _body + _original)
 
 
 def main() -> int:

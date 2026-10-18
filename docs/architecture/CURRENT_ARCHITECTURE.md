@@ -1,4 +1,4 @@
-# MadModem 0.6.2 architecture
+# MadModem 0.6.3 architecture
 
 MadModem is a Qt Widgets desktop application with one integrated main window and
 mode-specific decoders/workers. Audio capture has a dedicated thread; bounded,
@@ -13,6 +13,10 @@ separately from GUI interaction.
   MSHV-derived protocol helpers in `third_party/mshv_gpl/port/`.
 - FT8 Deep Max uses classical Costas/LLR, LDPC, CRC, unpacking and residual/SIC
   recovery. MIND is not part of the active decoder.
+- CW RX A/B select **Native R12** (default) or **Neural R13** (experimental).
+  Neural R13 uses the single bundled model under `modems/cw/neural/model/`,
+  causal envelope normalization and bounded acoustic CTC prefix search.
+  Retired CTC/Envelope settings migrate to Neural R13.
 - CW contains one native implementation under `modems/cw/skimmer/`: a
   full-passband carrier scanner plus independent exact-tone RX A/RX B receivers
   and a shared soft-decision Bayesian timing implementation. The optional band skimmer
@@ -47,3 +51,9 @@ Managed installation paths live in `utils/InstallationPaths.h`; portable behavio
 RTTY band processing uses independent per-pair ITA2 decoders with one shared resampler. The selected terminal remains separate. CW and RTTY share bounded value snapshots, CQ token recognition and waterfall placement. See [skimmer architecture](../skimmers/README.md). Full CTest execution is manual; package CI retains targeted deployment and installer checks.
 
 `updates/UpdateController` performs asynchronous stable-release discovery and verified downloads. Native installers handle managed copies; detached portable helpers wait for process exit, back up the folder, check the new executable with a deadline and restore on failure. TX, pending QSO and unsaved logbook state block update application.
+
+`callsign/QrzLookupPanel` performs selected-call lookups through the official HTTPS XML API. Debouncing, generation checks, bounded responses, deadlines and ten-minute in-memory caching prevent stale results and unbounded work. Password/session values are never persisted or placed in request URLs. Lookup results are display-only and never modify QSO/rotator state.
+
+`CwMorseSequence` supplies the same alphabet and dot-unit plan to audio CW and `CwSerialTransmitter`. The serial worker owns its QSerialPort, monotonic deadlines, KEY/PTT release and condition-variable Stop. The GUI receives character snapshots and final completion only after QThread has finished. `runtime/CwSerialTxSession.cpp` owns the GUI-side transition, fault latch and asynchronous CAT serial-port handoff. No GUI or CAT event loop drives Morse edges. Native serial mode bypasses the audio/PTT CAT route entirely; it requires the radio in CW.
+
+A failed OFF operation blocks TX and keeps a shared CAT port reserved until a release-only Stop retry succeeds. Deadlines that overrun their tolerance stop transmission rather than compress subsequent edges. Windows requests 1 ms timer resolution only while the worker runs, paired with release on exit; actual USB/driver timing still requires hardware validation.

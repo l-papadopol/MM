@@ -148,6 +148,8 @@ private:
   double m_noiseLog = 0.0;
   double m_markLog = 0.0;
   bool m_haveLevels = false;
+  bool m_acquiredCarrier = false;
+  int m_acquisitionEvidence = 0;
   double m_probability = 0.5;
   double m_confidence = 0.0;
 

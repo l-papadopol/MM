@@ -1,0 +1,131 @@
+{
+  "scope": "Development only. Independent synthetic seeds, ARRL bulletin is development; no VARC or other RF reference used.",
+  "records": [
+    {
+      "floor_amplitude_fraction": 0.0,
+      "peak_power_release_seconds": 0.5,
+      "metrics": {
+        "arrl": {
+          "errors": 479,
+          "characters": 570,
+          "cer": 0.8403508771929824
+        },
+        "synthetic": {
+          "errors": 20,
+          "characters": 326,
+          "cer": 0.06134969325153374
+        },
+        "negative": {
+          "errors": 0,
+          "characters": 0,
+          "cer": 0.0
+        }
+      }
+    },
+    {
+      "floor_amplitude_fraction": 0.03,
+      "peak_power_release_seconds": 0.5,
+      "metrics": {
+        "arrl": {
+          "errors": 356,
+          "characters": 570,
+          "cer": 0.624561403508772
+        },
+        "synthetic": {
+          "errors": 19,
+          "characters": 326,
+          "cer": 0.05828220858895705
+        },
+        "negative": {
+          "errors": 0,
+          "characters": 0,
+          "cer": 0.0
+        }
+      }
+    },
+    {
+      "floor_amplitude_fraction": 0.05,
+      "peak_power_release_seconds": 0.5,
+      "metrics": {
+        "arrl": {
+          "errors": 230,
+          "characters": 570,
+          "cer": 0.40350877192982454
+        },
+        "synthetic": {
+          "errors": 19,
+          "characters": 326,
+          "cer": 0.05828220858895705
+        },
+        "negative": {
+          "errors": 0,
+          "characters": 0,
+          "cer": 0.0
+        }
+      }
+    },
+    {
+      "floor_amplitude_fraction": 0.1,
+      "peak_power_release_seconds": 0.5,
+      "metrics": {
+        "arrl": {
+          "errors": 116,
+          "characters": 570,
+          "cer": 0.20350877192982456
+        },
+        "synthetic": {
+          "errors": 20,
+          "characters": 326,
+          "cer": 0.06134969325153374
+        },
+        "negative": {
+          "errors": 0,
+          "characters": 0,
+          "cer": 0.0
+        }
+      }
+    },
+    {
+      "floor_amplitude_fraction": 0.2,
+      "peak_power_release_seconds": 0.5,
+      "metrics": {
+        "arrl": {
+          "errors": 70,
+          "characters": 570,
+          "cer": 0.12280701754385964
+        },
+        "synthetic": {
+          "errors": 25,
+          "characters": 326,
+          "cer": 0.07668711656441718
+        },
+        "negative": {
+          "errors": 0,
+          "characters": 0,
+          "cer": 0.0
+        }
+      }
+    },
+    {
+      "floor_amplitude_fraction": 0.3,
+      "peak_power_release_seconds": 0.5,
+      "metrics": {
+        "arrl": {
+          "errors": 69,
+          "characters": 570,
+          "cer": 0.12105263157894737
+        },
+        "synthetic": {
+          "errors": 25,
+          "characters": 326,
+          "cer": 0.07668711656441718
+        },
+        "negative": {
+          "errors": 0,
+          "characters": 0,
+          "cer": 0.0
+        }
+      }
+    }
+  ]
+}

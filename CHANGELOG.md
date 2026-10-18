@@ -1,5 +1,59 @@
 # MadModem changelog
 
+## 0.6.3 — Native R12 and Neural R13
+
+- Two CW RX A/B choices only: Native R12 (default) and Neural R13 (experimental). Native algorithms, R13 numerical weights and R13 CTC search parameters are unchanged.
+- Removed the older neural runtime paths and their bundled weights. Old saved CTC/Envelope selections migrate to Neural R13; unknown settings fall back to Native R12.
+- Pinned the FT clock outside the mode settings scroll area, above QRZ. Removed the nested FT sequencer summary and duplicated period/next-message labels above the clock. Sequencer details remain in the clock tooltip; the live TX banner and message selection continue to update.
+- Updated public version, Windows resources, localized help and UI strings to 0.6.3. Removed obsolete training checkpoints, caches and generated build products from this source delivery.
+- Validation details: `docs/architecture/RELEASE_0_6_3.md`. Historical R12/R13 benchmark reports describe those earlier source packages.
+
+
+## 0.6.2 source R13 — adapted neural CW with causal CTC search
+
+- Added optional MM Neural Search for RX A/B, with a separately adapted MM checkpoint, causal envelope frontend and four-hypothesis acoustic CTC search. Native stays default; legacy CTC and Envelope remain available.
+- New QSO errors: Envelope 96/1,017 → Search 21/1,017. New clean ARRL clips: 152/592 → 28/592. Existing RF development: 127/249 → 92/249. Native remains ahead on clean QSO/ARRL.
+- Vectorized the unchanged-weight inference core with bit-identical output; full-app CPU timings remain variable and do not establish a general speed win over Native.
+- Added source-backed research, 118 minutes of independently pulse-audited archive material acquisition, training/replay tools, comparative results and causal streaming checks.
+- Full Linux build, Native regressions, Search A/B routing and four-choice UI checks passed. Details: `docs/architecture/CW_NEURAL_R13_RESULTS.md`.
+
+## 0.6.2 source R12 — native CW acquisition and processing cost
+
+- Fixed startup loss of the first Morse element after a short noise prelude; added adaptive character/word spacing from confident completed gaps.
+- Cached exact duration hazards and spectral work. Native CPU cost fell 18.9% in the documented local comparison.
+- Added optional MM Neural Envelope RX normalization while preserving legacy Neural CTC and the Native default. No new weights were promoted.
+- Fresh synthetic QSO: native errors 13/489 → 0/489. Existing RF development excerpts: 143/249 → 134/249. These scopes are distinct; independent new radio validation remains open.
+- Added actual-route comparison tooling and regressions. Details and limits: `docs/architecture/CW_R12_CHECKS.md`.
+
+## 0.6.2 source R6 — CW neural receiver refinement
+
+- Expanded independent training with receiver-filtered messages, narrowband noise,
+  steady carriers and more word boundaries. Increased blank and CTC supervision.
+- Kept Native as the default and retained the saved RX A/B engine selector.
+- Added reproducible refinement and frozen-model comparison tools, with the R5
+  training checkpoint retained for lineage and baseline comparisons.
+- WebSDR captures are evaluated separately from labelled synthetic tests; no
+  unverified decoder predictions are used as training truth.
+- Measurements and remaining limitations: `docs/architecture/CW_NEURAL_R6.md`.
+
+## 0.6.2 source R5 — selectable CW receive engine
+
+- Added persistent RX A/B engine selection: Native (default) or independently
+  trained MM Neural CTC (experimental). Band skimmer remains native.
+- Added a causal temporal-CNN/CTC C++ receiver with bundled original weights and a
+  reproducible synthetic-audio training/export tool; no external ML runtime.
+- Reset neural state on engine/tone changes, receiver clear, capture gaps and
+  local TX resume. TX audio and serial KEY behavior is independent.
+- Experimental model trained for 12–36 WPM. Native filter/AFC/WPM controls are
+  disabled for this engine. Real-radio and native Windows/macOS validation remain open.
+- See `tools/cw_neural/README.md`, `modems/cw/neural/model/MODEL_CARD.json`,
+  and `docs/architecture/CW_NEURAL_R5.md` for origin, measurements and limitations.
+
+
+0.6.2 R4: native CW serial KEY with optional same-port PTT, exclusive CAT port handoff, interruptible timing/Stop and failed-release recovery; shared Morse plan and consistent 80-WPM TX range.
+
+0.6.2 R3: QRZ selected-station panel; clarified local callsign recognition; resizable waterfall with rounded frequency ticks; scrollable mode controls and explicit audio-CW TX explanation.
+
 0.6.2 R2: isolated/adaptive CW band worker; GitHub stable-release updater with verified downloads and portable backup/rollback; IK7IMK Nick tester credit; corrected main installer license footer.
 
 ## 0.6.2

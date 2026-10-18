@@ -54,6 +54,8 @@ void CwRelativeTimingDecoder::reset(bool keepTimingPrior) {
     m_elementSpaces.clear();
     m_characterSpaces.clear();
     m_wordSpaces.clear();
+    m_boundarySpaces.clear();
+    m_spacingFamiliesLearned = false;
     m_shortMeanMs = priorDit;
     m_longMeanMs = 3.0 * priorDit;
     m_elementSpaceMs = priorDit;
@@ -127,6 +129,8 @@ void CwRelativeTimingDecoder::installFreshEpoch(
   m_elementSpaces.assign(6U, elementSpaceMs);
   m_characterSpaces.clear();
   m_wordSpaces.clear();
+  m_boundarySpaces.clear();
+  m_spacingFamiliesLearned = false;
   m_shortMeanMs = shortMarkMs;
   m_longMeanMs = longMarkMs;
   m_elementSpaceMs = elementSpaceMs;
@@ -554,6 +558,46 @@ void CwRelativeTimingDecoder::updateSpaceCluster(
   refreshThresholds();
 }
 
+double CwRelativeTimingDecoder::wordDecisionThresholdMs() const {
+  const double dit = std::max(1.0, m_shortMeanMs);
+  const double canonical = std::sqrt(21.0) * dit;
+  // Observed letter/word families carry the operator's spacing independently
+  // of element speed. Retain the conservative startup prior until both are
+  // supported by several completed, trusted boundary gaps.
+  if (m_spacingFamiliesLearned) return std::max(canonical, m_wordThresholdMs);
+  return std::min(std::max(canonical, m_wordThresholdMs), 5.60 * dit);
+}
+
+void CwRelativeTimingDecoder::learnBoundarySpacing(double ms, double weight) {
+  const double dit = std::max(1.0, m_shortMeanMs);
+  if (weight < 0.65 || ms < 1.70 * dit || ms > 80.0 * dit || ms > 6000.0) return;
+  m_boundarySpaces.push_back(ms);
+  while (m_boundarySpaces.size() > 63U) m_boundarySpaces.pop_front();
+  if (m_boundarySpaces.size() < 8U) return;
+  std::vector<double> values(m_boundarySpaces.begin(), m_boundarySpaces.end());
+  std::sort(values.begin(), values.end());
+  double lower = values[values.size()/5U];
+  double upper = values[(values.size()*4U)/5U];
+  std::size_t split = 0;
+  for (int iteration=0; iteration<6; ++iteration) {
+    const double boundary = std::sqrt(lower*upper);
+    split = static_cast<std::size_t>(std::lower_bound(values.begin(),values.end(),boundary)-values.begin());
+    if (split < 3U || values.size()-split < 2U) return;
+    lower = values[split/2U];
+    upper = values[split+(values.size()-split)/2U];
+  }
+  if (upper/lower < 1.65 || upper/lower > 4.5 || lower < 1.8*dit || upper < 5.0*dit) return;
+  // Reject mixtures dominated by a long idle pause or broad, unstructured noise.
+  const double lowerSpread = std::log(values[(split*3U)/4U]/std::max(1.0,values[split/4U]));
+  const std::size_t count = values.size()-split;
+  const double upperSpread = std::log(values[split+(count*3U)/4U]/std::max(1.0,values[split+count/4U]));
+  if (lowerSpread > 0.45 || upperSpread > 0.45) return;
+  m_characterSpaceMs = lower;
+  m_wordSpaceMs = upper;
+  m_spacingFamiliesLearned = true;
+  refreshThresholds();
+}
+
 double CwRelativeTimingDecoder::markClassificationConfidence(
     double durationMs) const {
   const double shortDistance = std::abs(std::log(
@@ -934,25 +978,14 @@ CwRelativeTimingResult CwRelativeTimingDecoder::processStableRun(
     if (m_pairEvidence > 0 && (m_havePreviousMark || !m_beamDecoder.snapshot().currentPattern.empty()) &&
         effectiveSpaceMs <= maximumTrainingSpace) {
       updateSpaceCluster(effectiveSpaceMs, runWeight);
+      // Coherence/SNR should be low during a real OFF gap. Use the
+      // discriminator's duration confidence, with the proven MARK clock above.
+      learnBoundarySpacing(effectiveSpaceMs, run.confidence);
     }
     if (!m_wordCommittedInOpenSpace) {
-      // A completed OFF run carries the same information as the live open-gap
-      // timer.  Previously only advance() could force an unambiguous word
-      // boundary; if the worker received the completed SPACE first, this path
-      // merely marked the boundary as "already committed" even when the beam
-      // had selected a character gap.  The result was CQCQ for an exact
-      // 7-dit "CQ CQ" separation.
-      const double canonicalWordThresholdMs =
-          std::sqrt(21.0) * std::max(1.0, m_shortMeanMs);
-      // A leading/off-air SPACE can be much longer than the operator's real
-      // seven-unit word gaps.  Letting that one observation raise the decision
-      // threshold without a bound turned later 6-7-unit gaps into character
-      // gaps (CQCQ, DXDX).  Keep adaptation, but never above the midpoint
-      // between the canonical character and word families by more than one
-      // local unit.
-      const double adaptiveWordThresholdMs = std::min(
-          std::max(m_wordThresholdMs, canonicalWordThresholdMs),
-          5.60 * std::max(1.0, m_shortMeanMs));
+      // Completed gaps and the live timer use the same measured spacing
+      // families. During acquisition the helper retains the bounded prior.
+      const double adaptiveWordThresholdMs = wordDecisionThresholdMs();
       const bool forceWordBoundary =
           effectiveSpaceMs >= adaptiveWordThresholdMs;
       const CwMorseBeamResult beamResult = m_beamDecoder.observeSpace(
@@ -1050,15 +1083,8 @@ CwRelativeTimingResult CwRelativeTimingDecoder::advance(
   if (!keyDown && m_openSpaceStartSec >= 0.0) {
     const double openSpaceMs = 1000.0 *
         std::max(0.0, timestampSec - m_openSpaceStartSec);
-    // Do not force a word from a stale fast initial-WPM prior.  The learned
-    // character/word midpoint is retained, with a canonical 1/3/7-unit lower
-    // bound at the acquired dit scale. Completed gaps still go through the full
-    // beam likelihood model below.
-    const double canonicalWordThresholdMs =
-        std::sqrt(21.0) * std::max(1.0, m_shortMeanMs);
-    const double adaptiveWordThresholdMs = std::min(
-        std::max(m_wordThresholdMs, canonicalWordThresholdMs),
-        5.60 * std::max(1.0, m_shortMeanMs));
+    // Learned boundary families are independent of the element clock.
+    const double adaptiveWordThresholdMs = wordDecisionThresholdMs();
     if (openSpaceMs >= adaptiveWordThresholdMs) {
       maybeCommitWordSpace(aggregate);
     }

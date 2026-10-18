@@ -1,0 +1,625 @@
+{
+  "id": "mm-cw-tcn-ctc-v1",
+  "license": "GPL-3.0-or-later",
+  "origin": "Random initialization; generated Morse waveforms only; no DeepCW code, weights or teacher outputs.",
+  "curriculum": "First phase: clean 20 WPM, then 16\u201326 WPM, then full 12\u201336 WPM with negative records. Resumed phase: full dataset from step 0.",
+  "resume_checkpoint_sha256": "24bab927d6930511bf2523da0f80a46295a513f1458550a687de54f04185d165",
+  "learning_rate": 0.0007,
+  "ctc_weight": 0.5,
+  "seed": 17062026,
+  "torch_version": "2.14.1+cpu",
+  "training_records": 3150,
+  "validation_seed_start": 900000,
+  "validation": {
+    "cer": 0.1273972602739726,
+    "exact": 25,
+    "records": 80,
+    "characters": 730,
+    "examples": [
+      {
+        "reference": "KH1SW5M 9V?PD",
+        "decoded": "KH1SW5M9V?P9PD"
+      },
+      {
+        "reference": "BXUMR6",
+        "decoded": "BXUMR67676"
+      },
+      {
+        "reference": "/2TBW QIO/?",
+        "decoded": "/2TBWQIO/?"
+      },
+      {
+        "reference": "AXESEZZ .",
+        "decoded": "AXESEZZ."
+      },
+      {
+        "reference": "QB 30.9,V",
+        "decoded": "QB  30.9,V"
+      },
+      {
+        "reference": "4TEBR FMH",
+        "decoded": "4TE5BR FMH"
+      },
+      {
+        "reference": "/SC 8D",
+        "decoded": "/SCZ8D"
+      },
+      {
+        "reference": "TFQP848. C",
+        "decoded": "TFR5FQP8480.C"
+      },
+      {
+        "reference": "JX?,/WGO",
+        "decoded": "JX?,/WGO"
+      },
+      {
+        "reference": "P74VPB/Z",
+        "decoded": "P7V4VPB/F/Z"
+      },
+      {
+        "reference": "?3981DUNYFN9",
+        "decoded": "?3981DUNYFN9"
+      },
+      {
+        "reference": "G78U5, ZH767",
+        "decoded": "G78U5,ZH767"
+      }
+    ],
+    "step": 1800
+  },
+  "history": [
+    {
+      "cer": 0.18082191780821918,
+      "exact": 21,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH010SW5M9V4V?P9D"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIOJO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB 30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "V4T?EB5RFRFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZD"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TRHFHQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P774VUVPBB/ZZ"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH76767"
+        }
+      ],
+      "step": 200
+    },
+    {
+      "cer": 0.16027397260273973,
+      "exact": 18,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH1SW5M9V?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIOJO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB 30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "V4T?E6B5RFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZD"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TFRHFQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P74VPBB/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?39881DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 400
+    },
+    {
+      "cer": 0.16301369863013698,
+      "exact": 20,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH1SW5M9V4V?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR67676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIOJO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ.."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "V4T?E6B5RFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZD"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TR5FQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P74VUVPB/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 600
+    },
+    {
+      "cer": 0.15753424657534246,
+      "exact": 20,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH51SW5M9V4V?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR67676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIOJO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ.."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "V4T?EB5RFRFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZD"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TR5FQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P7V4VUVPB/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 800
+    },
+    {
+      "cer": 0.19041095890410958,
+      "exact": 22,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH1J0SW5M9V?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ.."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB 30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "V4T?EB5RFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZD"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TR5FQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "PGP7V4V4VUVPBB/F/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 1000
+    },
+    {
+      "cer": 0.13972602739726028,
+      "exact": 23,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH1SW5M9V4V?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIOJO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "4TE5BRFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SC8D"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TR5FQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P74VUVPB/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 1200
+    },
+    {
+      "cer": 0.15753424657534246,
+      "exact": 16,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH1J1SW5M9V4V?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIOJO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "V4TEB5RFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZD"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TR5FHQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P74VUVPB/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 1400
+    },
+    {
+      "cer": 0.17671232876712328,
+      "exact": 21,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH1SW5M9V4V4?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ.."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB  30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "V4T?EB65RFRFMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZ8ZD"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TFRFQP848980.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P74VUVPB/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 1600
+    },
+    {
+      "cer": 0.1273972602739726,
+      "exact": 25,
+      "records": 80,
+      "characters": 730,
+      "examples": [
+        {
+          "reference": "KH1SW5M 9V?PD",
+          "decoded": "KH1SW5M9V?P9PD"
+        },
+        {
+          "reference": "BXUMR6",
+          "decoded": "BXUMR67676"
+        },
+        {
+          "reference": "/2TBW QIO/?",
+          "decoded": "/2TBWQIO/?"
+        },
+        {
+          "reference": "AXESEZZ .",
+          "decoded": "AXESEZZ."
+        },
+        {
+          "reference": "QB 30.9,V",
+          "decoded": "QB  30.9,V"
+        },
+        {
+          "reference": "4TEBR FMH",
+          "decoded": "4TE5BR FMH"
+        },
+        {
+          "reference": "/SC 8D",
+          "decoded": "/SCZ8D"
+        },
+        {
+          "reference": "TFQP848. C",
+          "decoded": "TFR5FQP8480.C"
+        },
+        {
+          "reference": "JX?,/WGO",
+          "decoded": "JX?,/WGO"
+        },
+        {
+          "reference": "P74VPB/Z",
+          "decoded": "P7V4VPB/F/Z"
+        },
+        {
+          "reference": "?3981DUNYFN9",
+          "decoded": "?3981DUNYFN9"
+        },
+        {
+          "reference": "G78U5, ZH767",
+          "decoded": "G78U5,ZH767"
+        }
+      ],
+      "step": 1800
+    }
+  ],
+  "architecture": {
+    "features": 9,
+    "window_ms": 32,
+    "hop_ms": 8,
+    "tcn_channels": 48,
+    "dilations": [
+      1,
+      4,
+      16,
+      64
+    ],
+    "kernel_size": 5,
+    "direction": "causal",
+    "classes": 42
+  },
+  "training_wpm": [
+    12,
+    36
+  ],
+  "experimental": true,
+  "limitations": [
+    "Synthetic audio only; not validated on live radio recordings.",
+    "No claimed sensitivity improvement over native CW."
+  ],
+  "weights_header_sha256": "51e8456a3500477a9383036ba9260c47b8cc5de258692e8fdd1d6f2a94148d43",
+  "parameter_count": 38970,
+  "training_phases": [
+    {
+      "steps": 3000,
+      "learning_rate": 0.0015,
+      "ctc_weight_final": 0.1,
+      "from": "random initialization"
+    },
+    {
+      "steps": 1800,
+      "learning_rate": 0.0007,
+      "ctc_weight": 0.5,
+      "from": "own phase-1 checkpoint"
+    }
+  ]
+}

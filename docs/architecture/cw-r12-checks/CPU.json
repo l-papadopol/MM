@@ -1,0 +1,104 @@
+{
+  "scope": "Same actual CwDecoder path, RX A, scanner and native diagnostics preserved, optional band decoder off, 997-sample blocks, raw two RF excerpts + 3s flush each. Three repetitions, rotated order, no concurrent training/build/test work. Excludes I/O, construction and block packing. CPU seconds include process worker threads; offline throughput, not audio-device latency.",
+  "audio_seconds_including_flush": 234.1,
+  "summary": {
+    "Native_R8": {
+      "median_cpu_seconds": 11.162573999999989,
+      "min_cpu_seconds": 10.209273999999994,
+      "max_cpu_seconds": 11.709855999999993,
+      "cpu_ms_per_audio_second": 47.682930371636004
+    },
+    "Native_R12": {
+      "median_cpu_seconds": 9.05480999999999,
+      "min_cpu_seconds": 8.834334000000007,
+      "max_cpu_seconds": 9.367389999999993,
+      "cpu_ms_per_audio_second": 38.67923964117894
+    },
+    "Neural_R12_legacy": {
+      "median_cpu_seconds": 10.075620999999984,
+      "min_cpu_seconds": 10.017042999999996,
+      "max_cpu_seconds": 10.830356999999985,
+      "cpu_ms_per_audio_second": 43.039816317812836
+    },
+    "Neural_R12_envelope": {
+      "median_cpu_seconds": 10.412767999999998,
+      "min_cpu_seconds": 9.863041999999993,
+      "max_cpu_seconds": 10.67952500000001,
+      "cpu_ms_per_audio_second": 44.47999999999999
+    }
+  },
+  "runs": [
+    {
+      "repeat": 0,
+      "engine": "Native_R8",
+      "cpu_seconds": 11.709855999999993,
+      "wall_seconds": 10.895858260999988
+    },
+    {
+      "repeat": 0,
+      "engine": "Native_R12",
+      "cpu_seconds": 9.05480999999999,
+      "wall_seconds": 8.154346923000004
+    },
+    {
+      "repeat": 0,
+      "engine": "Neural_R12_legacy",
+      "cpu_seconds": 10.017042999999996,
+      "wall_seconds": 9.135999419000003
+    },
+    {
+      "repeat": 0,
+      "engine": "Neural_R12_envelope",
+      "cpu_seconds": 10.412767999999998,
+      "wall_seconds": 9.485292811000017
+    },
+    {
+      "repeat": 1,
+      "engine": "Native_R12",
+      "cpu_seconds": 9.367389999999993,
+      "wall_seconds": 8.45939898400001
+    },
+    {
+      "repeat": 1,
+      "engine": "Neural_R12_legacy",
+      "cpu_seconds": 10.830356999999985,
+      "wall_seconds": 9.857454093000005
+    },
+    {
+      "repeat": 1,
+      "engine": "Neural_R12_envelope",
+      "cpu_seconds": 10.67952500000001,
+      "wall_seconds": 9.734386807000003
+    },
+    {
+      "repeat": 1,
+      "engine": "Native_R8",
+      "cpu_seconds": 11.162573999999989,
+      "wall_seconds": 10.371017716999994
+    },
+    {
+      "repeat": 2,
+      "engine": "Neural_R12_legacy",
+      "cpu_seconds": 10.075620999999984,
+      "wall_seconds": 9.189294087000007
+    },
+    {
+      "repeat": 2,
+      "engine": "Neural_R12_envelope",
+      "cpu_seconds": 9.863041999999993,
+      "wall_seconds": 8.982207052999996
+    },
+    {
+      "repeat": 2,
+      "engine": "Native_R8",
+      "cpu_seconds": 10.209273999999994,
+      "wall_seconds": 9.507556754999989
+    },
+    {
+      "repeat": 2,
+      "engine": "Native_R12",
+      "cpu_seconds": 8.834334000000007,
+      "wall_seconds": 7.955205709999998
+    }
+  ]
+}

@@ -57,7 +57,6 @@ private:
 
     void buildSegments(const QString &text);
     void appendKey(bool down, double dotUnits);
-    QString morseForChar(QChar ch) const;
     void configureOutputFilter();
     double shapedEnvelope(const Segment &seg) const;
     double filteredCarrierSample(double envelope);

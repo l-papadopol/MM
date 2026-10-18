@@ -1,0 +1,31 @@
+{
+  "utc": "2026-10-17T21:26:24Z",
+  "source_sha256": {
+    "modems/cw/skimmer/CwCarrierDiscriminator.cpp": "bcaf860d5d1281738f646346f64a454aa19dfd2d3a94926d787b27468c09e874",
+    "modems/cw/skimmer/CwRelativeTimingDecoder.cpp": "ddb6515e62fff927a25c4ae422c06b4be82b86b2253b3724d943f39a925c7fd8",
+    "modems/cw/skimmer/SelectedToneCwTracker.cpp": "2d3d11a95d1f536d5d042a1ffe20e17967673caac87390b5ba39660a91d4083b",
+    "modems/cw/neural/CwNeuralDecoder.cpp": "50d273625a1d04775edfbfaa2d0262bb74d1fc643232395edeef77e4ba1bb3bb",
+    "modems/cw/neural/CwNeuralDecoder.h": "c917efc5a45ee9eae1695514b3651d5fbe6a22d372523ddea932d5b64e34b506",
+    "modems/cw/CwDecoder.cpp": "dfc6f927579ac24df49d856e1bb2a84b86e026c02808143010c51a591a0e9263"
+  },
+  "selection": "Native/engine integration regressions passed; no R11 weights adopted. Envelope floor=.1 amplitude, peak-power release=.5sec chosen on ARRL development with no synthetic-dev CER increase. Both old RF snippets are development/regression.",
+  "final_synthetic_seeds": [
+    124000000,
+    124000015
+  ],
+  "negative_seeds": [
+    125000000,
+    125000003
+  ],
+  "fresh_synthetic_results_previously_inspected": false,
+  "rf_scope": "Prior RF is regression/development; no independent full new RF transcript has been validated.",
+  "post_freeze_nonfunctional_amendment": "Removed two unused local variables and stale comments from CwRelativeTimingDecoder.cpp; no executable expression changed. Full CMake regression build uses the delivered source.",
+  "delivered_source_sha256": {
+    "modems/cw/skimmer/CwCarrierDiscriminator.cpp": "bcaf860d5d1281738f646346f64a454aa19dfd2d3a94926d787b27468c09e874",
+    "modems/cw/skimmer/CwRelativeTimingDecoder.cpp": "bd861c501c46d1f5a1701aa90f47d74b24122c371a36c224150a68d0da7ca84a",
+    "modems/cw/skimmer/SelectedToneCwTracker.cpp": "2d3d11a95d1f536d5d042a1ffe20e17967673caac87390b5ba39660a91d4083b",
+    "modems/cw/neural/CwNeuralDecoder.cpp": "50d273625a1d04775edfbfaa2d0262bb74d1fc643232395edeef77e4ba1bb3bb",
+    "modems/cw/neural/CwNeuralDecoder.h": "c917efc5a45ee9eae1695514b3651d5fbe6a22d372523ddea932d5b64e34b506",
+    "modems/cw/CwDecoder.cpp": "dfc6f927579ac24df49d856e1bb2a84b86e026c02808143010c51a591a0e9263"
+  }
+}

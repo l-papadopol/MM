@@ -1,4 +1,5 @@
 #include "CwDecoder.h"
+#include "neural/CwNeuralDecoder.h"
 
 #include "skimmer/CwSkimmerEngine.h"
 #include "skimmer/SelectedToneCwTracker.h"
@@ -48,6 +49,30 @@ QVector<FrequencyMarker> CwDecoder::frequencyMarkers(double toneHz)
     return markers;
 }
 
+void CwDecoder::acceptDecodedText(int rank, const std::string& text)
+{
+    const QString committed = sanitizeSkimmerText(text);
+
+    if (!committed.isEmpty()) {
+        if (rank == 0) {
+            m_textA += committed;
+            m_selectedCommittedA = m_textA.simplified();
+        } else if (rank == 1) {
+            m_textB += committed;
+            m_selectedCommittedB = m_textB.simplified();
+        }
+        m_text = m_textA;
+        if (!m_textB.isEmpty()) {
+            if (!m_text.isEmpty() && !m_text.endsWith(QLatin1Char('\n'))) {
+                m_text += QLatin1Char('\n');
+            }
+            m_text += m_textB;
+        }
+        emit priorityTextReceived(rank, committed);
+        emit textUpdated(m_text);
+    }
+}
+
 void CwDecoder::resetSkimmer()
 {
     qRegisterMetaType<QVector<SkimmerSpot>>("QVector<SkimmerSpot>");
@@ -83,26 +108,8 @@ void CwDecoder::resetSkimmer()
         selectedCfg.decoderChannelNumber = rank;
         auto tracker = std::make_unique<madmodem::cwskimmer::SelectedToneCwTracker>(selectedCfg);
         tracker->setCallback([this, rank](const madmodem::cwskimmer::SelectedToneCwEvent &event) {
-            const QString committed = sanitizeSkimmerText(event.committedText);
-
-            if (!committed.isEmpty()) {
-                if (rank == 0) {
-                    m_textA += committed;
-                    m_selectedCommittedA = m_textA.simplified();
-                } else if (rank == 1) {
-                    m_textB += committed;
-                    m_selectedCommittedB = m_textB.simplified();
-                }
-                m_text = m_textA;
-                if (!m_textB.isEmpty()) {
-                    if (!m_text.isEmpty() && !m_text.endsWith(QLatin1Char('\n'))) {
-                        m_text += QLatin1Char('\n');
-                    }
-                    m_text += m_textB;
-                }
-                emit priorityTextReceived(rank, committed);
-                emit textUpdated(m_text);
-            }
+            if (m_decodeEngine == QStringLiteral("native"))
+                acceptDecodedText(rank, event.committedText);
             if (event.wpm > 0.1 && std::isfinite(event.wpm)) {
                 emit receiverSpeedEstimateChanged(rank, event.wpm);
                 if (rank == 0 || !(m_trackedWpm > 0.1)) {
@@ -194,6 +201,14 @@ void CwDecoder::resetSkimmer()
 
     m_toneTrackerA = makeSelectedTracker(0, m_toneHz);
     m_toneTrackerB = makeSelectedTracker(1, m_secondaryToneHz);
+    m_neuralA = std::make_unique<madmodem::cwskimmer::CwNeuralDecoder>();
+    m_neuralB = std::make_unique<madmodem::cwskimmer::CwNeuralDecoder>();
+    m_neuralA->setToneHz(m_toneHz);
+    m_neuralB->setToneHz(m_secondaryToneHz);
+    m_neuralA->setCallback([this](const std::string& text) { acceptDecodedText(0, text); });
+    m_neuralB->setCallback([this](const std::string& text) { acceptDecodedText(1, text); });
+    m_neuralExpectedSample = -1;
+    m_neuralCaptureGeneration = 0;
 }
 
 void CwDecoder::reset()
@@ -225,6 +240,8 @@ void CwDecoder::reset()
 void CwDecoder::resumeAfterLocalTransmit()
 {
     resetBandSkimmer();
+    if (m_neuralA) m_neuralA->reset();
+    if (m_neuralB) m_neuralB->reset();
     // Preserve decoded text and the relative-timing priors learned immediately
     // before our own transmission.  Each exact-tone tracker discards only
     // states which cannot legally cross the capture gap.
@@ -243,6 +260,7 @@ void CwDecoder::resumeAfterLocalTransmit()
 void CwDecoder::clearReceiver(int rank)
 {
     if (rank <= 0) {
+        if (m_neuralA) m_neuralA->reset();
         if (m_toneTrackerA) {
             m_toneTrackerA->reset();
         }
@@ -252,6 +270,7 @@ void CwDecoder::clearReceiver(int rank)
         m_haveDiagnosticA = false;
         emit diagnosticResetRequested(0);
     } else if (rank == 1) {
+        if (m_neuralB) m_neuralB->reset();
         if (m_toneTrackerB) {
             m_toneTrackerB->reset();
         }
@@ -372,6 +391,22 @@ void CwDecoder::processAudioBlock(const AudioBlock &block)
                                          static_cast<double>(block.sampleRate));
     }
 
+    if (m_decodeEngine != QStringLiteral("native")) {
+        const bool gap = m_neuralExpectedSample >= 0 &&
+            (block.firstSampleIndex != m_neuralExpectedSample ||
+             (block.captureGeneration && m_neuralCaptureGeneration &&
+              block.captureGeneration != m_neuralCaptureGeneration));
+        if (gap) {
+            if (m_neuralA) m_neuralA->reset();
+            if (m_neuralB) m_neuralB->reset();
+        }
+        m_neuralExpectedSample = block.firstSampleIndex + block.samples.size();
+        m_neuralCaptureGeneration = block.captureGeneration;
+        if (m_neuralA) m_neuralA->process(block.samples.constData(), block.samples.size(), block.sampleRate);
+        if (m_secondaryEnabled && m_neuralB)
+            m_neuralB->process(block.samples.constData(), block.samples.size(), block.sampleRate);
+    }
+
     // Keep waterfall OSD alive even between decode bursts.
     ++m_statusCounter;
     if (m_statusCounter >= 24) {
@@ -399,6 +434,19 @@ void CwDecoder::setBandSkimmerEnabled(bool enabled)
     emit bandSkimmerChanged({});
 }
 
+void CwDecoder::setDecodeEngine(const QString& engine)
+{
+    const QString selected = (engine == QStringLiteral("neural_search"))
+        ? engine : QStringLiteral("native");
+    if (selected == m_decodeEngine) return;
+    m_decodeEngine = selected;
+    // Reset both engines' pending audio/timing; retain already received text.
+    resetSkimmer();
+    m_pendingDiagnosticsA.clear(); m_pendingDiagnosticsB.clear();
+    emit diagnosticResetRequested(0); emit diagnosticResetRequested(1);
+    emitSkimmerStatus(true);
+}
+
 void CwDecoder::setToneHz(double toneHz)
 {
     const double bounded = qBound(kMinUiToneHz, toneHz, kMaxUiToneHz);
@@ -406,6 +454,7 @@ void CwDecoder::setToneHz(double toneHz)
         return;
     }
     m_toneHz = bounded;
+    if (m_neuralA) m_neuralA->setToneHz(m_toneHz);
     if (m_toneTrackerA) {
         m_toneTrackerA->setToneHz(m_toneHz);
     }
@@ -426,6 +475,7 @@ void CwDecoder::setSecondaryToneHz(double toneHz)
         return;
     }
     m_secondaryToneHz = bounded;
+    if (m_neuralB) m_neuralB->setToneHz(m_secondaryToneHz);
     if (m_toneTrackerB) {
         m_toneTrackerB->setToneHz(m_secondaryToneHz);
     }
@@ -444,6 +494,7 @@ void CwDecoder::setSecondaryEnabled(bool enabled)
         return;
     }
     m_secondaryEnabled = enabled;
+    if (m_neuralB) m_neuralB->reset();
     // Disabling freezes a clean receiver for the next activation.  Enabling
     // must not reset it again: a preceding tone selection has already done so,
     // and a receiver disabled without a tone change was cleaned here when it
@@ -721,6 +772,6 @@ void CwDecoder::emitSkimmerStatus(bool force)
     if (m_bandSkimmerEnabled)
         parts << QStringLiteral("Skimmer ≤%1 · overruns:%2")
                      .arg(m_bandSkimmer.channelLimit()).arg(m_bandSkimmer.overloads());
-    emit statusChanged(QStringLiteral("CW native RX: %1 · carrier scanner active")
-                           .arg(parts.join(QStringLiteral(" · "))));
+    emit statusChanged(QStringLiteral("CW %1 RX: %2 · carrier scanner active")
+                           .arg(m_decodeEngine == QStringLiteral("neural_search") ? QStringLiteral("Neural R13 (experimental)") : QStringLiteral("Native R12"), parts.join(QStringLiteral(" · "))));
 }

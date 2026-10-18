@@ -1,0 +1,1137 @@
+{
+  "id": "mm-cw-tcn-ctc-v2",
+  "license": "GPL-3.0-or-later",
+  "experimental": true,
+  "origin": "Refinement of independently trained MM R5 weights; generated Morse and controlled negative audio only.",
+  "resume_checkpoint_sha256": "026399a3fc4d2195c58881ce64ba1e582682c6c943b3429a26fc21cf4e3fa65f",
+  "seed": 27102026,
+  "torch_version": "2.14.1+cpu",
+  "training_records": 9600,
+  "positive_records": 8000,
+  "negative_records": 1600,
+  "training_wpm": [
+    12,
+    36
+  ],
+  "learning_rate": 0.0004,
+  "ctc_weight": 2.0,
+  "ce_blank_weight": 0.1,
+  "ce_space_weight": 1.5,
+  "receiver_filter_widths_hz": [
+    100,
+    150,
+    200,
+    300,
+    500,
+    800,
+    1200
+  ],
+  "validation_seed_ranges": {
+    "original": [
+      3900000,
+      3900099
+    ],
+    "filtered": [
+      4900000,
+      4900099
+    ],
+    "negative": [
+      5900000,
+      5900059
+    ]
+  },
+  "architecture": {
+    "features": 9,
+    "window_ms": 32,
+    "hop_ms": 8,
+    "tcn_channels": 48,
+    "dilations": [
+      1,
+      4,
+      16,
+      64
+    ],
+    "kernel_size": 5,
+    "direction": "causal",
+    "classes": 42
+  },
+  "baseline_validation": {
+    "original": {
+      "cer": 0.1332547169811321,
+      "exact": 36,
+      "records": 100,
+      "characters": 848,
+      "examples": [
+        {
+          "reference": "DK CA3F",
+          "decoded": "DK  CA3F"
+        },
+        {
+          "reference": "IDFDQYLDD49",
+          "decoded": "IDFDQYLDLDD49"
+        },
+        {
+          "reference": "ZXH6JAV7AM",
+          "decoded": "ZXH6JAV7AM"
+        },
+        {
+          "reference": "I4I/",
+          "decoded": "I4I/"
+        },
+        {
+          "reference": "TAXG ,",
+          "decoded": "TAUXG,"
+        },
+        {
+          "reference": "IW?XPJ,0 LZB",
+          "decoded": "IW?XPJ,0LZB"
+        },
+        {
+          "reference": "GM L,1,",
+          "decoded": "GM L,1,"
+        },
+        {
+          "reference": "1 ZJ0Y2Z1O9ZW",
+          "decoded": "1 ZJ0Y2Z1O9ZW"
+        },
+        {
+          "reference": "44 ?S8H",
+          "decoded": "44 ?S8H"
+        },
+        {
+          "reference": "OBMHV5FP",
+          "decoded": "OBMHV5FP"
+        },
+        {
+          "reference": "K0WJN. T",
+          "decoded": "K0WJN.TT"
+        },
+        {
+          "reference": "2?CL8I5",
+          "decoded": "2?CL8I5"
+        }
+      ]
+    },
+    "receiver_filtered": {
+      "cer": 0.8217270194986073,
+      "exact": 3,
+      "records": 100,
+      "characters": 1077,
+      "examples": [
+        {
+          "reference": "66LROI",
+          "decoded": "66LROI"
+        },
+        {
+          "reference": "6I? 1 0F1A C",
+          "decoded": "/8 NISSIZ?EE011999N9PP101A9C8"
+        },
+        {
+          "reference": "F6,X7AJ9DNJ",
+          "decoded": "F6,X7AJ99DZN2121"
+        },
+        {
+          "reference": "B5KCRYW1EW8.R",
+          "decoded": "08G9QQ098"
+        },
+        {
+          "reference": "87J B,YZ U",
+          "decoded": "877J1 B,YZU"
+        },
+        {
+          "reference": "RBXG8RO N",
+          "decoded": "RBXOG8RON"
+        },
+        {
+          "reference": "K?PZ,164HT0OP",
+          "decoded": "?8?8881644H499?"
+        },
+        {
+          "reference": "8F1 M,/RST/X",
+          "decoded": "8F1MM,/RFRFST/X"
+        },
+        {
+          "reference": "4F4CS",
+          "decoded": "4F4CS"
+        },
+        {
+          "reference": ",AYLLAUJ2P5L",
+          "decoded": "9,999GCRY0Y1YLLLMT/099998/8?LLEEE"
+        },
+        {
+          "reference": "ZCMN15 UB. T",
+          "decoded": "ZCMNN15UB.T"
+        },
+        {
+          "reference": "F7CWPS",
+          "decoded": "F7CWPS"
+        }
+      ]
+    },
+    "negative_characters": 137,
+    "negative_nonempty_records": 23,
+    "negative_records": 60,
+    "selection_score": 0.5916575349065364
+  },
+  "limitations": [
+    "No verified real-radio CW transcripts used for training.",
+    "No superiority over Native or DeepCW claimed."
+  ],
+  "validation": {
+    "original": {
+      "cer": 0.08844339622641509,
+      "exact": 34,
+      "records": 100,
+      "characters": 848,
+      "examples": [
+        {
+          "reference": "DK CA3F",
+          "decoded": "DKCA3F"
+        },
+        {
+          "reference": "IDFDQYLDD49",
+          "decoded": "IDFDQYLDD49"
+        },
+        {
+          "reference": "ZXH6JAV7AM",
+          "decoded": "ZXH6JAV7AM"
+        },
+        {
+          "reference": "I4I/",
+          "decoded": "I4I/"
+        },
+        {
+          "reference": "TAXG ,",
+          "decoded": "TAXG,"
+        },
+        {
+          "reference": "IW?XPJ,0 LZB",
+          "decoded": "IW?XPJ,0LZB"
+        },
+        {
+          "reference": "GM L,1,",
+          "decoded": "GML,1,"
+        },
+        {
+          "reference": "1 ZJ0Y2Z1O9ZW",
+          "decoded": "1ZJ0Y2Z1O9ZW"
+        },
+        {
+          "reference": "44 ?S8H",
+          "decoded": "44?S8H"
+        },
+        {
+          "reference": "OBMHV5FP",
+          "decoded": "OBMHV5FP"
+        },
+        {
+          "reference": "K0WJN. T",
+          "decoded": "K0WJN.T"
+        },
+        {
+          "reference": "2?CL8I5",
+          "decoded": "2?CL8I5"
+        }
+      ]
+    },
+    "receiver_filtered": {
+      "cer": 0.25441039925719594,
+      "exact": 15,
+      "records": 100,
+      "characters": 1077,
+      "examples": [
+        {
+          "reference": "66LROI",
+          "decoded": "66LROI"
+        },
+        {
+          "reference": "6I? 1 0F1A C",
+          "decoded": "6I?100F1AC"
+        },
+        {
+          "reference": "F6,X7AJ9DNJ",
+          "decoded": "F6,X7AJ9DNJ"
+        },
+        {
+          "reference": "B5KCRYW1EW8.R",
+          "decoded": "A5.CL,W138PF"
+        },
+        {
+          "reference": "87J B,YZ U",
+          "decoded": "87JB,YZU"
+        },
+        {
+          "reference": "RBXG8RO N",
+          "decoded": "RBXG8RON"
+        },
+        {
+          "reference": "K?PZ,164HT0OP",
+          "decoded": "K?PZ3,4H"
+        },
+        {
+          "reference": "8F1 M,/RST/X",
+          "decoded": "8F1M,/RST/X"
+        },
+        {
+          "reference": "4F4CS",
+          "decoded": "4F4CS"
+        },
+        {
+          "reference": ",AYLLAUJ2P5L",
+          "decoded": ",AYLLAUJ2P5L"
+        },
+        {
+          "reference": "ZCMN15 UB. T",
+          "decoded": "ZCMN15UB.T"
+        },
+        {
+          "reference": "F7CWPS",
+          "decoded": "F7CWPS"
+        }
+      ]
+    },
+    "negative_characters": 3,
+    "negative_nonempty_records": 1,
+    "negative_records": 60,
+    "selection_score": 0.17392689774180553,
+    "step": 2800
+  },
+  "selected_step": 2800,
+  "history": [
+    {
+      "original": {
+        "cer": 0.1179245283018868,
+        "exact": 32,
+        "records": 100,
+        "characters": 848,
+        "examples": [
+          {
+            "reference": "DK CA3F",
+            "decoded": "DK CA3F"
+          },
+          {
+            "reference": "IDFDQYLDD49",
+            "decoded": "ISDFDQYLDD49"
+          },
+          {
+            "reference": "ZXH6JAV7AM",
+            "decoded": "ZXH6JAV7AM"
+          },
+          {
+            "reference": "I4I/",
+            "decoded": "I4I/"
+          },
+          {
+            "reference": "TAXG ,",
+            "decoded": "TAXG,"
+          },
+          {
+            "reference": "IW?XPJ,0 LZB",
+            "decoded": "IW?XPJ,0LZB"
+          },
+          {
+            "reference": "GM L,1,",
+            "decoded": "GML,1,,"
+          },
+          {
+            "reference": "1 ZJ0Y2Z1O9ZW",
+            "decoded": "1ZJ0Y2Z1O9ZW"
+          },
+          {
+            "reference": "44 ?S8H",
+            "decoded": "44 ?S8H"
+          },
+          {
+            "reference": "OBMHV5FP",
+            "decoded": "OBMSHV5FP"
+          },
+          {
+            "reference": "K0WJN. T",
+            "decoded": "K0WJN.T"
+          },
+          {
+            "reference": "2?CL8I5",
+            "decoded": "2?CL8I5"
+          }
+        ]
+      },
+      "receiver_filtered": {
+        "cer": 0.34540389972144847,
+        "exact": 10,
+        "records": 100,
+        "characters": 1077,
+        "examples": [
+          {
+            "reference": "66LROI",
+            "decoded": "66LROI"
+          },
+          {
+            "reference": "6I? 1 0F1A C",
+            "decoded": "6I?1010F1AC"
+          },
+          {
+            "reference": "F6,X7AJ9DNJ",
+            "decoded": "F6,X7AJ9DNJ"
+          },
+          {
+            "reference": "B5KCRYW1EW8.R",
+            "decoded": "03"
+          },
+          {
+            "reference": "87J B,YZ U",
+            "decoded": "87JJB,YZU"
+          },
+          {
+            "reference": "RBXG8RO N",
+            "decoded": "RBBXG8RON"
+          },
+          {
+            "reference": "K?PZ,164HT0OP",
+            "decoded": "KK?P8Z,4"
+          },
+          {
+            "reference": "8F1 M,/RST/X",
+            "decoded": "8FM,/RST/X"
+          },
+          {
+            "reference": "4F4CS",
+            "decoded": "4F4CS"
+          },
+          {
+            "reference": ",AYLLAUJ2P5L",
+            "decoded": ",AAYLLLLAUJJ2P5LL"
+          },
+          {
+            "reference": "ZCMN15 UB. T",
+            "decoded": "ZCMN15UB.T"
+          },
+          {
+            "reference": "F7CWPS",
+            "decoded": "F7CWPS"
+          }
+        ]
+      },
+      "negative_characters": 2,
+      "negative_nonempty_records": 1,
+      "negative_records": 60,
+      "selection_score": 0.23333088067833432,
+      "step": 400
+    },
+    {
+      "original": {
+        "cer": 0.11084905660377359,
+        "exact": 34,
+        "records": 100,
+        "characters": 848,
+        "examples": [
+          {
+            "reference": "DK CA3F",
+            "decoded": "DKCA3F"
+          },
+          {
+            "reference": "IDFDQYLDD49",
+            "decoded": "IDFDQYLDD49"
+          },
+          {
+            "reference": "ZXH6JAV7AM",
+            "decoded": "ZXH6JAV7AM"
+          },
+          {
+            "reference": "I4I/",
+            "decoded": "I4I/"
+          },
+          {
+            "reference": "TAXG ,",
+            "decoded": "TAAXG,"
+          },
+          {
+            "reference": "IW?XPJ,0 LZB",
+            "decoded": "IW?XPJ,0LZB"
+          },
+          {
+            "reference": "GM L,1,",
+            "decoded": "GML,1,"
+          },
+          {
+            "reference": "1 ZJ0Y2Z1O9ZW",
+            "decoded": "1ZJ20Y2Z1O9ZW"
+          },
+          {
+            "reference": "44 ?S8H",
+            "decoded": "44?S8H"
+          },
+          {
+            "reference": "OBMHV5FP",
+            "decoded": "OBMHV5FP"
+          },
+          {
+            "reference": "K0WJN. T",
+            "decoded": "K0WJN.T"
+          },
+          {
+            "reference": "2?CL8I5",
+            "decoded": "2?CL8I5"
+          }
+        ]
+      },
+      "receiver_filtered": {
+        "cer": 0.32219127205199627,
+        "exact": 9,
+        "records": 100,
+        "characters": 1077,
+        "examples": [
+          {
+            "reference": "66LROI",
+            "decoded": "66LROI"
+          },
+          {
+            "reference": "6I? 1 0F1A C",
+            "decoded": "6I?010F1AC"
+          },
+          {
+            "reference": "F6,X7AJ9DNJ",
+            "decoded": "F66,X7AJ9DNJ"
+          },
+          {
+            "reference": "B5KCRYW1EW8.R",
+            "decoded": "03"
+          },
+          {
+            "reference": "87J B,YZ U",
+            "decoded": "87JB,YZU"
+          },
+          {
+            "reference": "RBXG8RO N",
+            "decoded": "RBXG8RON"
+          },
+          {
+            "reference": "K?PZ,164HT0OP",
+            "decoded": "K?P8Z,4H"
+          },
+          {
+            "reference": "8F1 M,/RST/X",
+            "decoded": "8FM,/RST/X"
+          },
+          {
+            "reference": "4F4CS",
+            "decoded": "4F4CS"
+          },
+          {
+            "reference": ",AYLLAUJ2P5L",
+            "decoded": ",AAYLLAUJ2P5L"
+          },
+          {
+            "reference": "ZCMN15 UB. T",
+            "decoded": "ZCMN15UB.T"
+          },
+          {
+            "reference": "F7CWPS",
+            "decoded": "F7CWPS"
+          }
+        ]
+      },
+      "negative_characters": 3,
+      "negative_nonempty_records": 1,
+      "negative_records": 60,
+      "selection_score": 0.21902016432788493,
+      "step": 800
+    },
+    {
+      "original": {
+        "cer": 0.09316037735849056,
+        "exact": 31,
+        "records": 100,
+        "characters": 848,
+        "examples": [
+          {
+            "reference": "DK CA3F",
+            "decoded": "DKCA3F"
+          },
+          {
+            "reference": "IDFDQYLDD49",
+            "decoded": "IDFDQYLDD49"
+          },
+          {
+            "reference": "ZXH6JAV7AM",
+            "decoded": "ZXH6JAV7AM"
+          },
+          {
+            "reference": "I4I/",
+            "decoded": "I4II/"
+          },
+          {
+            "reference": "TAXG ,",
+            "decoded": "TAAXG,"
+          },
+          {
+            "reference": "IW?XPJ,0 LZB",
+            "decoded": "IW?XPJ,0LZB"
+          },
+          {
+            "reference": "GM L,1,",
+            "decoded": "GML,1,"
+          },
+          {
+            "reference": "1 ZJ0Y2Z1O9ZW",
+            "decoded": "1ZJ0Y2Z1O9ZW"
+          },
+          {
+            "reference": "44 ?S8H",
+            "decoded": "44?S8H"
+          },
+          {
+            "reference": "OBMHV5FP",
+            "decoded": "OBMHV5FP"
+          },
+          {
+            "reference": "K0WJN. T",
+            "decoded": "K0WJN.T"
+          },
+          {
+            "reference": "2?CL8I5",
+            "decoded": "2?CL8I5"
+          }
+        ]
+      },
+      "receiver_filtered": {
+        "cer": 0.3045496750232126,
+        "exact": 12,
+        "records": 100,
+        "characters": 1077,
+        "examples": [
+          {
+            "reference": "66LROI",
+            "decoded": "66LROI"
+          },
+          {
+            "reference": "6I? 1 0F1A C",
+            "decoded": "6I?1010F1AC"
+          },
+          {
+            "reference": "F6,X7AJ9DNJ",
+            "decoded": "F6,X7AJ9DNJ"
+          },
+          {
+            "reference": "B5KCRYW1EW8.R",
+            "decoded": "A038"
+          },
+          {
+            "reference": "87J B,YZ U",
+            "decoded": "G87JOJB,YZU"
+          },
+          {
+            "reference": "RBXG8RO N",
+            "decoded": "RBXG8RON"
+          },
+          {
+            "reference": "K?PZ,164HT0OP",
+            "decoded": "K?P8Z,4H"
+          },
+          {
+            "reference": "8F1 M,/RST/X",
+            "decoded": "8F1M,/RST/XQX"
+          },
+          {
+            "reference": "4F4CS",
+            "decoded": "4F4CS"
+          },
+          {
+            "reference": ",AYLLAUJ2P5L",
+            "decoded": ",AYLLAUJ2P5L"
+          },
+          {
+            "reference": "ZCMN15 UB. T",
+            "decoded": "ZCMNN15UB.T"
+          },
+          {
+            "reference": "F7CWPS",
+            "decoded": "F7CWPS"
+          }
+        ]
+      },
+      "negative_characters": 5,
+      "negative_nonempty_records": 1,
+      "negative_records": 60,
+      "selection_score": 0.20302169285751828,
+      "step": 1200
+    },
+    {
+      "original": {
+        "cer": 0.09316037735849056,
+        "exact": 34,
+        "records": 100,
+        "characters": 848,
+        "examples": [
+          {
+            "reference": "DK CA3F",
+            "decoded": "DKCA3F"
+          },
+          {
+            "reference": "IDFDQYLDD49",
+            "decoded": "IDFDQYLDD49"
+          },
+          {
+            "reference": "ZXH6JAV7AM",
+            "decoded": "ZXH6JAV7AM"
+          },
+          {
+            "reference": "I4I/",
+            "decoded": "I4I/"
+          },
+          {
+            "reference": "TAXG ,",
+            "decoded": "TAXG,"
+          },
+          {
+            "reference": "IW?XPJ,0 LZB",
+            "decoded": "IW?XPJ,0LZB"
+          },
+          {
+            "reference": "GM L,1,",
+            "decoded": "GML,1,"
+          },
+          {
+            "reference": "1 ZJ0Y2Z1O9ZW",
+            "decoded": "1ZJ0Y2Z1O9ZW"
+          },
+          {
+            "reference": "44 ?S8H",
+            "decoded": "44?S8H"
+          },
+          {
+            "reference": "OBMHV5FP",
+            "decoded": "OBMHV5FP"
+          },
+          {
+            "reference": "K0WJN. T",
+            "decoded": "K0WJN.T"
+          },
+          {
+            "reference": "2?CL8I5",
+            "decoded": "2?CL8I5"
+          }
+        ]
+      },
+      "receiver_filtered": {
+        "cer": 0.28690807799442897,
+        "exact": 14,
+        "records": 100,
+        "characters": 1077,
+        "examples": [
+          {
+            "reference": "66LROI",
+            "decoded": "66LROI"
+          },
+          {
+            "reference": "6I? 1 0F1A C",
+            "decoded": "6I?10F1AC"
+          },
+          {
+            "reference": "F6,X7AJ9DNJ",
+            "decoded": "F66,X7AJ9DNJ"
+          },
+          {
+            "reference": "B5KCRYW1EW8.R",
+            "decoded": "A590JW338P"
+          },
+          {
+            "reference": "87J B,YZ U",
+            "decoded": "87JB,YZU"
+          },
+          {
+            "reference": "RBXG8RO N",
+            "decoded": "RBXG8RON"
+          },
+          {
+            "reference": "K?PZ,164HT0OP",
+            "decoded": "K?P8Z,.64H"
+          },
+          {
+            "reference": "8F1 M,/RST/X",
+            "decoded": "8F1M,/RST/X"
+          },
+          {
+            "reference": "4F4CS",
+            "decoded": "4F4CS"
+          },
+          {
+            "reference": ",AYLLAUJ2P5L",
+            "decoded": ",AYLLAUJ2P5L"
+          },
+          {
+            "reference": "ZCMN15 UB. T",
+            "decoded": "ZCMN15UB.T"
+          },
+          {
+            "reference": "F7CWPS",
+            "decoded": "F7CWPS"
+          }
+        ]
+      },
+      "negative_characters": 5,
+      "negative_nonempty_records": 2,
+      "negative_records": 60,
+      "selection_score": 0.19420089434312646,
+      "step": 1600
+    },
+    {
+      "original": {
+        "cer": 0.09080188679245282,
+        "exact": 33,
+        "records": 100,
+        "characters": 848,
+        "examples": [
+          {
+            "reference": "DK CA3F",
+            "decoded": "DKCA3F"
+          },
+          {
+            "reference": "IDFDQYLDD49",
+            "decoded": "IDFDQYLDD49"
+          },
+          {
+            "reference": "ZXH6JAV7AM",
+            "decoded": "ZXH6JAV7AM"
+          },
+          {
+            "reference": "I4I/",
+            "decoded": "I4I/"
+          },
+          {
+            "reference": "TAXG ,",
+            "decoded": "TAXG,"
+          },
+          {
+            "reference": "IW?XPJ,0 LZB",
+            "decoded": "IW?XPJ,0LZB"
+          },
+          {
+            "reference": "GM L,1,",
+            "decoded": "GML,1,"
+          },
+          {
+            "reference": "1 ZJ0Y2Z1O9ZW",
+            "decoded": "1ZJ0Y2Z1O9ZW"
+          },
+          {
+            "reference": "44 ?S8H",
+            "decoded": "44?S8H"
+          },
+          {
+            "reference": "OBMHV5FP",
+            "decoded": "OBMHV5FP"
+          },
+          {
+            "reference": "K0WJN. T",
+            "decoded": "K0WJN.T"
+          },
+          {
+            "reference": "2?CL8I5",
+            "decoded": "2?CL8I5"
+          }
+        ]
+      },
+      "receiver_filtered": {
+        "cer": 0.27669452181987003,
+        "exact": 12,
+        "records": 100,
+        "characters": 1077,
+        "examples": [
+          {
+            "reference": "66LROI",
+            "decoded": "66LROI"
+          },
+          {
+            "reference": "6I? 1 0F1A C",
+            "decoded": "6I?10F1AC"
+          },
+          {
+            "reference": "F6,X7AJ9DNJ",
+            "decoded": "F6,X7AJ9DNJ"
+          },
+          {
+            "reference": "B5KCRYW1EW8.R",
+            "decoded": "A55.9L,JW138PF"
+          },
+          {
+            "reference": "87J B,YZ U",
+            "decoded": "G87JB,YZU"
+          },
+          {
+            "reference": "RBXG8RO N",
+            "decoded": "RBXG8RON"
+          },
+          {
+            "reference": "K?PZ,164HT0OP",
+            "decoded": "K?PZ,.4H"
+          },
+          {
+            "reference": "8F1 M,/RST/X",
+            "decoded": "8F1M,/RST/X"
+          },
+          {
+            "reference": "4F4CS",
+            "decoded": "4F4CS"
+          },
+          {
+            "reference": ",AYLLAUJ2P5L",
+            "decoded": ",AYLLAUJ2P5L"
+          },
+          {
+            "reference": "ZCMN15 UB. T",
+            "decoded": "ZCMN15UB.T"
+          },
+          {
+            "reference": "F7CWPS",
+            "decoded": "F7CWPS"
+          }
+        ]
+      },
+      "negative_characters": 7,
+      "negative_nonempty_records": 2,
+      "negative_records": 60,
+      "selection_score": 0.18958153763949476,
+      "step": 2000
+    },
+    {
+      "original": {
+        "cer": 0.09787735849056604,
+        "exact": 33,
+        "records": 100,
+        "characters": 848,
+        "examples": [
+          {
+            "reference": "DK CA3F",
+            "decoded": "DKCA3F"
+          },
+          {
+            "reference": "IDFDQYLDD49",
+            "decoded": "IDFDQYLDD49"
+          },
+          {
+            "reference": "ZXH6JAV7AM",
+            "decoded": "ZXH6JAV7AM"
+          },
+          {
+            "reference": "I4I/",
+            "decoded": "I4I/"
+          },
+          {
+            "reference": "TAXG ,",
+            "decoded": "TAXG,"
+          },
+          {
+            "reference": "IW?XPJ,0 LZB",
+            "decoded": "IW?XPJ,0LZB"
+          },
+          {
+            "reference": "GM L,1,",
+            "decoded": "GML,1,"
+          },
+          {
+            "reference": "1 ZJ0Y2Z1O9ZW",
+            "decoded": "1ZJ0Y2Z1O9ZW"
+          },
+          {
+            "reference": "44 ?S8H",
+            "decoded": "44V4?S8H"
+          },
+          {
+            "reference": "OBMHV5FP",
+            "decoded": "OBMHV5FP"
+          },
+          {
+            "reference": "K0WJN. T",
+            "decoded": "K0WJN.TT"
+          },
+          {
+            "reference": "2?CL8I5",
+            "decoded": "2?CL8I5"
+          }
+        ]
+      },
+      "receiver_filtered": {
+        "cer": 0.2618384401114206,
+        "exact": 14,
+        "records": 100,
+        "characters": 1077,
+        "examples": [
+          {
+            "reference": "66LROI",
+            "decoded": "66LROI"
+          },
+          {
+            "reference": "6I? 1 0F1A C",
+            "decoded": "6I?10F1AC"
+          },
+          {
+            "reference": "F6,X7AJ9DNJ",
+            "decoded": "F6,X7AJ9DNJ"
+          },
+          {
+            "reference": "B5KCRYW1EW8.R",
+            "decoded": "A55.CLL,WW138.F"
+          },
+          {
+            "reference": "87J B,YZ U",
+            "decoded": "87JB,YZU"
+          },
+          {
+            "reference": "RBXG8RO N",
+            "decoded": "RBXG8RON"
+          },
+          {
+            "reference": "K?PZ,164HT0OP",
+            "decoded": "K?PZ,,4H"
+          },
+          {
+            "reference": "8F1 M,/RST/X",
+            "decoded": "8F1M,/RST/X"
+          },
+          {
+            "reference": "4F4CS",
+            "decoded": "4F4CS"
+          },
+          {
+            "reference": ",AYLLAUJ2P5L",
+            "decoded": ",AYLLAUJ2P5L"
+          },
+          {
+            "reference": "ZCMN15 UB. T",
+            "decoded": "ZCMN15UB.T"
+          },
+          {
+            "reference": "F7CWPS",
+            "decoded": "F7CWPS"
+          }
+        ]
+      },
+      "negative_characters": 4,
+      "negative_nonempty_records": 2,
+      "negative_records": 60,
+      "selection_score": 0.18319123263432666,
+      "step": 2400
+    },
+    {
+      "original": {
+        "cer": 0.08844339622641509,
+        "exact": 34,
+        "records": 100,
+        "characters": 848,
+        "examples": [
+          {
+            "reference": "DK CA3F",
+            "decoded": "DKCA3F"
+          },
+          {
+            "reference": "IDFDQYLDD49",
+            "decoded": "IDFDQYLDD49"
+          },
+          {
+            "reference": "ZXH6JAV7AM",
+            "decoded": "ZXH6JAV7AM"
+          },
+          {
+            "reference": "I4I/",
+            "decoded": "I4I/"
+          },
+          {
+            "reference": "TAXG ,",
+            "decoded": "TAXG,"
+          },
+          {
+            "reference": "IW?XPJ,0 LZB",
+            "decoded": "IW?XPJ,0LZB"
+          },
+          {
+            "reference": "GM L,1,",
+            "decoded": "GML,1,"
+          },
+          {
+            "reference": "1 ZJ0Y2Z1O9ZW",
+            "decoded": "1ZJ0Y2Z1O9ZW"
+          },
+          {
+            "reference": "44 ?S8H",
+            "decoded": "44?S8H"
+          },
+          {
+            "reference": "OBMHV5FP",
+            "decoded": "OBMHV5FP"
+          },
+          {
+            "reference": "K0WJN. T",
+            "decoded": "K0WJN.T"
+          },
+          {
+            "reference": "2?CL8I5",
+            "decoded": "2?CL8I5"
+          }
+        ]
+      },
+      "receiver_filtered": {
+        "cer": 0.25441039925719594,
+        "exact": 15,
+        "records": 100,
+        "characters": 1077,
+        "examples": [
+          {
+            "reference": "66LROI",
+            "decoded": "66LROI"
+          },
+          {
+            "reference": "6I? 1 0F1A C",
+            "decoded": "6I?100F1AC"
+          },
+          {
+            "reference": "F6,X7AJ9DNJ",
+            "decoded": "F6,X7AJ9DNJ"
+          },
+          {
+            "reference": "B5KCRYW1EW8.R",
+            "decoded": "A5.CL,W138PF"
+          },
+          {
+            "reference": "87J B,YZ U",
+            "decoded": "87JB,YZU"
+          },
+          {
+            "reference": "RBXG8RO N",
+            "decoded": "RBXG8RON"
+          },
+          {
+            "reference": "K?PZ,164HT0OP",
+            "decoded": "K?PZ3,4H"
+          },
+          {
+            "reference": "8F1 M,/RST/X",
+            "decoded": "8F1M,/RST/X"
+          },
+          {
+            "reference": "4F4CS",
+            "decoded": "4F4CS"
+          },
+          {
+            "reference": ",AYLLAUJ2P5L",
+            "decoded": ",AYLLAUJ2P5L"
+          },
+          {
+            "reference": "ZCMN15 UB. T",
+            "decoded": "ZCMN15UB.T"
+          },
+          {
+            "reference": "F7CWPS",
+            "decoded": "F7CWPS"
+          }
+        ]
+      },
+      "negative_characters": 3,
+      "negative_nonempty_records": 1,
+      "negative_records": 60,
+      "selection_score": 0.17392689774180553,
+      "step": 2800
+    }
+  ],
+  "weights_header_sha256": "775fdad34e7c7a946370731bea041c3cde75b424bf4d6a57c432a75111161fe9",
+  "parameter_count": 38970
+}

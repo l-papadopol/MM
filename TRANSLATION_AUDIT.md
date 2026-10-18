@@ -1,4 +1,4 @@
-# MadModem 0.6.2 translation maintenance
+# MadModem 0.6.3 translation maintenance
 
 The six runtime dictionaries are English, Italian, French, German, Norwegian and Czech. Complete sentences are translated by stable key; protocol names and units remain shared where appropriate. Do not construct translated prose by replacing individual English words.
 

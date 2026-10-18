@@ -1,0 +1,95 @@
+[
+  {
+    "candidate": "R8",
+    "space_bias": 0.0,
+    "metrics": {
+      "arrl": {
+        "errors": 9,
+        "characters": 702,
+        "exact": 18,
+        "records": 24
+      },
+      "qso": {
+        "errors": 45,
+        "characters": 946,
+        "exact": 19,
+        "records": 32
+      },
+      "random": {
+        "errors": 4,
+        "characters": 375,
+        "exact": 36,
+        "records": 40
+      },
+      "negative": {
+        "errors": 0,
+        "characters": 0,
+        "exact": 20,
+        "records": 20
+      }
+    },
+    "score": 0.02639671491299398
+  },
+  {
+    "candidate": "full-8000",
+    "space_bias": 3.0,
+    "metrics": {
+      "arrl": {
+        "errors": 21,
+        "characters": 702,
+        "exact": 11,
+        "records": 24
+      },
+      "qso": {
+        "errors": 16,
+        "characters": 946,
+        "exact": 22,
+        "records": 32
+      },
+      "random": {
+        "errors": 2,
+        "characters": 375,
+        "exact": 38,
+        "records": 40
+      },
+      "negative": {
+        "errors": 0,
+        "characters": 0,
+        "exact": 20,
+        "records": 20
+      }
+    },
+    "score": 0.021026866157098718
+  },
+  {
+    "candidate": "input-3600",
+    "space_bias": 1.0,
+    "metrics": {
+      "arrl": {
+        "errors": 19,
+        "characters": 702,
+        "exact": 11,
+        "records": 24
+      },
+      "qso": {
+        "errors": 48,
+        "characters": 946,
+        "exact": 17,
+        "records": 32
+      },
+      "random": {
+        "errors": 10,
+        "characters": 375,
+        "exact": 33,
+        "records": 40
+      },
+      "negative": {
+        "errors": 0,
+        "characters": 0,
+        "exact": 20,
+        "records": 20
+      }
+    },
+    "score": 0.036475470266167945
+  }
+]

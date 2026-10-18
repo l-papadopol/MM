@@ -74,6 +74,8 @@ public:
     bool lastPttOn() const { return m_lastPtt; }
 
 public slots:
+    bool suspendSerialPortForCw(const QString& port);
+    bool resumeSerialPortAfterCw();
     bool connectRig();
     bool disconnectRig();
     void pollNow();
@@ -122,6 +124,8 @@ private:
     bool hrdReadResponse(const QString &command, QString *reply, QString *errorMessage);
     int hrdFindButton(const QStringList &patterns) const;
 
+    bool m_cwPortSuspended = false;
+    bool m_cwReconnect = false;
     Config m_config;
     QTimer *m_pollTimer = nullptr;
     double m_lastFrequencyHz = 0.0;

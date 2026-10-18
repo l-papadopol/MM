@@ -1,0 +1,15 @@
+{
+  "phase1": {
+    "completed_steps": 9746,
+    "elapsed_seconds": 901.3807254819999,
+    "selected_step": 7000
+  },
+  "phase2": {
+    "completed_steps": 3054,
+    "elapsed_seconds": 453.8037548000002,
+    "accepted": false,
+    "selected_checkpoint": 0
+  },
+  "deployed": "mm-cw-tcn-ctc-v4-extended",
+  "total_optimization_and_validation_seconds": 1355.184480282
+}

@@ -1,6 +1,7 @@
 #include "HamlibController.h"
 
 #include "../settings/AppSettings.h"
+#include "../utils/SerialPortEndpoint.h"
 
 #include <QByteArray>
 #include <QTcpSocket>
@@ -228,6 +229,9 @@ vfo_t wsjtLikeFtRigSplitTxVfo(RIG *rig, vfo_t reportedRxVfo,
 
 void HamlibController::configure(const Config &config)
 {
+    if (m_cwPortSuspended) {
+        emitError(QStringLiteral("CAT settings cannot change while its serial port is reserved for CW KEY.")); return;
+    }
     const bool oldHrd = isHamRadioDeluxeModel(m_config.rigModel);
     const bool newHrd = isHamRadioDeluxeModel(config.rigModel);
     const bool needReconnect = (m_config.catEnabled != config.catEnabled) ||
@@ -368,8 +372,29 @@ bool HamlibController::isConnected() const
 #endif
 }
 
+bool HamlibController::suspendSerialPortForCw(const QString& port)
+{
+    if (m_cwPortSuspended) return false;
+    if (!MadModemSerial::sameEndpoint(port,m_config.rigPath)) {
+        emitError(QStringLiteral("CW KEY CAT handoff port mismatch.")); return false;
+    }
+    m_cwReconnect = isConnected();
+    m_cwPortSuspended = true;
+    if (!disconnectRig()) return false;
+    setStatus(QStringLiteral("CAT serial port reserved for CW KEY"));
+    return true;
+}
+bool HamlibController::resumeSerialPortAfterCw()
+{
+    if (!m_cwPortSuspended) return true;
+    m_cwPortSuspended = false;
+    const bool reconnect = m_cwReconnect; m_cwReconnect = false;
+    return !reconnect || connectRig();
+}
+
 bool HamlibController::connectRig()
 {
+    if (m_cwPortSuspended) return false;
     if (isHamRadioDeluxeModel(m_config.rigModel)) {
         return connectHrd();
     }
@@ -584,6 +609,7 @@ bool HamlibController::disconnectRig()
 
 void HamlibController::pollNow()
 {
+    if (m_cwPortSuspended) return;
     if (!m_config.catEnabled) {
         return;
     }

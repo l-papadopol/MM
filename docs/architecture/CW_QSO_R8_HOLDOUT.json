@@ -1,0 +1,5341 @@
+{
+  "scope": "New QSO holdout after both training phases, excluded from model selection. Callsigns and complete messages generated from disjoint seeds; names/QTH vocabulary separate from training/development.",
+  "seed_range": [
+    111117000,
+    111117119
+  ],
+  "probe_sha256": {
+    "R7": "c535da44b4dde1c2f466b7614ebb43eeebf10c99c703581765702762bfe22ecc",
+    "R8_A": "70f55644cb1a9c650f90681d5ca4b0b10507fc8e5c70915b432878c1f6d814f8",
+    "R8": "70f55644cb1a9c650f90681d5ca4b0b10507fc8e5c70915b432878c1f6d814f8"
+  },
+  "summary": {
+    "all": {
+      "records": 120,
+      "characters": 3630,
+      "R7": {
+        "cer": 0.13911845730027547,
+        "errors": 505,
+        "exact": 28,
+        "calls_correct": 84,
+        "calls_total": 136,
+        "reports_correct": 56,
+        "reports_total": 74
+      },
+      "R8_A": {
+        "cer": 0.10798898071625344,
+        "errors": 392,
+        "exact": 29,
+        "calls_correct": 81,
+        "calls_total": 136,
+        "reports_correct": 59,
+        "reports_total": 74
+      },
+      "R8": {
+        "cer": 0.10798898071625344,
+        "errors": 392,
+        "exact": 29,
+        "calls_correct": 81,
+        "calls_total": 136,
+        "reports_correct": 59,
+        "reports_total": 74
+      }
+    },
+    "0": {
+      "records": 22,
+      "characters": 658,
+      "R7": {
+        "cer": 0.06382978723404255,
+        "errors": 42,
+        "exact": 7,
+        "calls_correct": 18,
+        "calls_total": 20,
+        "reports_correct": 9,
+        "reports_total": 10
+      },
+      "R8_A": {
+        "cer": 0.031914893617021274,
+        "errors": 21,
+        "exact": 9,
+        "calls_correct": 17,
+        "calls_total": 20,
+        "reports_correct": 8,
+        "reports_total": 10
+      },
+      "R8": {
+        "cer": 0.031914893617021274,
+        "errors": 21,
+        "exact": 9,
+        "calls_correct": 17,
+        "calls_total": 20,
+        "reports_correct": 8,
+        "reports_total": 10
+      }
+    },
+    "100": {
+      "records": 13,
+      "characters": 374,
+      "R7": {
+        "cer": 0.5213903743315508,
+        "errors": 195,
+        "exact": 0,
+        "calls_correct": 1,
+        "calls_total": 16,
+        "reports_correct": 1,
+        "reports_total": 10
+      },
+      "R8_A": {
+        "cer": 0.38235294117647056,
+        "errors": 143,
+        "exact": 0,
+        "calls_correct": 2,
+        "calls_total": 16,
+        "reports_correct": 4,
+        "reports_total": 10
+      },
+      "R8": {
+        "cer": 0.38235294117647056,
+        "errors": 143,
+        "exact": 0,
+        "calls_correct": 2,
+        "calls_total": 16,
+        "reports_correct": 4,
+        "reports_total": 10
+      }
+    },
+    "150": {
+      "records": 13,
+      "characters": 385,
+      "R7": {
+        "cer": 0.21298701298701297,
+        "errors": 82,
+        "exact": 0,
+        "calls_correct": 11,
+        "calls_total": 22,
+        "reports_correct": 0,
+        "reports_total": 2
+      },
+      "R8_A": {
+        "cer": 0.18701298701298702,
+        "errors": 72,
+        "exact": 0,
+        "calls_correct": 10,
+        "calls_total": 22,
+        "reports_correct": 2,
+        "reports_total": 2
+      },
+      "R8": {
+        "cer": 0.18701298701298702,
+        "errors": 72,
+        "exact": 0,
+        "calls_correct": 10,
+        "calls_total": 22,
+        "reports_correct": 2,
+        "reports_total": 2
+      }
+    },
+    "200": {
+      "records": 10,
+      "characters": 299,
+      "R7": {
+        "cer": 0.19732441471571907,
+        "errors": 59,
+        "exact": 2,
+        "calls_correct": 6,
+        "calls_total": 10,
+        "reports_correct": 7,
+        "reports_total": 8
+      },
+      "R8_A": {
+        "cer": 0.13712374581939799,
+        "errors": 41,
+        "exact": 2,
+        "calls_correct": 6,
+        "calls_total": 10,
+        "reports_correct": 8,
+        "reports_total": 8
+      },
+      "R8": {
+        "cer": 0.13712374581939799,
+        "errors": 41,
+        "exact": 2,
+        "calls_correct": 6,
+        "calls_total": 10,
+        "reports_correct": 8,
+        "reports_total": 8
+      }
+    },
+    "300": {
+      "records": 19,
+      "characters": 523,
+      "R7": {
+        "cer": 0.08604206500956023,
+        "errors": 45,
+        "exact": 6,
+        "calls_correct": 16,
+        "calls_total": 26,
+        "reports_correct": 18,
+        "reports_total": 18
+      },
+      "R8_A": {
+        "cer": 0.05927342256214149,
+        "errors": 31,
+        "exact": 8,
+        "calls_correct": 17,
+        "calls_total": 26,
+        "reports_correct": 16,
+        "reports_total": 18
+      },
+      "R8": {
+        "cer": 0.05927342256214149,
+        "errors": 31,
+        "exact": 8,
+        "calls_correct": 17,
+        "calls_total": 26,
+        "reports_correct": 16,
+        "reports_total": 18
+      }
+    },
+    "500": {
+      "records": 17,
+      "characters": 543,
+      "R7": {
+        "cer": 0.06261510128913444,
+        "errors": 34,
+        "exact": 5,
+        "calls_correct": 14,
+        "calls_total": 18,
+        "reports_correct": 9,
+        "reports_total": 10
+      },
+      "R8_A": {
+        "cer": 0.053406998158379376,
+        "errors": 29,
+        "exact": 3,
+        "calls_correct": 13,
+        "calls_total": 18,
+        "reports_correct": 9,
+        "reports_total": 10
+      },
+      "R8": {
+        "cer": 0.053406998158379376,
+        "errors": 29,
+        "exact": 3,
+        "calls_correct": 13,
+        "calls_total": 18,
+        "reports_correct": 9,
+        "reports_total": 10
+      }
+    },
+    "800": {
+      "records": 11,
+      "characters": 340,
+      "R7": {
+        "cer": 0.06764705882352941,
+        "errors": 23,
+        "exact": 2,
+        "calls_correct": 10,
+        "calls_total": 12,
+        "reports_correct": 9,
+        "reports_total": 10
+      },
+      "R8_A": {
+        "cer": 0.061764705882352944,
+        "errors": 21,
+        "exact": 4,
+        "calls_correct": 9,
+        "calls_total": 12,
+        "reports_correct": 8,
+        "reports_total": 10
+      },
+      "R8": {
+        "cer": 0.061764705882352944,
+        "errors": 21,
+        "exact": 4,
+        "calls_correct": 9,
+        "calls_total": 12,
+        "reports_correct": 8,
+        "reports_total": 10
+      }
+    },
+    "1200": {
+      "records": 15,
+      "characters": 508,
+      "R7": {
+        "cer": 0.04921259842519685,
+        "errors": 25,
+        "exact": 6,
+        "calls_correct": 8,
+        "calls_total": 12,
+        "reports_correct": 3,
+        "reports_total": 6
+      },
+      "R8_A": {
+        "cer": 0.06692913385826772,
+        "errors": 34,
+        "exact": 3,
+        "calls_correct": 7,
+        "calls_total": 12,
+        "reports_correct": 4,
+        "reports_total": 6
+      },
+      "R8": {
+        "cer": 0.06692913385826772,
+        "errors": 34,
+        "exact": 3,
+        "calls_correct": 7,
+        "calls_total": 12,
+        "reports_correct": 4,
+        "reports_total": 6
+      }
+    }
+  },
+  "details": [
+    {
+      "seed": 111117000,
+      "reference": "NAME ANDREW ANDREW QTH OSLO OSLO BK",
+      "calls": [
+        "G4NZ",
+        "IK2IP"
+      ],
+      "report": "589",
+      "wpm": 16.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "NAMEE ANDZDREW ANDZDREW QTH OSLO OSLO BK",
+        "R8_A": "NAME ANDZDREWANDZDREWQTH OSLO OSLO BK",
+        "R8": "NAME ANDZDREWANDZDREWQTH OSLO OSLO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117001,
+      "reference": "R R UR 589 589 BK",
+      "calls": [
+        "IK0WAS",
+        "DL7HQ"
+      ],
+      "report": "589",
+      "wpm": 24.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "R 58958?9",
+        "R8_A": "R RRRF 589 589K",
+        "R8": "R RRRF 589 589K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 10,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117002,
+      "reference": "R R UR 5NN 5NN BK",
+      "calls": [
+        "K2II",
+        "I9FT"
+      ],
+      "report": "5NN",
+      "wpm": 36.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "R RN UR H5NN 5NN BK",
+        "R8_A": "R RN UR 5NN 5FNN BK",
+        "R8": "R RN UR 5NN 5FNN BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117003,
+      "reference": "R R UR 579 579 BK",
+      "calls": [
+        "I7OK",
+        "EA5WF"
+      ],
+      "report": "579",
+      "wpm": 16.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "RPF 5 4577779 P9",
+        "R8_A": "R FRFU 57795579 9",
+        "R8": "R FRFU 57795579 9"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 10,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117004,
+      "reference": "IK5TJD DE W4GD TNX QSO 73 73 SK",
+      "calls": [
+        "IK5TJD",
+        "W4GD"
+      ],
+      "report": "559",
+      "wpm": 32.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "IK5TD DE W4GDTNX QSO 73 73 SK",
+        "R8_A": "IK5TJD DIE W4GDTNX QSO 73 73 SK",
+        "R8": "IK5TJD DIE W4GDTNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117005,
+      "reference": "R R UR 5NN 5NN BK",
+      "calls": [
+        "IZ0AX",
+        "G0KLD"
+      ],
+      "report": "5NN",
+      "wpm": 36.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "R R UNR 5NN H5NN BK",
+        "R8_A": "R R UR 5NN H5NN BK",
+        "R8": "R R UR 5NN H5NN BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117006,
+      "reference": "NAME GEORGE GEORGE QTH PORTO PORTO BK",
+      "calls": [
+        "VK3VUV",
+        "G4LD"
+      ],
+      "report": "579",
+      "wpm": 12.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "N A ME GPEEORG E GEOERG E QTH POYO RTT O0 PO RFTO0 BK",
+        "R8_A": "N A ME GEORGE GEOERGE QTH PO ERT O PO RFT O0 BK",
+        "R8": "N A ME GEORGE GEOERGE QTH PO ERT O PO RFT O0 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 16,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 10,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 10,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117007,
+      "reference": "R R FB NAME PABLO QTH MILANO HW CPY PSE K",
+      "calls": [
+        "DL7HZG",
+        "K1IFE"
+      ],
+      "report": "579",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R RB NAPABLO QTH MILANO HW CPY PSE K",
+        "R8_A": "R R RB NAMEPABLO QTH MILANO HW CPY PSE K",
+        "R8": "R R RB NAMEPABLO QTH MILANO HW CPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117008,
+      "reference": "K3BOD DE IK5KTL TNX QSO 73 73 SK",
+      "calls": [
+        "K3BOD",
+        "IK5KTL"
+      ],
+      "report": "559",
+      "wpm": 24.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "K31D DEI KKLL RCX QSO 73773SHHKK E",
+        "R8_A": "K3BODZD DEI KKTAL TNGCX QSO73 73 HKE",
+        "R8": "K3BODZD DEI KKTAL TNGCX QSO73 73 HKE"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 15,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 11,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 11,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117009,
+      "reference": "R R FB NAME GEORGE QTH MILANO HW CPY PSE K",
+      "calls": [
+        "IK2HMZ",
+        "I3XC"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "R R FB NAME GEORGE QTH MILANO HW CPY PSE K",
+        "R8_A": "R R FB NAME GEORGE QTH MILANO HW CPY PSE K",
+        "R8": "R R FB NAME GEORGE QTH MILANO HW CPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117010,
+      "reference": "CQ CQ CQ DE IZ6OQN IZ6OQN PSE K",
+      "calls": [
+        "IZ6OQN",
+        "IK0CS"
+      ],
+      "report": "589",
+      "wpm": 16.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "CQCQ CQ L 6ZZ6OQN1?GQP5 K",
+        "R8_A": "CQ CQ CQ L6 SZ6OQNN ?621OQNP5 IK",
+        "R8": "CQ CQ CQ L6 SZ6OQNN ?621OQNP5 IK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 14,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 12,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 12,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117011,
+      "reference": "R R UR 589 589 BK",
+      "calls": [
+        "K9YC",
+        "W0MF"
+      ],
+      "report": "589",
+      "wpm": 16.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "R R UR 589 589 BK",
+        "R8_A": "R R UR 589 589 BK",
+        "R8": "R R UR 589 589 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117012,
+      "reference": "IK3VF DE G1CR TNX QSO 73 73 SK",
+      "calls": [
+        "IK3VF",
+        "G1CR"
+      ],
+      "report": "599",
+      "wpm": 24.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "IK3VF DE G1CR TNX QSO 73 73 SK",
+        "R8_A": "IK3VF DE G1CR TNX QSO73 73 SK",
+        "R8": "IK3VF DE G1CR TNX QSO73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117013,
+      "reference": "DL1JN DE K8YW TNX QSO 73 73 SK",
+      "calls": [
+        "DL1JN",
+        "K8YW"
+      ],
+      "report": "5NN",
+      "wpm": 36.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "DL1JN DE K8YW SGX Q.SO 73 73 SK",
+        "R8_A": "DL1JN DE K8YW TIGX Q.SO 73 73 SK",
+        "R8": "DL1JN DE K8YW TIGX Q.SO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117014,
+      "reference": "R R UR 579 579 BK",
+      "calls": [
+        "JA8VC",
+        "G6IQV"
+      ],
+      "report": "579",
+      "wpm": 24.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "R R UR 579 579 BK",
+        "R8_A": "R R UR 579 579 BK",
+        "R8": "R R UR 579 579 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117015,
+      "reference": "R R FB NAME ANDREW QTH PORTO HW CPY PSE K",
+      "calls": [
+        "IZ7ISK",
+        "F0ML"
+      ],
+      "report": "559",
+      "wpm": 28.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "R R FB NAME ANDLREW QTH PORTO HW CPY PSE K",
+        "R8_A": "R R FB NAME ANDLREW QTH PORTO HW CPY PSE K",
+        "R8": "R R FB NAME ANDLREW QTH PORTO HW CPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117016,
+      "reference": "IZ4HC DE DL1LQ UR 559 559 PSE K",
+      "calls": [
+        "IZ4HC",
+        "DL1LQ"
+      ],
+      "report": "559",
+      "wpm": 32.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "IZ4HC D DL1LQ UR 559 559 PSE K",
+        "R8_A": "IZ4HC DE DL1LQ UR 559 559 PSE K",
+        "R8": "IZ4HC DE DL1LQ UR 559 559 PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117017,
+      "reference": "IK0JUI DE F4TBL TNX QSO 73 73 SK",
+      "calls": [
+        "IK0JUI",
+        "F4TBL"
+      ],
+      "report": "599",
+      "wpm": 36.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "0JU DE RF4TB? TNX QSO 73 73 SISK",
+        "R8_A": "IK0JUI DE F4TB?L TNGNX QSNO 73 73 SK",
+        "R8": "IK0JUI DE F4TB?L TNGNX QSNO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117018,
+      "reference": "VK9KQJ DE W2YYO UR 5NN 5NN PSE K",
+      "calls": [
+        "VK9KQJ",
+        "W2YYO"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "VK9KQJ DE W2YYO UR 5NN 5NN PSE K",
+        "R8_A": "VK9KQJ DE W2YYO UR 5NN 5NN PSE K",
+        "R8": "VK9KQJ DE W2YYO UR 5NN 5NN PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117019,
+      "reference": "R R FB NAME GEORGE QTH DELHI HW CPY PSE K",
+      "calls": [
+        "K2JS",
+        "JA5PIO"
+      ],
+      "report": "589",
+      "wpm": 20.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "R R FB NAME GEORG E QTH DELHI HW CPY PSE K",
+        "R8_A": "R R FB NAMEGEORGE QTH DELHI HW CPY PSEEK",
+        "R8": "R R FB NAMEGEORGE QTH DELHI HW CPY PSEEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117020,
+      "reference": "NAME GIANNI GIANNI QTH DELHI DELHI BK",
+      "calls": [
+        "EA7EQ",
+        "IK0XJR"
+      ],
+      "report": "589",
+      "wpm": 32.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "NAME GIANN GIANNI QT6H DLHI DLHI BKK",
+        "R8_A": "NAME GIANN7I GIANNI QTH DELHI DELHI BK",
+        "R8": "NAME GIANN7I GIANNI QTH DELHI DELHI BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117021,
+      "reference": "I9XI DE EA9WC TNX QSO 73 73 SK",
+      "calls": [
+        "I9XI",
+        "EA9WC"
+      ],
+      "report": "589",
+      "wpm": 32.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "I9XI DE 9WC TTNX QSO 73 73 SK",
+        "R8_A": "I9XI DE E9WC TNX QSO 73 73 SK",
+        "R8": "I9XI DE E9WC TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117022,
+      "reference": "R R UR 599 599 BK",
+      "calls": [
+        "JA7LDF",
+        "G7OT"
+      ],
+      "report": "599",
+      "wpm": 16.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R UR 599 599 BK",
+        "R8_A": "R R UR 599 599 BK",
+        "R8": "R R UR 599 599 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117023,
+      "reference": "R R FB NAME GIANNI QTH MILANO HW CPY PSE K",
+      "calls": [
+        "G0WI",
+        "G2GS"
+      ],
+      "report": "5NN",
+      "wpm": 16.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "R R FFBB NNNAUME GIANNI QTH MILLAUANOYOO SHSHW CWR/PY PS",
+        "R8_A": "R R FBB NNAMEE GIANNII QTTH MIEILANOYO SHW CW Y",
+        "R8": "R R FBB NNAMEE GIANNII QTTH MIEILANOYO SHW CW Y"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 20,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 17,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 17,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117024,
+      "reference": "CQ CQ CQ DE EA5FM EA5FM PSE K",
+      "calls": [
+        "EA5FM",
+        "VK9TQX"
+      ],
+      "report": "589",
+      "wpm": 24.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "CQ CQ CQ DE EA5FM EA5FM PSEK",
+        "R8_A": "CQ CQ CQ DEEA5FM EA5FMPSEK",
+        "R8": "CQ CQ CQ DEEA5FM EA5FMPSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117025,
+      "reference": "VK9OLV DE JA2MH TNX QSO 73 73 SK",
+      "calls": [
+        "VK9OLV",
+        "JA2MH"
+      ],
+      "report": "579",
+      "wpm": 24.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "VK9OLV DEE JA2MH TTNX QO 73 73 SK",
+        "R8_A": "VK9OLV DEJA2MH TNX QSO 73 7 3 SK",
+        "R8": "VK9OLV DEJA2MH TNX QSO 73 7 3 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117026,
+      "reference": "VK6FC DE K8LN TNX QSO 73 73 SK",
+      "calls": [
+        "VK6FC",
+        "K8LN"
+      ],
+      "report": "559",
+      "wpm": 32.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "VK6FC D K8LL/ EGX QSO 73 73 SK",
+        "R8_A": "VK6FC D K8LR/ TESGX QSO 73 73 SK",
+        "R8": "VK6FC D K8LR/ TESGX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117027,
+      "reference": "IZ3ZV DE VK7PCY UR 5NN 5NN PSE K",
+      "calls": [
+        "IZ3ZV",
+        "VK7PCY"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "IZ3ZV DE VK7PCY UR 5NN 5NN PSE K",
+        "R8_A": "IZ3ZV DE VK7PCY UR 5NN5NNPSE K",
+        "R8": "IZ3ZV DE VK7PCY UR 5NN5NNPSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117028,
+      "reference": "G6UFP DE VK1RP TNX QSO 73 73 SK",
+      "calls": [
+        "G6UFP",
+        "VK1RP"
+      ],
+      "report": "589",
+      "wpm": 24.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "G6UUFP DE VK1RP TNX QSO 73 733 SK",
+        "R8_A": "G6UFP DEVK1RP TNX QSO73 73 SK",
+        "R8": "G6UFP DEVK1RP TNX QSO73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117029,
+      "reference": "R R FB NAME GEORGE QTH DELHI HW CPY PSE K",
+      "calls": [
+        "IK7IWU",
+        "K1TVZ"
+      ],
+      "report": "579",
+      "wpm": 16.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "F H NNAAMM7P/G6QQ 66LHHH3W CPYPP5",
+        "R8_A": "FF B5B NAMMPR/GGEHQT66LHH3W CPYYP5 K",
+        "R8": "FF B5B NAMMPR/GGEHQT66LHH3W CPYYP5 K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 26,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 22,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 22,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117030,
+      "reference": "R R UR 579 579 BK",
+      "calls": [
+        "W5OX",
+        "JA4NPB"
+      ],
+      "report": "579",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R UNR H579 579 GBK",
+        "R8_A": "R R UR 579 579 BK",
+        "R8": "R R UR 579 579 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117031,
+      "reference": "IK1VL DE IK0JRY UR 579 579 PSE K",
+      "calls": [
+        "IK1VL",
+        "IK0JRY"
+      ],
+      "report": "579",
+      "wpm": 28.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "IK1VL DE IK0JRY UR 579 579 PSEE K",
+        "R8_A": "IK1VL DE IK0JRY UR 579 579 PSE K",
+        "R8": "IK1VL DE IK0JRY UR 579 579 PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117032,
+      "reference": "NAME ANDREW ANDREW QTH PORTO PORTO BK",
+      "calls": [
+        "I6MFJ",
+        "K2WS"
+      ],
+      "report": "5NN",
+      "wpm": 20.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "NAME ANDREW ANDREEW QTH PORTO PORTO BK",
+        "R8_A": "NAME ANDREW ANDREW QTH PORTO PORTO BK",
+        "R8": "NAME ANDREW ANDREW QTH PORTO PORTO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117033,
+      "reference": "R R FB NAME ANDREW QTH DELHI HW CPY PSE K",
+      "calls": [
+        "IK5QAP",
+        "IK4WJ"
+      ],
+      "report": "559",
+      "wpm": 36.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "R R RB NAM N REW QTH DELHI HW CPY PSE K",
+        "R8_A": "R R RB NAMETNDREW QT5H DEL HIHW C PY PSE K",
+        "R8": "R R RB NAMETNDREW QT5H DEL HIHW C PY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117034,
+      "reference": "VK7LL DE G9GK TNX QSO 73 73 SK",
+      "calls": [
+        "VK7LL",
+        "G9GK"
+      ],
+      "report": "5NN",
+      "wpm": 24.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "VK7LL DE G9GK TNX QSO 73 73 SK",
+        "R8_A": "VK7LL DEG9GK TNX QSO 73 73 SK",
+        "R8": "VK7LL DEG9GK TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117035,
+      "reference": "I8MJ DE W9JD UR 559 559 PSE K",
+      "calls": [
+        "I8MJ",
+        "W9JD"
+      ],
+      "report": "559",
+      "wpm": 16.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "8M263W99J VUVUVCR5555999 5559 PSH.QVU",
+        "R8_A": "I8MMJ DD663W999JURR55599 559 PSK.QU",
+        "R8": "I8MMJ DD663W999JURR55599 559 PSK.QU"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 23,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 15,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 15,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 1,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117036,
+      "reference": "R R FB NAME ANDREW QTH OSLO HW CPY PSE K",
+      "calls": [
+        "IZ6ZJ",
+        "VK8RSB"
+      ],
+      "report": "599",
+      "wpm": 24.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "R R FB NAME ANDREW QTH OSSLO HWCPY PSE K",
+        "R8_A": "R R FB NAMEANDREW QTH OSLO HW CPY PSEK",
+        "R8": "R R FB NAMEANDREW QTH OSLO HW CPY PSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117037,
+      "reference": "VK5DRL DE VK7YO UR 559 559 PSE K",
+      "calls": [
+        "VK5DRL",
+        "VK7YO"
+      ],
+      "report": "559",
+      "wpm": 24.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "VK5DRL DE VK7YO UR 559 559 PSE K",
+        "R8_A": "VK5DRL DEVK7YO UR 559 559 PSEK",
+        "R8": "VK5DRL DEVK7YO UR 559 559 PSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117038,
+      "reference": "R R FB NAME GEORGE QTH MILANO HW CPY PSE K",
+      "calls": [
+        "G5KHU",
+        "JA9AB"
+      ],
+      "report": "599",
+      "wpm": 32.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "R R FB NAME GEJORGEE QTH MILANO HW CPYPSE K",
+        "R8_A": "R R FB NAMEGEORGE QTH MILANO HW CPY PSE K",
+        "R8": "R R FB NAMEGEORGE QTH MILANO HW CPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117039,
+      "reference": "R R UR 5NN 5NN BK",
+      "calls": [
+        "W3WM",
+        "EA1IA"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "R R UR 5NN 5NN BK",
+        "R8_A": "R R UR 5NN 5NNBK",
+        "R8": "R R UR 5NN 5NNBK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117040,
+      "reference": "K1VV DE G4BAO TNX QSO 73 73 SK",
+      "calls": [
+        "K1VV",
+        "G4BAO"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "K1VV DE G4BAO TNX QSO73 73SK",
+        "R8_A": "K1VV DE G4BAO TNX QSO 73 73 SK",
+        "R8": "K1VV DE G4BAO TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117041,
+      "reference": "IK2PF DE VK2BX TNX QSO 73 73 SK",
+      "calls": [
+        "IK2PF",
+        "VK2BX"
+      ],
+      "report": "5NN",
+      "wpm": 16.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "IIK2PF DEEVK2BX TNX QSO 73 73 SK",
+        "R8_A": "IK2PF DE VK2BX TNX QSO 73 73 SK",
+        "R8": "IK2PF DE VK2BX TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117042,
+      "reference": "VK5TWH DE DL3WZ TNX QSO 73 73 SK",
+      "calls": [
+        "VK5TWH",
+        "DL3WZ"
+      ],
+      "report": "589",
+      "wpm": 28.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "VK5TWH DE DL3WZ TNX QSO 73 73SK",
+        "R8_A": "VK5TWH DE DL3WZ TNX QSO 73 73 SK",
+        "R8": "VK5TWH DE DL3WZ TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117043,
+      "reference": "NAME ANDREW ANDREW QTH OSLO OSLO BK",
+      "calls": [
+        "K2NHU",
+        "W4AAR"
+      ],
+      "report": "559",
+      "wpm": 20.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "NAME ANDREW ANDREW QTH OSLO OSLO BK",
+        "R8_A": "NAME ANDREW ANDREWQTH OSLO OSLO BK",
+        "R8": "NAME ANDREW ANDREWQTH OSLO OSLO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117044,
+      "reference": "NAME GIANNI GIANNI QTH OSLO OSLO BK",
+      "calls": [
+        "IZ3QO",
+        "K0DB"
+      ],
+      "report": "559",
+      "wpm": 24.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "NAME GIANNI GIANNI QTH OSLO OSLO BK",
+        "R8_A": "NAMEGIANNIGIANNIQTH OSLO OSLO BK",
+        "R8": "NAMEGIANNIGIANNIQTH OSLO OSLO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117045,
+      "reference": "NAME GEORGE GEORGE QTH OSLO OSLO BK",
+      "calls": [
+        "VK8UFF",
+        "F9PNR"
+      ],
+      "report": "579",
+      "wpm": 20.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "NAME GEORG E G EORG E QTH OSLO OSLO BK",
+        "R8_A": "NAME GEORGE GEORGE QTH OSLO OSLO BK",
+        "R8": "NAME GEORGE GEORGE QTH OSLO OSLO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117046,
+      "reference": "CQ CQ CQ DE W3UVB W3UVB PSE K",
+      "calls": [
+        "W3UVB",
+        "IZ4JUJ"
+      ],
+      "report": "5NN",
+      "wpm": 36.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "CQ CQ CQ D W3UVB W,3UVB GE K",
+        "R8_A": "CQ CQ CQ DE W3UVB W3UVB GPSE K",
+        "R8": "CQ CQ CQ DE W3UVB W3UVB GPSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117047,
+      "reference": "R R FB NAME ANDREW QTH DELHI HW CPY PSE K",
+      "calls": [
+        "W3PN",
+        "I5KUN"
+      ],
+      "report": "5NN",
+      "wpm": 16.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "R R FB NAAMEEEANDZDREW QTH DE LHI HW CPY PSEEK",
+        "R8_A": "R R FB NAAME ANDZDREWQTH DELHI HWCPY PSE K",
+        "R8": "R R FB NAAME ANDZDREWQTH DELHI HWCPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117048,
+      "reference": "IK5KFG DE K4JOI UR 579 579 PSE K",
+      "calls": [
+        "IK5KFG",
+        "K4JOI"
+      ],
+      "report": "579",
+      "wpm": 20.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "KXK5KFGP DLHK44JO/ 5799 579 P5 C",
+        "R8_A": "IK55KKFG DB K44JOI/ 579 579 P5 C",
+        "R8": "IK55KKFG DB K44JOI/ 579 579 P5 C"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 14,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 10,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 10,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117049,
+      "reference": "IZ5JB DE EA2AOL TNX QSO 73 73 SK",
+      "calls": [
+        "IZ5JB",
+        "EA2AOL"
+      ],
+      "report": "579",
+      "wpm": 24.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "IZ5JB DE EEAA2AOL TNX QSO 73 73 SHSK",
+        "R8_A": "IZ5JB DEEA2AOL TNX QSO73 73 SHSK",
+        "R8": "IZ5JB DEEA2AOL TNX QSO73 73 SHSK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117050,
+      "reference": "CQ CQ CQ DE EA8IET EA8IET PSE K",
+      "calls": [
+        "EA8IET",
+        "G3VC"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "CQ CQ CQ D EA8IE T E8IIETT PS",
+        "R8_A": "CQ CQCQ D EEA8IE T EAA8IET PS K",
+        "R8": "CQ CQCQ D EEA8IE T EAA8IET PS K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 8,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117051,
+      "reference": "R R UR 559 559 BK",
+      "calls": [
+        "EA6KJI",
+        "DL1QL"
+      ],
+      "report": "559",
+      "wpm": 12.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "RNR R UVUFRFR 5559 5559 BK",
+        "R8_A": "TR FR UVURFR 559 559 BK",
+        "R8": "TR FR UVURFR 559 559 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 9,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117052,
+      "reference": "IK9QV DE JA8EBT TNX QSO 73 73 SK",
+      "calls": [
+        "IK9QV",
+        "JA8EBT"
+      ],
+      "report": "589",
+      "wpm": 28.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "IK9QV DE JA8E BT TNXQSO73 73 SK",
+        "R8_A": "IK9QV DE JA8EBT TNX QSO 73 73 SK",
+        "R8": "IK9QV DE JA8EBT TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117053,
+      "reference": "G6ZLH DE K8TFE TNX QSO 73 73 SK",
+      "calls": [
+        "G6ZLH",
+        "K8TFE"
+      ],
+      "report": "589",
+      "wpm": 28.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "G6ZZLH D K8TFFETNX QHSO7373 SKK",
+        "R8_A": "G6ZZLH5 D K8TFE TNX QHSO73 73SK",
+        "R8": "G6ZZLH5 D K8TFE TNX QHSO73 73SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 8,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117054,
+      "reference": "R R UR 589 589 BK",
+      "calls": [
+        "W5RNY",
+        "IZ8RFB"
+      ],
+      "report": "589",
+      "wpm": 20.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "R 58999",
+        "R8_A": "R 589659 B",
+        "R8": "R 589659 B"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 11,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 8,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 8,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117055,
+      "reference": "R R UR 589 589 BK",
+      "calls": [
+        "DL2AGH",
+        "IZ3ZZK"
+      ],
+      "report": "589",
+      "wpm": 24.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "R R UR 589 589 BK",
+        "R8_A": "R R UR 589 589 BK",
+        "R8": "R R UR 589 589 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117056,
+      "reference": "CQ CQ CQ DE K7ULQ K7ULQ PSE K",
+      "calls": [
+        "K7ULQ",
+        "G6TB"
+      ],
+      "report": "559",
+      "wpm": 24.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "CQ CQ CQ DE K7ULQ K7UULQ PSE K",
+        "R8_A": "CQ CQ CQ DE K7ULQ K7ULQ PSEK",
+        "R8": "CQ CQ CQ DE K7ULQ K7ULQ PSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117057,
+      "reference": "R R UR 589 589 BK",
+      "calls": [
+        "I3TFI",
+        "IK6YZ"
+      ],
+      "report": "589",
+      "wpm": 12.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "R RF UVUFR 589 589 BK",
+        "R8_A": "R FR UVUR 589 589 BK",
+        "R8": "R FR UVUR 589 589 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117058,
+      "reference": "CQ CQ CQ DE I4OQ I4OQ PSE K",
+      "calls": [
+        "I4OQ",
+        "VK1NFA"
+      ],
+      "report": "589",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "GCQ CQ CQ DE 4OQ I4OQ PSE K",
+        "R8_A": "GCQ CQ CQ DE I4OQ I4OQ PSE K",
+        "R8": "GCQ CQ CQ DE I4OQ I4OQ PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117059,
+      "reference": "G3FGD DE EA9AS TNX QSO 73 73 SK",
+      "calls": [
+        "G3FGD",
+        "EA9AS"
+      ],
+      "report": "599",
+      "wpm": 32.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "G3FGD DE E9AS TNX QSO 73 73 SK",
+        "R8_A": "G3FGD DE E9AS TNX QSO 73 73 SK",
+        "R8": "G3FGD DE E9AS TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117060,
+      "reference": "JA0ZJP DE W3JPN TNX QSO 73 73 SK",
+      "calls": [
+        "JA0ZJP",
+        "W3JPN"
+      ],
+      "report": "599",
+      "wpm": 36.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "JTA0ZJP DE W3JPN NX QSO 73 73 SK",
+        "R8_A": "JJTA0ZJP DE W3YJPN NX QSO 73 73 SK",
+        "R8": "JJTA0ZJP DE W3YJPN NX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117061,
+      "reference": "CQ CQ CQ DE DL7YL DL7YL PSE K",
+      "calls": [
+        "DL7YL",
+        "W2LWD"
+      ],
+      "report": "5NN",
+      "wpm": 24.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "CQ GCQ CQ D E DL7YL DL7LP K",
+        "R8_A": "CQ GCQ CQ D EEDL 7YL DL7LPS K",
+        "R8": "CQ GCQ CQ D EEDL 7YL DL7LPS K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117062,
+      "reference": "JA3PYU DE F6KHE TNX QSO 73 73 SK",
+      "calls": [
+        "JA3PYU",
+        "F6KHE"
+      ],
+      "report": "559",
+      "wpm": 12.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "J A V3,3 APG YEU DE F/F 6KK5H6 E TN XU QESOY 7V3 T7 3 S",
+        "R8_A": "J AV3EAPGNY EU DE TF6H6KH5HE TN NX MQEISISO G73W3 TZB7I7323 ASS",
+        "R8": "J AV3EAPGNY EU DE TF6H6KH5HE TN NX MQEISISO G73W3 TZB7I7323 ASS"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 25,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 32,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 32,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117063,
+      "reference": "G9NBI DE EA5UBN TNX QSO 73 73 SK",
+      "calls": [
+        "G9NBI",
+        "EA5UBN"
+      ],
+      "report": "579",
+      "wpm": 20.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "G9NBI DE EA5UBN TNGXQSO 73 73 SK",
+        "R8_A": "G9NBI DEEA5UBN TNX QSO 73 73 SK",
+        "R8": "G9NBI DEEA5UBN TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117064,
+      "reference": "G6QSR DE JA5AZ UR 589 589 PSE K",
+      "calls": [
+        "G6QSR",
+        "JA5AZ"
+      ],
+      "report": "589",
+      "wpm": 20.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "G6QSR DE JA5AZ UR 589 589 PSE K",
+        "R8_A": "G6QSR DEJA5A Z UR 589 589 PSEK",
+        "R8": "G6QSR DEJA5A Z UR 589 589 PSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117065,
+      "reference": "CQ CQ CQ DE I7KPV I7KPV PSE K",
+      "calls": [
+        "I7KPV",
+        "JA1HSQ"
+      ],
+      "report": "5NN",
+      "wpm": 32.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "CQ CQ CQ DE II7KPCPV II7KPV PSE K",
+        "R8_A": "CQ CQ CQ DE I7KPV I7KPV PSE K",
+        "R8": "CQ CQ CQ DE I7KPV I7KPV PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117066,
+      "reference": "CQ CQ CQ DE IZ1STI IZ1STI PSE K",
+      "calls": [
+        "IZ1STI",
+        "VK1HY"
+      ],
+      "report": "579",
+      "wpm": 28.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "CQ CQ CQ DE E IZ1STI IZ1STI PSE K",
+        "R8_A": "CQ CQ CQ DE IZ1STI IZ1STI PSE EK",
+        "R8": "CQ CQ CQ DE IZ1STI IZ1STI PSE EK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117067,
+      "reference": "CQ CQ CQ DE DL0IR DL0IR PSE K",
+      "calls": [
+        "DL0IR",
+        "K7OC"
+      ],
+      "report": "559",
+      "wpm": 12.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "CQCQCCQLI DL0SF D0SRNFCGPGSE K.Q",
+        "R8_A": "CQCQCQLDNIDL0ISF DL0ISRNFRTGPGSSE KQ",
+        "R8": "CQCQCQLDNIDL0ISF DL0ISRNFRTGPGSSE KQ"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 16,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 16,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 16,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117068,
+      "reference": "F7PHR DE IK8CB UR 5NN 5NN PSE K",
+      "calls": [
+        "F7PHR",
+        "IK8CB"
+      ],
+      "report": "5NN",
+      "wpm": 20.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "F7PHR DE IK8CB UR 5NN 5NN PSEK",
+        "R8_A": "F7PHR DE IK8CB UR 5NN 5NN PSE K",
+        "R8": "F7PHR DE IK8CB UR 5NN 5NN PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117069,
+      "reference": "W4CX DE IZ3HU UR 559 559 PSE K",
+      "calls": [
+        "W4CX",
+        "IZ3HU"
+      ],
+      "report": "559",
+      "wpm": 32.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "W4CX D IZ3HU UR 559 559 PSE K",
+        "R8_A": "W4CX DE IZ3HU UR 559 559 PSE K",
+        "R8": "W4CX DE IZ3HU UR 559 559 PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117070,
+      "reference": "NAME GEORGE GEORGE QTH MILANO MILANO BK",
+      "calls": [
+        "I9KS",
+        "K5RA"
+      ],
+      "report": "579",
+      "wpm": 16.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "NAME GEORGE GEORGE QTH MILANO MILANO BK",
+        "R8_A": "NAME GEORGE GEORGE QTHMILANO MILANO BK",
+        "R8": "NAME GEORGE GEORGE QTHMILANO MILANO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117071,
+      "reference": "CQ CQ CQ DE IK4YS IK4YS PSE K",
+      "calls": [
+        "IK4YS",
+        "F7IM"
+      ],
+      "report": "5NN",
+      "wpm": 20.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "CQ CQ CQ DE IK4YS IK4YS PSE K",
+        "R8_A": "CQ CQ CQ DEIK4YS IK4YS PSE K",
+        "R8": "CQ CQ CQ DEIK4YS IK4YS PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117072,
+      "reference": "CQ CQ CQ DE I4TMF I4TMF PSE K",
+      "calls": [
+        "I4TMF",
+        "W0LLO"
+      ],
+      "report": "589",
+      "wpm": 16.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "CQ CQ CQ DEE I4TTMFFF III4TMF PSHE K",
+        "R8_A": "CQ CQ CQ DEI4TMFI4TMF PSE K",
+        "R8": "CQ CQ CQ DEI4TMFI4TMF PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117073,
+      "reference": "R R FB NAME ANDREW QTH PORTO HW CPY PSE K",
+      "calls": [
+        "F2SAL",
+        "VK7NH"
+      ],
+      "report": "589",
+      "wpm": 16.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "R R FBZ NNAMEEEANZDREW QTH PORTO HWCPY PSEK",
+        "R8_A": "R R FBZ NAME ANZDREWQTH PORTO HWCPY PSE K",
+        "R8": "R R FBZ NAME ANZDREWQTH PORTO HWCPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117074,
+      "reference": "W9VSB DE IZ7UJD TNX QSO 73 73 SK",
+      "calls": [
+        "W9VSB",
+        "IZ7UJD"
+      ],
+      "report": "5NN",
+      "wpm": 36.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "W9UV?SB DE IZP7UJD GX QSJ 73 73 SK",
+        "R8_A": "W9UVSB DE IZP7UJD TNGX QSO 73 C73 SK",
+        "R8": "W9UVSB DE IZP7UJD TNGX QSO 73 C73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117075,
+      "reference": "CQ CQ CQ DE JA0XR JA0XR PSE K",
+      "calls": [
+        "JA0XR",
+        "VK4WPI"
+      ],
+      "report": "579",
+      "wpm": 36.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "CQ CQ CQ DE OJT0XR JTA0XR PSE K",
+        "R8_A": "CQ CQ CQ DE OJA0XR JTA0XR PSE K",
+        "R8": "CQ CQ CQ DE OJA0XR JTA0XR PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117076,
+      "reference": "R R UR 599 599 BK",
+      "calls": [
+        "IZ2YR",
+        "F2PD"
+      ],
+      "report": "599",
+      "wpm": 36.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "R RN UR 599 599 GBK",
+        "R8_A": "R RN UR 599 599 BK",
+        "R8": "R RN UR 599 599 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117077,
+      "reference": "CQ CQ CQ DE G1MER G1MER PSE K",
+      "calls": [
+        "G1MER",
+        "JA3BCJ"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "CQ CQ CQ DE G1MER G1MER PSE K",
+        "R8_A": "CQ CQCQ DE G1MER G1MER PSE K",
+        "R8": "CQ CQCQ DE G1MER G1MER PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117078,
+      "reference": "IK0BZN DE W5QZZ UR 579 579 PSE K",
+      "calls": [
+        "IK0BZN",
+        "W5QZZ"
+      ],
+      "report": "579",
+      "wpm": 24.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "IK0BZN DE W5QZZ UR 579 579 PSSEK",
+        "R8_A": "IK0BZNDE W5QZZ UR 579 579 PSEK",
+        "R8": "IK0BZNDE W5QZZ UR 579 579 PSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117079,
+      "reference": "CQ CQ CQ DE W9TXU W9TXU PSE K",
+      "calls": [
+        "W9TXU",
+        "IK9XVJ"
+      ],
+      "report": "599",
+      "wpm": 20.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "CQ CQ CQ DE W9TXU W9TXU PSE K",
+        "R8_A": "CQ CQ CQ DE W9TXU W9TXU PSE K",
+        "R8": "CQ CQ CQ DE W9TXU W9TXU PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117080,
+      "reference": "R R UR 559 559 BK",
+      "calls": [
+        "I8IA",
+        "IZ0FK"
+      ],
+      "report": "559",
+      "wpm": 12.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "RNR RNR UR 559 559 BK",
+        "R8_A": "R R UR 559 559 BK",
+        "R8": "R R UR 559 559 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117081,
+      "reference": "CQ CQ CQ DE EA3JDE EA3JDE PSE K",
+      "calls": [
+        "EA3JDE",
+        "IK0ES"
+      ],
+      "report": "559",
+      "wpm": 20.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "CQ CQ CQ DE EA3JDE EA3JDE PSE K",
+        "R8_A": "CQ CQ CQ DE EA3JDE EA3JDE PSEE K",
+        "R8": "CQ CQ CQ DE EA3JDE EA3JDE PSEE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117082,
+      "reference": "VK9CTW DE DL6HLW TNX QSO 73 73 SK",
+      "calls": [
+        "VK9CTW",
+        "DL6HLW"
+      ],
+      "report": "589",
+      "wpm": 16.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "VK9CTW DEEDDL66HLW TNNX QSO 73 73 SK",
+        "R8_A": "VK9CTWDEDL66HLW TNX QSO 73 73 SK",
+        "R8": "VK9CTWDEDL66HLW TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117083,
+      "reference": "NAME GEORGE GEORGE QTH DELHI DELHI BK",
+      "calls": [
+        "I2BK",
+        "IK9QZM"
+      ],
+      "report": "5NN",
+      "wpm": 20.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "NAME GEORG EEG EORG E QTH DELHI DELHI BK",
+        "R8_A": "NAME GEORG EGEORGE QTH DELHI DELHI BK",
+        "R8": "NAME GEORG EGEORGE QTH DELHI DELHI BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117084,
+      "reference": "R R FB NAME GEORGE QTH PORTO HW CPY PSE K",
+      "calls": [
+        "I6DK",
+        "W6QVU"
+      ],
+      "report": "579",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R RB NAMGEORGE QTH PORTO HW C PY PSE K",
+        "R8_A": "R R RB NAMEGEORGE QTH PORTO HW CPY PSE K",
+        "R8": "R R RB NAMEGEORGE QTH PORTO HW CPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117085,
+      "reference": "I3VC DE VK4YW TNX QSO 73 73 SK",
+      "calls": [
+        "I3VC",
+        "VK4YW"
+      ],
+      "report": "579",
+      "wpm": 24.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "I3VC DE VK4YW TNGNX QSO 73 73 SK",
+        "R8_A": "I3VC DE VK4YW TNGNX QSO 73 73 SK",
+        "R8": "I3VC DE VK4YW TNGNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117086,
+      "reference": "R R UR 5NN 5NN BK",
+      "calls": [
+        "W9KV",
+        "JA0UJQ"
+      ],
+      "report": "5NN",
+      "wpm": 16.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "R R UR 5NN 5NNN BK",
+        "R8_A": "R R UR 5NN 5NN BK",
+        "R8": "R R UR 5NN 5NN BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117087,
+      "reference": "R R UR 589 589 BK",
+      "calls": [
+        "VK5MYH",
+        "VK9EZZ"
+      ],
+      "report": "589",
+      "wpm": 20.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "R R UR 589 589 BK",
+        "R8_A": "R R UR 589 589 BK",
+        "R8": "R R UR 589 589 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117088,
+      "reference": "NAME ANDREW ANDREW QTH MILANO MILANO BK",
+      "calls": [
+        "DL7EO",
+        "F5GA"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "NAME ANDLRE W ANDLREW QTH MILANO MILANO BK",
+        "R8_A": "NAME ANDLREW ANDLREW QTH MILANO MILANO BK",
+        "R8": "NAME ANDLREW ANDLREW QTH MILANO MILANO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117089,
+      "reference": "IZ9UVU DE VK4LR TNX QSO 73 73 SK",
+      "calls": [
+        "IZ9UVU",
+        "VK4LR"
+      ],
+      "report": "599",
+      "wpm": 24.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "IZ9UVU D EE VK4LR TNX QSO 73 73 SK",
+        "R8_A": "IZ9UVVU DE VK4LR TTNXQSO 73 73 SK",
+        "R8": "IZ9UVVU DE VK4LR TTNXQSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117090,
+      "reference": "NAME GIANNI GIANNI QTH OSLO OSLO BK",
+      "calls": [
+        "F9TGJ",
+        "I4DKY"
+      ],
+      "report": "599",
+      "wpm": 32.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "NNM GRNINNI GNIANN QTHOSLO OSLO BK",
+        "R8_A": "NNAME GINNI GNIANNI QTH OSLO OSLO BK",
+        "R8": "NNAME GINNI GNIANNI QTH OSLO OSLO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 8,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117091,
+      "reference": "NAME PABLO PABLO QTH OSLO OSLO BK",
+      "calls": [
+        "VK0RZS",
+        "W8XE"
+      ],
+      "report": "5NN",
+      "wpm": 28.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "NAME PA.A.BLO PABLO QT5H OSLOOSLO BK",
+        "R8_A": "NAME PPABLO PABLO QTH OSLO OSLO BK",
+        "R8": "NAME PPABLO PABLO QTH OSLO OSLO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117092,
+      "reference": "I9RQ DE JA5XVY TNX QSO 73 73 SK",
+      "calls": [
+        "I9RQ",
+        "JA5XVY"
+      ],
+      "report": "599",
+      "wpm": 36.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "9RNQ DE JTA5XXV4VY NX QSO 73 73 SK",
+        "R8_A": "I9NRNQ DE JA5XVY TSINX QSO 73 73 SK",
+        "R8": "I9NRNQ DE JA5XVY TSINX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 7,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117093,
+      "reference": "K1OJ DE VK2CWC TNX QSO 73 73 SK",
+      "calls": [
+        "K1OJ",
+        "VK2CWC"
+      ],
+      "report": "559",
+      "wpm": 24.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "K1OJ DE VK2CWC TNX QSO 73 73 SK",
+        "R8_A": "K1OJ DE VK2CWC TNX QSO73 73 SHK",
+        "R8": "K1OJ DE VK2CWC TNX QSO73 73 SHK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117094,
+      "reference": "IK6MM DE EA1CZ UR 599 599 PSE K",
+      "calls": [
+        "IK6MM",
+        "EA1CZ"
+      ],
+      "report": "599",
+      "wpm": 16.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "IK6MM DEE EAWA1CCZ URR 599 5989 PSE K",
+        "R8_A": "IK6MM DEEAW1CCZ UR 599 599 PSE K",
+        "R8": "IK6MM DEEAW1CCZ UR 599 599 PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117095,
+      "reference": "CQ CQ CQ DE I1HT I1HT PSE K",
+      "calls": [
+        "I1HT",
+        "JA8OUT"
+      ],
+      "report": "5NN",
+      "wpm": 16.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "CQ CQ CQ DE I1HT I1HT PSSE K",
+        "R8_A": "CQ CQ CQ DE I1HT I1HT PSE K",
+        "R8": "CQ CQ CQ DE I1HT I1HT PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117096,
+      "reference": "G4UG DE IK0QJK UR 579 579 PSE K",
+      "calls": [
+        "G4UG",
+        "IK0QJK"
+      ],
+      "report": "579",
+      "wpm": 20.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "G4UG DE IK0QJK UR 579 579 PSEK",
+        "R8_A": "G4UG DE IK0QJK UR 579 579 PSEE K",
+        "R8": "G4UG DE IK0QJK UR 579 579 PSEE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117097,
+      "reference": "R R FB NAME PABLO QTH OSLO HW CPY PSE K",
+      "calls": [
+        "EA4HDX",
+        "IZ6AGF"
+      ],
+      "report": "5NN",
+      "wpm": 32.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R FB NAMEPABLO QTH OSLO HW CWPY PSE K",
+        "R8_A": "R R FB NAMEPABLOMO QTHOSLO HW CWPY PSE K",
+        "R8": "R R FB NAMEPABLOMO QTHOSLO HW CWPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117098,
+      "reference": "CQ CQ CQ DE I1WM I1WM PSE K",
+      "calls": [
+        "I1WM",
+        "K0IXY"
+      ],
+      "report": "559",
+      "wpm": 12.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "CQ CQ CQ DE IN1Y1W M I1YEW MPSHEKQY.K",
+        "R8_A": "C Q CQ CQ DEI1W M I1EW MPSTEKQ",
+        "R8": "C Q CQ CQ DEI1W M I1EW MPSTEKQ"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 13,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 9,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 9,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117099,
+      "reference": "CQ CQ CQ DE W4XS W4XS PSE K",
+      "calls": [
+        "W4XS",
+        "W8WZF"
+      ],
+      "report": "579",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "CQ CQ CQ DE W4XS W4XS PSE K",
+        "R8_A": "CQ CQ CQ DE W4XS W4XS PSE K",
+        "R8": "CQ CQ CQ DE W4XS W4XS PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117100,
+      "reference": "R R UR 589 589 BK",
+      "calls": [
+        "IZ4UAL",
+        "DL3ZP"
+      ],
+      "report": "589",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R UNR 589 589 GBK",
+        "R8_A": "R R UR 589 58 9 BK",
+        "R8": "R R UR 589 58 9 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117101,
+      "reference": "IZ7DL DE G4HVJ TNX QSO 73 73 SK",
+      "calls": [
+        "IZ7DL",
+        "G4HVJ"
+      ],
+      "report": "599",
+      "wpm": 24.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "IZ7DL DE GPG44TN QO 737333 .K",
+        "R8_A": "IZ7DL DEEG4H44J TNX QSO 73 7 33 KK",
+        "R8": "IZ7DL DEEG4H44J TNX QSO 73 7 33 KK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 11,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 6,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117102,
+      "reference": "CQ CQ CQ DE K0OBR K0OBR PSE K",
+      "calls": [
+        "K0OBR",
+        "I3VQ"
+      ],
+      "report": "579",
+      "wpm": 16.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "CQ CQ CQ DE K0OBR K0OBR PSE K",
+        "R8_A": "CQ CQ CQ DEK0OBR K0OBR PSE K",
+        "R8": "CQ CQ CQ DEK0OBR K0OBR PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117103,
+      "reference": "IZ6IJ DE F3OYQ UR 559 559 PSE K",
+      "calls": [
+        "IZ6IJ",
+        "F3OYQ"
+      ],
+      "report": "559",
+      "wpm": 28.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "IZ6IJ D E F3OYQ UR 559 559 PSE K",
+        "R8_A": "IZ6IJ DE F3OYQ UR 559 559 PSE K",
+        "R8": "IZ6IJ DE F3OYQ UR 559 559 PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117104,
+      "reference": "NAME ANDREW ANDREW QTH DELHI DELHI BK",
+      "calls": [
+        "I5IZ",
+        "I8LX"
+      ],
+      "report": "5NN",
+      "wpm": 36.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "NAME ANDREW AND /REW QTH DELHI DELHI GK",
+        "R8_A": "NAME ANDREW AND REW QTH DELHIDELHI BK",
+        "R8": "NAME ANDREW AND REW QTH DELHIDELHI BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117105,
+      "reference": "K4JF DE DL4IMM UR 579 579 PSE K",
+      "calls": [
+        "K4JF",
+        "DL4IMM"
+      ],
+      "report": "579",
+      "wpm": 16.0,
+      "width_hz": 500,
+      "decoded": {
+        "R7": "K4JF DE DL4IMM UR 579 579 PSEK",
+        "R8_A": "K4JF DEDL4IMMUR 579 579 PSEK",
+        "R8": "K4JF DEDL4IMMUR 579 579 PSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117106,
+      "reference": "R R FB NAME GEORGE QTH DELHI HW CPY PSE K",
+      "calls": [
+        "F2JS",
+        "DL6XVB"
+      ],
+      "report": "589",
+      "wpm": 16.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R FB NAMEEE GEORGE QTH DEE LHI HWCPY PSE K",
+        "R8_A": "R R FB NAMEE GEORGE QTH DELHI HWCPY PSE K",
+        "R8": "R R FB NAMEE GEORGE QTH DELHI HWCPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117107,
+      "reference": "EA5RPO DE EA1KX TNX QSO 73 73 SK",
+      "calls": [
+        "EA5RPO",
+        "EA1KX"
+      ],
+      "report": "589",
+      "wpm": 20.0,
+      "width_hz": 800,
+      "decoded": {
+        "R7": "EA5RPO DE EA1KX TNXQSO 73 73 SK",
+        "R8_A": "EA5RPO DE EA1KX TNX QSO 73 73 SK",
+        "R8": "EA5RPO DE EA1KX TNX QSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117108,
+      "reference": "NAME ANDREW ANDREW QTH MILANO MILANO BK",
+      "calls": [
+        "K6NG",
+        "G6ZD"
+      ],
+      "report": "5NN",
+      "wpm": 24.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "NAME NDREW AANDREW QTH MILANO MILANO BK",
+        "R8_A": "NAME ANDREW ANDREW QTH MILANO MILANO BK",
+        "R8": "NAME ANDREW ANDREW QTH MILANO MILANO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117109,
+      "reference": "CQ CQ CQ DE EA4XV EA4XV PSE K",
+      "calls": [
+        "EA4XV",
+        "IK3ORL"
+      ],
+      "report": "599",
+      "wpm": 28.0,
+      "width_hz": 150,
+      "decoded": {
+        "R7": "CQ CQ CQ D EA4XV EEA4XV PSE K",
+        "R8_A": "CQ CQ CQ D EA4XV EEA4XV PSE K",
+        "R8": "CQ CQ CQ D EA4XV EEA4XV PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 2,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117110,
+      "reference": "R R UR 599 599 BK",
+      "calls": [
+        "IZ4IU",
+        "G5YSF"
+      ],
+      "report": "599",
+      "wpm": 36.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "R R UNR 599 599 BK",
+        "R8_A": "R R UR 599 599 BK",
+        "R8": "R R UR 599 599 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117111,
+      "reference": "R R FB NAME ANDREW QTH PORTO HW CPY PSE K",
+      "calls": [
+        "I4WQ",
+        "F9YAR"
+      ],
+      "report": "579",
+      "wpm": 32.0,
+      "width_hz": 300,
+      "decoded": {
+        "R7": "R R FB NAME ANDREW QTH PORTO HW CPY PSE K",
+        "R8_A": "R R FB NAME AN DREW QTH PORTO HW CPY PSE K",
+        "R8": "R R FB NAME AN DREW QTH PORTO HW CPY PSE K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117112,
+      "reference": "NAME GEORGE GEORGE QTH OSLO OSLO BK",
+      "calls": [
+        "IZ8GN",
+        "DL5JNE"
+      ],
+      "report": "5NN",
+      "wpm": 16.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "A AMZP7OOGGOJO1RGE.H OJOS6762JO BHK",
+        "R8_A": "NA MEE PE7OC/RGGGE7ORGEEQ.HOJOSOO6JO BK",
+        "R8": "NA MEE PE7OC/RGGGE7ORGEEQ.HOJOSOO6JO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 24,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 17,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 17,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117113,
+      "reference": "K7OPY DE G4XX UR 5NN 5NN PSE K",
+      "calls": [
+        "K7OPY",
+        "G4XX"
+      ],
+      "report": "5NN",
+      "wpm": 24.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "K7OPY DE G4XX UR 5NN5NNPSEK",
+        "R8_A": "K7OPY DE G4XX UR 5NN5NNPSEK",
+        "R8": "K7OPY DE G4XX UR 5NN5NNPSEK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 3,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117114,
+      "reference": "JA4SPL DE K0MW TNX QSO 73 73 SK",
+      "calls": [
+        "JA4SPL",
+        "K0MW"
+      ],
+      "report": "559",
+      "wpm": 36.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "JTA4SPL DE K0MW SX Q.SO 73 73 SK",
+        "R8_A": "JTA4SWPL DE K0MW SIX KQSO 73 73 SK",
+        "R8": "JTA4SWPL DE K0MW SIX KQSO 73 73 SK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 5,
+          "exact": false,
+          "calls_correct": 1,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117115,
+      "reference": "R R UR 579 579 BK",
+      "calls": [
+        "IK7PT",
+        "IK2BD"
+      ],
+      "report": "579",
+      "wpm": 20.0,
+      "width_hz": 200,
+      "decoded": {
+        "R7": "R R UR 579 579 BK",
+        "R8_A": "R R UR 579 579 BK",
+        "R8": "R R UR 579 579 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117116,
+      "reference": "IZ5BFD DE G5CJ TNX QSO 73 73 SK",
+      "calls": [
+        "IZ5BFD",
+        "G5CJ"
+      ],
+      "report": "5NN",
+      "wpm": 36.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "IZ5BFD DE G5CJ TNX QSO 73 73 SK",
+        "R8_A": "IZ5BFD DE G5CJ TSGX QISO 73 73 SAK",
+        "R8": "IZ5BFD DE G5CJ TSGX QISO 73 73 SAK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 4,
+          "exact": false,
+          "calls_correct": 2,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117117,
+      "reference": "R R UR 599 599 BK",
+      "calls": [
+        "VK5GY",
+        "I9WW"
+      ],
+      "report": "599",
+      "wpm": 24.0,
+      "width_hz": 0,
+      "decoded": {
+        "R7": "R R UR 599 599 BK",
+        "R8_A": "R R UR599 599 BK",
+        "R8": "R R UR599 599 BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 2,
+          "reports_total": 2
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 1,
+          "reports_total": 2
+        }
+      }
+    },
+    {
+      "seed": 111117118,
+      "reference": "EA2SIG DE VK0MI TNX QSO 73 73 SK",
+      "calls": [
+        "EA2SIG",
+        "VK0MI"
+      ],
+      "report": "559",
+      "wpm": 32.0,
+      "width_hz": 100,
+      "decoded": {
+        "R7": "22 G D 4VK0MIX4X QHO7 73 HK",
+        "R8_A": "2S G DE 4VK0MI X4X QSO 73 733 S K",
+        "R8": "2S G DE 4VK0MI X4X QSO 73 733 S K"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 13,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 8,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 8,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 2,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    },
+    {
+      "seed": 111117119,
+      "reference": "NAME PABLO PABLO QTH MILANO MILANO BK",
+      "calls": [
+        "I4LWG",
+        "G1DBH"
+      ],
+      "report": "589",
+      "wpm": 24.0,
+      "width_hz": 1200,
+      "decoded": {
+        "R7": "NAME PABLO PABLO QTH MILANO MILANO BK",
+        "R8_A": "NAMEPABLO PABLO QTH MILANO MILANO BK",
+        "R8": "NAMEPABLO PABLO QTH MILANO MILANO BK"
+      },
+      "metrics": {
+        "R7": {
+          "errors": 0,
+          "exact": true,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8_A": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        },
+        "R8": {
+          "errors": 1,
+          "exact": false,
+          "calls_correct": 0,
+          "calls_total": 0,
+          "reports_correct": 0,
+          "reports_total": 0
+        }
+      }
+    }
+  ],
+  "call_identity_audit": {
+    "unique_training_calls_discarded_phase": 983,
+    "unique_test_calls": 115,
+    "overlap_with_discarded_qso_training": 1,
+    "adaptation_contributes_to_deployed_weights": false
+  }
+}

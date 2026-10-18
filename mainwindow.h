@@ -147,6 +147,9 @@ struct Ft8FullAutoCqCandidate
  * - Bind WeatherFax UI settings to the decoder.
  * - Enforce mutual exclusion between RX and TX/PTT operations.
  */
+class QrzLookupPanel;
+class CwSerialTransmitter;
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -1079,6 +1082,10 @@ private:
      * @brief Creates runtime CW Morse controls inside the mode stack.
      */
     void setupCwPage();
+    void configureCwTransmission();
+    void updateCwTxMethodNotice();
+    void startCwSerialTransmission(const QString& text);
+    void finishCwSerialTransmission(bool natural, const QString& error);
 
     /**
      * @brief Creates runtime Feld Hell controls inside the mode stack.
@@ -1667,6 +1674,14 @@ private:
     QString m_pendingRxRecordingPath;
     bool m_rxAudioRecordingActive = false;
     TxAudioEngine *m_txAudioEngine = nullptr;
+    CwSerialTransmitter *m_cwSerialTx = nullptr;
+    bool m_cwSerialActive = false;
+    bool m_cwKeyReleaseFailed = false;
+    bool m_cwSerialFinishing = false;
+    bool m_cwCatPortSuspended = false;
+    quint64 m_cwSerialGeneration = 0;
+    QLabel *m_lblCwTxMethodNotice = nullptr;
+    QPushButton *m_btnCwTxSettings = nullptr;
     FtTxWorker *m_ftTxWorker = nullptr;
     QThread *m_ftTxThread = nullptr;
     bool m_ftTxWorkerRunning = false;
@@ -1843,6 +1858,7 @@ private:
 
     QWidget *m_pageCwSettings = nullptr;
     QSpinBox *m_spinCwToneHz = nullptr;
+    QComboBox *m_cmbCwDecodeEngine = nullptr;
     QSpinBox *m_spinCwTxToneHz = nullptr;
     QSpinBox *m_spinCwWpmA = nullptr;
     QSpinBox *m_spinCwWpmB = nullptr;
@@ -2034,7 +2050,6 @@ private:
     QLabel *m_lblFt8DecodeEngine = nullptr;
     QRadioButton *m_radioFt8TxFirst = nullptr;
     QRadioButton *m_radioFt8TxSecond = nullptr;
-    QLabel *m_lblFt8SlotStatus = nullptr;
     QWidget *m_grpFt8UtcClock = nullptr;
     Ft8SlotClockWidget *m_ft8SlotClock = nullptr;
     QLCDNumber *m_lcdFt8UtcClock = nullptr;
@@ -2112,7 +2127,6 @@ private:
     QSpinBox *m_spinFt8CqTimeoutMin = nullptr;
     QSpinBox *m_spinFt8NoResponseLimit = nullptr;
     QLabel *m_lblFt8NoResponseLimit = nullptr;
-    QLabel *m_lblFt8SequencerStatus = nullptr;
     QLabel *m_lblFt8TxBanner = nullptr;
     QLabel *m_lblFt8LastSnr = nullptr;
     QLabel *m_lblFt8TxReport = nullptr;
@@ -2261,6 +2275,7 @@ private:
     bool m_rxStopPending = false;
     quint64 m_audioInputRequest = 0;
     std::function<void()> m_audioStopCompletion;
+    QrzLookupPanel *m_qrzLookupPanel = nullptr;
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;
     AsyncCatCommand *m_catCommand = nullptr;

@@ -1,4 +1,4 @@
-# MadModem 0.6.2 installation
+# MadModem 0.6.3 installation
 
 Close MadModem before running an installer. Interactive installers display
 Copyright (C) 2026 Papadopol Lucian-Ioan and the unmodified GNU GPL version 3,
@@ -8,8 +8,8 @@ and require acceptance before installing.
 
 Installation is optional. After every platform job succeeds, **Build installers**
 publishes the following downloads under **Releases → Assets**, with `SHA256SUMS.txt`.
-Version tags (for example `v0.6.2`) publish official releases; builds from a branch
-publish numbered prereleases (`build-0.6.2-N`). Manual runs follow the same rule:
+Version tags (for example `v0.6.3`) publish official releases; builds from a branch
+publish numbered prereleases (`build-0.6.3-N`). Manual runs follow the same rule:
 select the version tag to publish an official release. Existing release notes are
 preserved when uploading to an existing release. The workflow also retains the
 separate `portable-*` and `installer-*` Actions artifacts from the same revision.
@@ -42,7 +42,7 @@ are added only to the installer payload, never to the portable archives.
 
 ## Windows
 
-Run `MadModem-0.6.2-Windows-64bit-Installer-AutoCPU.exe`. The installer selects the AVX2 build
+Run `MadModem-0.6.3-Windows-64bit-Installer-AutoCPU.exe`. The installer selects the AVX2 build
 only when the CPU supports SSE4.2, FMA, XSAVE, OSXSAVE, AVX and AVX2, and the
 operating system enables the XMM/YMM register state. Otherwise it selects legacy.
 Both variants are 64-bit; legacy does not mean 32-bit Windows.
@@ -58,7 +58,7 @@ User data is not included in the uninstall file list.
 Choose the installer matching the distribution, then run:
 
 ```bash
-bash MadModem-0.6.2-Linux-Ubuntu24.04-64bit-Installer.run
+bash MadModem-0.6.3-Linux-Ubuntu24.04-64bit-Installer.run
 ```
 
 Use the `Linux-Fedora43-64bit-Installer.run` package on Fedora 43. The license appears in a Zenity
@@ -114,6 +114,6 @@ an automatic download/update service.
 
 ## In-application updates
 
-At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as v0.6.3, is required to offer an update; replacing assets of v0.6.2 does not trigger it.
+At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as v0.6.4, is required to offer an update; replacing assets of v0.6.3 does not trigger it.
 
 GitHub HTTPS and SHA-256 protect transfer integrity; the checksum is not an independent publisher signature. Windows remains unsigned and macOS ad-hoc signed. The downloaded installer can require normal OS authorization. A non-writable portable folder or an unsupported distribution requires a manual update. Native Windows/macOS helper behavior must be verified on those systems.

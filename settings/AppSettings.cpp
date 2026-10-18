@@ -432,6 +432,12 @@ void AppSettings::load()
     mfskNoiseReductionEnabled = settings.value("MFSK/noiseReductionEnabled", mfskNoiseReductionEnabled).toBool();
     mfskAgcEnabled = settings.value("MFSK/agcEnabled", mfskAgcEnabled).toBool();
 
+    cwDecodeEngine = settings.value("CW/decodeEngine", "native").toString();
+    // Migrate the two retired neural choices to the sole R13 model.
+    if (cwDecodeEngine == "neural_ctc" || cwDecodeEngine == "neural_envelope") {
+        cwDecodeEngine = "neural_search";
+    }
+    if (cwDecodeEngine != "neural_search") cwDecodeEngine = "native";
     cwToneHz = settings.value("CW/toneHz", cwToneHz).toInt();
     if (cwToneHz < 250 || cwToneHz > 3000) {
         cwToneHz = 1000;
@@ -452,6 +458,17 @@ void AppSettings::load()
     cwWpmA = qBound(5, settings.value("CW/wpmA", legacyCwWpm).toInt(), 50);
     cwWpmB = qBound(5, settings.value("CW/wpmB", legacyCwWpm).toInt(), 50);
     cwTxWpm = qBound(5, settings.value("CW/txWpm", legacyCwWpm).toInt(), 80);
+    cwTxMethod = settings.value("CW/txMethod", "audio").toString();
+    if (cwTxMethod != "serial_key") cwTxMethod = "audio";
+    cwKeyPort = settings.value("CW/keyPort").toString().trimmed();
+    cwKeyLine = settings.value("CW/keyLine", "rts").toString();
+    if (cwKeyLine != "dtr") cwKeyLine = "rts";
+    cwKeyPttLine = settings.value("CW/keyPttLine", "none").toString();
+    if (cwKeyPttLine != "rts" && cwKeyPttLine != "dtr") cwKeyPttLine = "none";
+    if (cwKeyPttLine == cwKeyLine) cwKeyPttLine = "none";
+    cwKeyLeadMs = qBound(0, settings.value("CW/keyLeadMs", 40).toInt(), 1000);
+    cwKeyTailMs = qBound(0, settings.value("CW/keyTailMs", 100).toInt(), 2000);
+
     cwBandwidthHz = settings.value("CW/bandwidthHz", cwBandwidthHz).toInt();
     cwAutoBandwidth = settings.value("CW/autoBandwidth", cwAutoBandwidth).toBool();
     cwSkimmerEnabled = settings.value("CW/skimmerEnabled", false).toBool();
@@ -850,6 +867,7 @@ bool AppSettings::save() const
     settings.setValue("MFSK/noiseReductionEnabled", mfskNoiseReductionEnabled);
     settings.setValue("MFSK/agcEnabled", mfskAgcEnabled);
 
+    settings.setValue("CW/decodeEngine", cwDecodeEngine);
     settings.setValue("CW/toneHz", cwToneHz);
     settings.setValue("CW/txToneHz", cwTxToneHz);
     settings.setValue("CW/secondaryToneHz", cwSecondaryToneHz);
@@ -857,6 +875,13 @@ bool AppSettings::save() const
     settings.setValue("CW/wpmA", cwWpmA);
     settings.setValue("CW/wpmB", cwWpmB);
     settings.setValue("CW/txWpm", cwTxWpm);
+    settings.setValue("CW/txMethod", cwTxMethod);
+    settings.setValue("CW/keyPort", cwKeyPort);
+    settings.setValue("CW/keyLine", cwKeyLine);
+    settings.setValue("CW/keyPttLine", cwKeyPttLine);
+    settings.setValue("CW/keyLeadMs", cwKeyLeadMs);
+    settings.setValue("CW/keyTailMs", cwKeyTailMs);
+
     settings.setValue("CW/autoWpmA", cwAutoWpmA);
     settings.setValue("CW/autoWpmB", cwAutoWpmB);
     // Keep the legacy keys synchronized for rollback compatibility.

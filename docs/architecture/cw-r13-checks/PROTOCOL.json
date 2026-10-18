@@ -1,0 +1,9 @@
+{
+  "freeze_before_final_test": true,
+  "search": {"width":4,"top_nonblank_classes":6,"token_insertion_penalty":1.5,"blank_probability_boundary":0.99,"consecutive_blank_frames":4,"maximum_uncommitted_tokens":64,"envelope_amplitude_floor":0.2,"peak_power_release_seconds":0.5},
+  "selection": "Development only; weighted CER .45 ARRL + .4 QSO + .15 arbitrary strings, reject any negative false characters. Compare untrained R8 Search, full-network adaptation checkpoints 4000/8000/12000/final with space bias 2 or 3, and frozen-stack checkpoints 3600/final with space bias 0 or 1. All eligible groups must be no worse than released R12 Envelope+2 errors. Select the lowest score. No new February-18 recording or final synthetic result has been evaluated yet.",
+  "development": {"arrl":"Existing March-4 transition bulletin, 24 predetermined segments", "qso_seeds":[134000000,134000031],"random_seeds":[135000000,135000039],"negative_seeds":[136000000,136000019]},
+  "final_test": {"arrl":"Previously unused February-18 2026 18-WPM practice recording: 20 evenly distributed supported whole-word segments and one fixed continuous 120-second whole-word passage", "qso_seeds":[137000000,137000031],"random_seeds":[138000000,138000039],"negative_seeds":[139000000,139000019],"known_rf":"VARC old excerpts remain development/regression, not independent test"},
+  "baselines":"Native R12, Neural CTC R12, Neural Envelope R12. Same physical audio, reset/flush policy and app CwDecoder route.",
+  "promotion":"Native remains default. Search is optional experimental. Reject candidate weights if independent comparison shows broad regression against released neural; report every result and retain the untrained search ablation."
+}

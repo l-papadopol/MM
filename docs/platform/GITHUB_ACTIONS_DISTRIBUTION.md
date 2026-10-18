@@ -1,4 +1,4 @@
-# MadModem 0.6.2 distribution workflow
+# MadModem 0.6.3 distribution workflow
 
 `Build installers` (`.github/workflows/build-distribution.yml`) runs on pushes to `main`/`master`, tags `v*`, or manual dispatch. Copy the complete source tree, including `.github`, into the repository root.
 
@@ -14,7 +14,7 @@ Distribution builds use `BUILD_TESTING=OFF`. They validate runtime dependency cl
 
 Portable artifacts upload before the installer step. After all required jobs succeed, the publish job collects packages and SHA256 checksums into downloadable GitHub Release assets. It alone requests `contents: write`; compilation jobs use read-only permissions. Repository policy must permit release publication.
 
-A version tag such as `v0.6.2` publishes the official release. A build from a named development ref publishes a numbered prerelease, without overwriting the stable version. Manual official publication must select the correct version tag. Immutable releases cannot be overwritten: use a new version tag.
+A version tag such as `v0.6.3` publishes the official release. A build from a named development ref publishes a numbered prerelease, without overwriting the stable version. Manual official publication must select the correct version tag. Immutable releases cannot be overwritten: use a new version tag.
 
 The publisher gives files descriptive platform/CPU/portable/installer names. The internal staging names can differ from the final download names. Windows packages are unsigned; macOS uses ad-hoc signing without Developer ID or notarization. Optional signing needs the author's credentials and is not configured here.
 

@@ -1,0 +1,92 @@
+[
+  {
+    "blank_threshold": 0.995,
+    "blank_frames": 6,
+    "metrics": {
+      "arrl": {
+        "errors": 9,
+        "characters": 702,
+        "exact": 18,
+        "records": 24
+      },
+      "qso": {
+        "errors": 45,
+        "characters": 946,
+        "exact": 19,
+        "records": 32
+      },
+      "random": {
+        "errors": 4,
+        "characters": 375,
+        "exact": 36,
+        "records": 40
+      },
+      "negative": {
+        "errors": 0,
+        "characters": 0,
+        "exact": 20,
+        "records": 20
+      }
+    }
+  },
+  {
+    "blank_threshold": 0.99,
+    "blank_frames": 4,
+    "metrics": {
+      "arrl": {
+        "errors": 9,
+        "characters": 702,
+        "exact": 18,
+        "records": 24
+      },
+      "qso": {
+        "errors": 45,
+        "characters": 946,
+        "exact": 19,
+        "records": 32
+      },
+      "random": {
+        "errors": 4,
+        "characters": 375,
+        "exact": 36,
+        "records": 40
+      },
+      "negative": {
+        "errors": 0,
+        "characters": 0,
+        "exact": 20,
+        "records": 20
+      }
+    }
+  },
+  {
+    "blank_threshold": 0.999,
+    "blank_frames": 8,
+    "metrics": {
+      "arrl": {
+        "errors": 9,
+        "characters": 702,
+        "exact": 18,
+        "records": 24
+      },
+      "qso": {
+        "errors": 45,
+        "characters": 946,
+        "exact": 19,
+        "records": 32
+      },
+      "random": {
+        "errors": 6,
+        "characters": 375,
+        "exact": 35,
+        "records": 40
+      },
+      "negative": {
+        "errors": 0,
+        "characters": 0,
+        "exact": 20,
+        "records": 20
+      }
+    }
+  }
+]

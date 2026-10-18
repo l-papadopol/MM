@@ -1,0 +1,34 @@
+{
+  "files": [
+    {
+      "audio": "260107_18WPM.mp3",
+      "audio_sha256": "e1910dc077f5ceba2af9900847eaf63119dbdb02bafd4a63062627bdacf63a0f",
+      "text_sha256": "3045c66cbf41cff9a6ae27c84e8e072ce4ced2b12e92cea8bd449edc28a0b9db",
+      "duration_seconds": 1694.652,
+      "known_symbol_match_fraction": 1.0,
+      "unresolved_alignment_regions": 0
+    },
+    {
+      "audio": "260204_18WPM.mp3",
+      "audio_sha256": "8402ccb3ebb33e3c50f1c5450ea18837d83b5562aaff5633c2b071a2a50ddf05",
+      "text_sha256": "a423b3f22bfe2e14b0eee60853c91e3c16538bb2a8c86cc9eda8a5cb29872885",
+      "duration_seconds": 2786.504,
+      "known_symbol_match_fraction": 1.0,
+      "unresolved_alignment_regions": 0
+    },
+    {
+      "audio": "260218_18WPM.mp3",
+      "audio_sha256": "8927fdaefdfcd0b8862e4b2af19b5ed7287b6fdf78d18cd59b72571d3ee3c40e",
+      "text_sha256": "47f31561e2f4db7eca89de490f991b32f8c323b5f28b4b9d3f929ea4b0c2b880",
+      "duration_seconds": 2595.4505,
+      "known_symbol_match_fraction": 1.0,
+      "unresolved_alignment_regions": 0
+    }
+  ],
+  "roles": {
+    "260107": "additional_training",
+    "260204": "additional_training",
+    "260218": "unseen_final_clean_recording"
+  },
+  "segments": 396
+}

@@ -1,4 +1,5 @@
 #include "CwTransmitter.h"
+#include "CwMorseSequence.h"
 
 #include <QColor>
 #include <QFont>
@@ -15,23 +16,7 @@ constexpr double kPi = 3.1415926535897932384626433832795;
 constexpr double kDefaultCwFilterBandwidthHz = 110.0;
 constexpr double kCwTxLevel = 0.42;
 
-QHash<QChar, QString> morseEncodeTable()
-{
-    return {
-        {'A', ".-"}, {'B', "-..."}, {'C', "-.-."}, {'D', "-.."}, {'E', "."},
-        {'F', "..-."}, {'G', "--."}, {'H', "...."}, {'I', ".."}, {'J', ".---"},
-        {'K', "-.-"}, {'L', ".-.."}, {'M', "--"}, {'N', "-."}, {'O', "---"},
-        {'P', ".--."}, {'Q', "--.-"}, {'R', ".-."}, {'S', "..."}, {'T', "-"},
-        {'U', "..-"}, {'V', "...-"}, {'W', ".--"}, {'X', "-..-"}, {'Y', "-.--"},
-        {'Z', "--.."},
-        {'1', ".----"}, {'2', "..---"}, {'3', "...--"}, {'4', "....-"}, {'5', "....."},
-        {'6', "-...."}, {'7', "--..."}, {'8', "---.."}, {'9', "----."}, {'0', "-----"},
-        {'.', ".-.-.-"}, {',', "--..--"}, {'?', "..--.."}, {'/', "-..-."},
-        {'=', "-...-"}, {'+', ".-.-."}, {'-', "-....-"}, {'(', "-.--."},
-        {')', "-.--.-"}, {'@', ".--.-."}, {'!', "-.-.--"}, {'&', ".-..."},
-        {':', "---..."}, {';', "-.-.-."}, {'\'', ".----."}, {'\"', ".-..-."}
-    };
-}
+
 }
 
 void CwTransmitter::Biquad::configureBandPass(double sampleRate, double centerHz, double bandwidthHz)
@@ -75,7 +60,7 @@ CwTransmitter::CwTransmitter(const QString &text,
     : m_text(text),
       m_sampleRate(qBound(8000, sampleRate, 192000)),
       m_toneHz(qBound(250.0, toneHz, 3500.0)),
-      m_wpm(qBound(5.0, wpm, 60.0))
+      m_wpm(qBound(5.0, wpm, 80.0))
 {
     m_dotSamples = (1.2 / m_wpm) * static_cast<double>(m_sampleRate);
 
@@ -176,63 +161,15 @@ QImage CwTransmitter::previewTextImage(const QString &text)
 
 void CwTransmitter::buildSegments(const QString &text)
 {
-    m_segments.clear();
-    m_textPositions.clear();
-    m_segmentIndex = 0;
-    m_segmentSampleIndex = 0;
-    m_generatedSamples = 0;
-    m_totalSamples = 0;
-
-    // Keep the same uppercase/space normalization, retaining original editor
-    // positions (including newlines, repeated spaces and case expansions).
-    QString normalized;
-    QVector<int> sourcePositions;
-    for (int source = 0; source < text.size(); ++source) {
-        for (QChar ch : text.mid(source, 1).toUpper()) {
-            if (ch.isSpace()) {
-                if (normalized.isEmpty() || normalized.endsWith(QLatin1Char(' '))) continue;
-                ch = QLatin1Char(' ');
-            }
-            normalized.append(ch);
-            sourcePositions.append(source);
-        }
+    m_segments.clear(); m_textPositions.clear();
+    m_totalSamples = 0; m_generatedSamples = 0;
+    m_segmentIndex = 0; m_segmentSampleIndex = 0;
+    for (const auto& segment : cwMorseSequence(text)) {
+        if (segment.down && segment.textPosition >= 0)
+            m_textPositions.append(qMakePair(m_totalSamples, segment.textPosition));
+        appendKey(segment.down, segment.units);
     }
-    if (normalized.endsWith(QLatin1Char(' '))) { normalized.chop(1); sourcePositions.removeLast(); }
-    bool previousWasCharacter = false;
-
-    for (int pos = 0; pos < normalized.size(); ++pos) {
-        const QChar ch = normalized.at(pos);
-        if (ch.isSpace()) {
-            if (!m_segments.isEmpty()) {
-                appendKey(false, 7.0);
-            }
-            previousWasCharacter = false;
-            continue;
-        }
-
-        const QString code = morseForChar(ch);
-        if (code.isEmpty()) {
-            continue;
-        }
-
-        if (previousWasCharacter) {
-            appendKey(false, 3.0);
-        }
-
-        m_textPositions.append(qMakePair(m_totalSamples, sourcePositions.at(pos)));
-
-        for (int i = 0; i < code.size(); ++i) {
-            appendKey(true, code.at(i) == '-' ? 3.0 : 1.0);
-            if (i + 1 < code.size()) {
-                appendKey(false, 1.0);
-            }
-        }
-        previousWasCharacter = true;
-    }
-
-    /* Give the cascaded band-pass a real zero-input tail so the final edge
-     * decays cleanly before TxAudioEngine adds its generic backend silence.
-     */
+    // Let the shaped audio/filter tail decay before the output backend drains.
     appendKey(false, 4.0);
     m_textPositions.append(qMakePair(m_totalSamples, int(text.size())));
 }
@@ -258,11 +195,6 @@ void CwTransmitter::appendKey(bool down, double dotUnits)
     m_totalSamples += samples;
 }
 
-QString CwTransmitter::morseForChar(QChar ch) const
-{
-    static const QHash<QChar, QString> table = morseEncodeTable();
-    return table.value(ch.toUpper(), QString());
-}
 
 void CwTransmitter::configureOutputFilter()
 {

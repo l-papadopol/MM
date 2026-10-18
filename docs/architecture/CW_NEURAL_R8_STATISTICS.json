@@ -1,0 +1,266 @@
+{
+  "original": {
+    "R7": {
+      "cer": 0.03660253402158611,
+      "errors": 78,
+      "characters": 2131,
+      "exact": 184,
+      "records": 240,
+      "message_bootstrap_95_percent": [
+        2.727166026461801,
+        4.675938500498609
+      ]
+    },
+    "R8": {
+      "cer": 0.02111684655091506,
+      "errors": 45,
+      "characters": 2131,
+      "exact": 202,
+      "records": 240,
+      "message_bootstrap_95_percent": [
+        1.493178390237214,
+        2.7881040892193307
+      ]
+    }
+  },
+  "receiver_filtered": {
+    "R7": {
+      "cer": 0.15563435776201734,
+      "errors": 395,
+      "characters": 2538,
+      "exact": 112,
+      "records": 240,
+      "message_bootstrap_95_percent": [
+        12.680384407712378,
+        18.51556420839984
+      ]
+    },
+    "R8": {
+      "cer": 0.11150512214342001,
+      "errors": 283,
+      "characters": 2538,
+      "exact": 145,
+      "records": 240,
+      "message_bootstrap_95_percent": [
+        8.745521492628905,
+        13.63640804291449
+      ]
+    }
+  },
+  "clean": {
+    "R7": {
+      "cer": 0.021880819366852888,
+      "errors": 47,
+      "characters": 2148,
+      "exact": 202,
+      "records": 240,
+      "message_bootstrap_95_percent": [
+        1.4997471132332645,
+        2.98650031147765
+      ]
+    },
+    "R8": {
+      "cer": 0.017690875232774673,
+      "errors": 38,
+      "characters": 2148,
+      "exact": 209,
+      "records": 240,
+      "message_bootstrap_95_percent": [
+        1.1807212028706153,
+        2.414784273001731
+      ]
+    }
+  },
+  "overall": {
+    "R7": {
+      "cer": 0.07627988851400909,
+      "errors": 520,
+      "characters": 6817,
+      "exact": 498,
+      "records": 720,
+      "message_bootstrap_95_percent": [
+        6.42551835766318,
+        8.920541700880161
+      ]
+    },
+    "R8": {
+      "cer": 0.05368930614639871,
+      "errors": 366,
+      "characters": 6817,
+      "exact": 556,
+      "records": 720,
+      "message_bootstrap_95_percent": [
+        4.425874057650811,
+        6.417148937384638
+      ]
+    }
+  },
+  "filter_100.0": {
+    "R7": {
+      "cer": 0.564935064935065,
+      "errors": 174,
+      "characters": 308,
+      "exact": 0,
+      "records": 31,
+      "message_bootstrap_95_percent": [
+        48.038541104515204,
+        64.68649443069306
+      ]
+    },
+    "R8": {
+      "cer": 0.4155844155844156,
+      "errors": 128,
+      "characters": 308,
+      "exact": 1,
+      "records": 31,
+      "message_bootstrap_95_percent": [
+        34.306569343065696,
+        48.41780479680213
+      ]
+    }
+  },
+  "filter_150.0": {
+    "R7": {
+      "cer": 0.1836734693877551,
+      "errors": 45,
+      "characters": 245,
+      "exact": 6,
+      "records": 24,
+      "message_bootstrap_95_percent": [
+        12.616619260463224,
+        24.163646220570012
+      ]
+    },
+    "R8": {
+      "cer": 0.09795918367346938,
+      "errors": 24,
+      "characters": 245,
+      "exact": 13,
+      "records": 24,
+      "message_bootstrap_95_percent": [
+        4.680561304743771,
+        15.471698113207546
+      ]
+    }
+  },
+  "filter_200.0": {
+    "R7": {
+      "cer": 0.13260869565217392,
+      "errors": 61,
+      "characters": 460,
+      "exact": 21,
+      "records": 46,
+      "message_bootstrap_95_percent": [
+        8.459713308137845,
+        18.72455691444762
+      ]
+    },
+    "R8": {
+      "cer": 0.10434782608695652,
+      "errors": 48,
+      "characters": 460,
+      "exact": 26,
+      "records": 46,
+      "message_bootstrap_95_percent": [
+        6.302300640535935,
+        15.15806824754193
+      ]
+    }
+  },
+  "filter_300.0": {
+    "R7": {
+      "cer": 0.10940919037199125,
+      "errors": 50,
+      "characters": 457,
+      "exact": 20,
+      "records": 41,
+      "message_bootstrap_95_percent": [
+        6.485165077160233,
+        16.145219174570613
+      ]
+    },
+    "R8": {
+      "cer": 0.07658643326039387,
+      "errors": 35,
+      "characters": 457,
+      "exact": 27,
+      "records": 41,
+      "message_bootstrap_95_percent": [
+        3.5376500411877774,
+        12.60879357618488
+      ]
+    }
+  },
+  "filter_500.0": {
+    "R7": {
+      "cer": 0.03761755485893417,
+      "errors": 12,
+      "characters": 319,
+      "exact": 22,
+      "records": 31,
+      "message_bootstrap_95_percent": [
+        1.5923566878980893,
+        6.209150326797386
+      ]
+    },
+    "R8": {
+      "cer": 0.025078369905956112,
+      "errors": 8,
+      "characters": 319,
+      "exact": 25,
+      "records": 31,
+      "message_bootstrap_95_percent": [
+        0.6644518272425249,
+        4.62046204620462
+      ]
+    }
+  },
+  "filter_800.0": {
+    "R7": {
+      "cer": 0.06832298136645963,
+      "errors": 22,
+      "characters": 322,
+      "exact": 21,
+      "records": 30,
+      "message_bootstrap_95_percent": [
+        2.095677982015064,
+        13.982048196520633
+      ]
+    },
+    "R8": {
+      "cer": 0.06832298136645963,
+      "errors": 22,
+      "characters": 322,
+      "exact": 24,
+      "records": 30,
+      "message_bootstrap_95_percent": [
+        1.2697408077154912,
+        14.95670427082636
+      ]
+    }
+  },
+  "filter_1200.0": {
+    "R7": {
+      "cer": 0.07259953161592506,
+      "errors": 31,
+      "characters": 427,
+      "exact": 22,
+      "records": 37,
+      "message_bootstrap_95_percent": [
+        3.640666372462489,
+        11.601028329179913
+      ]
+    },
+    "R8": {
+      "cer": 0.04215456674473068,
+      "errors": 18,
+      "characters": 427,
+      "exact": 29,
+      "records": 37,
+      "message_bootstrap_95_percent": [
+        1.141552511415525,
+        8.665345221635954
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.6.2
+    VERSION 0.6.3
     LANGUAGES CXX
 )
 
@@ -363,6 +363,8 @@ add_executable(MadModem
     main.cpp
     mainwindow.cpp
     updates/UpdateController.cpp updates/UpdateController.h
+    callsign/QrzLookupPanel.cpp callsign/QrzLookupPanel.h widgets/FrequencyScaleTicks.h
+    widgets/CurrentPageStack.h
     mainwindow.h
     mainwindow.ui
     resources.qrc
@@ -430,6 +432,12 @@ add_executable(MadModem
     modems/bpsk31/tx/Bpsk31Transmitter.h
     modems/bpsk31/tx/Bpsk31Transmitter.cpp
     modems/cw/tx/CwTransmitter.h
+    modems/cw/tx/CwMorseSequence.cpp
+    modems/cw/tx/CwMorseSequence.h
+    modems/cw/tx/CwSerialTransmitter.cpp
+    modems/cw/tx/CwSerialTransmitter.h
+    dialogs/CwTxSettingsDialog.cpp
+    dialogs/CwTxSettingsDialog.h
     modems/cw/tx/CwTransmitter.cpp
     modems/mfsk/tx/MfskTransmitter.h
     modems/mfsk/tx/MfskTransmitter.cpp
@@ -458,6 +466,8 @@ add_executable(MadModem
     runtime/LogbookIndexWorker.cpp
     runtime/TextAssistWorker.h
     runtime/TextAssistWorker.cpp
+    utils/SerialPortEndpoint.h
+    runtime/CwSerialTxSession.cpp
     runtime/AsyncCatCommand.h
     modems/rtty/contest/RttyContestRules.cpp
     modems/bpsk31/Bpsk31Decoder.h
@@ -466,6 +476,8 @@ add_executable(MadModem
     modems/mfsk/MfskDecoder.cpp
     modems/cw/CwDecoder.h
     modems/cw/CwDecoder.cpp
+    modems/cw/neural/CwNeuralDecoder.cpp
+    modems/cw/neural/CwNeuralDecoder.h
     modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h modems/cw/CwBandSkimmerWorker.h dsp/text/SkimmerSpot.h dsp/text/SkimmerCqTracker.h
     modems/hell/HellschreiberDecoder.h
     modems/hell/HellschreiberDecoder.cpp
@@ -658,6 +670,12 @@ endif()
 # Users can replace this file with a fresh download without rebuilding.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cty.csv" "${CMAKE_CURRENT_BINARY_DIR}/cty.csv" COPYONLY)
+endif()
+
+target_include_directories(MadModem PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+set_property(TARGET MadModem PROPERTY AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}")
+if(WIN32)
+    target_link_libraries(MadModem PRIVATE winmm)
 endif()
 
 target_link_libraries(MadModem PRIVATE
@@ -1210,12 +1228,52 @@ if(BUILD_TESTING)
     add_executable(madmodem_cw_integration_regression
         tests/CwIntegrationRegression.cpp tests/CwTestSignal.h
         modems/cw/CwDecoder.cpp modems/cw/CwDecoder.h
+        modems/cw/neural/CwNeuralDecoder.cpp modems/cw/neural/CwNeuralDecoder.h
         modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h modems/cw/CwBandSkimmerWorker.h
         dsp/text/LinearResampler.cpp)
     target_include_directories(madmodem_cw_integration_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(madmodem_cw_integration_regression PRIVATE
         madmodem_cwskimmer ${QT}::Core ${QT}::Gui)
     add_test(NAME madmodem_cw_integration_regression COMMAND madmodem_cw_integration_regression)
+
+    add_executable(madmodem_cw_ctc_prefix_regression tests/CwCtcPrefixRegression.cpp)
+    target_include_directories(madmodem_cw_ctc_prefix_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME madmodem_cw_ctc_prefix_regression COMMAND madmodem_cw_ctc_prefix_regression)
+
+    add_executable(madmodem_cw_route_probe
+        tests/CwRouteProbe.cpp
+        modems/cw/CwDecoder.cpp modems/cw/CwDecoder.h
+        modems/cw/neural/CwNeuralDecoder.cpp modems/cw/neural/CwNeuralDecoder.h
+        modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h
+        dsp/text/LinearResampler.cpp)
+    target_include_directories(madmodem_cw_route_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_cw_route_probe PRIVATE madmodem_cwskimmer ${QT}::Core ${QT}::Gui)
+
+    add_executable(madmodem_cw_engine_regression
+        tests/CwEngineIntegrationRegression.cpp
+        modems/cw/CwDecoder.cpp modems/cw/CwDecoder.h
+        modems/cw/neural/CwNeuralDecoder.cpp modems/cw/neural/CwNeuralDecoder.h
+        modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h
+        dsp/text/LinearResampler.cpp)
+    target_include_directories(madmodem_cw_engine_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_cw_engine_regression PRIVATE
+        madmodem_cwskimmer ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_cw_engine_regression COMMAND madmodem_cw_engine_regression)
+
+    add_executable(madmodem_cw_native_probe
+        tests/CwNativeProbe.cpp
+        modems/cw/CwDecoder.cpp modems/cw/CwDecoder.h
+        modems/cw/neural/CwNeuralDecoder.cpp modems/cw/neural/CwNeuralDecoder.h
+        modems/cw/CwBandSkimmer.cpp modems/cw/CwBandSkimmer.h
+        dsp/text/LinearResampler.cpp)
+    target_include_directories(madmodem_cw_native_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_cw_native_probe PRIVATE
+        madmodem_cwskimmer ${QT}::Core ${QT}::Gui)
+
+    add_executable(madmodem_cw_neural_probe
+        tests/CwNeuralProbe.cpp modems/cw/neural/CwNeuralDecoder.cpp)
+    target_include_directories(madmodem_cw_neural_probe PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    set_target_properties(madmodem_cw_neural_probe PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
 
     add_executable(madmodem_rtty_contest_regression tests/RttyContestRegression.cpp
         modems/rtty/RttyDecoder.cpp modems/rtty/RttyMultiDecoder.cpp

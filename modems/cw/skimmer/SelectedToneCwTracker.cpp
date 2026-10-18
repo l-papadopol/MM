@@ -855,6 +855,7 @@ public:
 
     if (carrier.transitioned && carrier.completedRun.has_value()) {
       const CwLogicRun run = *carrier.completedRun;
+
       if (timingFeedEnabled) {
         logLogicRun(run);
       } else {
@@ -1273,8 +1274,13 @@ public:
     std::vector<std::complex<double>> input(rawSpectrum.begin(), rawSpectrum.end());
     std::vector<std::complex<double>> output(filteredSpectrum.begin(), filteredSpectrum.end());
     for (int i = 0; i < kSpectrumSize; ++i) {
-      const double w = 0.5 - 0.5 * std::cos(kTwoPi * static_cast<double>(i) /
-                                           static_cast<double>(kSpectrumSize - 1));
+      static const auto window = [] {
+        std::array<double,kSpectrumSize> values{};
+        for (int j=0;j<kSpectrumSize;++j)
+          values[j]=0.5-0.5*std::cos(kTwoPi*static_cast<double>(j)/static_cast<double>(kSpectrumSize-1));
+        return values;
+      }();
+      const double w = window[static_cast<std::size_t>(i)];
       input[static_cast<std::size_t>(i)] *= w;
       output[static_cast<std::size_t>(i)] *= w;
     }
@@ -1291,6 +1297,16 @@ public:
     frame.filteredPsdDb.reserve(kSpectrumSize);
     frame.theoreticalResponseDb.reserve(kSpectrumSize);
 
+    if (spectrumResponseBandwidth != effectiveBandwidth) {
+      const double cutoff=std::max(1.0,0.5*effectiveBandwidth);
+      for (int display=-kSpectrumSize/2;display<kSpectrumSize/2;++display) {
+        const double offset=static_cast<double>(display)*1000.0/static_cast<double>(kSpectrumSize);
+        spectrumResponse[static_cast<std::size_t>(display+kSpectrumSize/2)]=static_cast<float>(
+          -10.0*std::log10(1.0+std::pow(std::abs(offset)/cutoff,8.0)));
+      }
+      spectrumResponseBandwidth=effectiveBandwidth;
+    }
+    std::array<double,kSpectrumSize> inputDb{},outputDb{};
     double mainPeak = -200.0;
     double mainOutputPeak = -200.0;
     double secondPeak = -200.0;
@@ -1302,12 +1318,12 @@ public:
                             static_cast<double>(kSpectrumSize);
       const double inDb = 10.0 * std::log10(std::norm(input[static_cast<std::size_t>(index)]) + kEpsilon);
       const double outDb = 10.0 * std::log10(std::norm(output[static_cast<std::size_t>(index)]) + kEpsilon);
+      inputDb[static_cast<std::size_t>(index)]=inDb;
+      outputDb[static_cast<std::size_t>(index)]=outDb;
       frame.offsetsHz.push_back(static_cast<float>(offset));
       frame.inputPsdDb.push_back(static_cast<float>(inDb));
       frame.filteredPsdDb.push_back(static_cast<float>(outDb));
-      const double cutoff = std::max(1.0, 0.5 * effectiveBandwidth);
-      frame.theoreticalResponseDb.push_back(static_cast<float>(
-          -10.0 * std::log10(1.0 + std::pow(std::abs(offset) / cutoff, 8.0))));
+      frame.theoreticalResponseDb.push_back(spectrumResponse[static_cast<std::size_t>(display+kSpectrumSize/2)]);
       if (std::abs(offset) <= 12.0 && inDb > mainPeak) {
         mainPeak = inDb;
         mainOutputPeak = outDb;
@@ -1320,7 +1336,7 @@ public:
                             static_cast<double>(kSpectrumSize);
       if (std::abs(offset) < 15.0 || std::abs(offset) > 250.0) continue;
       const int index = display < 0 ? display + kSpectrumSize : display;
-      const double value = 10.0 * std::log10(std::norm(input[static_cast<std::size_t>(index)]) + kEpsilon);
+      const double value = inputDb[static_cast<std::size_t>(index)];
       if (value > secondPeak) {
         secondPeak = value;
         secondOffset = offset;
@@ -1369,7 +1385,7 @@ public:
         const int display = mainIndex + sign * delta;
         if (display < -kSpectrumSize / 2 || display >= kSpectrumSize / 2) continue;
         const int index = display < 0 ? display + kSpectrumSize : display;
-        const double value = 10.0 * std::log10(std::norm(output[static_cast<std::size_t>(index)]) + kEpsilon);
+        const double value = outputDb[static_cast<std::size_t>(index)];
         if (value >= halfPower) any = true;
       }
       if (!any) break;
@@ -1446,6 +1462,8 @@ public:
   std::string rolling;
   std::string partial;
 
+  std::array<float,kSpectrumSize> spectrumResponse{};
+  double spectrumResponseBandwidth = 0.0;
   std::deque<std::complex<double>> rawSpectrum;
   std::deque<std::complex<double>> filteredSpectrum;
   int spectrumHopCounter = 0;

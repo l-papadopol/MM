@@ -1,0 +1,6 @@
+{
+  "frames": 1600,
+  "logits": 67200,
+  "bit_identical": true,
+  "max_absolute_error": 0.0
+}

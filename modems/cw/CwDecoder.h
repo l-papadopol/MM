@@ -17,6 +17,7 @@
 namespace madmodem::cwskimmer {
 class CwSkimmerEngine;
 class SelectedToneCwTracker;
+class CwNeuralDecoder;
 }
 
 
@@ -95,6 +96,8 @@ public:
     void setAutoBandwidth(bool enabled);
     void setAfcEnabled(bool enabled);
     void setAfcRangeHz(double rangeHz);
+    void setDecodeEngine(const QString& engine);
+    QString decodeEngine() const { return m_decodeEngine; }
 
     double toneHz() const;
     double wpm() const;
@@ -139,6 +142,7 @@ signals:
 
 private:
     void resetSkimmer();
+    void acceptDecodedText(int rank, const std::string& text);
     void updateTrackerInterferers();
     void emitSkimmerStatus(bool force = false);
     void refreshPriorityAndOverlays();
@@ -156,12 +160,17 @@ private:
     bool m_afcEnabled = true;       // Bounded AFC for selected RX A/B trackers.
     bool m_autoBandwidth = true;
     double m_afcRangeHz = 20.0;
+    QString m_decodeEngine = QStringLiteral("native");
+    std::unique_ptr<madmodem::cwskimmer::CwNeuralDecoder> m_neuralA;
+    std::unique_ptr<madmodem::cwskimmer::CwNeuralDecoder> m_neuralB;
 
     CwBandSkimmerWorker m_bandSkimmer;
     bool m_bandSkimmerEnabled = false;
     qint64 m_bandPublishSamples = 0;
     int m_sampleRate = 0;
     qint64 m_sampleCounter = 0;
+    qint64 m_neuralExpectedSample = -1;
+    quint64 m_neuralCaptureGeneration = 0;
     int m_statusCounter = 0;
     double m_trackedWpm = 20.0;
     QString m_text;

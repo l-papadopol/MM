@@ -44,6 +44,19 @@ void requireTrue(const std::string& name, bool value) {
   std::cout << "PASS " << name << '\n';
 }
 
+void testShortPreludeKeepsFirstElement() {
+  SignalOptions options;
+  options.frequencyHz=1000.0; options.wpm=20.0;
+  options.noiseAmplitude=0.012; options.riseTimeMs=2.0;
+  for (const std::string& message : {std::string("CQ DE TEST"),std::string("UR 599 599"),std::string("DL1ABC DE TEST")}) {
+    auto audio=synthesize(message,options);
+    // The helper normally supplies 12 dits of receiver idle. Retain just two,
+    // matching a real short capture prelude rather than a settled noise model.
+    audio.erase(audio.begin(),audio.begin()+static_cast<std::ptrdiff_t>(0.6*kSampleRate));
+    requireEqual("short-prelude-first-element",decode(audio,1000.0,20.0),message);
+  }
+}
+
 void testTimingTaskResetDiscardsOldText() {
   using namespace madmodem::cwskimmer;
   for (bool keepPrior : {false, true}) {
@@ -892,6 +905,7 @@ void testNoiseOnly() {
 
 int main() {
   try {
+    testShortPreludeKeepsFirstElement();
     testTimingTaskResetDiscardsOldText();
     testRelativeTimingDirect();
     testSameLaneAbruptOperatorSpeedChange();

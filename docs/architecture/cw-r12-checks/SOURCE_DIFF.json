@@ -1,0 +1,154 @@
+{
+  "base_archive_sha256": "c14d6224668acef9d476f9957e9247fbffdd35e8c818ee4efe600089935d794d",
+  "original_files_retained": 1931,
+  "changed_original_files": [
+    {
+      "path": "CMakeLists.txt",
+      "r8_sha256": "dbaac908567047e52db6ecdb59bf992c8946e935f2f9582a5d5bef29e2456790",
+      "r12_sha256": "2f6ad20bebb388048e60a3245d65dc655469c90196bb8abd982a8a8263b345e1"
+    },
+    {
+      "path": "MADMODEM_SOURCE_REVISION.txt",
+      "r8_sha256": "5b91082501080b1f3184ad16fd768ca2ac415a7b2e08a3b7fcdfdaebbd26fa2e",
+      "r12_sha256": "c3aac7218883acefb9f8863fcefa3994170b00e31bcecce0e0c3e4e968ca39c1"
+    },
+    {
+      "path": "README.md",
+      "r8_sha256": "ba3ea74992fd82734886e5d78f2aadbf288d305b0614353b3d045acd5b874dd3",
+      "r12_sha256": "eade203216be09229491bb9b7c12d25f598f9c038f09296d0045bab5e1c20271"
+    },
+    {
+      "path": "RELEASE_NOTES.md",
+      "r8_sha256": "87600e37f7f360c5a572dd6a0cf047ee2330fac4484386b323b09299b58501e5",
+      "r12_sha256": "6241d9c8c20290e3e8fb507ed0f5caa6a0988e7ce8cd3955ddbbf898cdc74aed"
+    },
+    {
+      "path": "mainwindow.cpp",
+      "r8_sha256": "66a899f3338cd5bc1fc3b798a9c2087d8af200ed173e3cbb9942ab4d562749f6",
+      "r12_sha256": "1d069101bcb18c708e6e2f6763d32a76b2d8c1e4bc705ab0a53d6d3e7242c9f5"
+    },
+    {
+      "path": "modems/cw/CwDecoder.cpp",
+      "r8_sha256": "ae40f65c7955598a953781ad6e451d0ae86b0708bfa95a92c69854a986b429e0",
+      "r12_sha256": "dfc6f927579ac24df49d856e1bb2a84b86e026c02808143010c51a591a0e9263"
+    },
+    {
+      "path": "modems/cw/neural/CwNeuralDecoder.cpp",
+      "r8_sha256": "e763bde2a3457578f5f8acc713a41b9909d27766322008e24a6859ce9591ea00",
+      "r12_sha256": "50d273625a1d04775edfbfaa2d0262bb74d1fc643232395edeef77e4ba1bb3bb"
+    },
+    {
+      "path": "modems/cw/neural/CwNeuralDecoder.h",
+      "r8_sha256": "7fceb81b2417aa95cb0d8ee033beb910cbd450fcf270cf5cb239e795e3503ba4",
+      "r12_sha256": "c917efc5a45ee9eae1695514b3651d5fbe6a22d372523ddea932d5b64e34b506"
+    },
+    {
+      "path": "modems/cw/skimmer/CwCarrierDiscriminator.cpp",
+      "r8_sha256": "feea68d65b9915aabfe84692b1a8dd9d7c7054ddf590fa35808063f9ee02e085",
+      "r12_sha256": "bcaf860d5d1281738f646346f64a454aa19dfd2d3a94926d787b27468c09e874"
+    },
+    {
+      "path": "modems/cw/skimmer/CwCarrierDiscriminator.h",
+      "r8_sha256": "b9cf221cf9cd1b75f752dfabb4579113d489cce3aad355b5dcbe2378661b8a28",
+      "r12_sha256": "308f4d7ad4c20a4142c11cdff28087ba04607e2bfd71f8b7137a0444ca16b180"
+    },
+    {
+      "path": "modems/cw/skimmer/CwRelativeTimingDecoder.cpp",
+      "r8_sha256": "5fd1d96510ebdec8595d2cd30f9d1ee1511ba17892d419bb188687f9f98ac7e8",
+      "r12_sha256": "bd861c501c46d1f5a1701aa90f47d74b24122c371a36c224150a68d0da7ca84a"
+    },
+    {
+      "path": "modems/cw/skimmer/CwRelativeTimingDecoder.h",
+      "r8_sha256": "a91bb52ae38022c72359dd421672d83e377a57d2bccb8c72bd5439ce21a7ac64",
+      "r12_sha256": "0679776a40b2df56d9c3ed62c38b9d714239f442389d90dd57c16b45b153dd02"
+    },
+    {
+      "path": "modems/cw/skimmer/SelectedToneCwTracker.cpp",
+      "r8_sha256": "df09c16d6e399ce17e8656cdd2fd2b6ad73e02176f8ced407890fa98f47327ab",
+      "r12_sha256": "2d3d11a95d1f536d5d042a1ffe20e17967673caac87390b5ba39660a91d4083b"
+    },
+    {
+      "path": "settings/AppSettings.cpp",
+      "r8_sha256": "d4f8b8fe1873f9007e2445ca55be0944f4bcd462d7754447d38d6377d7b19dc7",
+      "r12_sha256": "712d5b06bcae88addda8da208cf277791873c41177d53a8bfc89d675ab74fc5f"
+    },
+    {
+      "path": "settings/AppSettings.h",
+      "r8_sha256": "4e63eaa8d6d03a68a32ae6b4338b3a8db912219cb85e7d8093e6b7eb101b54c9",
+      "r12_sha256": "a189b36de04f7c2340c5287c15354f7a0a29dd180637c975f6d933ecfc129b44"
+    },
+    {
+      "path": "tests/CwEngineIntegrationRegression.cpp",
+      "r8_sha256": "368f6480805d5a61008a3dd8f9b9feb40595c0a9236954f9778229da9fa339b7",
+      "r12_sha256": "deaa78ef5fb7ebef31a18960a7ae2f6e3aac0d39f516fa73e7f6095df1409a16"
+    },
+    {
+      "path": "tests/CwEngineUiProbe.cpp",
+      "r8_sha256": "f9442064a96174e3fd0190e7b3c3daa817aa989eeeba4886041b336d30b4c790",
+      "r12_sha256": "80f5da286ad91d93024c6fe04bf12f44e3ac768d410005ae4b8d356e3b3bea9d"
+    },
+    {
+      "path": "tests/CwNativeRegression.cpp",
+      "r8_sha256": "c491afd876acbdd188e4a7ba5f53a05d2cbbf00baacaad4c3b6d1aafa35f64f1",
+      "r12_sha256": "79265f9edf0a04d8454631b20e456ae532d4da9930d37bd261a0f52825620044"
+    },
+    {
+      "path": "tools/cw_neural_ui_translations.py",
+      "r8_sha256": "b24112d8af8b1c912d5bc79e1c79064f082a892439e82511a7be10679eaa5037",
+      "r12_sha256": "079a973513d71d7c82ecf84c6438d2566c1c851c29623bba7a7b704d3da4ac0b"
+    },
+    {
+      "path": "translations/ui_cs.ini",
+      "r8_sha256": "e9ecf082604828c1d95e96eba0432aa527855f8e6d5d5cafacec0b7d3b33a18b",
+      "r12_sha256": "ccdafa25ae5808a70994db2f324dcb676b7cc4a21ec7fa1eeba7b25442dc6110"
+    },
+    {
+      "path": "translations/ui_de.ini",
+      "r8_sha256": "62e3be84f76403e65b6ba8491dff4c3d3ce155f9fbdad70c5cbeb0d544540e61",
+      "r12_sha256": "7935ef9e5fe4f7352d6604e3047e476bbd81bbba01eefa1f9b25ef16ba355fce"
+    },
+    {
+      "path": "translations/ui_fr.ini",
+      "r8_sha256": "e4cd284c8a44bf303c32d0a35d86310479d107c0cfd8a7388a2f8d951c3df114",
+      "r12_sha256": "b2733390d699f5dadb7af172d569d74b7cf2771cb4e3049933e878a34229d07a"
+    },
+    {
+      "path": "translations/ui_it.ini",
+      "r8_sha256": "d860666ede0cfe8a1d99fb9bc7288e1cedc53fe5977f5f602b0e04efb8adc29a",
+      "r12_sha256": "a63a423d8f2589071285f9a6da08c8603bb0afdd514aaa471d85de8b8999a39a"
+    },
+    {
+      "path": "translations/ui_no.ini",
+      "r8_sha256": "c14e79240f58fdf0e9197bfd3e2d79c8e5d9062d79c951e1b22b43d1a650a758",
+      "r12_sha256": "a7d48f2fac7f1836d204fd7a4aa7c20dd592c2b38846226f8947d3cc255e1a74"
+    }
+  ],
+  "added_files": [
+    "docs/architecture/CW_R12_CHECKS.md",
+    "docs/architecture/cw-r12-checks/CPU.json",
+    "docs/architecture/cw-r12-checks/FREEZE.json",
+    "docs/architecture/cw-r12-checks/FRESH_HOLDOUT.json",
+    "docs/architecture/cw-r12-checks/FRONTEND_DEVELOPMENT.json",
+    "docs/architecture/cw-r12-checks/LATENCY_DEVELOPMENT.json",
+    "docs/architecture/cw-r12-checks/RF_DEVELOPMENT.json",
+    "docs/architecture/cw-r12-checks/engine-cmake-tests.log",
+    "docs/architecture/cw-r12-checks/engine-tests.log",
+    "docs/architecture/cw-r12-checks/full-build.log",
+    "docs/architecture/cw-r12-checks/hazards.log",
+    "docs/architecture/cw-r12-checks/native-cmake-tests.log",
+    "docs/architecture/cw-r12-checks/native-tests.log",
+    "docs/architecture/cw-r12-checks/parity.log",
+    "docs/architecture/cw-r12-checks/settings.log",
+    "docs/architecture/cw-r12-checks/standalone-smoke.log",
+    "docs/architecture/cw-r12-checks/standalone.log",
+    "docs/architecture/cw-r12-checks/ui-tests.log",
+    "tests/CwRouteProbe.cpp",
+    "tools/cw_validation/CMakeLists.txt",
+    "tools/cw_validation/compare_routes.py",
+    "tools/cw_validation/prepare_real_pilot.py",
+    "tools/cw_validation/real_compare.py",
+    "docs/architecture/cw-r12-checks/SOURCE_DIFF.json"
+  ],
+  "neural_model_files_unchanged": true,
+  "weights_header_sha256": "45e1202f69af7e4188c333f6aea97e9c25952231ceb4042206c0063f126369b3"
+}

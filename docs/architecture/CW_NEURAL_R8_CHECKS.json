@@ -1,0 +1,18 @@
+{
+  "revision": "0.6.2-source-r8-cw-extended-training",
+  "linux_qt_hamlib_build": "passed",
+  "cw_decoder_integration": "passed",
+  "cw_ab_routing_and_lifecycle": "passed",
+  "python_cpp_max_logit_error": 7.62939453125e-06,
+  "chunk_outputs": {
+    "17": "CQ CQ DE IZ6NNH TEST 73",
+    "997": "CQ CQ DE IZ6NNH TEST 73",
+    "4096": "CQ CQ DE IZ6NNH TEST 73"
+  },
+  "other_modem_files_unchanged_from_r7": 63,
+  "qso_adaptation_promoted": false,
+  "selected_phase_one_step": 7000,
+  "ui_default": "native",
+  "radio_cer": null,
+  "windows_macos_builds": "not verified"
+}

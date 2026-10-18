@@ -20,6 +20,7 @@ from collections import OrderedDict
 
 from release_078_exact import KEYS as RELEASE_078_KEYS
 from reviewed_operator_translations_058 import KEYS as REVIEWED_OPERATOR_KEYS_058
+from cw_neural_ui_translations import KEYS as CW_NEURAL_UI_KEYS
 
 ROOT = Path(__file__).resolve().parents[1]
 TRANS_DIR = ROOT / "translations"
@@ -1174,7 +1175,7 @@ for _key, _translations in SEMANTIC_REPAIR_TRANSLATIONS.items():
     for _lang, _value in _translations.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
-for _key, _translations in REVIEWED_OPERATOR_KEYS_058.items():
+for _key, _translations in {**REVIEWED_OPERATOR_KEYS_058, **CW_NEURAL_UI_KEYS}.items():
     for _lang, _value in _translations.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
@@ -1572,7 +1573,7 @@ EXACT["it"].update(CONTEST_EXPORT_ITALIAN)
 for source, translation in CONTEST_EXPORT_ITALIAN.items():
     KEY_EXACT.setdefault("it", {})["text." + norm_key(source)] = translation
 
-# Reviewed 0.6.2 skimmer and station controls.
+# Reviewed 0.6.3 skimmer and station controls.
 for _lang, _values in {'cs': {'cw_filter_alignment_help': 'Při úzkém CW filtru nalaďte přijímaný tón do propustného pásma rádia a '
                                     'srovnejte RX A. Výška CW tónu a USB datové audio se mohou lišit.',
         'cw_skimmer_cq': 'Pouze CQ',
@@ -1894,6 +1895,327 @@ for _lang, _values in {'it': {'text.check_for_updates': 'Controlla aggiornamenti
         'update_install': 'Stažení ověřeno. Zavřít MadModem a nyní použít aktualizaci?',
         'update_launch_failed': 'Aktualizaci nelze spustit. Současná instalace zůstala beze změn.'}}.items():
     KEY_EXACT.setdefault(_lang, {}).update(_values)
+
+# QRZ station panel and resizable CW scope.
+for _lang, _values in {'it': {'text.qrz_account': 'Account QRZ…',
+        'text.open_qrz_page': 'Apri pagina QRZ',
+        'qrz_select': 'Seleziona un nominativo nel testo RX o nel modulo QSO.',
+        'qrz_connect_help': 'Collega il tuo account QRZ per i dettagli della stazione. I dati completi richiedono '
+                            'l’accesso XML.',
+        'qrz_loading': 'Ricerca della stazione…',
+        'qrz_credentials_help': 'Per i dati completi della stazione serve l’accesso XML QRZ. Il nome utente viene '
+                                'ricordato; la password resta solo in memoria fino alla chiusura di MM.',
+        'qrz_username': 'Nome utente',
+        'qrz_password': 'Password',
+        'qrz_network_error': 'Richiesta QRZ non riuscita. Controlla la connessione e l’account, poi riprova.',
+        'qrz_invalid': 'QRZ ha restituito una risposta non valida.',
+        'qrz_connecting': 'Connessione a QRZ…',
+        'qrz_login_failed': 'Accesso QRZ non riuscito. Controlla i dati dell’account.',
+        'qrz_no_data': 'QRZ non ha restituito dati della stazione.',
+        'qrz_alias': 'Richiesto: %1',
+        'qrz_record_help': 'Dati QRZ del nominativo selezionato. Non confermano la correttezza della decodifica '
+                           'ricevuta né la posizione operativa attuale della stazione.',
+        'scope_resize': 'Trascina verso l’alto per ingrandire il waterfall e vedere più caratteri dello skimmer.',
+        'callsign_underline_help': 'I nominativi sottolineati sono riconosciuti dal formato del testo. I colori '
+                                   'indicano lo stato nel logbook locale, non una verifica QRZ. Fai clic su un '
+                                   'nominativo per selezionarlo e vedere i dettagli della stazione.',
+        'cw_audio_tx_method': 'TX: CW audio tramite SSB/Data',
+        'cw_audio_tx_explanation': 'MM genera il Morse come tono audio e trasmette tramite l’ingresso audio SSB/Data '
+                                   'della radio. La CAT seleziona il modo TX configurato. La manipolazione diretta CW '
+                                   'KEY tramite RTS/DTR e il full break-in non sono implementati; la porta seriale PTT '
+                                   'controlla solo TX/RX.'},
+ 'fr': {'text.qrz_account': 'Compte QRZ…',
+        'text.open_qrz_page': 'Ouvrir la page QRZ',
+        'qrz_select': 'Sélectionnez un indicatif dans le texte RX ou le formulaire QSO.',
+        'qrz_connect_help': 'Connectez votre compte QRZ pour les détails de la station. Les données complètes '
+                            'nécessitent un accès XML.',
+        'qrz_loading': 'Recherche de la station…',
+        'qrz_credentials_help': 'Les données complètes nécessitent un accès XML QRZ. Le nom d’utilisateur est mémorisé '
+                                '; le mot de passe reste uniquement en mémoire jusqu’à la fermeture de MM.',
+        'qrz_username': 'Nom d’utilisateur',
+        'qrz_password': 'Mot de passe',
+        'qrz_network_error': 'Échec de la requête QRZ. Vérifiez la connexion et le compte, puis réessayez.',
+        'qrz_invalid': 'QRZ a renvoyé une réponse non valide.',
+        'qrz_connecting': 'Connexion à QRZ…',
+        'qrz_login_failed': 'Échec de la connexion QRZ. Vérifiez les identifiants du compte.',
+        'qrz_no_data': 'QRZ n’a renvoyé aucune donnée de station.',
+        'qrz_alias': 'Demandé : %1',
+        'qrz_record_help': 'Fiche QRZ de l’indicatif sélectionné. Elle ne confirme ni le décodage reçu ni la position '
+                           'actuelle d’émission de la station.',
+        'scope_resize': 'Faites glisser vers le haut pour agrandir le waterfall et afficher davantage de caractères du '
+                        'skimmer.',
+        'callsign_underline_help': 'Les indicatifs soulignés sont reconnus par leur format. Les couleurs indiquent '
+                                   'leur état dans le journal local, pas une vérification QRZ. Cliquez sur un '
+                                   'indicatif pour le sélectionner et afficher ses détails.',
+        'cw_audio_tx_method': 'TX : CW audio via SSB/Data',
+        'cw_audio_tx_explanation': 'MM génère le Morse sous forme de tonalité audio et émet par l’entrée audio '
+                                   'SSB/Data de la radio. La CAT sélectionne le mode TX configuré. La manipulation '
+                                   'directe CW KEY via RTS/DTR et le full break-in ne sont pas implémentés ; le port '
+                                   'série PTT commande uniquement TX/RX.'},
+ 'de': {'text.qrz_account': 'QRZ-Konto…',
+        'text.open_qrz_page': 'QRZ-Seite öffnen',
+        'qrz_select': 'Rufzeichen im RX-Text oder QSO-Formular auswählen.',
+        'qrz_connect_help': 'QRZ-Konto für Stationsdaten verbinden. Vollständige Daten erfordern XML-Zugang.',
+        'qrz_loading': 'Station wird gesucht…',
+        'qrz_credentials_help': 'Vollständige Stationsdaten erfordern QRZ-XML-Zugang. Der Benutzername wird '
+                                'gespeichert; das Passwort bleibt nur bis zum Beenden von MM im Arbeitsspeicher.',
+        'qrz_username': 'Benutzername',
+        'qrz_password': 'Passwort',
+        'qrz_network_error': 'QRZ-Anfrage fehlgeschlagen. Verbindung und Konto prüfen und erneut versuchen.',
+        'qrz_invalid': 'QRZ hat eine ungültige Antwort geliefert.',
+        'qrz_connecting': 'Verbindung mit QRZ…',
+        'qrz_login_failed': 'QRZ-Anmeldung fehlgeschlagen. Kontodaten prüfen.',
+        'qrz_no_data': 'QRZ hat keine Stationsdaten geliefert.',
+        'qrz_alias': 'Angefragt: %1',
+        'qrz_record_help': 'QRZ-Datensatz zum ausgewählten Rufzeichen. Er bestätigt weder die empfangene Dekodierung '
+                           'noch den aktuellen Betriebsstandort der Station.',
+        'scope_resize': 'Nach oben ziehen, um den Wasserfall zu vergrößern und mehr Skimmer-Zeichen anzuzeigen.',
+        'callsign_underline_help': 'Unterstrichene Rufzeichen werden am Textformat erkannt. Farben zeigen den Status '
+                                   'im lokalen Logbuch, keine QRZ-Prüfung. Auf ein Rufzeichen klicken, um es '
+                                   'auszuwählen und Stationsdaten anzuzeigen.',
+        'cw_audio_tx_method': 'TX: Audio-CW über SSB/Data',
+        'cw_audio_tx_explanation': 'MM erzeugt Morse als Audioton und sendet über den SSB/Data-Audioeingang des '
+                                   'Funkgeräts. CAT wählt die konfigurierte TX-Betriebsart. Direkte CW-Tastung über '
+                                   'RTS/DTR und Full-Break-in sind nicht implementiert; der serielle PTT-Port steuert '
+                                   'nur TX/RX.'},
+ 'no': {'text.qrz_account': 'QRZ-konto…',
+        'text.open_qrz_page': 'Åpne QRZ-side',
+        'qrz_select': 'Velg et kallesignal i RX-teksten eller QSO-skjemaet.',
+        'qrz_connect_help': 'Koble til QRZ-kontoen for stasjonsdetaljer. Fullstendige data krever XML-tilgang.',
+        'qrz_loading': 'Søker etter stasjon…',
+        'qrz_credentials_help': 'Fullstendige stasjonsdata krever QRZ XML-tilgang. Brukernavnet huskes; passordet '
+                                'lagres bare i minnet til MM lukkes.',
+        'qrz_username': 'Brukernavn',
+        'qrz_password': 'Passord',
+        'qrz_network_error': 'QRZ-forespørselen mislyktes. Kontroller forbindelsen og kontoen, og prøv igjen.',
+        'qrz_invalid': 'QRZ returnerte et ugyldig svar.',
+        'qrz_connecting': 'Kobler til QRZ…',
+        'qrz_login_failed': 'QRZ-pålogging mislyktes. Kontroller kontoopplysningene.',
+        'qrz_no_data': 'QRZ returnerte ingen stasjonsdata.',
+        'qrz_alias': 'Forespurt: %1',
+        'qrz_record_help': 'QRZ-oppføring for det valgte kallesignalet. Dette bekrefter verken mottatt dekoding eller '
+                           'stasjonens gjeldende sendeposisjon.',
+        'scope_resize': 'Dra oppover for å forstørre fossefallet og vise flere skimmertegn.',
+        'callsign_underline_help': 'Understrekede kallesignaler gjenkjennes ut fra tekstformatet. Fargene viser status '
+                                   'i den lokale loggboken, ikke QRZ-verifisering. Klikk på et kallesignal for å velge '
+                                   'det og vise stasjonsdetaljer.',
+        'cw_audio_tx_method': 'TX: lyd-CW via SSB/Data',
+        'cw_audio_tx_explanation': 'MM lager morse som en lydtone og sender gjennom radioens SSB/Data-lydinngang. CAT '
+                                   'velger konfigurert TX-modus. Direkte CW-nøkling via RTS/DTR og full break-in er '
+                                   'ikke implementert; PTT-serieporten styrer bare TX/RX.'},
+ 'cs': {'text.qrz_account': 'Účet QRZ…',
+        'text.open_qrz_page': 'Otevřít stránku QRZ',
+        'qrz_select': 'Vyberte volací značku v textu RX nebo formuláři QSO.',
+        'qrz_connect_help': 'Připojte účet QRZ pro údaje o stanici. Úplné údaje vyžadují přístup XML.',
+        'qrz_loading': 'Vyhledávání stanice…',
+        'qrz_credentials_help': 'Úplné údaje o stanici vyžadují přístup QRZ XML. Uživatelské jméno se ukládá; heslo '
+                                'zůstává pouze v paměti do ukončení MM.',
+        'qrz_username': 'Uživatelské jméno',
+        'qrz_password': 'Heslo',
+        'qrz_network_error': 'Požadavek QRZ selhal. Zkontrolujte připojení a účet a zkuste to znovu.',
+        'qrz_invalid': 'QRZ vrátil neplatnou odpověď.',
+        'qrz_connecting': 'Připojování k QRZ…',
+        'qrz_login_failed': 'Přihlášení QRZ selhalo. Zkontrolujte údaje účtu.',
+        'qrz_no_data': 'QRZ nevrátil údaje o stanici.',
+        'qrz_alias': 'Požadováno: %1',
+        'qrz_record_help': 'Záznam QRZ pro vybranou volací značku. Nepotvrzuje správnost přijatého dekódování ani '
+                           'aktuální provozní polohu stanice.',
+        'scope_resize': 'Tažením nahoru zvětšíte vodopád a zobrazíte více znaků skimmeru.',
+        'callsign_underline_help': 'Podtržené volací značky jsou rozpoznány podle formátu textu. Barvy ukazují stav v '
+                                   'místním deníku, nikoli ověření QRZ. Kliknutím značku vyberete a zobrazíte údaje '
+                                   'stanice.',
+        'cw_audio_tx_method': 'TX: zvukové CW přes SSB/Data',
+        'cw_audio_tx_explanation': 'MM vytváří Morse jako zvukový tón a vysílá přes zvukový vstup SSB/Data rádia. CAT '
+                                   'zvolí nastavený režim TX. Přímé klíčování CW KEY přes RTS/DTR a plné break-in '
+                                   'nejsou implementovány; sériový port PTT ovládá pouze TX/RX.'}}.items():
+    KEY_EXACT.setdefault(_lang, {}).update(_values)
+
+# Audio CW and native serial KEY controls.
+for _lang, _values in {'it': {'cw_tx_settings': 'Trasmissione CW',
+        'cw_tx_audio_option': 'Tono audio tramite SSB/Data',
+        'cw_tx_serial_option': 'KEY seriale (RTS/DTR)',
+        'cw_tx_method': 'Trasmetti il CW tramite',
+        'cw_key_port': 'Porta seriale CW KEY',
+        'cw_key_line': 'Linea KEY (punti/linee)',
+        'cw_key_bkin': 'Nessuno — BK-IN della radio',
+        'cw_key_ptt': 'PTT su questa porta',
+        'cw_key_lead': 'Anticipo PTT',
+        'cw_key_tail': 'Coda PTT',
+        'cw_key_help': 'Il KEY seriale richiede la radio in CW e un’interfaccia collegata all’ingresso KEY. Seleziona '
+                       'la porta COM virtuale e la linea assegnata: il numero della COM non ne definisce la funzione. '
+                       'Senza una linea PTT, abilita il BK-IN sulla radio. Il CW audio usa SSB/Data e le normali '
+                       'impostazioni Audio/PTT.',
+        'cw_key_cat_share': 'Se KEY condivide la porta seriale CAT, MM chiude temporaneamente la CAT, manipola il '
+                            'messaggio e riconnette la CAT dopo il rilascio delle linee. Imposta il controllo di '
+                            'flusso CAT su Nessuno e forza entrambe le linee a OFF. Una porta KEY separata mantiene '
+                            'disponibile la CAT durante il TX. I tempi dipendono da USB e sistema operativo: questo '
+                            'metodo non è un WinKeyer hardware e non garantisce il full QSK.',
+        'cw_key_invalid': 'Seleziona una porta KEY seriale e usa linee diverse per KEY e PTT.',
+        'cw_serial_tx_method': 'TX: KEY seriale — radio in CW/BK-IN',
+        'cw_serial_tx_explanation': 'Punti e linee usano la linea KEY RTS/DTR selezionata. Imposta la radio in CW. Il '
+                                    'BK-IN della radio gestisce il TX, oppure l’altra linea seriale opzionale fornisce '
+                                    'il PTT. La forzatura del modo CAT Audio/PTT viene esclusa. La condivisione della '
+                                    'porta CAT sospende la CAT durante il messaggio.',
+        'cw_audio_tx_explanation': 'MM genera il Morse come tono audio tramite l’ingresso SSB/Data della radio. La CAT '
+                                   'usa il modo TX audio configurato. Per manipolare l’ingresso CW della radio '
+                                   'seleziona KEY seriale nelle impostazioni Trasmissione CW.',
+        'cw_key_port_required': 'Scegli una porta seriale locale per CW KEY. Un indirizzo CAT TCP non è una porta KEY.',
+        'cw_key_shared_config': 'La condivisione della porta CAT per CW KEY richiede controllo di flusso CAT Nessuno '
+                                'ed entrambe le linee DTR e RTS forzate a OFF nelle impostazioni Audio/PTT/CAT. In '
+                                'alternativa scegli la porta KEY separata della radio.',
+        'cw_key_rotator_conflict': 'La porta CW KEY è assegnata al rotore. Scegli una porta seriale diversa.',
+        'cw_key_handoff_failed': 'La CAT non ha potuto rilasciare la porta CW KEY; trasmissione annullata.',
+        'cw_key_cat_restore_failed': 'CW KEY si è fermato, ma la riconnessione CAT non è riuscita. Controlla il '
+                                     'collegamento CAT.',
+        'cw_key_release_failed': 'Il rilascio CW KEY/PTT non è stato confermato. TX bloccato. Ricollega l’interfaccia '
+                                 'e premi Stop per ritentare il rilascio delle linee.'},
+ 'fr': {'cw_tx_settings': 'Transmission CW',
+        'cw_tx_audio_option': 'Tonalité audio via SSB/Data',
+        'cw_tx_serial_option': 'KEY série (RTS/DTR)',
+        'cw_tx_method': 'Transmettre le CW via',
+        'cw_key_port': 'Port série CW KEY',
+        'cw_key_line': 'Ligne KEY (points/traits)',
+        'cw_key_bkin': 'Aucun — BK-IN de la radio',
+        'cw_key_ptt': 'PTT sur ce port',
+        'cw_key_lead': 'Avance PTT',
+        'cw_key_tail': 'Maintien PTT',
+        'cw_key_help': 'Le KEY série nécessite la radio en CW et une interface reliée à son entrée KEY. Choisissez le '
+                       'port COM virtuel et la ligne affectée ; le numéro du port ne définit pas sa fonction. Sans '
+                       'ligne PTT, activez le BK-IN de la radio. Le CW audio utilise SSB/Data et les réglages '
+                       'Audio/PTT habituels.',
+        'cw_key_cat_share': 'Si KEY partage le port CAT, MM ferme temporairement la CAT, manipule le message puis '
+                            'reconnecte la CAT après libération des lignes. Désactivez le contrôle de flux CAT et '
+                            'forcez les deux lignes sur OFF. Un port KEY distinct conserve la CAT pendant le TX. La '
+                            'temporisation dépend d’USB et du système : ce procédé ne constitue pas un WinKeyer '
+                            'matériel et ne garantit pas le QSK intégral.',
+        'cw_key_invalid': 'Choisissez un port KEY série et des lignes différentes pour KEY et PTT.',
+        'cw_serial_tx_method': 'TX : KEY série — radio en CW/BK-IN',
+        'cw_serial_tx_explanation': 'Les points et traits utilisent la ligne KEY RTS/DTR sélectionnée. Réglez la radio '
+                                    'en CW. Le BK-IN de la radio gère le TX, ou l’autre ligne série fournit le PTT. Le '
+                                    'changement de mode CAT Audio/PTT est ignoré. Le partage du port CAT suspend la '
+                                    'CAT pendant le message.',
+        'cw_audio_tx_explanation': 'MM génère le Morse sous forme de tonalité sur l’entrée SSB/Data de la radio. La '
+                                   'CAT utilise le mode TX audio configuré. Pour manipuler l’entrée CW de la radio, '
+                                   'choisissez KEY série dans Transmission CW.',
+        'cw_key_port_required': 'Choisissez un port série local pour CW KEY. Une adresse CAT TCP ne constitue pas un '
+                                'port KEY.',
+        'cw_key_shared_config': 'Le partage du port CAT pour CW KEY exige un contrôle de flux CAT Aucun et les deux '
+                                'lignes DTR et RTS forcées sur OFF dans Audio/PTT/CAT. Vous pouvez aussi choisir le '
+                                'port KEY distinct de la radio.',
+        'cw_key_rotator_conflict': 'Le port CW KEY est affecté au rotateur. Choisissez un autre port série.',
+        'cw_key_handoff_failed': 'La CAT n’a pas pu libérer le port CW KEY ; transmission annulée.',
+        'cw_key_cat_restore_failed': 'CW KEY est arrêté, mais la reconnexion CAT a échoué. Vérifiez la connexion CAT.',
+        'cw_key_release_failed': 'La libération CW KEY/PTT n’a pas été confirmée. TX bloqué. Rebranchez l’interface et '
+                                 'appuyez sur Stop pour réessayer de libérer les lignes.'},
+ 'de': {'cw_tx_settings': 'CW-Senden',
+        'cw_tx_audio_option': 'Audioton über SSB/Data',
+        'cw_tx_serial_option': 'Serielle KEY-Tastung (RTS/DTR)',
+        'cw_tx_method': 'CW senden über',
+        'cw_key_port': 'Serieller CW-KEY-Port',
+        'cw_key_line': 'KEY-Leitung (Punkte/Striche)',
+        'cw_key_bkin': 'Keine — BK-IN des Funkgeräts',
+        'cw_key_ptt': 'PTT an diesem Port',
+        'cw_key_lead': 'PTT-Vorlauf',
+        'cw_key_tail': 'PTT-Nachlauf',
+        'cw_key_help': 'Serielle KEY-Tastung erfordert das Funkgerät in CW und eine Schnittstelle am KEY-Eingang. Den '
+                       'tatsächlichen virtuellen COM-Port und die zugewiesene Leitung wählen; die COM-Nummer bestimmt '
+                       'nicht deren Funktion. Ohne PTT-Leitung BK-IN am Funkgerät aktivieren. Audio-CW verwendet '
+                       'SSB/Data und die üblichen Audio/PTT-Einstellungen.',
+        'cw_key_cat_share': 'Bei gemeinsamem KEY/CAT-Port schließt MM CAT vorübergehend, tastet die Nachricht und '
+                            'verbindet CAT nach Freigabe der Leitungen erneut. CAT-Flusssteuerung deaktivieren und '
+                            'beide Leitungen auf OFF setzen. Ein eigener KEY-Port erhält CAT während TX. USB und '
+                            'Betriebssystem bestimmen die Zeitgenauigkeit; dies ist kein Hardware-WinKeyer und '
+                            'garantiert kein vollständiges QSK.',
+        'cw_key_invalid': 'Einen seriellen KEY-Port wählen und verschiedene Leitungen für KEY und PTT verwenden.',
+        'cw_serial_tx_method': 'TX: serielle KEY-Tastung — Funkgerät in CW/BK-IN',
+        'cw_serial_tx_explanation': 'Punkte und Striche verwenden die gewählte RTS/DTR-KEY-Leitung. Das Funkgerät auf '
+                                    'CW stellen. BK-IN steuert TX, oder die andere serielle Leitung liefert optional '
+                                    'PTT. Die CAT-Betriebsartumschaltung für Audio/PTT wird umgangen. Bei gemeinsamem '
+                                    'Port pausiert CAT während der Nachricht.',
+        'cw_audio_tx_explanation': 'MM erzeugt Morse als Audioton am SSB/Data-Eingang des Funkgeräts. CAT verwendet '
+                                   'die konfigurierte Audio-TX-Betriebsart. Zum Tasten des CW-Eingangs Serielle '
+                                   'KEY-Tastung unter CW-Senden wählen.',
+        'cw_key_port_required': 'Einen lokalen seriellen CW-KEY-Port wählen. Eine CAT-TCP-Adresse ist kein KEY-Port.',
+        'cw_key_shared_config': 'Für einen gemeinsamen CAT/CW-KEY-Port müssen CAT-Flusssteuerung Keine und DTR sowie '
+                                'RTS auf OFF in Audio/PTT/CAT eingestellt sein. Alternativ den separaten KEY-Port des '
+                                'Funkgeräts wählen.',
+        'cw_key_rotator_conflict': 'Der CW-KEY-Port ist dem Rotor zugewiesen. Einen anderen seriellen Port wählen.',
+        'cw_key_handoff_failed': 'CAT konnte den CW-KEY-Port nicht freigeben; Senden abgebrochen.',
+        'cw_key_cat_restore_failed': 'CW KEY ist gestoppt, aber CAT konnte nicht erneut verbunden werden. '
+                                     'CAT-Verbindung prüfen.',
+        'cw_key_release_failed': 'CW-KEY/PTT-Freigabe wurde nicht bestätigt. TX ist gesperrt. Schnittstelle erneut '
+                                 'anschließen und mit Stop die Freigabe der Leitungen wiederholen.'},
+ 'no': {'cw_tx_settings': 'CW-sending',
+        'cw_tx_audio_option': 'Lydtone via SSB/Data',
+        'cw_tx_serial_option': 'Seriell KEY (RTS/DTR)',
+        'cw_tx_method': 'Send CW via',
+        'cw_key_port': 'Seriell CW KEY-port',
+        'cw_key_line': 'KEY-linje (prikker/streker)',
+        'cw_key_bkin': 'Ingen — radioens BK-IN',
+        'cw_key_ptt': 'PTT på denne porten',
+        'cw_key_lead': 'PTT-forsinkelse før',
+        'cw_key_tail': 'PTT-forsinkelse etter',
+        'cw_key_help': 'Seriell KEY krever radioen i CW og et grensesnitt koblet til KEY-inngangen. Velg den faktiske '
+                       'virtuelle COM-porten og tilordnet linje; COM-nummeret bestemmer ikke funksjonen. Aktiver BK-IN '
+                       'på radioen uten PTT-linje. Lyd-CW bruker SSB/Data og vanlige Audio/PTT-innstillinger.',
+        'cw_key_cat_share': 'Når KEY deler CAT-porten, lukker MM CAT midlertidig, nøkler meldingen og kobler til CAT '
+                            'igjen etter at linjene er frigitt. CAT må ha ingen flytkontroll og begge linjer satt til '
+                            'OFF. Egen KEY-port beholder CAT under TX. Tidene avhenger av USB og operativsystemet; '
+                            'dette er ikke en maskinvare-WinKeyer og garanterer ikke full QSK.',
+        'cw_key_invalid': 'Velg en seriell KEY-port og forskjellige linjer for KEY og PTT.',
+        'cw_serial_tx_method': 'TX: seriell KEY — radio i CW/BK-IN',
+        'cw_serial_tx_explanation': 'Prikker og streker bruker valgt RTS/DTR KEY-linje. Sett radioen i CW. Radioens '
+                                    'BK-IN styrer TX, eller den andre serielle linjen gir valgfri PTT. CAT-modusbytte '
+                                    'for Audio/PTT omgås. Delt CAT-port setter CAT på pause under meldingen.',
+        'cw_audio_tx_explanation': 'MM lager morse som en lydtone via radioens SSB/Data-inngang. CAT bruker '
+                                   'konfigurert lyd-TX-modus. Velg Seriell KEY i CW-sending for å nøkle radioens '
+                                   'CW-inngang.',
+        'cw_key_port_required': 'Velg en lokal seriell CW KEY-port. En CAT TCP-adresse er ikke en KEY-port.',
+        'cw_key_shared_config': 'Delt CAT-port for CW KEY krever CAT-flytkontroll Ingen og både DTR og RTS satt til '
+                                'OFF i Audio/PTT/CAT. Velg eventuelt radioens separate KEY-port.',
+        'cw_key_rotator_conflict': 'CW KEY-porten er tilordnet rotoren. Velg en annen seriell port.',
+        'cw_key_handoff_failed': 'CAT kunne ikke frigi CW KEY-porten; sending avbrutt.',
+        'cw_key_cat_restore_failed': 'CW KEY har stoppet, men CAT kunne ikke kobles til igjen. Kontroller '
+                                     'CAT-forbindelsen.',
+        'cw_key_release_failed': 'Frigivelse av CW KEY/PTT er ikke bekreftet. TX er blokkert. Koble til grensesnittet '
+                                 'igjen og trykk Stop for å forsøke å frigi linjene.'},
+ 'cs': {'cw_tx_settings': 'Vysílání CW',
+        'cw_tx_audio_option': 'Zvukový tón přes SSB/Data',
+        'cw_tx_serial_option': 'Sériové KEY (RTS/DTR)',
+        'cw_tx_method': 'Vysílat CW přes',
+        'cw_key_port': 'Sériový port CW KEY',
+        'cw_key_line': 'Linka KEY (tečky/čárky)',
+        'cw_key_bkin': 'Žádné — BK-IN rádia',
+        'cw_key_ptt': 'PTT na tomto portu',
+        'cw_key_lead': 'Předstih PTT',
+        'cw_key_tail': 'Doběh PTT',
+        'cw_key_help': 'Sériové KEY vyžaduje rádio v CW a rozhraní připojené ke vstupu KEY. Zvolte skutečný virtuální '
+                       'port COM a přiřazenou linku; číslo COM neurčuje funkci. Bez linky PTT zapněte BK-IN rádia. '
+                       'Zvukové CW používá SSB/Data a běžné nastavení Audio/PTT.',
+        'cw_key_cat_share': 'Pokud KEY sdílí port CAT, MM dočasně zavře CAT, odvysílá zprávu a po uvolnění linek '
+                            'obnoví CAT. CAT musí mít vypnuté řízení toku a obě linky nastavené na OFF. Samostatný '
+                            'port KEY zachová CAT během TX. Časování závisí na USB a systému; nejde o hardwarový '
+                            'WinKeyer ani záruku plného QSK.',
+        'cw_key_invalid': 'Vyberte sériový port KEY a různé linky pro KEY a PTT.',
+        'cw_serial_tx_method': 'TX: sériové KEY — rádio v CW/BK-IN',
+        'cw_serial_tx_explanation': 'Tečky a čárky používají vybranou linku KEY RTS/DTR. Nastavte rádio na CW. BK-IN '
+                                    'rádia řídí TX, nebo volitelně druhá sériová linka poskytuje PTT. Přepínání režimu '
+                                    'CAT pro Audio/PTT se obchází. Sdílení portu CAT pozastaví CAT během zprávy.',
+        'cw_audio_tx_explanation': 'MM vytváří Morse jako zvukový tón přes vstup SSB/Data rádia. CAT používá nastavený '
+                                   'režim zvukového TX. Pro klíčování vstupu CW rádia zvolte Sériové KEY v nastavení '
+                                   'Vysílání CW.',
+        'cw_key_port_required': 'Zvolte místní sériový port CW KEY. Adresa CAT TCP není port KEY.',
+        'cw_key_shared_config': 'Sdílení portu CAT pro CW KEY vyžaduje řízení toku CAT Žádné a obě linky DTR i RTS '
+                                'nastavené na OFF v Audio/PTT/CAT. Případně zvolte samostatný port KEY rádia.',
+        'cw_key_rotator_conflict': 'Port CW KEY je přiřazen rotátoru. Zvolte jiný sériový port.',
+        'cw_key_handoff_failed': 'CAT nemohl uvolnit port CW KEY; vysílání zrušeno.',
+        'cw_key_cat_restore_failed': 'CW KEY se zastavil, ale obnovení CAT selhalo. Zkontrolujte připojení CAT.',
+        'cw_key_release_failed': 'Uvolnění CW KEY/PTT nebylo potvrzeno. TX je blokován. Připojte rozhraní znovu a '
+                                 'stiskněte Stop pro opakované uvolnění linek.'}}.items():
+    KEY_EXACT.setdefault(_lang, {}).update(_values)
+
+for _lang, _save in {'it':'Salva','fr':'Enregistrer','de':'Speichern','no':'Lagre','cs':'Uložit'}.items():
+    KEY_EXACT.setdefault(_lang, {})['cw_save_tx_settings'] = _save
 
 def main() -> int:
     canonical = harvest_keys()

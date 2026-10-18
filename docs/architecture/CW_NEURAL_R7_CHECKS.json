@@ -1,0 +1,31 @@
+{
+  "revision": "0.6.2-source-r7-cw-decoder-comparison",
+  "linux_qt_hamlib_build": "passed",
+  "native_dsp_regression": "passed",
+  "cw_decoder_integration": "passed",
+  "neural_ab_routing_lifecycle": "passed",
+  "python_cpp_max_logit_error": 9.5367431640625e-06,
+  "chunk_outputs": {
+    "17": "CQ CQ DE IZ6NNH TEEST 73",
+    "997": "CQ CQ DE IZ6NNH TEEST 73",
+    "4096": "CQ CQ DE IZ6NNH TEEST 73"
+  },
+  "negative_probe_outputs": [
+    {
+      "input": "silence",
+      "decoded": ""
+    },
+    {
+      "input": "white_noise",
+      "decoded": ""
+    },
+    {
+      "input": "steady_carrier",
+      "decoded": ""
+    }
+  ],
+  "ui": "unchanged since the R6 verified selector/persistence; no new GUI accuracy claim",
+  "radio_cer": null,
+  "windows_macos_builds": "not tested",
+  "native_tracker_files_identical_to_r4": 13
+}

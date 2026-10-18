@@ -103,6 +103,8 @@ private:
   void replayEpochProbe();
   void updateMarkCluster(bool shortMark, double durationMs, double weight);
   void updateSpaceCluster(double durationMs, double weight);
+  void learnBoundarySpacing(double durationMs, double weight);
+  double wordDecisionThresholdMs() const;
   void refreshThresholds();
   void maybeCommitWordSpace(CwRelativeTimingResult& result);
   CwMorseTimingSnapshot beamTiming() const;
@@ -117,6 +119,8 @@ private:
   CwMorseBeamDecoder m_beamDecoder;
   CwRelativeTimingState m_state = CwRelativeTimingState::Search;
 
+  std::deque<double> m_boundarySpaces;
+  bool m_spacingFamiliesLearned = false;
   std::deque<double> m_shortMarks;
   std::deque<double> m_longMarks;
   std::deque<double> m_elementSpaces;

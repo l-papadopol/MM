@@ -157,12 +157,19 @@ public:
     bool mfskAgcEnabled = true;
 
     int cwToneHz = 1000;
+    QString cwDecodeEngine = "native"; // native (R12) or neural_search (R13); selected RX A/B only.
     int cwTxToneHz = 1000;
     int cwSecondaryToneHz = 1400;
     bool cwSecondaryEnabled = false;
     int cwWpmA = 20;
     int cwWpmB = 20;
     int cwTxWpm = 20;
+    QString cwTxMethod = "audio"; // audio or serial_key; KEY is distinct from PTT.
+    QString cwKeyPort;
+    QString cwKeyLine = "rts";
+    QString cwKeyPttLine = "none";
+    int cwKeyLeadMs = 40;
+    int cwKeyTailMs = 100;
     int cwBandwidthHz = 120;
     bool cwAutoBandwidth = true;
     bool cwSkimmerEnabled = false;

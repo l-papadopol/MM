@@ -1,4 +1,4 @@
-# CW and RTTY skimmers — MadModem 0.6.2
+# CW and RTTY skimmers — MadModem 0.6.3
 
 ## Ownership and data flow
 

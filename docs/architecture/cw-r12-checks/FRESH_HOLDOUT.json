@@ -1,0 +1,1801 @@
+{
+  "scope": "Fresh synthetic only: 16 full unseen calls/QSO messages, seeds 124000000..124000015, variable 12\u201336WPM, varying receive filters and noise. No training or development selection on these examples. Four additional 10-second negatives.",
+  "summary": {
+    "Native_R8": {
+      "errors": 13,
+      "characters": 489,
+      "cer": 0.026584867075664622,
+      "exact_messages": 4,
+      "messages": 16,
+      "callsigns": {
+        "correct": 15,
+        "total": 18
+      }
+    },
+    "Native_R12": {
+      "errors": 0,
+      "characters": 489,
+      "cer": 0.0,
+      "exact_messages": 16,
+      "messages": 16,
+      "callsigns": {
+        "correct": 18,
+        "total": 18
+      }
+    },
+    "Neural_R8": {
+      "errors": 35,
+      "characters": 489,
+      "cer": 0.07157464212678936,
+      "exact_messages": 4,
+      "messages": 16,
+      "callsigns": {
+        "correct": 12,
+        "total": 18
+      }
+    },
+    "Neural_R12_Envelope": {
+      "errors": 26,
+      "characters": 489,
+      "cer": 0.053169734151329244,
+      "exact_messages": 4,
+      "messages": 16,
+      "callsigns": {
+        "correct": 16,
+        "total": 18
+      }
+    }
+  },
+  "negative_false_characters": {
+    "Native_R8": 0,
+    "Native_R12": 0,
+    "Neural_R8": 0,
+    "Neural_R12_Envelope": 0
+  },
+  "records": [
+    {
+      "seed": 124000000,
+      "input_sha256": "930a906d41dbdfe614a8d5d84b7a8b296bcfca3b4ae9b924548ee1187f51ede3",
+      "wpm": 16.0,
+      "width_hz": 100,
+      "characters": 27,
+      "metrics": {
+        "Native_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 27,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 20,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "8807c68c62e9e92b6003ab2ce62edebff4ef87b6f8dcda84897637bbb736d8aa",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 27,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 20,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "8807c68c62e9e92b6003ab2ce62edebff4ef87b6f8dcda84897637bbb736d8aa",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 11,
+          "substitutions": 7,
+          "deletions": 1,
+          "insertions": 3,
+          "characters": 27,
+          "cer": 0.4074074074074074,
+          "no_space_diagnostic": {
+            "errors": 10,
+            "substitutions": 5,
+            "deletions": 0,
+            "insertions": 5,
+            "characters": 20,
+            "cer": 0.5
+          },
+          "hypothesis_sha256": "f433d79728a965fd4a14885205db5888477479cf8b63a296b931da2a95318c2f",
+          "callsigns": {
+            "correct": 0,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 1,
+          "insertions": 0,
+          "characters": 27,
+          "cer": 0.037037037037037035,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 20,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "218233d035365720df8ae7a14db258efc463f2ee5ed3880f72fa077d25d32b1a",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000001,
+      "input_sha256": "92731c12de55aa3fb2a32c9f66991d77e24121af507338db831e6153761ac1f1",
+      "wpm": 24.0,
+      "width_hz": 500,
+      "characters": 29,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "498738ea950bf65978d7893a8355406d408eaf233cabf01b51d610f3eafaeb9d",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "6884807289cea2f76fc5bdd75bc3195d6485f8d51c02a8305740c3030776a83c",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 1,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "3e40b0ca90b28fc30ccbb3ac25ba88ecc85dddc163700267bd7190396d32985f",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 3,
+          "substitutions": 0,
+          "deletions": 2,
+          "insertions": 1,
+          "characters": 29,
+          "cer": 0.10344827586206896,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "d43088774d8f3684294b892841cfb9c9e8ceb0a187e59ba0de493b0c4ea1c784",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000002,
+      "input_sha256": "6d765e951828b435ba4c3fcbf3612c0fc578bdf401fb26aa7b2e99281e2a6e10",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "characters": 32,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 32,
+          "cer": 0.03125,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 25,
+            "cer": 0.04
+          },
+          "hypothesis_sha256": "6ec757cb66c3493454d47cf628d708e24100cd8e812c03d35b401b69e23d8e63",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 32,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 25,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "3f51b2a72e35694c2e54257fbcae2582c2464dbd361cb136bd8afa9dbb3a80f5",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 2,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 2,
+          "characters": 32,
+          "cer": 0.0625,
+          "no_space_diagnostic": {
+            "errors": 2,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 2,
+            "characters": 25,
+            "cer": 0.08
+          },
+          "hypothesis_sha256": "51bd95d6d084657b86ab8eef24a747b7b1551ed069104ca123dee6fb6327f5d1",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 1,
+          "characters": 32,
+          "cer": 0.03125,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 25,
+            "cer": 0.04
+          },
+          "hypothesis_sha256": "ea09df6bc05357873b4816d503c3dd04632ae0f14a7c96995b14a5b5fc1de3f8",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000003,
+      "input_sha256": "4b366ef34884c9c9c71b5863f3edd6399ac155f4170bd724351ac53db45c0c2c",
+      "wpm": 32.0,
+      "width_hz": 0,
+      "characters": 39,
+      "metrics": {
+        "Native_R8": {
+          "errors": 2,
+          "substitutions": 1,
+          "deletions": 1,
+          "insertions": 0,
+          "characters": 39,
+          "cer": 0.05128205128205128,
+          "no_space_diagnostic": {
+            "errors": 2,
+            "substitutions": 1,
+            "deletions": 1,
+            "insertions": 0,
+            "characters": 33,
+            "cer": 0.06060606060606061
+          },
+          "hypothesis_sha256": "7528baf4e395f66925267a4b86916dda83e22ebd26eefc39c3abb7f20997a192",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 39,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 33,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "afdec55049b39b3c798d19ffe209a7858abe660bb5a6ee4e0de8ae52077c8030",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 2,
+          "substitutions": 0,
+          "deletions": 1,
+          "insertions": 1,
+          "characters": 39,
+          "cer": 0.05128205128205128,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 33,
+            "cer": 0.030303030303030304
+          },
+          "hypothesis_sha256": "c87eb8b0a1166077634485323485cce7dd14d34f64886d5c68d11d7bf5e788dd",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 5,
+          "substitutions": 2,
+          "deletions": 2,
+          "insertions": 1,
+          "characters": 39,
+          "cer": 0.1282051282051282,
+          "no_space_diagnostic": {
+            "errors": 2,
+            "substitutions": 0,
+            "deletions": 1,
+            "insertions": 1,
+            "characters": 33,
+            "cer": 0.06060606060606061
+          },
+          "hypothesis_sha256": "bcca98abace70bd9a8cfee7b236d2afe878f23b1572c44f972333b4cdae82a84",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000004,
+      "input_sha256": "fcd2f7f9c64de01a347584a1ba12f2dd3ce0c2d270ca9aea8c3b47f290bf35c1",
+      "wpm": 36.0,
+      "width_hz": 0,
+      "characters": 33,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 33,
+          "cer": 0.030303030303030304,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 26,
+            "cer": 0.038461538461538464
+          },
+          "hypothesis_sha256": "168b30fe71bb29f5e5338a574ddb3455a427ae2f58e2a5894aeb0d7a9e8dfb30",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 33,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 26,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "f742fe11dc2837ed9ce08a24479cd49052b41cd30ebe2e43aab76da170053148",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Neural_R8": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 1,
+          "characters": 33,
+          "cer": 0.030303030303030304,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 26,
+            "cer": 0.038461538461538464
+          },
+          "hypothesis_sha256": "3276a547eeaf28f2af328ff9ae38a591236373f58a39b2cfd746c3ad848b385c",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 1,
+            "total": 2
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 3,
+          "substitutions": 1,
+          "deletions": 1,
+          "insertions": 1,
+          "characters": 33,
+          "cer": 0.09090909090909091,
+          "no_space_diagnostic": {
+            "errors": 2,
+            "substitutions": 1,
+            "deletions": 1,
+            "insertions": 0,
+            "characters": 26,
+            "cer": 0.07692307692307693
+          },
+          "hypothesis_sha256": "cfe9a6c2eab66bfc2478a9c0d9039aedac525e45f24cca821ebe123010a2f7a4",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000005,
+      "input_sha256": "116433b64590fe0fd7b8d8305c2a0084162a7bedc036dbc6873f9180ed6db05b",
+      "wpm": 32.0,
+      "width_hz": 100,
+      "characters": 31,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 31,
+          "cer": 0.03225806451612903,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 24,
+            "cer": 0.041666666666666664
+          },
+          "hypothesis_sha256": "22a4ffd01b8478e9676ee99f4bb75e653917394c14451a742fa490192278c73e",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 31,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 24,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "32e4347d010be990f98c1f0b8db539570ad0109ea34310203943684406c9e158",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 4,
+          "substitutions": 2,
+          "deletions": 0,
+          "insertions": 2,
+          "characters": 31,
+          "cer": 0.12903225806451613,
+          "no_space_diagnostic": {
+            "errors": 2,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 2,
+            "characters": 24,
+            "cer": 0.08333333333333333
+          },
+          "hypothesis_sha256": "22fcba6a99cf8674d69770502703929b17c1a080a39172d95eda1d1b04ca4bfd",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 31,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 24,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "32e4347d010be990f98c1f0b8db539570ad0109ea34310203943684406c9e158",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000006,
+      "input_sha256": "e3a1ccf8b58fe63809ecf4a8f04031d9244bf8dc354892d4ab35a1cc3dff5cbd",
+      "wpm": 32.0,
+      "width_hz": 200,
+      "characters": 17,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.058823529411764705,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.08333333333333333
+          },
+          "hypothesis_sha256": "a84b633db67a5dd879b67a74207991faefdf31db71fd48a92b6e69885905e358",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "61ae68d3c6961d5d270e0107c79453b78b86a4a8fc9b9dd9416265d7004adb1b",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Neural_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "61ae68d3c6961d5d270e0107c79453b78b86a4a8fc9b9dd9416265d7004adb1b",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "61ae68d3c6961d5d270e0107c79453b78b86a4a8fc9b9dd9416265d7004adb1b",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000007,
+      "input_sha256": "453e1b0b6b0349b2116db054d2cfcd3d705069a5911915763a5ff51e24351695",
+      "wpm": 24.0,
+      "width_hz": 1200,
+      "characters": 29,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "f9f7c45104ec25021664c5f0b7c37798ac09be9da0d2b418a97231efffd31317",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "2fd4bb931a29099fa8238f0eb9b074a37ec51fd6f96e991f891a7aa76e531689",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 1,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "c5972acd2dc9831394ba59a4cd4e5e1542e2e2844b687330cf09aef30e9f9e22",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 1,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "c5972acd2dc9831394ba59a4cd4e5e1542e2e2844b687330cf09aef30e9f9e22",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000008,
+      "input_sha256": "21e261884005975882f6ae8a0671654f90afb0dc9ec1801e290decb712d4f4f1",
+      "wpm": 16.0,
+      "width_hz": 0,
+      "characters": 37,
+      "metrics": {
+        "Native_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 37,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 31,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "2e3cb7d70b0366c1b5f16cd435f58bd25515f593d0ec05540427eeb4143f3bec",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 37,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 31,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "2e3cb7d70b0366c1b5f16cd435f58bd25515f593d0ec05540427eeb4143f3bec",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 37,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 31,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "2e3cb7d70b0366c1b5f16cd435f58bd25515f593d0ec05540427eeb4143f3bec",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 1,
+          "insertions": 0,
+          "characters": 37,
+          "cer": 0.02702702702702703,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 31,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "73bcad008daf9497eeeb0423e20dfa14a6e579135654881c06e7b36b30241926",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000009,
+      "input_sha256": "5a672745c7a9fe7c578be47417b859200149ea4ffe2c79e04de69f64f07933f0",
+      "wpm": 32.0,
+      "width_hz": 300,
+      "characters": 31,
+      "metrics": {
+        "Native_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 31,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 24,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "fd88b0aab86e6bf36b251d3b9996eb0ec3b748e486724b8bb88ac0a8cecb9178",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 31,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 24,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "fd88b0aab86e6bf36b251d3b9996eb0ec3b748e486724b8bb88ac0a8cecb9178",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 31,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 24,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "fd88b0aab86e6bf36b251d3b9996eb0ec3b748e486724b8bb88ac0a8cecb9178",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 31,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 24,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "fd88b0aab86e6bf36b251d3b9996eb0ec3b748e486724b8bb88ac0a8cecb9178",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000010,
+      "input_sha256": "4c5610b5352f508fcd6721ec9fc13a4a03c85e3fd6bd0a497d00e3cf1a32c740",
+      "wpm": 20.0,
+      "width_hz": 500,
+      "characters": 29,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "f0aa9099c016dd7c4daf51c2473b7831a8f555deffe797a6d2203900366e0d72",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "fe9c02be21229781df6e485bdd64b40deee18317e81441a1e9d986f162e630f9",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "66501bb415c7dc5fb8218606a27904705014e0b818e605c0de5dc7a5c6bc540b",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "66501bb415c7dc5fb8218606a27904705014e0b818e605c0de5dc7a5c6bc540b",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000011,
+      "input_sha256": "33599dc9479a50df2f70585d7ae6d96e0c4fde5c9718fb1eb50883d2f0cfe20c",
+      "wpm": 20.0,
+      "width_hz": 0,
+      "characters": 17,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.058823529411764705,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.08333333333333333
+          },
+          "hypothesis_sha256": "fe6ab8dc6315d2a30fb244800d93afe3da8a937df6672903351c85839a45f483",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "61ae68d3c6961d5d270e0107c79453b78b86a4a8fc9b9dd9416265d7004adb1b",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Neural_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "61ae68d3c6961d5d270e0107c79453b78b86a4a8fc9b9dd9416265d7004adb1b",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 17,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 12,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "61ae68d3c6961d5d270e0107c79453b78b86a4a8fc9b9dd9416265d7004adb1b",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 2,
+            "total": 2
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000012,
+      "input_sha256": "641ac23bfb3fa08d7dbeb579716bf7c9b7350f8ad39d215be9aa78a4f227d071",
+      "wpm": 12.0,
+      "width_hz": 500,
+      "characters": 37,
+      "metrics": {
+        "Native_R8": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 37,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 31,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "e94dbc4886143434d6dcf79cd812570d0b7575ceec2b54dcc66d42ebb04ccf38",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 37,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 31,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "e94dbc4886143434d6dcf79cd812570d0b7575ceec2b54dcc66d42ebb04ccf38",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 4,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 4,
+          "characters": 37,
+          "cer": 0.10810810810810811,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 31,
+            "cer": 0.03225806451612903
+          },
+          "hypothesis_sha256": "da7211a232d7541f32896f71cd99d2c1d8729038fded91718b4ee0bebc8e175c",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 3,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 3,
+          "characters": 37,
+          "cer": 0.08108108108108109,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 31,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "25112816cb7c1ef3072a038f479d1333a829f6c29f90cc322e73f322d3ea68f7",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000013,
+      "input_sha256": "a23d8a575b73fb59b77a4823e84dc7f81d8164baa45c1dc38aede319db73d356",
+      "wpm": 28.0,
+      "width_hz": 500,
+      "characters": 39,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 39,
+          "cer": 0.02564102564102564,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 33,
+            "cer": 0.030303030303030304
+          },
+          "hypothesis_sha256": "97dd2dd96700afde23a6a65d8033cc1ce3e41ec00787f310465fe5f382e75e22",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 39,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 33,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "afdec55049b39b3c798d19ffe209a7858abe660bb5a6ee4e0de8ae52077c8030",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 3,
+          "substitutions": 0,
+          "deletions": 2,
+          "insertions": 1,
+          "characters": 39,
+          "cer": 0.07692307692307693,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 33,
+            "cer": 0.030303030303030304
+          },
+          "hypothesis_sha256": "1351737624d98f8aae57b323db931d6a84add73ba794cd21ca31144d37ade3ec",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 1,
+          "substitutions": 0,
+          "deletions": 1,
+          "insertions": 0,
+          "characters": 39,
+          "cer": 0.02564102564102564,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 33,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "31e03cddc99492089fb55bb8ffbb723c6b87f5ee28e205b2dc39987819bc7ad1",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000014,
+      "input_sha256": "042e53e8d450b0abd49db5ee5993e20b8b18b041ca156f89a2327269c372d38c",
+      "wpm": 28.0,
+      "width_hz": 800,
+      "characters": 29,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.034482758620689655,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "f4c3ea76970205a37f7080d0751d20b434d695bfb228f792c8234deebcae848c",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "b9ff57732d55fad6eb46ca1a587e2adb8221b104243ac1d9bf39abf4a564f4cd",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 3,
+          "substitutions": 0,
+          "deletions": 3,
+          "insertions": 0,
+          "characters": 29,
+          "cer": 0.10344827586206896,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 22,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "22fa7d52d65a0f2c756076e2abea0fc69665834ec601f85f458e07bfa0d7effe",
+          "callsigns": {
+            "correct": 1,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 4,
+          "substitutions": 0,
+          "deletions": 2,
+          "insertions": 2,
+          "characters": 29,
+          "cer": 0.13793103448275862,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 1,
+            "characters": 22,
+            "cer": 0.045454545454545456
+          },
+          "hypothesis_sha256": "d8776afa5ef4798bda151c93abe4e55e3fc2ab17488ff67aacda7773bb41f0be",
+          "callsigns": {
+            "correct": 2,
+            "total": 2
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    },
+    {
+      "seed": 124000015,
+      "input_sha256": "e289637bef92e2f77a74a7a3340621da31e9e79cb9e551bd6cc849653293bd6e",
+      "wpm": 24.0,
+      "width_hz": 0,
+      "characters": 33,
+      "metrics": {
+        "Native_R8": {
+          "errors": 1,
+          "substitutions": 1,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 33,
+          "cer": 0.030303030303030304,
+          "no_space_diagnostic": {
+            "errors": 1,
+            "substitutions": 1,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 27,
+            "cer": 0.037037037037037035
+          },
+          "hypothesis_sha256": "ada14323b594da98f8af636e63d1a4845cc17ed4c7c52be65b6322fc488ee749",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Native_R12": {
+          "errors": 0,
+          "substitutions": 0,
+          "deletions": 0,
+          "insertions": 0,
+          "characters": 33,
+          "cer": 0.0,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 27,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "59587554796415c17fccb1e9636b85819326b16ccc2c2c9b0873265138944c75",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R8": {
+          "errors": 2,
+          "substitutions": 0,
+          "deletions": 2,
+          "insertions": 0,
+          "characters": 33,
+          "cer": 0.06060606060606061,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 27,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "882a24257758ce47e497bc145e78bd6cd30600ce77c6cd2d2762728b1ff3a379",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        },
+        "Neural_R12_Envelope": {
+          "errors": 2,
+          "substitutions": 0,
+          "deletions": 2,
+          "insertions": 0,
+          "characters": 33,
+          "cer": 0.06060606060606061,
+          "no_space_diagnostic": {
+            "errors": 0,
+            "substitutions": 0,
+            "deletions": 0,
+            "insertions": 0,
+            "characters": 27,
+            "cer": 0.0
+          },
+          "hypothesis_sha256": "882a24257758ce47e497bc145e78bd6cd30600ce77c6cd2d2762728b1ff3a379",
+          "callsigns": {
+            "correct": 0,
+            "total": 0
+          },
+          "reports": {
+            "correct": 0,
+            "total": 0
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# macOS builds — MadModem 0.6.2
+# macOS builds — MadModem 0.6.3
 
 Intel and Apple Silicon jobs are part of the shared
 [Build installers workflow](GITHUB_ACTIONS_DISTRIBUTION.md). They build with Qt6

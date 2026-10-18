@@ -1,0 +1,89 @@
+{
+  "original": {
+    "records": 120,
+    "characters": 1029,
+    "Native": {
+      "errors": 165,
+      "cer": 0.16034985422740525,
+      "exact": 10
+    },
+    "DeepCW": {
+      "errors": 0,
+      "cer": 0.0,
+      "exact": 120
+    },
+    "R5": {
+      "errors": 152,
+      "cer": 0.1477162293488824,
+      "exact": 49
+    },
+    "R6": {
+      "errors": 105,
+      "cer": 0.10204081632653061,
+      "exact": 34
+    },
+    "R7": {
+      "errors": 46,
+      "cer": 0.04470359572400389,
+      "exact": 87
+    }
+  },
+  "receiver_filtered": {
+    "records": 120,
+    "characters": 1247,
+    "Native": {
+      "errors": 203,
+      "cer": 0.16279069767441862,
+      "exact": 13
+    },
+    "DeepCW": {
+      "errors": 0,
+      "cer": 0.0,
+      "exact": 120
+    },
+    "R5": {
+      "errors": 936,
+      "cer": 0.7506014434643143,
+      "exact": 5
+    },
+    "R6": {
+      "errors": 330,
+      "cer": 0.264635124298316,
+      "exact": 12
+    },
+    "R7": {
+      "errors": 196,
+      "cer": 0.15717722534081796,
+      "exact": 57
+    }
+  },
+  "clean": {
+    "records": 120,
+    "characters": 1036,
+    "Native": {
+      "errors": 113,
+      "cer": 0.10907335907335908,
+      "exact": 49
+    },
+    "DeepCW": {
+      "errors": 0,
+      "cer": 0.0,
+      "exact": 120
+    },
+    "R5": {
+      "errors": 453,
+      "cer": 0.4372586872586873,
+      "exact": 34
+    },
+    "R6": {
+      "errors": 89,
+      "cer": 0.0859073359073359,
+      "exact": 42
+    },
+    "R7": {
+      "errors": 23,
+      "cer": 0.0222007722007722,
+      "exact": 103
+    }
+  }
+}

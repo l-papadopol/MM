@@ -1,0 +1,14 @@
+[
+  {
+    "engine": "native",
+    "same_text_as_frozen_probe": true
+  },
+  {
+    "engine": "neural_ctc",
+    "same_text_as_frozen_probe": true
+  },
+  {
+    "engine": "neural_envelope",
+    "same_text_as_frozen_probe": true
+  }
+]

@@ -1,0 +1,7 @@
+[ 50%] Built target madmodem_cwskimmer
+[ 50%] Built target madmodem_cw_engine_regression_autogen_timestamp_deps
+[ 50%] Automatic MOC and UIC for target madmodem_cw_engine_regression
+[ 50%] Built target madmodem_cw_engine_regression_autogen
+[ 50%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/tests/CwEngineIntegrationRegression.cpp.o
+[ 66%] Linking CXX executable madmodem_cw_engine_regression
+[100%] Built target madmodem_cw_engine_regression

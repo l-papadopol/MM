@@ -1,0 +1,48 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (0.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /workspace/scratch/e6bce88d93e2/run-r13/route-build
+[  6%] Building CXX object CMakeFiles/cwcore.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/skimmer/CwCarrierDiscriminator.cpp.o
+[ 12%] Building CXX object CMakeFiles/cwcore.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/skimmer/CwSkimmerEngine.cpp.o
+[ 18%] Building CXX object CMakeFiles/cwcore.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/skimmer/CwMorseBeamDecoder.cpp.o
+[ 25%] Building CXX object CMakeFiles/cwcore.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingDecoder.cpp.o
+[ 31%] Building CXX object CMakeFiles/cwcore.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingTask.cpp.o
+[ 37%] Building CXX object CMakeFiles/cwcore.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/skimmer/SelectedToneCwTracker.cpp.o
+[ 43%] Linking CXX static library libcwcore.a
+[ 43%] Built target cwcore
+[ 43%] Built target cw_route_probe_autogen_timestamp_deps
+[ 50%] Automatic MOC for target cw_route_probe
+[ 50%] Built target cw_route_probe_autogen
+[ 56%] Building CXX object CMakeFiles/cw_route_probe.dir/cw_route_probe_autogen/mocs_compilation.cpp.o
+[ 62%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/tests/CwRouteProbe.cpp.o
+[ 68%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/CwDecoder.cpp.o
+[ 75%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/CwBandSkimmer.cpp.o
+[ 81%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 87%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/dsp/text/LinearResampler.cpp.o
+[ 93%] Linking CXX executable cw_route_probe
+[100%] Built target cw_route_probe
+[ 43%] Built target cwcore
+[ 43%] Built target cw_route_probe_autogen_timestamp_deps
+[ 50%] Automatic MOC for target cw_route_probe
+[ 50%] Built target cw_route_probe_autogen
+[ 56%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/tests/CwRouteProbe.cpp.o
+[ 62%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/CwDecoder.cpp.o
+[ 68%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 75%] Linking CXX executable cw_route_probe
+[100%] Built target cw_route_probe
+[ 43%] Built target cwcore
+[ 43%] Built target cw_route_probe_autogen_timestamp_deps
+[ 50%] Automatic MOC for target cw_route_probe
+[ 50%] Built target cw_route_probe_autogen
+[ 56%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/CwDecoder.cpp.o
+[ 62%] Building CXX object CMakeFiles/cw_route_probe.dir/workspace/scratch/e6bce88d93e2/work-r13/MadModem_0_6_2_FULL_SOURCE/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 68%] Linking CXX executable cw_route_probe
+[100%] Built target cw_route_probe

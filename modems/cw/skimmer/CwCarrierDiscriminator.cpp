@@ -1,6 +1,8 @@
 #include "CwCarrierDiscriminator.h"
 
 #include <algorithm>
+#include <array>
+#include <cstdint>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -38,14 +40,7 @@ double logNormalCdf(double durationMs, double centreMs, double sigmaLog) {
   return clampd(normalCdf(z), 0.0, 1.0);
 }
 
-double logNormalMass(int durationMs, double centreMs, double sigmaLog) {
-  const double low = logNormalCdf(
-      std::max(0.0, static_cast<double>(durationMs) - 0.5),
-      centreMs, sigmaLog);
-  const double high = logNormalCdf(
-      static_cast<double>(durationMs) + 0.5, centreMs, sigmaLog);
-  return std::max(0.0, high - low);
-}
+
 }
 
 CwCarrierDiscriminator::CwCarrierDiscriminator(
@@ -84,6 +79,8 @@ void CwCarrierDiscriminator::reset() {
   m_noiseLog = 0.0;
   m_markLog = std::log(4.0);
   m_haveLevels = false;
+  m_acquiredCarrier = false;
+  m_acquisitionEvidence = 0;
   m_probability = 0.5;
   m_confidence = 0.0;
   m_keyDown = false;
@@ -108,6 +105,8 @@ void CwCarrierDiscriminator::reset() {
 void CwCarrierDiscriminator::resumeAfterGap() {
   // Preserve the adaptive level model; discard only states whose continuity is
   // invalid once MadModem has intentionally stopped sampling during its own TX.
+  m_acquiredCarrier = false;
+  m_acquisitionEvidence = 0;
   m_probability = 0.5;
   m_confidence *= 0.70;
   m_keyDown = false;
@@ -198,6 +197,27 @@ double CwCarrierDiscriminator::durationHazard(
   const int duration = std::max(1, durationMs);
   const double dit = clampd(ditMs, 24.0, 260.0);
   const double trust = clampd(timingConfidence, 0.0, 1.0);
+  // Pure duration likelihoods recur across beam paths and adjacent control
+  // samples. Cache exact input tuples per worker; no quantization or shared
+  // mutable state across receiver threads.
+  struct HazardCache {
+    double dit = -1.0, trust = -1.0;
+    std::uint32_t epoch = 1;
+    std::array<std::array<double,4097>,2> values{};
+    std::array<std::array<std::uint32_t,4097>,2> tags{};
+  };
+  static thread_local HazardCache cache;
+  if (cache.dit != dit || cache.trust != trust) {
+    cache.dit=dit; cache.trust=trust;
+    if (++cache.epoch == 0) {
+      for (auto& tags : cache.tags) tags.fill(0);
+      cache.epoch=1;
+    }
+  }
+  const bool cacheable=duration<=4096;
+  const std::size_t lane=mark ? 1U : 0U;
+  if (cacheable && cache.tags[lane][static_cast<std::size_t>(duration)]==cache.epoch)
+    return cache.values[lane][static_cast<std::size_t>(duration)];
   const double sigma = mark
       ? 0.19 + 0.43 * (1.0 - trust)
       : 0.24 + 0.50 * (1.0 - trust);
@@ -208,9 +228,10 @@ double CwCarrierDiscriminator::durationHazard(
   double survival = 0.0;
   const auto addLogNormal = [&](double weight, double centre,
                                 double familySigma) {
-    mass += weight * logNormalMass(duration, centre, familySigma);
-    survival += weight * (1.0 - logNormalCdf(
-        boundary, centre, familySigma));
+    const double low=logNormalCdf(boundary,centre,familySigma);
+    const double high=logNormalCdf(static_cast<double>(duration)+0.5,centre,familySigma);
+    mass += weight*std::max(0.0,high-low);
+    survival += weight*(1.0-low);
   };
   const auto addExponentialTail = [&](double weight, double meanMs) {
     const double safeMean = std::max(1.0, meanMs);
@@ -236,8 +257,12 @@ double CwCarrierDiscriminator::durationHazard(
     addExponentialTail(0.04, 18.0 * dit);
   }
 
-  if (duration < 3) return 1.0e-5;
-  return clampd(mass / std::max(1.0e-12, survival), 1.0e-5, 0.96);
+  const double result=duration<3 ? 1.0e-5 : clampd(mass/std::max(1.0e-12,survival),1.0e-5,0.96);
+  if (cacheable) {
+    cache.values[lane][static_cast<std::size_t>(duration)]=result;
+    cache.tags[lane][static_cast<std::size_t>(duration)]=cache.epoch;
+  }
+  return result;
 }
 
 std::optional<CwLogicRun> CwCarrierDiscriminator::commitResolvedState(
@@ -468,6 +493,19 @@ CwCarrierDiscriminatorResult CwCarrierDiscriminator::process(
                                    m_markLog + std::log(0.18));
   m_probability = clampd(logistic((logEnvelope - midpoint) / 0.24),
                          0.001, 0.999);
+  // A short noise transient must not latch initial MARK acquisition. Keep
+  // provisional coherent elements immediately observable, but confirm the
+  // carrier only after continuous RF evidence. No Morse/text prior is used.
+  if (!m_acquiredCarrier) {
+    const bool supported=observation.carrierCentered ||
+        (observation.coherence>=0.40 && observation.snrDb>=m_config.minSnrDb+1.5) ||
+        (observation.coherence>=0.25 && observation.snrDb>=m_config.minSnrDb+6.0);
+    m_acquisitionEvidence=supported ? m_acquisitionEvidence+1 : 0;
+    const int confirmation=std::max(m_config.minimumStableMs,
+        static_cast<int>(std::min(30.0,0.5*clampd(observation.timingDitMs,24.0,260.0))));
+    if (m_acquisitionEvidence>=confirmation) m_acquiredCarrier=true;
+    else if (!supported) m_probability=std::min(m_probability,0.02);
+  }
   const double separationDb = 8.685889638 * separation;
   const double levelEvidence = clampd(separationDb / 14.0, 0.0, 1.0);
   const double decisionEvidence = std::abs(2.0 * m_probability - 1.0);
