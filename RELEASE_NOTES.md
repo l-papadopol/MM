@@ -1,5 +1,9 @@
 # MadModem 0.6.3
 
+Windows build revision R3 fixes a missing header and timer initialization in the
+bundled Hamlib source, plus malformed Autoconf feature checks. UCRT64 packaging,
+Native R12, Neural R13 and the FT clock fix are retained. Public version: 0.6.3.
+
 Windows packaging revision R2 moves the GitHub build to MSYS2 UCRT64, including
 Qt5, OpenSSL, ANGLE and Hamlib. Runtime DLLs are resolved from the same environment.
 The application version remains 0.6.3; CW engines and the FT clock fix are unchanged.

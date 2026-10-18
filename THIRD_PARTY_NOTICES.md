@@ -33,6 +33,11 @@ License: Hamlib library LGPL-2.1-or-later; some upstream tools/examples are GPL-
 
 
 
+Local portability adjustments in source revision R3: `lib/precise_time.c` includes
+`assert.h` and selects the appropriate Windows constructor mechanism;
+`configure.ac` uses literal whitespace-separated feature-probe lists. Original
+copyright and license headers are retained.
+
 ### MMSSTV-derived SSTV core
 
 Location: `third_party/mmsstv_lgpl/MmsstvRxCore.*`

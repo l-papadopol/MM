@@ -1,5 +1,11 @@
 # MadModem changelog
 
+## 0.6.3 source R3 — bundled Hamlib Windows build
+
+- Added the missing assert header in Hamlib's Windows timer and used GCC's constructor attribute for startup initialization; retained the MSVC CRT path.
+- Normalized the Autoconf header/function lists and separated two concatenated BSD header names, eliminating malformed feature probes.
+- Kept UCRT64 packaging, both CW engines and the FT clock layout unchanged.
+
 ## 0.6.3 source R2 — Windows UCRT64 packaging
 
 - Migrated the installer workflow and its complete package list from deprecated MINGW64 to UCRT64.

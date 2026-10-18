@@ -21,6 +21,7 @@
 // ---------------------------------------------------------------------
 
 #include "hamlib/config.h"
+#include <assert.h>
 #include <errno.h>
 #include <time.h>
 #include <sys/time.h>
@@ -91,20 +92,23 @@ double monotonic_seconds()
 
 static double PCFreq = 0.0;
 
-// According to http://stackoverflow.com/q/1113409/447288, this will
-// make this function a constructor.
-// TODO(awreece) Actually attempt to compile on windows.
-// w1hkj - builds OK on mingw32
-
-static void __cdecl init_pcfreq();
-__declspec(allocate(".CRT$XCU")) void (__cdecl *init_pcfreq_)() = init_pcfreq;
-static void __cdecl init_pcfreq()
+// Use the compiler's startup mechanism. GCC ignores MSVC's allocate attribute,
+// which otherwise leaves PCFreq at zero even when compilation succeeds.
+static void __cdecl init_pcfreq(void);
+#if defined(__GNUC__)
+static void __cdecl init_pcfreq(void) __attribute__((constructor));
+#else
+#pragma section(".CRT$XCU", read)
+__declspec(allocate(".CRT$XCU")) void (__cdecl *init_pcfreq_)(void) = init_pcfreq;
+#endif
+static void __cdecl init_pcfreq(void)
 {
     // Accoring to http://stackoverflow.com/a/1739265/447288, this will
     // properly initialize the QueryPerformanceCounter.
     LARGE_INTEGER li;
     int has_qpc = QueryPerformanceFrequency(&li);
     assert(has_qpc);
+    (void)has_qpc; // Keep release builds warning-free when assertions are disabled.
 
     PCFreq = ((double) li.QuadPart) / 1000.0;
 }

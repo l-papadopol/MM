@@ -1,6 +1,6 @@
 # MadModem 0.6.3 source release
 
-Source revision: `0.6.3-source-r2-ucrt64-native-r12-neural-r13`.
+Source revision: `0.6.3-source-r3-hamlib-windows-native-r12-neural-r13`.
 
 ## Delivered behavior
 
@@ -95,3 +95,35 @@ References, checked 2026-10-18:
 - https://repo.msys2.org/mingw/ucrt64/ucrt64.db
 - https://repo.msys2.org/mingw/mingw64/mingw64.db
 - https://repo.msys2.org/msys/x86_64/msys.db
+
+## Windows Hamlib revision R3
+
+The next CI failure was in bundled Hamlib, before the MadModem build:
+`precise_time.c` called `assert()` without including its header. GCC also ignored
+MSVC's `allocate` attribute on the startup initializer, leaving the intended
+frequency initialization unregistered. R3 includes `assert.h`, registers the
+initializer with GCC's constructor attribute, and retains the MSVC CRT path.
+The existing Windows conversion scale is preserved; no CAT or CW timing policy
+is changed. Builds with assertions disabled remain warning-free.
+
+The two Autoconf feature lists now use literal whitespace-separated names,
+without shell-style backslashes inside quoted M4 arguments. Two concatenated
+BSD header names are separated. This corrects the malformed probes and warnings
+shown in the same CI log.
+
+Checks already completed: the affected Windows branch compiles and links into
+PE executables with real MinGW-w64 Windows headers, both with and without
+`NDEBUG`, under `-Wall -Wextra -Werror`. The object contains the GCC constructor
+section and the executables import the two performance-counter APIs. An
+isolated host test with Windows API doubles verifies initialization before
+`main`, finite values and forward progress in debug/release. The unchanged
+POSIX branch compiles with warnings treated as errors. Windows executables have
+not been run in this Linux environment. Full native UCRT64/Qt installer checks
+remain the responsibility of the GitHub Windows job.
+
+The complete bundled Hamlib source also cross-builds successfully for Windows
+with GCC 13.2 / MinGW-w64, including its C++ binding, `rigctl.exe`, `rigctld.exe`
+and the remaining command-line programs. The build uses
+`-Werror=implicit-function-declaration`. Regenerated configuration recognizes
+`snprintf` correctly and no longer reports the malformed-literal warnings.
+This is a Linux-hosted cross-build, separate from the native UCRT64/Qt GitHub job.
