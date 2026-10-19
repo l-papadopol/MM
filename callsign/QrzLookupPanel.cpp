@@ -7,11 +7,6 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QFormLayout>
-#include <QDialog>
-#include <QDialogButtonBox>
-#include <QLineEdit>
-#include <QLabel>
 #include <QSettings>
 #include <QDesktopServices>
 #include <QRegularExpression>
@@ -50,20 +45,17 @@ QrzLookupPanel::QrzLookupPanel(QWidget* parent) : QGroupBox(QStringLiteral("QRZ.
     m_details->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     layout->addWidget(m_details);
     auto *buttons = new QHBoxLayout;
-    auto *connectButton = new QPushButton(uiText("text.qrz_account", "QRZ account…"), this);
-    connectButton->setObjectName(QStringLiteral("qrzAccountButton"));
-    connectButton->setProperty("i18nSourceText", "QRZ account…");
     m_open = new QPushButton(uiText("text.open_qrz_page", "Open QRZ page"), this);
     m_open->setProperty("i18nSourceText", "Open QRZ page");
-    buttons->addWidget(connectButton); buttons->addWidget(m_open); layout->addLayout(buttons);
-    connect(connectButton, &QPushButton::clicked, this, [this] { account(); });
+    buttons->addWidget(m_open); layout->addLayout(buttons);
     connect(m_open, &QPushButton::clicked, this, [this] {
         if (!m_call.isEmpty()) QDesktopServices::openUrl(QUrl(QStringLiteral("https://www.qrz.com/db/") + QString::fromLatin1(QUrl::toPercentEncoding(m_call))));
     });
     m_delay.setSingleShot(true); m_delay.setInterval(450);
     connect(&m_delay, &QTimer::timeout, this, [this] { lookup(); });
     QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
-    m_username = settings.value("QRZ/username").toString();
+    m_username = settings.value("QRZ/username").toString().trimmed();
+    m_password = settings.value("QRZ/password").toString();
     setCallsign({});
 }
 void QrzLookupPanel::cancel() {
@@ -80,26 +72,19 @@ void QrzLookupPanel::setCallsign(const QString& raw) {
     if (m_call.isEmpty()) { showStatus(uiText("qrz_select", "Select a callsign in the RX text or QSO form.")); return; }
     auto cached = m_cache.constFind(m_call);
     if (cached != m_cache.constEnd() && cached->time.secsTo(QDateTime::currentDateTimeUtc()) < 600) { showResult(cached->response); return; }
-    if (m_password.isEmpty()) { showStatus(uiText("qrz_connect_help", "Connect your QRZ account for station details. Complete data requires XML access.")); return; }
+    if (m_username.isEmpty() || m_password.isEmpty()) { showStatus(uiText("qrz_settings_help", "Configure your QRZ account in Settings → QRZ.com. Complete data requires XML access.")); return; }
     showStatus(uiText("qrz_loading", "Looking up station…")); m_delay.start();
 }
 void QrzLookupPanel::showStatus(const QString& status) {
     m_details->setHtml((m_call.isEmpty() ? QString() : "<b>"+m_call.toHtmlEscaped()+"</b><br>") + status.toHtmlEscaped().replace("\n", "<br>"));
 }
-void QrzLookupPanel::account() {
-    QDialog dialog(this); dialog.setWindowTitle(QStringLiteral("QRZ.COM")); dialog.resize(430, 240);
-    auto *layout = new QVBoxLayout(&dialog);
-    auto *info = new QLabel(uiText("qrz_credentials_help", "QRZ XML access is required for complete station data. The username is remembered; the password stays in memory only until MM closes."), &dialog); info->setWordWrap(true); layout->addWidget(info);
-    auto *form = new QFormLayout;
-    auto *username = new QLineEdit(m_username, &dialog); auto *password = new QLineEdit(&dialog); password->setEchoMode(QLineEdit::Password);
-    form->addRow(uiText("qrz_username", "Username"), username); form->addRow(uiText("qrz_password", "Password"), password); layout->addLayout(form);
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok|QDialogButtonBox::Cancel, &dialog); layout->addWidget(buttons);
-    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept); connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
-    if (dialog.exec() != QDialog::Accepted) return;
-    cancel(); m_username = username->text().trimmed(); m_password = password->text(); m_key.clear(); m_cache.clear();
-    QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat); settings.setValue("QRZ/username", m_username);
-    if (m_username.isEmpty() || m_password.isEmpty()) { showStatus(uiText("qrz_connect_help", "Connect your QRZ account for station details. Complete data requires XML access.")); return; }
-    login(false);
+void QrzLookupPanel::setAccountCredentials(const QString& username, const QString& password) {
+    const QString normalized = username.trimmed();
+    if (normalized == m_username && password == m_password) return;
+    cancel(); m_username = normalized; m_password = password; m_key.clear(); m_cache.clear();
+    const QString selected = m_call;
+    m_call.clear();
+    setCallsign(selected);
 }
 void QrzLookupPanel::request(const QList<QPair<QString,QString>>& query, std::function<void(QrzResponse)> done) {
     const quint64 generation = m_generation;
@@ -140,7 +125,7 @@ void QrzLookupPanel::login(bool retry) {
     });
 }
 void QrzLookupPanel::lookup(bool relogin) {
-    if (m_call.isEmpty() || m_password.isEmpty()) return;
+    if (m_call.isEmpty() || m_username.isEmpty() || m_password.isEmpty()) return;
     if (m_key.isEmpty()) { login(relogin); return; }
     const QList<QPair<QString,QString>> query{{"s",m_key},{"callsign",m_call}};
     request(query, [this, relogin](const QrzResponse& result) {

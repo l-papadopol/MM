@@ -1,0 +1,38 @@
+[
+  {
+    "version": "R5",
+    "repeat": 0,
+    "code": 0,
+    "rows": [
+      "FT8 QSO_ms=721.827 total_ms=922.148 decodes=6 subtraction_ms=45.3154 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73",
+      "FT4 QSO_ms=270.148 total_ms=394.939 decodes=6 subtraction_ms=24.6928 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73"
+    ]
+  },
+  {
+    "version": "R5",
+    "repeat": 1,
+    "code": 0,
+    "rows": [
+      "FT8 QSO_ms=579.007 total_ms=804.444 decodes=6 subtraction_ms=47.7906 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73",
+      "FT4 QSO_ms=219.892 total_ms=333.428 decodes=6 subtraction_ms=28.5309 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73"
+    ]
+  },
+  {
+    "version": "R6 off",
+    "repeat": 0,
+    "code": 0,
+    "rows": [
+      "FT8 QSO_ms=503.451 total_ms=769.039 decodes=6 subtraction_ms=59.4573 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73",
+      "FT4 QSO_ms=201.132 total_ms=318.721 decodes=6 subtraction_ms=34.4063 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73"
+    ]
+  },
+  {
+    "version": "R6 off",
+    "repeat": 1,
+    "code": 0,
+    "rows": [
+      "FT8 QSO_ms=600.157 total_ms=858.484 decodes=6 subtraction_ms=55.9681 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73",
+      "FT4 QSO_ms=217.828 total_ms=328.837 decodes=6 subtraction_ms=37.7685 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73"
+    ]
+  }
+]

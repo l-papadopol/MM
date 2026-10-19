@@ -25,6 +25,7 @@ def main():
         probes = [('FtRuntimeLatencyProbe', ['cancel', ''])]
     else:
         probes.append(('FtResponseUiProbe', ['']))
+        probes.append(('FtDriftSettingsUiProbe', ['']))
     for name, runs in probes:
         command = shlex.split(entry['command'])
         if Path(command[0]).name in ('cl', 'cl.exe'):

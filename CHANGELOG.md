@@ -1,5 +1,16 @@
 # MadModem changelog
 
+## 0.6.3 source R6 — optional FT drift RX and QRZ account settings
+
+- Add bounded, marker-local linear-drift recovery after unchanged standard FT8/FT4 passes; use Costas evidence, an analytic audio copy and normal LDPC/CRC validation.
+- Keep recovery off by default, expose an absolute 0.25–5 Hz/s limit in Settings → FT8 / FT4, and report verified estimates and recovery cost in the runtime log.
+- Predict the next local search from a recent verified estimate for the same selected DX; leave RX/TX markers and CAT under operator control.
+- Keep drifting recovery results out of constant-frequency SIC; retain all baseline results.
+- Move QRZ account fields to Settings → QRZ.com while preserving the main station-information panel.
+- Save username/password in the local profile and reuse them after restart; preserve Cancel semantics and invalidate old sessions/cache after account changes.
+- Retain R5 reply-window/QRZ fixes, R4 updates, Windows UCRT64/Hamlib fixes, CW Native R12 / Neural R13 and the pinned FT clock.
+
+
 ## 0.6.3 source R5 — FT replies and selected QRZ station
 
 - Preserve the final opposite RX period before declaring an FT8/FT4 QSO unanswered; consume each TX attempt once and invalidate obsolete timeouts.

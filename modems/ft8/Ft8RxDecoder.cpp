@@ -1245,8 +1245,25 @@ void Ft8RxDecoder::setDxCall(const QString &call)
     m_unpacker.save_hash_call_my_his_r1_r2(m_dxCall, 1);
 }
 
+void Ft8RxDecoder::setDriftRxOptions(bool enabled, double maxHzPerSec)
+{
+    const double bounded = std::isfinite(maxHzPerSec) ? qBound(0.25, maxHzPerSec, 5.0) : 2.0;
+    std::unique_lock<std::recursive_mutex> lock(m_decodeConfigMutex, std::try_to_lock);
+    if (!lock.owns_lock()) {
+        m_pendingDriftOptions = true;
+        m_pendingDriftEnabled = enabled;
+        m_pendingDriftMax = bounded;
+        return;
+    }
+    m_pendingDriftOptions = false;
+    m_driftRxEnabled = enabled;
+    m_driftMaxHzPerSec = bounded;
+    if (!enabled || std::abs(m_driftTrackRate) > bounded) m_driftTrackSlotMs = 0;
+}
+
 void Ft8RxDecoder::applyPendingQsoContext()
 {
+    if (m_pendingDriftOptions) setDriftRxOptions(m_pendingDriftEnabled, m_pendingDriftMax);
     if (m_pendingRxMarkerHz >= 0) setRxMarkerHz(m_pendingRxMarkerHz);
     if (m_hasPendingDxCall) setDxCall(m_pendingDxCall);
 }
@@ -2518,6 +2535,201 @@ void Ft8RxDecoder::maybeLaunchPendingFinalDecode()
     startAsyncDecodeSlot(samples, slotUtc, QStringLiteral("boundary"));
 }
 
+// Optional, local recovery deliberately runs AFTER every established search/SIC
+// pass. It never alters the original audio, baseline candidates or SIC residual.
+// A recovered chirped signal is not fed into constant-frequency cancellation.
+void Ft8RxDecoder::recoverDriftingSignal(const QVector<double> &samples,
+                                        const QDateTime &slotStartUtc,
+                                        QVector<Decode> &decodes, PerfStats *stats,
+                                        const std::function<void(const QVector<Decode> &)> &publish)
+{
+    if (!m_driftRxEnabled || decodeCancellationRequested()) return;
+    const bool ft4 = m_modeName == QStringLiteral("FT4");
+    if (samples.size() < (ft4 ? 72000 : 162000)) return;
+    const int symbols = ft4 ? 103 : 79;
+    const int samplesPerSymbol = ft4 ? 576 : 1920;
+    const double symbolSec = samplesPerSymbol / 12000.0;
+    const double duration = symbols * symbolSec;
+    const double spacing = 1.0 / symbolSec;
+    double marker = m_rxMarkerHz;
+    const qint64 slotMs = slotStartUtc.toMSecsSinceEpoch();
+    const double secondsSinceTrack = (slotMs - m_driftTrackSlotMs) / 1000.0;
+    const bool trackCurrent = m_driftTrackSlotMs > 0 && !m_dxCall.isEmpty() &&
+        m_driftTrackCall == m_dxCall && m_driftTrackMode == m_modeName &&
+        secondsSinceTrack >= 0.0 && secondsSinceTrack <= 60.0 &&
+        (std::abs(m_rxMarkerHz - m_driftTrackMarkerHz) <= 3 ||
+         std::abs(m_rxMarkerHz - m_driftTrackFrequencyHz) <= 3);
+    if (trackCurrent) {
+        marker = qBound(100.0, m_driftTrackFrequencyHz + m_driftTrackRate * secondsSinceTrack, 3000.0);
+    }
+    for (const Decode &d : decodes) {
+        const bool target = !m_dxCall.isEmpty() &&
+            d.message.toUpper().split(QLatin1Char(' '), Qt::SkipEmptyParts).contains(m_dxCall);
+        if (target || (m_dxCall.isEmpty() && std::abs(d.frequencyHz - marker) <= 35.0)) {
+            if (target && trackCurrent) {
+                m_driftTrackSlotMs = slotMs;
+                m_driftTrackFrequencyHz = d.frequencyHz;
+                m_driftTrackMarkerHz = m_rxMarkerHz;
+            }
+            return;
+        }
+    }
+    using Clock = std::chrono::steady_clock;
+    const auto begin = Clock::now();
+    auto elapsedMs = [&] { return std::chrono::duration<double, std::milli>(Clock::now() - begin).count(); };
+    auto finish = [&] { if (stats) stats->driftRecoveryMs += elapsedMs(); };
+    const double budgetMs = ft4 ? 220.0 : 280.0;
+    // Hard bounds: one 500-Hz local baseband, fixed Costas grids, at most three
+    // ordinary FEC attempts. No OSD/coherent-metric retries are added for FT8.
+    constexpr int decimation = 24;
+    constexpr double rate = 500.0;
+    const int tones = ft4 ? 4 : 8;
+    const int blockCount = ft4 ? 4 : 3;
+    const int blockLength = ft4 ? 4 : 7;
+    const int positions[4] = {0, ft4 ? 33 : 36, ft4 ? 66 : 72, 99};
+    const int *patterns[4] = {ft4 ? kFt4SyncA : kCostas,
+                              ft4 ? kFt4SyncB : kCostas,
+                              ft4 ? kFt4SyncC : kCostas, kFt4SyncD};
+    const double mixHz = marker + (tones - 1) * spacing * 0.5;
+    static const std::vector<double> taps = makeWindowedSincLowpass(321, 145.0, 12000.0);
+    std::vector<std::complex<double>> baseband;
+    if (!extractComplexBaseband(samples, 0, samples.size() / decimation,
+                                decimation, mixHz, taps, baseband)) { finish(); return; }
+    const double fStep = spacing / 4.0;
+    const double fLow = marker - 35.0 - m_driftMaxHzPerSec * duration * 0.5;
+    const int fCount = static_cast<int>(std::ceil((70.0 + m_driftMaxHzPerSec * duration) / fStep)) + 1;
+    const int symbolN = samplesPerSymbol / decimation;
+    const double startStep = ft4 ? 0.024 : 0.04;
+    const double startLow = ft4 ? 0.0 : 0.10;
+    const int startCount = ft4 ? 35 : 26;
+    const int driftSteps = static_cast<int>(std::ceil(m_driftMaxHzPerSec / (ft4 ? 0.5 : 0.25)));
+    struct Hypothesis { double start, frequency, drift, score; };
+    QVector<Hypothesis> best;
+    std::vector<double> scores(static_cast<size_t>(blockCount * fCount));
+    auto retain = [&](const Hypothesis &h) {
+        for (auto &old : best) {
+            if (std::abs(old.start - h.start) < 0.075 &&
+                std::abs(old.frequency - h.frequency) < spacing * 0.6 &&
+                std::abs(old.drift - h.drift) < (ft4 ? 1.0 : 0.5)) {
+                if (h.score > old.score) old = h;
+                return;
+            }
+        }
+        best.append(h);
+        std::sort(best.begin(), best.end(), [](const Hypothesis &a, const Hypothesis &b) { return a.score > b.score; });
+        if (best.size() > 12) best.resize(12);
+    };
+    std::vector<int> timingOrder(static_cast<size_t>(startCount));
+    for (int i = 0; i < startCount; ++i) timingOrder[static_cast<size_t>(i)] = i;
+    std::stable_sort(timingOrder.begin(), timingOrder.end(), [&](int a, int b) {
+        return std::abs(startLow + a * startStep - 0.5) < std::abs(startLow + b * startStep - 0.5);
+    });
+    for (int ti : timingOrder) {
+        if (decodeCancellationRequested() || elapsedMs() > budgetMs * 0.60) break;
+        const double start = startLow + ti * startStep;
+        for (int b = 0; b < blockCount; ++b) {
+            for (int fi = 0; fi < fCount; ++fi) {
+                const double frequency = fLow + fi * fStep;
+                double score = 0.0;
+                for (int k = 0; k < blockLength; ++k) {
+                    const int sym = positions[b] + k;
+                    const int first = qRound((start + sym * symbolSec) * rate);
+                    if (first < 0 || first + symbolN > static_cast<int>(baseband.size())) { score = -1e9; break; }
+                    const double omega = -kTwoPi * (frequency + patterns[b][k] * spacing - mixHz) / rate;
+                    const std::complex<double> step(std::cos(omega), std::sin(omega));
+                    std::complex<double> osc(1.0, 0.0), sum(0.0, 0.0);
+                    double power = 0.0;
+                    for (int n = 0; n < symbolN; ++n) {
+                        const auto x = baseband[static_cast<size_t>(first + n)];
+                        sum += x * osc; power += std::norm(x); osc *= step;
+                    }
+                    score += std::log1p(std::norm(sum) / (power + kEps));
+                }
+                scores[static_cast<size_t>(b * fCount + fi)] = score / blockLength;
+            }
+        }
+        auto blockScore = [&](int b, double frequency) {
+            const double bin = (frequency - fLow) / fStep;
+            const int i = static_cast<int>(std::floor(bin));
+            if (i < 0 || i + 1 >= fCount) return -1e9;
+            const double fraction = bin - i;
+            return scores[static_cast<size_t>(b * fCount + i)] * (1.0 - fraction) +
+                   scores[static_cast<size_t>(b * fCount + i + 1)] * fraction;
+        };
+        const int midBins = static_cast<int>(std::ceil(50.0 / fStep));
+        for (int fi = 0; fi <= midBins; ++fi) {
+            const double midpointHz = marker - 25.0 + fi * 50.0 / midBins;
+            double zeroScore = 0.0;
+            for (int b = 0; b < blockCount; ++b) zeroScore += blockScore(b, midpointHz);
+            zeroScore /= blockCount;
+            for (int di = -driftSteps; di <= driftSteps; ++di) {
+                const double drift = di * m_driftMaxHzPerSec / driftSteps;
+                if (std::abs(drift) * duration < spacing * 0.35) continue;
+                double score = 0.0, weakest = 1e9;
+                for (int b = 0; b < blockCount; ++b) {
+                    const double time = (positions[b] + blockLength * 0.5) * symbolSec - duration * 0.5;
+                    const double value = blockScore(b, midpointHz + drift * time);
+                    score += value; weakest = std::min(weakest, value);
+                }
+                score /= blockCount;
+                if (score < (ft4 ? 1.0 : 1.15) || weakest < 0.80 || score < zeroScore + 0.04) continue;
+                retain({start, midpointHz, drift, score});
+            }
+        }
+    }
+    if (best.isEmpty() || decodeCancellationRequested() || elapsedMs() > budgetMs) { finish(); return; }
+    std::sort(best.begin(), best.end(), [](const Hypothesis &a, const Hypothesis &b) { return a.score > b.score; });
+    // Form an analytic copy once. The quadratic phase removes a LINEAR drift
+    // exactly, including within symbols, while retaining protocol tone spacing.
+    int nfft = 1;
+    while (nfft < samples.size()) nfft <<= 1;
+    std::vector<std::complex<double>> analytic(static_cast<size_t>(nfft));
+    for (int i = 0; i < samples.size(); ++i) analytic[static_cast<size_t>(i)] = samples[i];
+    fftRadix2(analytic);
+    for (int i = 1; i < nfft / 2; ++i) analytic[static_cast<size_t>(i)] *= 2.0;
+    for (int i = nfft / 2 + 1; i < nfft; ++i) analytic[static_cast<size_t>(i)] = {};
+    inverseFftRadix2(analytic);
+    int attempts = 0;
+    for (const Hypothesis &h : best) {
+        if (attempts >= 3 || decodeCancellationRequested() || elapsedMs() > budgetMs) break;
+        QVector<double> corrected(samples.size());
+        const double referenceSec = h.start + duration * 0.5;
+        for (int i = 0; i < corrected.size(); ++i) {
+            const double t = i / 12000.0 - referenceSec;
+            const double phase = -0.5 * kTwoPi * h.drift * t * t;
+            corrected[i] = (analytic[static_cast<size_t>(i)] * std::complex<double>(std::cos(phase), std::sin(phase))).real();
+        }
+        Candidate candidate;
+        candidate.startSec = h.start; candidate.baseHz = h.frequency;
+        candidate.score = h.score; candidate.rankScore = h.score;
+        Decode recovered;
+        ++attempts;
+        if (stats) ++stats->driftAttempts;
+        const bool valid = ft4
+            ? decodeFt4Candidate(corrected, slotStartUtc, candidate, recovered)
+            : decodeCandidate(corrected, slotStartUtc, candidate, recovered, nullptr, nullptr, nullptr, false, false);
+        if (!valid) continue;
+        // The local fit is never a substitute for LDPC + CRC + normal message
+        // validation. It also never overrides a previously accepted result.
+        const bool duplicate = std::any_of(decodes.cbegin(), decodes.cend(), [&](const Decode &d) {
+            return d.message == recovered.message && std::abs(d.frequencyHz - recovered.frequencyHz) < 35;
+        });
+        if (duplicate) continue;
+        recovered.driftHzPerSec = h.drift;
+        recovered.driftSyncEvidence = h.score;
+        if (!m_dxCall.isEmpty() && recovered.message.toUpper().split(QLatin1Char(' '), Qt::SkipEmptyParts).contains(m_dxCall)) {
+            m_driftTrackSlotMs = slotMs; m_driftTrackCall = m_dxCall; m_driftTrackMode = m_modeName;
+            m_driftTrackMarkerHz = m_rxMarkerHz;
+            m_driftTrackFrequencyHz = recovered.frequencyHz; m_driftTrackRate = h.drift;
+        }
+        decodes.append(recovered);
+        if (stats) ++stats->driftDecodes;
+        if (publish) publish(QVector<Decode>{recovered});
+        break;
+    }
+    finish();
+}
+
 QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &samples,
                                                        const QDateTime &slotStartUtc,
                                                        int *candidateCount,
@@ -3491,6 +3703,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     for (const CandidateDecode &pair : finalPairs) {
         out.append(pair.decode);
     }
+
+    if (!gateCandidateSet) recoverDriftingSignal(samples, slotStartUtc, out, stats, publish);
 
     m_lastCandidateCount.store(totalCandidates);
     if (candidateCount != nullptr) {
@@ -5271,6 +5485,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
     for (const CandidateDecode &pair : deduped) {
         out.append(pair.decode);
     }
+
+    if (!gateCandidateSet) recoverDriftingSignal(samples, slotStartUtc, out, stats, publish);
 
     const auto totalEnd = Clock::now();
     const double finalTotalMs = std::chrono::duration<double, std::milli>(totalEnd - totalStart).count();

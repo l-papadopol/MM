@@ -4,6 +4,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QHash>
 #include <QRegularExpression>
 #include <QSet>
@@ -521,6 +522,10 @@ void AppSettings::load()
     }
     ft8DxCallsign = settings.value("FT8/dxCallsign", ft8DxCallsign).toString().trimmed().toUpper();
     ft8DxGrid = settings.value("FT8/dxGrid", ft8DxGrid).toString().trimmed().toUpper();
+    qrzUsername = settings.value("QRZ/username", qrzUsername).toString().trimmed();
+    qrzPassword = settings.value("QRZ/password", qrzPassword).toString();
+    ftDriftRxEnabled = settings.value("FT/driftRxEnabled", false).toBool();
+    ftDriftMaxHzPerSec = qBound(0.25, settings.value("FT/driftMaxHzPerSec", 2.0).toDouble(), 5.0);
     ft8RxFrequencyHz = settings.value("FT8/rxFrequencyHz", ft8RxFrequencyHz).toInt();
     ft8TxFrequencyHz = settings.value("FT8/txFrequencyHz", ft8TxFrequencyHz).toInt();
     ft8CqTarget = settings.value("FT8/cqTarget", ft8CqTarget).toString().trimmed().toUpper();
@@ -912,6 +917,11 @@ bool AppSettings::save() const
     settings.setValue("FT8/band", ft8Band);
     settings.setValue("FT8/dxCallsign", ft8DxCallsign);
     settings.setValue("FT8/dxGrid", ft8DxGrid);
+    settings.setValue("QRZ/username", qrzUsername.trimmed());
+    if (qrzPassword.isEmpty()) settings.remove("QRZ/password");
+    else settings.setValue("QRZ/password", qrzPassword);
+    settings.setValue("FT/driftRxEnabled", ftDriftRxEnabled);
+    settings.setValue("FT/driftMaxHzPerSec", qBound(0.25, ftDriftMaxHzPerSec, 5.0));
     settings.setValue("FT8/rxFrequencyHz", ft8RxFrequencyHz);
     settings.setValue("FT8/txFrequencyHz", ft8TxFrequencyHz);
     settings.setValue("FT8/cqTarget", ft8CqTarget);
@@ -1022,6 +1032,12 @@ bool AppSettings::save() const
     settings.setValue("Text/macroTexts", textMacroTexts);
 
     settings.sync();
+
+#ifndef Q_OS_WIN
+    if (!qrzPassword.isEmpty() && settings.status() == QSettings::NoError) {
+        QFile::setPermissions(settings.fileName(), QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    }
+#endif
 
     return settings.status() == QSettings::NoError;
 }

@@ -1526,6 +1526,25 @@ for _lang, _body in CW_NEURAL_HELP.items():
     PAGES[_lang]['cw.html'] = (_title, _body + _original)
 
 
+from ft_drift_qrz_help import ACCOUNT as QRZ_ACCOUNT_HELP, DRIFT as FT_DRIFT_HELP
+for _lang, _body in QRZ_ACCOUNT_HELP.items():
+    _title, _original = PAGES[_lang]['logbook_map.html']
+    _patterns = {
+        'en': r'Only the username.*?MM closes\.',
+        'it': r'Si salva solo.*?MM\.',
+        'fr': r'Seul le nom.*?MM\.',
+        'de': r'Nur der Benutzername.*?Arbeitsspeicher\.',
+        'no': r'Bare brukernavnet.*?lukkes\.',
+        'cs': r'Ukládá se pouze.*?MM\.',
+    }
+    _updated, _count = re.subn(_patterns[_lang], _body, _original)
+    if _count != 1:
+        raise RuntimeError(f'QRZ paragraph changed: {_lang}')
+    PAGES[_lang]['logbook_map.html'] = (_title, _updated)
+for _lang, _body in FT_DRIFT_HELP.items():
+    _title, _original = PAGES[_lang]['ft8_ft4.html']
+    PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<p>' + _body + '</p>')
+
 def main() -> int:
     for lang, pages in PAGES.items():
         for filename, (title, body) in pages.items():

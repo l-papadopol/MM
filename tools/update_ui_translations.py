@@ -2217,6 +2217,13 @@ for _lang, _values in {'it': {'cw_tx_settings': 'Trasmissione CW',
 for _lang, _save in {'it':'Salva','fr':'Enregistrer','de':'Speichern','no':'Lagre','cs':'Uložit'}.items():
     KEY_EXACT.setdefault(_lang, {})['cw_save_tx_settings'] = _save
 
+from ft_drift_qrz_translations import PHRASES as FT_DRIFT_QRZ_PHRASES, QRZ_SETTINGS
+for _values in FT_DRIFT_QRZ_PHRASES:
+    for _lang, _value in zip(LANGS, _values):
+        KEY_EXACT.setdefault(_lang, {})['text.' + norm_key(_values[0])] = _value
+for _lang, _value in QRZ_SETTINGS.items():
+    KEY_EXACT.setdefault(_lang, {})['qrz_settings_help'] = _value
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

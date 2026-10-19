@@ -58,6 +58,8 @@ public:
         Rotator,
         Scheduler,
         Appearance,
+        QrzAccount,
+        FtDecoder,
         SoundCardCalibration
     };
 
@@ -108,6 +110,8 @@ private:
     QWidget *makeAppearancePage();
     QWidget *makeFtColourEditor();
     QWidget *makeRotatorPage();
+    QWidget *makeQrzAccountPage();
+    QWidget *makeFtDecoderPage();
     void prepareEmbeddedDialog(QDialog *dialog);
     void setInitialPage(InitialPage page);
     void updateRotatorEndpointWarning();
@@ -136,6 +140,10 @@ private:
     RigControlSettingsDialog *m_rigPage = nullptr;
     TextMacroSettingsDialog *m_textMacroPage = nullptr;
     QLineEdit *m_editMyCallsign = nullptr;
+    QLineEdit *m_editQrzUsername = nullptr;
+    QLineEdit *m_editQrzPassword = nullptr;
+    QCheckBox *m_chkFtDriftRx = nullptr;
+    QDoubleSpinBox *m_spinFtDriftMax = nullptr;
     QLineEdit *m_editMyName = nullptr;
     QLineEdit *m_editMyQth = nullptr;
     QLineEdit *m_editMyLocator = nullptr;

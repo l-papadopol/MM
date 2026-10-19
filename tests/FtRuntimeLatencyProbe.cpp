@@ -53,7 +53,7 @@ int main(int argc,char**argv) {
    auto a=QObject::connect(&rx,&Ft8RxDecoder::decodeReady,&loop,[&](const Ft8RxDecoder::Decode &d){rows.append(d);unique.insert(d.message);
 #ifndef BASELINE
     if(!contextChecked && rx.m_decodeJobActive.load()) {
-     QElapsedTimer context;context.start();rx.setRxMarkerHz(1040);rx.setDxCall("DL1ABC");rx.setRxMarkerHz(1033);rx.setDxCall("LZ2KSQ");contextMs=context.nsecsElapsed()/1e6;contextChecked=true;
+     QElapsedTimer context;context.start();rx.setRxMarkerHz(1040);rx.setDxCall("DL1ABC");rx.setRxMarkerHz(1033);rx.setDxCall("LZ2KSQ");rx.setDriftRxOptions(true,3.0);rx.setDriftRxOptions(false,2.0);contextMs=context.nsecsElapsed()/1e6;contextChecked=true;
      if(contextMs>40)throw std::runtime_error("QSO context blocked capture-owner thread");
     }
 #endif
@@ -63,10 +63,21 @@ int main(int argc,char**argv) {
    QTimer::singleShot(15000,&loop,&QEventLoop::quit);
    rx.startAsyncDecodeSlot(samples,QDateTime::fromMSecsSinceEpoch(1792309800000LL,Qt::UTC),"boundary");loop.exec();
    QObject::disconnect(a);QObject::disconnect(b);QObject::disconnect(c);
-   if(rows.size()!=6 || unique.size()!=6 || finalBatches!=1){std::cerr<<"ASYNC failure rows/unique/final="<<rows.size()<<'/'<<unique.size()<<'/'<<finalBatches<<'\n';return 1;}
-   QCoreApplication::processEvents(QEventLoop::AllEvents,50);
+   if(rows.size()!=6 || unique.size()!=6 || finalBatches!=1){for(const auto &d:rows)std::cerr<<"ASYNC row "<<d.message.toStdString()<<'\n';std::cerr<<"ASYNC failure rows/unique/final="<<rows.size()<<'/'<<unique.size()<<'/'<<finalBatches<<'\n';return 1;}
 #ifndef BASELINE
-   if(!contextChecked || rx.m_hasPendingDxCall || rx.m_pendingRxMarkerHz>=0 || rx.m_dxCall!="LZ2KSQ" || rx.m_rxMarkerHz!=1033)throw std::runtime_error("pending QSO context did not coalesce/apply");
+   // performanceUpdated may reach the owner before the coordinator posts its
+   // completion callback. Wait for that callback, rather than assuming one
+   // processEvents() call also waits for future events.
+   QEventLoop settled; QTimer poll; poll.setInterval(1);
+   QObject::connect(&poll,&QTimer::timeout,&settled,[&]{
+    if(!rx.m_decodeJobActive.load() && !rx.m_hasPendingDxCall && rx.m_pendingRxMarkerHz<0)settled.quit();
+   });
+   QTimer::singleShot(1000,&settled,&QEventLoop::quit);poll.start();settled.exec();
+#else
+   QCoreApplication::processEvents(QEventLoop::AllEvents,50);
+#endif
+#ifndef BASELINE
+   if(!contextChecked || rx.m_hasPendingDxCall || rx.m_pendingRxMarkerHz>=0 || rx.m_pendingDriftOptions || rx.m_driftRxEnabled || rx.m_dxCall!="LZ2KSQ" || rx.m_rxMarkerHz!=1033)throw std::runtime_error("pending QSO context did not coalesce/apply");
 #endif
    std::cout<<"ASYNC "<<mode.toStdString()<<" six unique results and one final boundary batch PASS; context updates "<<contextMs<<" ms\n";
   } else {

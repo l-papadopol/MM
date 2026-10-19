@@ -1,4 +1,5 @@
 #include "AppSettingsDialog.h"
+#include <QFormLayout>
 #include "../utils/RuntimeI18n.h"
 #include "../utils/CockpitTheme.h"
 
@@ -643,6 +644,8 @@ AppSettingsDialog::AppSettingsDialog(const AppSettings &settings,
     addSettingsTab(InitialPage::UserQthMacros, L(QStringLiteral("User / QTH / Macros")), shouldBuildNow(InitialPage::UserQthMacros));
     addSettingsTab(InitialPage::AudioPtt, L(QStringLiteral("Audio / PTT / CAT")), shouldBuildNow(InitialPage::AudioPtt));
     addSettingsTab(InitialPage::Logbook, L(QStringLiteral("Logbook / FT colours")), shouldBuildNow(InitialPage::Logbook));
+    addSettingsTab(InitialPage::QrzAccount, QStringLiteral("QRZ.com"), shouldBuildNow(InitialPage::QrzAccount));
+    addSettingsTab(InitialPage::FtDecoder, QStringLiteral("FT8 / FT4"), shouldBuildNow(InitialPage::FtDecoder));
     addSettingsTab(InitialPage::Rotator, L(QStringLiteral("Rotator")), shouldBuildNow(InitialPage::Rotator));
     addSettingsTab(InitialPage::Scheduler, L(QStringLiteral("Scheduler")), shouldBuildNow(InitialPage::Scheduler));
     addSettingsTab(InitialPage::SoundCardCalibration, L(QStringLiteral("Soundcard calibration")), shouldBuildNow(InitialPage::SoundCardCalibration));
@@ -796,6 +799,10 @@ QWidget *AppSettingsDialog::buildSettingsPage(InitialPage page)
         m_rotatorPage = makeRotatorPage();
         applyStoredRotatorConnectionStatuses();
         return m_rotatorPage;
+    case InitialPage::QrzAccount:
+        return makeQrzAccountPage();
+    case InitialPage::FtDecoder:
+        return makeFtDecoderPage();
     case InitialPage::Scheduler:
         m_schedulerPage = new BandSchedulerDialog(m_initialSchedulerEntries,
                                                   m_schedulerTranslator,
@@ -840,6 +847,56 @@ void AppSettingsDialog::ensureSettingsTabBuilt(int index)
     QWidget *newPage = buildSettingsPage(page);
     m_tabs->insertTab(index, newPage, tabIcon, tabText);
     m_tabs->setCurrentIndex(index);
+}
+
+QWidget *AppSettingsDialog::makeQrzAccountPage()
+{
+    auto *page = new QWidget(this);
+    page->setObjectName(QStringLiteral("qrzAccountSettings"));
+    auto *layout = new QVBoxLayout(page);
+    auto *group = new QGroupBox(QStringLiteral("QRZ.com"), page);
+    auto *form = new QFormLayout(group);
+    m_editQrzUsername = new QLineEdit(m_initialSettings.qrzUsername, group);
+    m_editQrzUsername->setObjectName(QStringLiteral("qrzUsername"));
+    m_editQrzPassword = new QLineEdit(m_initialSettings.qrzPassword, group);
+    m_editQrzPassword->setObjectName(QStringLiteral("qrzPassword"));
+    m_editQrzPassword->setEchoMode(QLineEdit::Password);
+    form->addRow(L(QStringLiteral("Username")), m_editQrzUsername);
+    form->addRow(L(QStringLiteral("Password")), m_editQrzPassword);
+    auto *info = new QLabel(L(QStringLiteral("The account is saved in the local profile and reused after restart. QRZ XML access is required for complete station data.")), group);
+    info->setWordWrap(true);
+    form->addRow(info);
+    layout->addWidget(group);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *AppSettingsDialog::makeFtDecoderPage()
+{
+    auto *page = new QWidget(this);
+    auto *layout = new QVBoxLayout(page);
+    auto *group = new QGroupBox(L(QStringLiteral("RX drift compensation")), page);
+    auto *form = new QFormLayout(group);
+    m_chkFtDriftRx = new QCheckBox(L(QStringLiteral("Recover drifting signals near the RX marker (experimental)")), group);
+    m_chkFtDriftRx->setObjectName(QStringLiteral("ftDriftRxEnabled"));
+    m_chkFtDriftRx->setChecked(m_initialSettings.ftDriftRxEnabled);
+    form->addRow(m_chkFtDriftRx);
+    m_spinFtDriftMax = new QDoubleSpinBox(group);
+    m_spinFtDriftMax->setObjectName(QStringLiteral("ftDriftMaxHzPerSec"));
+    m_spinFtDriftMax->setRange(0.25, 5.0);
+    m_spinFtDriftMax->setDecimals(2);
+    m_spinFtDriftMax->setSingleStep(0.25);
+    m_spinFtDriftMax->setSuffix(QStringLiteral(" Hz/s"));
+    m_spinFtDriftMax->setValue(m_initialSettings.ftDriftMaxHzPerSec);
+    m_spinFtDriftMax->setEnabled(m_chkFtDriftRx->isChecked());
+    connect(m_chkFtDriftRx, &QCheckBox::toggled, m_spinFtDriftMax, &QWidget::setEnabled);
+    form->addRow(L(QStringLiteral("Maximum drift (±)")), m_spinFtDriftMax);
+    auto *info = new QLabel(L(QStringLiteral("An additional bounded RX recovery follows the standard decoder. Select the signal with the RX marker. TX frequency and CAT remain under your control. Estimates are shown in the runtime log.")), group);
+    info->setWordWrap(true);
+    form->addRow(info);
+    layout->addWidget(group);
+    layout->addStretch();
+    return page;
 }
 
 QWidget *AppSettingsDialog::makeUserQthMacrosPage()
@@ -2073,9 +2130,11 @@ void AppSettingsDialog::setInitialPage(InitialPage page)
     case InitialPage::RadioCat: index = 1; break;
     case InitialPage::Logbook: index = 2; break;
     case InitialPage::Appearance: index = 2; break;
-    case InitialPage::Rotator: index = 3; break;
-    case InitialPage::Scheduler: index = 4; break;
-    case InitialPage::SoundCardCalibration: index = 5; break;
+    case InitialPage::QrzAccount: index = 3; break;
+    case InitialPage::FtDecoder: index = 4; break;
+    case InitialPage::Rotator: index = 5; break;
+    case InitialPage::Scheduler: index = 6; break;
+    case InitialPage::SoundCardCalibration: index = 7; break;
     }
     if (index >= 0 && index < m_tabs->count()) {
         ensureSettingsTabBuilt(index);
@@ -2257,6 +2316,10 @@ void AppSettingsDialog::setRotatorConnectionStatus(int profileIndex, bool connec
 void AppSettingsDialog::collectSettings()
 {
     AppSettings merged = m_initialSettings;
+    if (m_editQrzUsername) merged.qrzUsername = m_editQrzUsername->text().trimmed();
+    if (m_editQrzPassword) merged.qrzPassword = m_editQrzPassword->text();
+    if (m_chkFtDriftRx) merged.ftDriftRxEnabled = m_chkFtDriftRx->isChecked();
+    if (m_spinFtDriftMax) merged.ftDriftMaxHzPerSec = m_spinFtDriftMax->value();
 
     if (m_audioPage != nullptr) {
         const AppSettings audio = m_audioPage->settings();

@@ -48,6 +48,8 @@ public:
         double syncScore = 0.0;
         qint64 slotStartUtcMs = 0;
         int slotPeriodMs = 15000;
+        double driftHzPerSec = 0.0; // Only CRC-valid optional RX recovery results.
+        double driftSyncEvidence = 0.0;
     };
 
     struct PerfStats
@@ -123,6 +125,9 @@ public:
         int bucketRescueDecodes = 0;
         int coherentMetricAttempts = 0;
         int coherentMetricDecodes = 0;
+        int driftAttempts = 0;
+        int driftDecodes = 0;
+        double driftRecoveryMs = 0.0;
 
         // 0.5.1: GF(2) OSD fallback lab.  These are
         // diagnostic counters only; they do not drive candidate ranking or
@@ -205,6 +210,7 @@ public slots:
     void setDecodeEngine(const QString &engineName);
     void setDeepDecodeEnabled(bool enabled);
     void setDspPlusDecodeEnabled(bool enabled);
+    void setDriftRxOptions(bool enabled, double maxHzPerSec);
     void analyzeAudioFile(const QString &filePath);
 
 public:
@@ -257,6 +263,9 @@ private:
     void startAsyncDecodeSlot(const QVector<double> &samples, const QDateTime &slotStartUtc, const QString &phaseLabel = QString());
     void maybeLaunchPendingFinalDecode();
     void applyPendingQsoContext();
+    void recoverDriftingSignal(const QVector<double> &samples, const QDateTime &slotStartUtc,
+                               QVector<Decode> &decodes, PerfStats *stats,
+                               const std::function<void(const QVector<Decode> &)> &publish);
     void deferFinalDecode(const QVector<double> &samples,
                           const QDateTime &slotStartUtc,
                           const QString &reason);
@@ -411,6 +420,15 @@ private:
     int m_pendingRxMarkerHz = -1;
     QString m_pendingDxCall;
     bool m_hasPendingDxCall = false;
+    bool m_driftRxEnabled = false;
+    double m_driftMaxHzPerSec = 2.0;
+    bool m_pendingDriftOptions = false;
+    bool m_pendingDriftEnabled = false;
+    double m_pendingDriftMax = 2.0;
+    QString m_driftTrackCall, m_driftTrackMode;
+    qint64 m_driftTrackSlotMs = 0;
+    int m_driftTrackMarkerHz = 0;
+    double m_driftTrackFrequencyHz = 0.0, m_driftTrackRate = 0.0;
     QString m_modeName = QStringLiteral("FT8");
     QString m_decodeEngine = QStringLiteral("mshv"); // fixed MSHV-derived native pipeline
     bool m_deepDecodeEnabled = true; // v4.10 unified FT8 engine: adaptive baseline always enabled

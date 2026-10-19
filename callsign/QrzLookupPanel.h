@@ -23,8 +23,8 @@ class QrzLookupPanel : public QGroupBox {
 public:
     explicit QrzLookupPanel(QWidget* parent = nullptr);
     void setCallsign(const QString& call);
+    void setAccountCredentials(const QString& username, const QString& password);
 private:
-    void account();
     void lookup(bool relogin = false);
     void login(bool retry);
     void request(const QList<QPair<QString,QString>>& query, std::function<void(QrzResponse)> done);

@@ -11924,6 +11924,7 @@ void MainWindow::applyPersistentSettingsToRuntime(const AppSettings *previousSet
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDecodeEngine", Qt::QueuedConnection, Q_ARG(QString, QStringLiteral("mshv")));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDeepDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DeepDecode));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDspPlusDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DspPlusDecode));
+        QMetaObject::invokeMethod(m_ft8RxDecoder, "setDriftRxOptions", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftDriftRxEnabled), Q_ARG(double, m_settings.ftDriftMaxHzPerSec));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setRxMarkerHz", Qt::QueuedConnection, Q_ARG(int, m_settings.ft8RxFrequencyHz));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setMyCall", Qt::QueuedConnection, Q_ARG(QString, stationCallsign()));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDxCall", Qt::QueuedConnection, Q_ARG(QString, m_settings.ft8DxCallsign));
@@ -15606,6 +15607,7 @@ void MainWindow::applyFt8Settings()
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDecodeEngine", Qt::QueuedConnection, Q_ARG(QString, QStringLiteral("mshv")));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDeepDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DeepDecode));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDspPlusDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DspPlusDecode));
+        QMetaObject::invokeMethod(m_ft8RxDecoder, "setDriftRxOptions", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftDriftRxEnabled), Q_ARG(double, m_settings.ftDriftMaxHzPerSec));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setRxMarkerHz", Qt::QueuedConnection, Q_ARG(int, m_settings.ft8RxFrequencyHz));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setMyCall", Qt::QueuedConnection, Q_ARG(QString, stationCallsign()));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDxCall", Qt::QueuedConnection, Q_ARG(QString, m_settings.ft8DxCallsign));
@@ -16377,6 +16379,11 @@ void MainWindow::updateFt8SignalReportUi()
 
 void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats)
 {
+    if (stats.driftRecoveryMs > 0.0) {
+        appendLog(QStringLiteral("%1 RX drift recovery: %2 attempts, %3 recovered, %4 ms")
+                      .arg(stats.modeName).arg(stats.driftAttempts).arg(stats.driftDecodes)
+                      .arg(stats.driftRecoveryMs, 0, 'f', 1));
+    }
     m_lastFt8PerfStats = stats;
     m_haveFt8PerfStats = true;
 
@@ -19098,6 +19105,12 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         m_ftDisplayDiagRowsAfter = m_ftDisplayDiagRowsBefore;
     }
     ++m_ftDisplayDiagDecodeSignals;
+    if (std::abs(decode.driftHzPerSec) > 0.0) {
+        appendLog(QStringLiteral("%1 RX drift: %2 Hz/s; sync evidence %3; %4 Hz; %5")
+                      .arg(ftDisplayMode).arg(decode.driftHzPerSec, 0, 'f', 2)
+                      .arg(decode.driftSyncEvidence, 0, 'f', 2).arg(decode.frequencyHz).arg(decode.message));
+    }
+
 
 
     const QString myCall = stationCallsign();
@@ -22501,6 +22514,7 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
     const AppSettings oldSettings = m_settings;
     const QString oldLogbookPath = currentPath;
     m_settings = dialog.settings();
+    if (m_qrzLookupPanel) m_qrzLookupPanel->setAccountCredentials(m_settings.qrzUsername, m_settings.qrzPassword);
     m_settings.schedulerQsyPlanJson = BandSchedulerDialog::serializeEntries(dialog.schedulerEntries());
     savePersistentSettings();
 

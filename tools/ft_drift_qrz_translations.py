@@ -1,0 +1,32 @@
+# Reviewed UI phrases for the optional FT drift recovery and persistent QRZ account.
+PHRASES = [
+    ("Username", "Nome utente", "Nom d’utilisateur", "Benutzername", "Brukernavn", "Uživatelské jméno"),
+    ("Password", "Password", "Mot de passe", "Passwort", "Passord", "Heslo"),
+    ("RX drift compensation", "Compensazione drift RX", "Compensation de dérive RX", "RX-Driftkompensation", "RX-driftkompensasjon", "Kompenzace driftu RX"),
+    ("Recover drifting signals near the RX marker (experimental)",
+     "Recupera segnali con drift vicino al marcatore RX (sperimentale)",
+     "Récupérer les signaux dérivants près du marqueur RX (expérimental)",
+     "Driftende Signale nahe dem RX-Marker wiederherstellen (experimentell)",
+     "Gjenfinn drivende signaler nær RX-markøren (eksperimentelt)",
+     "Obnovovat signály s driftem poblíž RX markeru (experimentální)"),
+    ("Maximum drift (±)", "Drift massimo (±)", "Dérive maximale (±)", "Maximale Drift (±)", "Maksimal drift (±)", "Maximální drift (±)"),
+    ("The account is saved in the local profile and reused after restart. QRZ XML access is required for complete station data.",
+     "L’account viene salvato nel profilo locale e riutilizzato al riavvio. Per i dati completi della stazione serve l’accesso XML QRZ.",
+     "Le compte est enregistré dans le profil local et réutilisé au redémarrage. Les données complètes nécessitent un accès XML QRZ.",
+     "Das Konto wird im lokalen Profil gespeichert und nach dem Neustart wiederverwendet. Vollständige Stationsdaten erfordern QRZ-XML-Zugang.",
+     "Kontoen lagres i den lokale profilen og brukes etter omstart. Fullstendige stasjonsdata krever QRZ XML-tilgang.",
+     "Účet se ukládá do místního profilu a použije se po restartu. Úplné údaje o stanici vyžadují přístup QRZ XML."),
+    ("An additional bounded RX recovery follows the standard decoder. Select the signal with the RX marker. TX frequency and CAT remain under your control. Estimates are shown in the runtime log.",
+     "Un recupero RX aggiuntivo con lavoro limitato segue il decoder standard. Seleziona il segnale con il marcatore RX. Frequenza TX e CAT restano sotto il tuo controllo. Le stime sono mostrate nel registro operativo.",
+     "Une récupération RX supplémentaire limitée suit le décodeur standard. Sélectionnez le signal avec le marqueur RX. La fréquence TX et le CAT restent sous votre contrôle. Les estimations figurent dans le journal d’exécution.",
+     "Eine begrenzte zusätzliche RX-Wiederherstellung folgt dem Standarddecoder. Signal mit dem RX-Marker auswählen. TX-Frequenz und CAT bleiben unter Ihrer Kontrolle. Schätzwerte stehen im Laufzeitprotokoll.",
+     "En begrenset ekstra RX-gjenfinning følger standarddekoderen. Velg signalet med RX-markøren. TX-frekvens og CAT er under din kontroll. Estimater vises i driftsloggen.",
+     "Po standardním dekodéru následuje omezená dodatečná obnova RX. Vyberte signál RX markerem. Frekvenci TX a CAT ovládáte sami. Odhady jsou v provozním protokolu."),
+]
+QRZ_SETTINGS = {
+    'it': 'Configura l’account QRZ in Impostazioni → QRZ.com. I dati completi richiedono l’accesso XML.',
+    'fr': 'Configurez le compte QRZ dans Paramètres → QRZ.com. Les données complètes nécessitent un accès XML.',
+    'de': 'QRZ-Konto unter Einstellungen → QRZ.com konfigurieren. Vollständige Daten erfordern XML-Zugang.',
+    'no': 'Konfigurer QRZ-kontoen i Innstillinger → QRZ.com. Fullstendige data krever XML-tilgang.',
+    'cs': 'Nastavte účet QRZ v Nastavení → QRZ.com. Úplné údaje vyžadují přístup XML.',
+}

@@ -1,5 +1,18 @@
 # MadModem 0.6.3
 
+Revision R6 adds optional, experimental FT8/FT4 RX linear-drift recovery near
+the RX marker (Settings → FT8 / FT4, off by default). The normal decoder,
+search thresholds, FEC budgets and standard SIC are retained. A bounded local
+Costas fit and analytic dechirp add CRC-valid results after the existing passes.
+Recent verified drift can predict the next local search for the same DX.
+RX/TX markers and CAT are not moved. Real QO-100 recording validation is pending.
+
+QRZ account configuration is now in Settings → QRZ.com; the main station-info
+panel remains in place. Username and password persist in the local settings.mad
+profile and are reloaded at startup. The profile stores the password without
+encryption; session keys stay in memory. Clearing the password removes it.
+
+
 FT revision R5 keeps the final receive turn open before declaring no response,
 delivers validated QSO replies earlier during decoding, and updates QRZ when
 the selected FT correspondent changes. FT8/FT4 decoder search and recovery
