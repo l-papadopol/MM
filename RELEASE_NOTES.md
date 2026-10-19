@@ -1,5 +1,14 @@
 # MadModem 0.6.3
 
+FT revision R5 keeps the final receive turn open before declaring no response,
+delivers validated QSO replies earlier during decoding, and updates QRZ when
+the selected FT correspondent changes. FT8/FT4 decoder search and recovery
+settings are retained. Public version: 0.6.3.
+
+Updater revision R4 recognizes automatic `build-VERSION-N` tags when promoted
+to stable and Latest on GitHub. Tag renaming is no longer required for clients
+with this revision installed. A higher public version is still required.
+
 Windows build revision R3 fixes a missing header and timer initialization in the
 bundled Hamlib source, plus malformed Autoconf feature checks. UCRT64 packaging,
 Native R12, Neural R13 and the FT clock fix are retained. Public version: 0.6.3.

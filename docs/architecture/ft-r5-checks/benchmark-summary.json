@@ -1,0 +1,26 @@
+{
+  "FT8 baseline": {
+    "qso_ms": 545.25,
+    "total_ms": 545.125,
+    "decodes": 6.0,
+    "subtraction_ms": 42.647
+  },
+  "FT8 revised": {
+    "qso_ms": 393.251,
+    "total_ms": 547.34,
+    "decodes": 6.0,
+    "subtraction_ms": 41.018
+  },
+  "FT4 baseline": {
+    "qso_ms": 235.405,
+    "total_ms": 235.278,
+    "decodes": 6.0,
+    "subtraction_ms": 22.243
+  },
+  "FT4 revised": {
+    "qso_ms": 153.002,
+    "total_ms": 239.219,
+    "decodes": 6.0,
+    "subtraction_ms": 23.672
+  }
+}

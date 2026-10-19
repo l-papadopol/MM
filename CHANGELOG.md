@@ -1,5 +1,20 @@
 # MadModem changelog
 
+## 0.6.3 source R5 — FT replies and selected QRZ station
+
+- Preserve the final opposite RX period before declaring an FT8/FT4 QSO unanswered; consume each TX attempt once and invalidate obsolete timeouts.
+- Publish validated active-QSO results between existing passes and during FT8 residual recovery while retaining remaining decoder work, thresholds, candidates and recovery budgets.
+- Apply coalesced FT DX/marker updates after the running job without blocking the capture-owner thread.
+- Remove repeated bounds/COW work from FT8 cancellation loops with sample-for-sample parity checks.
+- Refresh QRZ explicitly when the FT correspondent changes under blocked widget signals.
+- Preserve R4 updater support, R3 Windows/Hamlib fixes, Native R12, Neural R13 and the pinned clock.
+
+## 0.6.3 source R4 — updates from promoted builds
+
+- Accept automatic `build-VERSION-N` tags after a release is promoted to stable and Latest, alongside numeric version tags.
+- Keep draft/prerelease exclusion, numeric version comparison, package selection and verified downloads. Release titles remain display text.
+- Retain the R3 Windows/Hamlib fixes, Native R12, Neural R13 and the FT clock layout.
+
 ## 0.6.3 source R3 — bundled Hamlib Windows build
 
 - Added the missing assert header in Hamlib's Windows timer and used GCC's constructor attribute for startup initialization; retained the MSVC CRT path.

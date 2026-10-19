@@ -41,9 +41,35 @@ void FtQsoSession::clearQso()
 
 void FtQsoSession::clearRetry()
 {
+    ++retryGeneration;
+    retryLastCompletedTxSlotUtcMs = 0;
+    retryReplySlotUtcMs = 0;
     retryMessage.clear();
     retryTag.clear();
     retryRemaining = 0;
+}
+
+void FtQsoSession::beginRetry(const QString &message, const QString &tag, int attempts)
+{
+    clearRetry();
+    retryMessage = message.trimmed().toUpper();
+    retryTag = tag;
+    retryRemaining = qBound(1, attempts, 12);
+    // A repeated decode before this new exchange reaches audio must not count
+    // a previous, already completed transmission of the same text again.
+    retryLastCompletedTxSlotUtcMs = lastTxPlan.slotBoundaryUtcMs;
+}
+
+bool FtQsoSession::noteRetryTxCompleted(int slotMs)
+{
+    if (!qsoActive || slotMs <= 0 || retryMessage.isEmpty() ||
+        lastTxPlan.message.trimmed().toUpper() != retryMessage ||
+        lastTxPlan.slotBoundaryUtcMs <= 0 ||
+        lastTxPlan.slotBoundaryUtcMs == retryLastCompletedTxSlotUtcMs) return false;
+    retryLastCompletedTxSlotUtcMs = lastTxPlan.slotBoundaryUtcMs;
+    retryReplySlotUtcMs = lastTxPlan.slotBoundaryUtcMs + slotMs;
+    if (retryRemaining > 0) --retryRemaining;
+    return true;
 }
 
 void FtQsoSession::clearLastTx()

@@ -1,6 +1,6 @@
 # MadModem 0.6.3 source release
 
-Source revision: `0.6.3-source-r3-hamlib-windows-native-r12-neural-r13`.
+Source revision: `0.6.3-source-r5-ft-response-window-qrz-native-r12-neural-r13`.
 
 ## Delivered behavior
 
@@ -127,3 +127,30 @@ and the remaining command-line programs. The build uses
 `-Werror=implicit-function-declaration`. Regenerated configuration recognizes
 `snprintf` correctly and no longer reports the malformed-literal warnings.
 This is a Linux-hosted cross-build, separate from the native UCRT64/Qt GitHub job.
+
+## Source R4 — promoted build updates
+
+The updater accepts both numeric version tags (`v0.6.4` / `0.6.4`) and
+automatic build tags (`build-0.6.4-112`) returned by GitHub's latest stable
+release endpoint. To promote a branch build, clear the prerelease flag and
+mark it Latest. Its tag and title can stay as generated. Drafts and prereleases
+remain excluded. Public version comparison still prevents reinstalling the
+same version or downgrading; build numbers do not change the public version.
+Package matching, SHA-256 verification and installation behavior are unchanged.
+
+This applies after installing a build containing source R4. Existing 0.6.2
+and earlier 0.6.3 builds retain their original tag parser.
+
+## Source R5 — FT response windows, incremental results and selected QRZ station
+
+FT8/FT4 retain the QSO through the opposite RX period following the last
+permitted transmission. Attempts are consumed once per completed UTC TX slot.
+A new exchange or STOP invalidates old response-wait callbacks. CRC-valid
+results reach the active-QSO sequencer between decoder passes and immediately
+on accepted FT8 residual recovery; the remaining decoder work continues.
+Candidate discovery, per-candidate decoding, admission thresholds and decode
+budgets retain the R4 baseline. QRZ follows the FT DX field even when its Qt
+signals are blocked during automatic selection.
+
+See `FT_R5_RESULTS.md` for verification scope and measurements, and
+`FT_GPU_FEASIBILITY.md` for the profile-based GPU investigation.

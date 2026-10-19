@@ -270,33 +270,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                        "href='logbook_map.html'>Logbook and map</a></li><li><a "
                        "href='troubleshooting.html'>Troubleshooting</a></li></ul>"),
         'quickstart.html': ('Quick start',
-                            '<h1>Quick start</h1>\n'
-                            '<h2>First session</h2><ol><li>Install the package matching your system, or extract a '
-                            'portable archive. On Linux portable, start AppRun.</li><li>Set your callsign and locator '
-                            'in Settings → User/QTH.</li><li>In Audio / PTT / CAT select input/output, the real radio '
-                            'model and connection parameters. Test CAT reads, then check PTT and audio routing at a '
-                            'suitable low power.</li><li>Choose the mode and start RX. Set the audio level below '
-                            'clipping, then tune the waterfall marker. Keep the computer UTC clock synchronized for '
-                            'FT4/FT8.</li><li>Prepare and check the TX message before enabling TX. Stop cancels TX and '
-                            'pending starts.</li><li>Use Skimmer in CW or RTTY to monitor several received signals, '
-                            'with Text or CQ display. A narrow radio filter limits the scanned band.</li><li>Open the '
-                            'logbook with Ctrl+L. Filter/select contacts for ADIF export, or select the contest '
-                            'edition and review its QSO preview for Cabrillo.</li><li>Windows can be resized from '
-                            'edges and corners. Before replacing a portable copy, preserve settings.mad, ADIF logs and '
-                            'recordings.</li></ol>\n'
-                            '<h2>Updates</h2><p>At startup MM checks stable releases on l-papadopol/MM on GitHub. Help '
-                            'offers a manual check and a switch to disable startup checks. Drafts, prereleases and '
-                            'versions equal to or older than the running version are ignored. Confirm the download and '
-                            'then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads '
-                            'require a matching package and SHA256SUMS.txt. Managed installations open their native '
-                            'installer; license and system permission dialogs still apply. Portable copies stay '
-                            'portable: a complete backup is kept beside the program folder, settings and logbooks are '
-                            'preserved, and MM restarts after a bounded version check. If that check fails, the helper '
-                            'restores the previous folder. Keep the backup until the update has been tested. Windows '
-                            'keeps the current portable CPU variant; installers choose automatically. Automatic Linux '
-                            'selection supports Ubuntu 24.04 and Fedora 43 only. A new stable numeric version, such as '
-                            'v0.6.3, is required to offer an update; replacing assets of v0.6.3 does not trigger '
-                            'it.</p>')},
+                            '<h1>Quick start</h1>\n<h2>First session</h2><ol><li>Install the package matching your system, or extract a portable archive. On Linux portable, start AppRun.</li><li>Set your callsign and locator in Settings → User/QTH.</li><li>In Audio / PTT / CAT select input/output, the real radio model and connection parameters. Test CAT reads, then check PTT and audio routing at a suitable low power.</li><li>Choose the mode and start RX. Set the audio level below clipping, then tune the waterfall marker. Keep the computer UTC clock synchronized for FT4/FT8.</li><li>Prepare and check the TX message before enabling TX. Stop cancels TX and pending starts.</li><li>Use Skimmer in CW or RTTY to monitor several received signals, with Text or CQ display. A narrow radio filter limits the scanned band.</li><li>Open the logbook with Ctrl+L. Filter/select contacts for ADIF export, or select the contest edition and review its QSO preview for Cabrillo.</li><li>Windows can be resized from edges and corners. Before replacing a portable copy, preserve settings.mad, ADIF logs and recordings.</li></ol>\n<h2>Updates</h2><p>At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. Starting with source R4, automatic tags such as build-0.6.4-N are also accepted: clear pre-release and enable Latest on GitHub. The tag can stay unchanged. A higher public version is required; another build of the same version does not trigger an update. Older clients need a numeric tag or one manual installation.</p>')},
  'it': {'waterfall.html': ('Waterfall e marker',
                            '<h1>Waterfall e marker</h1>\n'
                            '<p>Il waterfall mostra la banda audio usata dal modo selezionato. Un clic sinistro sul '
@@ -558,34 +532,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                        "href='logbook_map.html'>Registro QSO e mappa</a></li><li><a "
                        "href='troubleshooting.html'>Risoluzione problemi</a></li></ul>"),
         'quickstart.html': ('Avvio rapido',
-                            '<h1>Avvio rapido</h1>\n'
-                            '<h2>Prima sessione</h2><ol><li>Installa il pacchetto adatto al sistema oppure estrai un '
-                            'archivio portabile. Su Linux portabile avvia AppRun.</li><li>Imposta nominativo e locator '
-                            'in Impostazioni → Utente/QTH.</li><li>In Audio / PTT / CAT scegli ingresso/uscita, '
-                            'modello radio reale e connessione. Prova la lettura CAT, poi controlla PTT e audio a '
-                            'potenza ridotta adeguata.</li><li>Scegli il modo e avvia RX. Regola il livello senza '
-                            'saturazione e sintonizza il marker. Per FT4/FT8 mantieni sincronizzato l’orologio UTC del '
-                            'PC.</li><li>Prepara e verifica il messaggio prima di abilitare TX. Stop annulla TX e '
-                            'partenze in attesa.</li><li>In CW o RTTY usa Skimmer per più segnali ricevuti, scegliendo '
-                            'Testo o CQ. Un filtro radio stretto limita la banda analizzata.</li><li>Apri il logbook '
-                            'con Ctrl+L. Filtra/seleziona contatti per ADIF; per Cabrillo scegli l’edizione contest e '
-                            'controlla l’anteprima QSO.</li><li>Ridimensiona le finestre dai bordi e dagli angoli. '
-                            'Prima di sostituire una copia portabile conserva settings.mad, log ADIF e '
-                            'registrazioni.</li></ol>\n'
-                            '<h2>Aggiornamenti</h2><p>All’avvio MM controlla le release stabili di l-papadopol/MM su '
-                            'GitHub. Il menu Aiuto offre un controllo manuale e l’opzione per disattivare il controllo '
-                            'iniziale. Bozze, prerelease e versioni uguali o precedenti vengono ignorate. Conferma il '
-                            'download e poi la chiusura di MM per applicarlo. Prima ferma TX e operazioni automatiche. '
-                            'Servono il pacchetto corretto e SHA256SUMS.txt. Le installazioni gestite aprono il '
-                            'proprio installer; restano le richieste di licenza e autorizzazione del sistema. Le copie '
-                            'portabili restano tali: viene conservato un backup completo accanto alla cartella del '
-                            'programma, impostazioni e logbook vengono preservati e MM riparte dopo una verifica della '
-                            'versione con tempo limite. Se la verifica fallisce, viene ripristinata la cartella '
-                            'precedente. Conserva il backup finché non hai provato l’aggiornamento. Windows conserva '
-                            'la variante CPU della copia portabile; gli installer la scelgono automaticamente. La '
-                            'selezione Linux automatica supporta solo Ubuntu 24.04 e Fedora 43. Occorre una nuova '
-                            'versione stabile numerica, per esempio v0.6.3: sostituire i file della v0.6.3 non attiva '
-                            'l’aggiornamento.</p>')},
+                            '<h1>Avvio rapido</h1>\n<h2>Prima sessione</h2><ol><li>Installa il pacchetto adatto al sistema oppure estrai un archivio portabile. Su Linux portabile avvia AppRun.</li><li>Imposta nominativo e locator in Impostazioni → Utente/QTH.</li><li>In Audio / PTT / CAT scegli ingresso/uscita, modello radio reale e connessione. Prova la lettura CAT, poi controlla PTT e audio a potenza ridotta adeguata.</li><li>Scegli il modo e avvia RX. Regola il livello senza saturazione e sintonizza il marker. Per FT4/FT8 mantieni sincronizzato l’orologio UTC del PC.</li><li>Prepara e verifica il messaggio prima di abilitare TX. Stop annulla TX e partenze in attesa.</li><li>In CW o RTTY usa Skimmer per più segnali ricevuti, scegliendo Testo o CQ. Un filtro radio stretto limita la banda analizzata.</li><li>Apri il logbook con Ctrl+L. Filtra/seleziona contatti per ADIF; per Cabrillo scegli l’edizione contest e controlla l’anteprima QSO.</li><li>Ridimensiona le finestre dai bordi e dagli angoli. Prima di sostituire una copia portabile conserva settings.mad, log ADIF e registrazioni.</li></ol>\n<h2>Aggiornamenti</h2><p>All’avvio MM controlla le release stabili di l-papadopol/MM su GitHub. Il menu Aiuto offre un controllo manuale e l’opzione per disattivare il controllo iniziale. Bozze, prerelease e versioni uguali o precedenti vengono ignorate. Conferma il download e poi la chiusura di MM per applicarlo. Prima ferma TX e operazioni automatiche. Servono il pacchetto corretto e SHA256SUMS.txt. Le installazioni gestite aprono il proprio installer; restano le richieste di licenza e autorizzazione del sistema. Le copie portabili restano tali: viene conservato un backup completo accanto alla cartella del programma, impostazioni e logbook vengono preservati e MM riparte dopo una verifica della versione con tempo limite. Se la verifica fallisce, viene ripristinata la cartella precedente. Conserva il backup finché non hai provato l’aggiornamento. Windows conserva la variante CPU della copia portabile; gli installer la scelgono automaticamente. La selezione Linux automatica supporta solo Ubuntu 24.04 e Fedora 43. Dalla revisione sorgenti R4 sono accettati anche tag automatici come build-0.6.4-N: togli la spunta pre-release e attiva Latest su GitHub. Il tag può restare invariato. Serve una versione pubblica superiore a quella installata; un’altra build della stessa versione non attiva l’aggiornamento. I client precedenti richiedono un tag numerico o una prima installazione manuale.</p>')},
  'fr': {'waterfall.html': ('Waterfall et marqueurs',
                            '<h1>Waterfall et marqueurs</h1>\n'
                            '<p>Le waterfall affiche la bande audio utilisée par le mode choisi. Un clic gauche sur un '
@@ -845,34 +792,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                        "href='scheduler.html'>Planificateur</a></li><li><a href='logbook_map.html'>Journal et "
                        "carte</a></li><li><a href='troubleshooting.html'>Dépannage</a></li></ul>"),
         'quickstart.html': ('Démarrage rapide',
-                            '<h1>Démarrage rapide</h1>\n'
-                            '<h2>Première session</h2><ol><li>Installez le paquet adapté au système ou extrayez une '
-                            'archive portable. Sous Linux portable, lancez AppRun.</li><li>Réglez indicatif et locator '
-                            'dans Paramètres → Utilisateur/QTH.</li><li>Dans Audio / PTT / CAT, choisissez '
-                            'entrée/sortie, modèle réel et connexion. Testez la lecture CAT, puis PTT et audio à '
-                            'puissance réduite adaptée.</li><li>Choisissez le mode et démarrez RX. Évitez la '
-                            'saturation et placez le marqueur. Synchronisez l’horloge UTC pour '
-                            'FT4/FT8.</li><li>Préparez et vérifiez le message avant TX. Stop annule TX et les départs '
-                            'en attente.</li><li>En CW ou RTTY, Skimmer surveille plusieurs signaux avec Texte ou CQ. '
-                            'Un filtre radio étroit limite la bande analysée.</li><li>Ctrl+L ouvre le journal. '
-                            'Filtrez/sélectionnez pour ADIF ; pour Cabrillo choisissez l’édition du concours et '
-                            'vérifiez l’aperçu QSO.</li><li>Redimensionnez les fenêtres par les bords et coins. Avant '
-                            'de remplacer une copie portable, conservez settings.mad, journaux ADIF et '
-                            'enregistrements.</li></ol>\n'
-                            '<h2>Mises à jour</h2><p>Au démarrage, MM recherche les versions stables de l-papadopol/MM '
-                            'sur GitHub. Le menu Aide permet une vérification manuelle et la désactivation de la '
-                            'recherche initiale. Les brouillons, préversions et versions identiques ou antérieures '
-                            'sont ignorés. Confirmez le téléchargement, puis la fermeture de MM pour l’appliquer. '
-                            'Arrêtez d’abord TX et le fonctionnement automatique. Le paquet adapté et SHA256SUMS.txt '
-                            'sont requis. Une installation gérée ouvre son installateur natif, avec les demandes de '
-                            'licence et d’autorisation du système. Une copie portable reste portable : une sauvegarde '
-                            'complète est conservée à côté du dossier du programme, les réglages et journaux sont '
-                            'préservés et MM redémarre après un contrôle de version limité dans le temps. Si ce '
-                            'contrôle échoue, le dossier précédent est restauré. Gardez la sauvegarde jusqu’à '
-                            'validation de la mise à jour. Windows conserve la variante CPU portable ; l’installateur '
-                            'choisit automatiquement. La sélection Linux automatique couvre uniquement Ubuntu 24.04 et '
-                            'Fedora 43. Une nouvelle version stable numérique, par exemple v0.6.3, est nécessaire ; '
-                            'remplacer les fichiers de v0.6.3 ne déclenche pas de mise à jour.</p>')},
+                            '<h1>Démarrage rapide</h1>\n<h2>Première session</h2><ol><li>Installez le paquet adapté au système ou extrayez une archive portable. Sous Linux portable, lancez AppRun.</li><li>Réglez indicatif et locator dans Paramètres → Utilisateur/QTH.</li><li>Dans Audio / PTT / CAT, choisissez entrée/sortie, modèle réel et connexion. Testez la lecture CAT, puis PTT et audio à puissance réduite adaptée.</li><li>Choisissez le mode et démarrez RX. Évitez la saturation et placez le marqueur. Synchronisez l’horloge UTC pour FT4/FT8.</li><li>Préparez et vérifiez le message avant TX. Stop annule TX et les départs en attente.</li><li>En CW ou RTTY, Skimmer surveille plusieurs signaux avec Texte ou CQ. Un filtre radio étroit limite la bande analysée.</li><li>Ctrl+L ouvre le journal. Filtrez/sélectionnez pour ADIF ; pour Cabrillo choisissez l’édition du concours et vérifiez l’aperçu QSO.</li><li>Redimensionnez les fenêtres par les bords et coins. Avant de remplacer une copie portable, conservez settings.mad, journaux ADIF et enregistrements.</li></ol>\n<h2>Mises à jour</h2><p>Au démarrage, MM recherche les versions stables de l-papadopol/MM sur GitHub. Le menu Aide permet une vérification manuelle et la désactivation de la recherche initiale. Les brouillons, préversions et versions identiques ou antérieures sont ignorés. Confirmez le téléchargement, puis la fermeture de MM pour l’appliquer. Arrêtez d’abord TX et le fonctionnement automatique. Le paquet adapté et SHA256SUMS.txt sont requis. Une installation gérée ouvre son installateur natif, avec les demandes de licence et d’autorisation du système. Une copie portable reste portable : une sauvegarde complète est conservée à côté du dossier du programme, les réglages et journaux sont préservés et MM redémarre après un contrôle de version limité dans le temps. Si ce contrôle échoue, le dossier précédent est restauré. Gardez la sauvegarde jusqu’à validation de la mise à jour. Windows conserve la variante CPU portable ; l’installateur choisit automatiquement. La sélection Linux automatique couvre uniquement Ubuntu 24.04 et Fedora 43. Depuis la révision source R4, les tags automatiques comme build-0.6.4-N sont aussi acceptés : désactivez pre-release et activez Latest sur GitHub. Le tag peut rester inchangé. Une version publique supérieure est requise ; une autre compilation de la même version ne déclenche pas de mise à jour. Les anciens clients nécessitent un tag numérique ou une première installation manuelle.</p>')},
  'de': {'waterfall.html': ('Wasserfall und Marker',
                            '<h1>Wasserfall und Marker</h1>\n'
                            '<p>Der Wasserfall zeigt den vom gewählten Modus verwendeten Audiobereich. Ein Linksklick '
@@ -1132,34 +1052,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                        "href='scheduler.html'>Planer</a></li><li><a href='logbook_map.html'>Logbuch und "
                        "Karte</a></li><li><a href='troubleshooting.html'>Fehlersuche</a></li></ul>"),
         'quickstart.html': ('Schnellstart',
-                            '<h1>Schnellstart</h1>\n'
-                            '<h2>Erste Sitzung</h2><ol><li>Passendes Paket installieren oder portables Archiv '
-                            'entpacken. Unter Linux portabel AppRun starten.</li><li>Rufzeichen und Locator unter '
-                            'Einstellungen → Benutzer/QTH eingeben.</li><li>Unter Audio / PTT / CAT Ein-/Ausgang, '
-                            'tatsächliches Modell und Verbindung wählen. CAT-Lesen testen, dann PTT und Audio mit '
-                            'geeigneter geringer Leistung prüfen.</li><li>Modus wählen und RX starten. Audio ohne '
-                            'Übersteuerung einstellen und Marker abstimmen. UTC-Uhr für FT4/FT8 '
-                            'synchronisieren.</li><li>Nachricht vor TX vorbereiten und prüfen. Stop beendet TX und '
-                            'ausstehende Starts.</li><li>Skimmer in CW oder RTTY überwacht mehrere Signale mit Text- '
-                            'oder CQ-Ansicht. Ein enges Funkgerätefilter begrenzt das Suchband.</li><li>Strg+L öffnet '
-                            'das Logbuch. Für ADIF filtern/auswählen; für Cabrillo Contest-Ausgabe wählen und '
-                            'QSO-Vorschau prüfen.</li><li>Fenster an Kanten und Ecken vergrößern. Vor Austausch einer '
-                            'portablen Kopie settings.mad, ADIF-Logs und Aufnahmen sichern.</li></ol>\n'
-                            '<h2>Aktualisierungen</h2><p>Beim Start prüft MM stabile Veröffentlichungen von '
-                            'l-papadopol/MM auf GitHub. Das Hilfemenü bietet eine manuelle Prüfung und einen Schalter '
-                            'für die Startprüfung. Entwürfe, Vorabversionen sowie gleiche oder ältere Versionen werden '
-                            'ignoriert. Bestätigen Sie zuerst den Download und dann das Schließen von MM zur '
-                            'Installation. Beenden Sie zuvor TX und den Automatikbetrieb. Benötigt werden ein '
-                            'passendes Paket und SHA256SUMS.txt. Verwaltete Installationen öffnen ihr natives '
-                            'Installationsprogramm; Lizenz- und Systemfreigaben bleiben erforderlich. Portable Kopien '
-                            'bleiben portabel: Neben dem Programmordner wird eine vollständige Sicherung angelegt, '
-                            'Einstellungen und Logbücher bleiben erhalten, und MM startet nach einer zeitlich '
-                            'begrenzten Versionsprüfung neu. Schlägt diese fehl, wird der vorherige Ordner '
-                            'wiederhergestellt. Behalten Sie die Sicherung, bis das Update geprüft wurde. Windows '
-                            'behält die portable CPU-Variante; das Installationsprogramm wählt automatisch. Die '
-                            'automatische Linux-Auswahl unterstützt nur Ubuntu 24.04 und Fedora 43. Erforderlich ist '
-                            'eine neue stabile numerische Version, etwa v0.6.3; ersetzte Dateien unter v0.6.3 lösen '
-                            'kein Update aus.</p>')},
+                            '<h1>Schnellstart</h1>\n<h2>Erste Sitzung</h2><ol><li>Passendes Paket installieren oder portables Archiv entpacken. Unter Linux portabel AppRun starten.</li><li>Rufzeichen und Locator unter Einstellungen → Benutzer/QTH eingeben.</li><li>Unter Audio / PTT / CAT Ein-/Ausgang, tatsächliches Modell und Verbindung wählen. CAT-Lesen testen, dann PTT und Audio mit geeigneter geringer Leistung prüfen.</li><li>Modus wählen und RX starten. Audio ohne Übersteuerung einstellen und Marker abstimmen. UTC-Uhr für FT4/FT8 synchronisieren.</li><li>Nachricht vor TX vorbereiten und prüfen. Stop beendet TX und ausstehende Starts.</li><li>Skimmer in CW oder RTTY überwacht mehrere Signale mit Text- oder CQ-Ansicht. Ein enges Funkgerätefilter begrenzt das Suchband.</li><li>Strg+L öffnet das Logbuch. Für ADIF filtern/auswählen; für Cabrillo Contest-Ausgabe wählen und QSO-Vorschau prüfen.</li><li>Fenster an Kanten und Ecken vergrößern. Vor Austausch einer portablen Kopie settings.mad, ADIF-Logs und Aufnahmen sichern.</li></ol>\n<h2>Aktualisierungen</h2><p>Beim Start prüft MM stabile Veröffentlichungen von l-papadopol/MM auf GitHub. Das Hilfemenü bietet eine manuelle Prüfung und einen Schalter für die Startprüfung. Entwürfe, Vorabversionen sowie gleiche oder ältere Versionen werden ignoriert. Bestätigen Sie zuerst den Download und dann das Schließen von MM zur Installation. Beenden Sie zuvor TX und den Automatikbetrieb. Benötigt werden ein passendes Paket und SHA256SUMS.txt. Verwaltete Installationen öffnen ihr natives Installationsprogramm; Lizenz- und Systemfreigaben bleiben erforderlich. Portable Kopien bleiben portabel: Neben dem Programmordner wird eine vollständige Sicherung angelegt, Einstellungen und Logbücher bleiben erhalten, und MM startet nach einer zeitlich begrenzten Versionsprüfung neu. Schlägt diese fehl, wird der vorherige Ordner wiederhergestellt. Behalten Sie die Sicherung, bis das Update geprüft wurde. Windows behält die portable CPU-Variante; das Installationsprogramm wählt automatisch. Die automatische Linux-Auswahl unterstützt nur Ubuntu 24.04 und Fedora 43. Ab Quellrevision R4 werden auch automatische Tags wie build-0.6.4-N akzeptiert: pre-release auf GitHub deaktivieren und Latest aktivieren. Der Tag kann unverändert bleiben. Die öffentliche Version muss höher sein; ein weiterer Build derselben Version löst kein Update aus. Ältere Clients benötigen einen numerischen Tag oder eine erste manuelle Installation.</p>')},
  'no': {'waterfall.html': ('Vannfall og markører',
                            '<h1>Vannfall og markører</h1>\n'
                            '<p>Vannfallet viser lydbåndet som brukes av valgt modus. Venstreklikk et signal for å '
@@ -1394,31 +1287,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                        "href='scheduler.html'>Planlegger</a></li><li><a href='logbook_map.html'>Loggbok og "
                        "kart</a></li><li><a href='troubleshooting.html'>Feilsøking</a></li></ul>"),
         'quickstart.html': ('Hurtigstart',
-                            '<h1>Hurtigstart</h1>\n'
-                            '<h2>Første økt</h2><ol><li>Installer riktig pakke eller pakk ut et portabelt arkiv. På '
-                            'Linux portabel starter du AppRun.</li><li>Angi kallesignal og lokator i Innstillinger → '
-                            'Bruker/QTH.</li><li>Velg lydinngang/-utgang, faktisk radiomodell og tilkobling i Audio / '
-                            'PTT / CAT. Test CAT-lesing, deretter PTT og lyd med egnet lav effekt.</li><li>Velg modus '
-                            'og start RX. Unngå klipping og still markøren. Synkroniser UTC-klokken for '
-                            'FT4/FT8.</li><li>Forbered og kontroller meldingen før TX. Stop avbryter TX og ventende '
-                            'starter.</li><li>Skimmer i CW eller RTTY overvåker flere signaler med Tekst eller CQ. '
-                            'Smalt radiofilter begrenser søkebåndet.</li><li>Ctrl+L åpner loggboken. Filtrer/velg for '
-                            'ADIF; velg konkurranseutgave og kontroller QSO-forhåndsvisning for '
-                            'Cabrillo.</li><li>Endre vindusstørrelse fra kanter og hjørner. Bevar settings.mad, '
-                            'ADIF-logger og opptak før en portabel kopi erstattes.</li></ol>\n'
-                            '<h2>Oppdateringer</h2><p>Ved oppstart ser MM etter stabile utgivelser fra l-papadopol/MM '
-                            'på GitHub. Hjelp-menyen har manuell kontroll og en bryter for oppstartskontrollen. '
-                            'Utkast, forhåndsutgivelser og like eller eldre versjoner ignoreres. Bekreft nedlastingen '
-                            'og deretter lukking av MM for å oppdatere. Stopp først TX og automatisk drift. Riktig '
-                            'pakke og SHA256SUMS.txt kreves. Administrerte installasjoner åpner sitt '
-                            'installasjonsprogram; lisens og systemtillatelse må fortsatt godkjennes. Portable kopier '
-                            'forblir portable: En full sikkerhetskopi beholdes ved siden av programmappen, '
-                            'innstillinger og loggbøker bevares, og MM starter på nytt etter en tidsbegrenset '
-                            'versjonskontroll. Hvis kontrollen feiler, gjenopprettes den forrige mappen. Behold '
-                            'sikkerhetskopien til oppdateringen er prøvd. Windows beholder den portable CPU-varianten; '
-                            'installasjonsprogrammet velger automatisk. Automatisk Linux-valg støtter bare Ubuntu '
-                            '24.04 og Fedora 43. Det kreves en ny stabil numerisk versjon, for eksempel v0.6.3; '
-                            'utskifting av filer for v0.6.3 utløser ingen oppdatering.</p>')},
+                            '<h1>Hurtigstart</h1>\n<h2>Første økt</h2><ol><li>Installer riktig pakke eller pakk ut et portabelt arkiv. På Linux portabel starter du AppRun.</li><li>Angi kallesignal og lokator i Innstillinger → Bruker/QTH.</li><li>Velg lydinngang/-utgang, faktisk radiomodell og tilkobling i Audio / PTT / CAT. Test CAT-lesing, deretter PTT og lyd med egnet lav effekt.</li><li>Velg modus og start RX. Unngå klipping og still markøren. Synkroniser UTC-klokken for FT4/FT8.</li><li>Forbered og kontroller meldingen før TX. Stop avbryter TX og ventende starter.</li><li>Skimmer i CW eller RTTY overvåker flere signaler med Tekst eller CQ. Smalt radiofilter begrenser søkebåndet.</li><li>Ctrl+L åpner loggboken. Filtrer/velg for ADIF; velg konkurranseutgave og kontroller QSO-forhåndsvisning for Cabrillo.</li><li>Endre vindusstørrelse fra kanter og hjørner. Bevar settings.mad, ADIF-logger og opptak før en portabel kopi erstattes.</li></ol>\n<h2>Oppdateringer</h2><p>Ved oppstart ser MM etter stabile utgivelser fra l-papadopol/MM på GitHub. Hjelp-menyen har manuell kontroll og en bryter for oppstartskontrollen. Utkast, forhåndsutgivelser og like eller eldre versjoner ignoreres. Bekreft nedlastingen og deretter lukking av MM for å oppdatere. Stopp først TX og automatisk drift. Riktig pakke og SHA256SUMS.txt kreves. Administrerte installasjoner åpner sitt installasjonsprogram; lisens og systemtillatelse må fortsatt godkjennes. Portable kopier forblir portable: En full sikkerhetskopi beholdes ved siden av programmappen, innstillinger og loggbøker bevares, og MM starter på nytt etter en tidsbegrenset versjonskontroll. Hvis kontrollen feiler, gjenopprettes den forrige mappen. Behold sikkerhetskopien til oppdateringen er prøvd. Windows beholder den portable CPU-varianten; installasjonsprogrammet velger automatisk. Automatisk Linux-valg støtter bare Ubuntu 24.04 og Fedora 43. Fra kilderevisjon R4 godtas også automatiske tagger som build-0.6.4-N: slå av pre-release og aktiver Latest på GitHub. Taggen kan være uendret. Den offentlige versjonen må være høyere; en ny bygging av samme versjon utløser ingen oppdatering. Eldre klienter trenger en numerisk tagg eller én manuell installasjon.</p>')},
  'cs': {'waterfall.html': ('Vodopád a značky',
                            '<h1>Vodopád a značky</h1>\n'
                            '<p>Vodopád zobrazuje zvukové pásmo používané zvoleným režimem. Levým kliknutím na signál '
@@ -1649,30 +1518,7 @@ PAGES: dict[str, dict[str, tuple[str, str]]] = {'en': {'waterfall.html': ('Water
                        "href='scheduler.html'>Plánovač</a></li><li><a href='logbook_map.html'>Deník a "
                        "mapa</a></li><li><a href='troubleshooting.html'>Řešení potíží</a></li></ul>"),
         'quickstart.html': ('Rychlý start',
-                            '<h1>Rychlý start</h1>\n'
-                            '<h2>První provoz</h2><ol><li>Nainstalujte balíček pro svůj systém nebo rozbalte přenosný '
-                            'archiv. V Linuxu přenosnou verzi spusťte přes AppRun.</li><li>V Nastavení → Uživatel/QTH '
-                            'zadejte značku a lokátor.</li><li>V Audio / PTT / CAT zvolte vstup/výstup, skutečný model '
-                            'a spojení. Otestujte čtení CAT, potom PTT a audio s vhodným nízkým '
-                            'výkonem.</li><li>Zvolte režim a spusťte RX. Nastavte úroveň bez přebuzení a nalaďte '
-                            'značku. Pro FT4/FT8 synchronizujte hodiny UTC.</li><li>Před TX připravte a ověřte zprávu. '
-                            'Stop zruší TX i čekající spuštění.</li><li>Skimmer v CW či RTTY sleduje více signálů se '
-                            'zobrazením Text nebo CQ. Úzký filtr rádia omezuje prohledávané pásmo.</li><li>Ctrl+L '
-                            'otevře deník. Pro ADIF filtrujte/vyberte záznamy; pro Cabrillo zvolte ročník závodu a '
-                            'zkontrolujte náhled QSO.</li><li>Okna měňte tažením okrajů a rohů. Před nahrazením '
-                            'přenosné kopie uchovejte settings.mad, deníky ADIF a nahrávky.</li></ol>\n'
-                            '<h2>Aktualizace</h2><p>Při spuštění MM kontroluje stabilní vydání l-papadopol/MM na '
-                            'GitHubu. Nabídka Nápověda umožňuje ruční kontrolu a vypnutí kontroly při spuštění. '
-                            'Koncepty, předběžné verze a stejné nebo starší verze se ignorují. Potvrďte stažení a pak '
-                            'zavření MM pro instalaci. Nejprve zastavte TX a automatický provoz. Je nutný odpovídající '
-                            'balíček a SHA256SUMS.txt. Spravovaná instalace otevře svůj instalátor; nadále platí '
-                            'potvrzení licence a oprávnění systému. Přenosná kopie zůstane přenosná: Vedle složky '
-                            'programu se uloží úplná záloha, nastavení a deníky zůstanou zachovány a MM se spustí po '
-                            'časově omezené kontrole verze. Při selhání kontroly se obnoví předchozí složka. Zálohu '
-                            'ponechte do ověření aktualizace. Windows zachová variantu CPU přenosné kopie; instalátor '
-                            'ji vybírá automaticky. Automatický výběr pro Linux podporuje pouze Ubuntu 24.04 a Fedoru '
-                            '43. Je nutná nová stabilní číselná verze, například v0.6.3; výměna souborů u v0.6.3 '
-                            'aktualizaci nespustí.</p>')}}
+                            '<h1>Rychlý start</h1>\n<h2>První provoz</h2><ol><li>Nainstalujte balíček pro svůj systém nebo rozbalte přenosný archiv. V Linuxu přenosnou verzi spusťte přes AppRun.</li><li>V Nastavení → Uživatel/QTH zadejte značku a lokátor.</li><li>V Audio / PTT / CAT zvolte vstup/výstup, skutečný model a spojení. Otestujte čtení CAT, potom PTT a audio s vhodným nízkým výkonem.</li><li>Zvolte režim a spusťte RX. Nastavte úroveň bez přebuzení a nalaďte značku. Pro FT4/FT8 synchronizujte hodiny UTC.</li><li>Před TX připravte a ověřte zprávu. Stop zruší TX i čekající spuštění.</li><li>Skimmer v CW či RTTY sleduje více signálů se zobrazením Text nebo CQ. Úzký filtr rádia omezuje prohledávané pásmo.</li><li>Ctrl+L otevře deník. Pro ADIF filtrujte/vyberte záznamy; pro Cabrillo zvolte ročník závodu a zkontrolujte náhled QSO.</li><li>Okna měňte tažením okrajů a rohů. Před nahrazením přenosné kopie uchovejte settings.mad, deníky ADIF a nahrávky.</li></ol>\n<h2>Aktualizace</h2><p>Při spuštění MM kontroluje stabilní vydání l-papadopol/MM na GitHubu. Nabídka Nápověda umožňuje ruční kontrolu a vypnutí kontroly při spuštění. Koncepty, předběžné verze a stejné nebo starší verze se ignorují. Potvrďte stažení a pak zavření MM pro instalaci. Nejprve zastavte TX a automatický provoz. Je nutný odpovídající balíček a SHA256SUMS.txt. Spravovaná instalace otevře svůj instalátor; nadále platí potvrzení licence a oprávnění systému. Přenosná kopie zůstane přenosná: Vedle složky programu se uloží úplná záloha, nastavení a deníky zůstanou zachovány a MM se spustí po časově omezené kontrole verze. Při selhání kontroly se obnoví předchozí složka. Zálohu ponechte do ověření aktualizace. Windows zachová variantu CPU přenosné kopie; instalátor ji vybírá automaticky. Automatický výběr pro Linux podporuje pouze Ubuntu 24.04 a Fedoru 43. Od revize zdrojů R4 se přijímají i automatické tagy jako build-0.6.4-N: na GitHubu vypněte pre-release a zapněte Latest. Tag může zůstat stejný. Veřejná verze musí být vyšší; další sestavení stejné verze aktualizaci nespustí. Starší klienti potřebují číselný tag nebo první ruční instalaci.</p>')}}
 
 
 for _lang, _body in CW_NEURAL_HELP.items():

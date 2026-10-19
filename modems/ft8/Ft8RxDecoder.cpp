@@ -1207,7 +1207,12 @@ void Ft8RxDecoder::setSearchRangeHz(int lowHz, int highHz)
 
 void Ft8RxDecoder::setRxMarkerHz(int hz)
 {
-    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
+    std::unique_lock<std::recursive_mutex> configLock(m_decodeConfigMutex, std::try_to_lock);
+    if (!configLock.owns_lock()) {
+        m_pendingRxMarkerHz = hz;
+        return;
+    }
+    m_pendingRxMarkerHz = -1;
     m_rxMarkerHz = qBound(100, hz, 3200);
     // Like WSJT-X/MSHV, decode the full FT8 audio passband.  The green RX
     // marker remains the selected/QSO audio frequency, not a narrow decode gate.
@@ -1225,11 +1230,25 @@ void Ft8RxDecoder::setMyCall(const QString &call)
 
 void Ft8RxDecoder::setDxCall(const QString &call)
 {
-    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
-    m_dxCall = call.trimmed().toUpper();
+    const QString normalized = call.trimmed().toUpper();
+    std::unique_lock<std::recursive_mutex> configLock(m_decodeConfigMutex, std::try_to_lock);
+    if (!configLock.owns_lock()) {
+        m_pendingDxCall = normalized;
+        m_hasPendingDxCall = true;
+        return;
+    }
+    m_hasPendingDxCall = false;
+    if (m_dxCall == normalized) return;
+    m_dxCall = normalized;
     std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_dxCall, 1);
+}
+
+void Ft8RxDecoder::applyPendingQsoContext()
+{
+    if (m_pendingRxMarkerHz >= 0) setRxMarkerHz(m_pendingRxMarkerHz);
+    if (m_hasPendingDxCall) setDxCall(m_pendingDxCall);
 }
 
 void Ft8RxDecoder::setQsoDeadlineActive(bool active)
@@ -2315,6 +2334,7 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
             m_runningDecodeGeneration.store(0, std::memory_order_release);
             m_decodeJobActive.store(false, std::memory_order_release);
             QMetaObject::invokeMethod(this, [this]() {
+                applyPendingQsoContext();
                 maybeLaunchPendingFinalDecode();
             }, Qt::QueuedConnection);
         };
@@ -2339,20 +2359,33 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
                 stats.staleCaptureBlocks = staleCaptureBlocks;
                 stats.timestampJumps = timestampJumps;
                 stats.invalidSlotsSkipped = invalidSlotsSkipped;
-                const QVector<Decode> decodes = decodeSlot(samples, slotStartUtc, &candidateCount, &stats);
-
-                if (!decodeCancellationRequested() &&
-                    generation == m_decodeGeneration.load(std::memory_order_acquire)) {
-                    int emittedCount = 0;
-                    emit decodeBatchStarted(slotStartUtc.toMSecsSinceEpoch(), phase);
-                    for (const Decode &decode : decodes) {
+                int emittedCount = 0;
+                auto publishBatch = [this, &slotStartUtc, generation, &emittedCount](
+                    const QVector<Decode> &batch, const QString &batchPhase) {
+                    if (decodeCancellationRequested() ||
+                        generation != m_decodeGeneration.load(std::memory_order_acquire)) return;
+                    emit decodeBatchStarted(slotStartUtc.toMSecsSinceEpoch(), batchPhase);
+                    for (const Decode &decode : batch) {
                         if (markDecodeEmitted(decode, slotStartUtc)) {
                             ++emittedCount;
                             emit decodeReady(decode);
                         }
                     }
-                    emit decodeBatchFinished(slotStartUtc.toMSecsSinceEpoch(), phase);
+                    emit decodeBatchFinished(slotStartUtc.toMSecsSinceEpoch(), batchPhase);
+                };
+                std::function<void(const QVector<Decode> &)> progressPublisher;
+                if (m_qsoDeadlineActive.load(std::memory_order_acquire)) {
+                    progressPublisher = [this, &publishBatch, &phase](const QVector<Decode> &batch) {
+                        if (!batch.isEmpty() && m_qsoDeadlineActive.load(std::memory_order_acquire))
+                            publishBatch(batch, phase + QStringLiteral(" progress"));
+                    };
+                }
+                const QVector<Decode> decodes = decodeSlot(samples, slotStartUtc, &candidateCount, &stats,
+                                                           progressPublisher);
 
+                if (!decodeCancellationRequested() &&
+                    generation == m_decodeGeneration.load(std::memory_order_acquire)) {
+                    publishBatch(decodes, phase);
                     stats.decodeCount = emittedCount;
                     emit performanceUpdated(stats);
                     if (phase.startsWith(QStringLiteral("wsjtx-gate"))) {
@@ -2488,7 +2521,8 @@ void Ft8RxDecoder::maybeLaunchPendingFinalDecode()
 QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &samples,
                                                        const QDateTime &slotStartUtc,
                                                        int *candidateCount,
-                                                       PerfStats *stats)
+                                                       PerfStats *stats,
+                                                       const std::function<void(const QVector<Decode> &)> &publish)
 {
     std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     if (decodeCancellationRequested()) {
@@ -2504,7 +2538,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     ScopedFtWorkClass scopedWorkClass(workClass);
 
     if (m_modeName == QStringLiteral("FT4")) {
-        return decodeSlotFt4(samples, slotStartUtc, candidateCount, stats);
+        return decodeSlotFt4(samples, slotStartUtc, candidateCount, stats, publish);
     }
 
     using Clock = std::chrono::steady_clock;
@@ -3077,6 +3111,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 const auto targetIt = std::find_if(decodedSoFar.cbegin(),
                                                    decodedSoFar.cend(),
                                                    isQsoTargetDecode);
+                if (publish) {
+                    QVector<Decode> ready;
+                    for (const auto &pair : decodedSoFar) ready.append(pair.decode);
+                    publish(ready);
+                }
                 if (targetIt != decodedSoFar.cend()) {
                     earlyStopReason = QStringLiteral("FT8 QSO deadline: %1 decoded first at %2 Hz; wideband gate deferred")
                         .arg(qsoTargetCall)
@@ -3105,6 +3144,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             rawPairs.append(pair);
         }
         decodedSoFar = deduplicate(rawPairs, &dedupDropped);
+        if (publish) {
+            QVector<Decode> ready;
+            for (const auto &pair : decodedSoFar) ready.append(pair.decode);
+            publish(ready);
+        }
         passCount = pass + 1;
 
         if (liveBoundaryDecode && pass == 0) {
@@ -3413,6 +3457,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 if (!alreadyHaveExactMessage(decodedSoFar, pair.decode.message)) {
                     rawPairs.append(pair);
                     decodedSoFar = deduplicate(rawPairs, &dedupDropped);
+                    if (publish) publish(QVector<Decode>{pair.decode});
                     const auto oneSubStart = Clock::now();
                     subtractDecodedSignal(residual, pair.candidate, pair.decode);
                     const auto oneSubEnd = Clock::now();
@@ -4801,22 +4846,22 @@ void Ft8RxDecoder::subtractDecodedSignal(QVector<double> &samples, const Candida
 
     std::vector<std::complex<double>> &cfilt = subtractWorkspace.cfilt;
     cfilt.resize(static_cast<size_t>(kFt8SubNFrame));
-    std::fill(cfilt.begin(), cfilt.end(), std::complex<double>(0.0, 0.0));
-    for (int i = 0; i < kFt8SubNFrame; ++i) {
-        const int sampleIndex = startSample + i;
-        if (sampleIndex >= 0 && sampleIndex < samples.size()) {
-            cfilt[static_cast<size_t>(i)] = samples.at(sampleIndex) * std::conj(cref[static_cast<size_t>(i)]);
-        }
+    const int first = qBound(0, -startSample, kFt8SubNFrame);
+    const int last = qBound(first, static_cast<int>(samples.size()) - startSample, kFt8SubNFrame);
+    // Detach QVector once. Bounds and COW checks do not belong in every sample
+    // of every cancelled signal; the arithmetic and reference remain identical.
+    double *const audio = samples.data();
+    std::fill(cfilt.begin(), cfilt.begin() + first, std::complex<double>(0.0, 0.0));
+    std::fill(cfilt.begin() + last, cfilt.end(), std::complex<double>(0.0, 0.0));
+    for (int i = first; i < last; ++i) {
+        cfilt[static_cast<size_t>(i)] = audio[startSample + i] * std::conj(cref[static_cast<size_t>(i)]);
     }
 
     smoothComplexEnvelopeZeroPhase(cfilt);
 
-    for (int i = 0; i < kFt8SubNFrame; ++i) {
-        const int sampleIndex = startSample + i;
-        if (sampleIndex >= 0 && sampleIndex < samples.size()) {
-            const std::complex<double> reconstructed = cfilt[static_cast<size_t>(i)] * cref[static_cast<size_t>(i)];
-            samples[sampleIndex] -= kFt8SubtractGain * reconstructed.real();
-        }
+    for (int i = first; i < last; ++i) {
+        const std::complex<double> reconstructed = cfilt[static_cast<size_t>(i)] * cref[static_cast<size_t>(i)];
+        audio[startSample + i] -= kFt8SubtractGain * reconstructed.real();
     }
 }
 
@@ -4826,7 +4871,8 @@ void Ft8RxDecoder::subtractDecodedSignal(QVector<double> &samples, const Candida
 QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> &samples,
                                                           const QDateTime &slotStartUtc,
                                                           int *candidateCount,
-                                                          PerfStats *stats)
+                                                          PerfStats *stats,
+                                                       const std::function<void(const QVector<Decode> &)> &publish)
 {
     using Clock = std::chrono::steady_clock;
     const auto totalStart = Clock::now();
@@ -5099,6 +5145,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
                 rawPairs.append(pair);
             }
             deduped = deduplicate(rawPairs, &dropped);
+            if (publish) {
+                QVector<Decode> ready;
+                for (const auto &pair : deduped) ready.append(pair.decode);
+                publish(ready);
+            }
             deadlineTargetDecoded = std::any_of(deduped.cbegin(),
                                                 deduped.cend(),
                                                 isDeadlineTargetDecode);
@@ -5147,6 +5198,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
         }
     }
 
+    if (publish) {
+        QVector<Decode> ready;
+        for (const auto &pair : deduped) ready.append(pair.decode);
+        publish(ready);
+    }
     double subtractionMs = 0.0;
     const bool liveBoundaryDecode = stats != nullptr && stats->phase == QStringLiteral("boundary");
     // Match the efficient FT8 live policy: the early gate is strictly one
@@ -5197,6 +5253,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
             rawPairs.append(pair);
         }
         deduped = deduplicate(rawPairs, &dropped);
+        if (publish) {
+            QVector<Decode> ready;
+            for (const auto &pair : deduped) ready.append(pair.decode);
+            publish(ready);
+        }
         passCount = pass + 1;
     }
 

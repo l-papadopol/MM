@@ -1,4 +1,5 @@
 #include "modems/ft8/FtDecodedText.h"
+#include "modems/ft8/FtQsoSession.h"
 #include "modems/ft8/FtQsoSequencer.h"
 
 #include <QCoreApplication>
@@ -99,6 +100,57 @@ bool runParserTrapChecks()
     return ok;
 }
 
+bool runLastResponseWindowChecks()
+{
+    bool ok = true;
+    auto check = [&ok](bool value, const char *name) {
+        if (!value) qWarning() << "FAIL response window:" << name;
+        ok = value && ok;
+    };
+    for (int period : {15000, 7500}) {
+        for (int attempts : {1, 3}) {
+            FtQsoSession session;
+            session.startQso("LZ2KSQ", "KN23", 1033);
+            session.reportSent = "R-15";
+            session.reportReceived = "-02";
+            session.state = Seq::State::WaitingFinal73;
+            session.beginRetry("LZ2KSQ IZ6NNH R-15", "SEQ", attempts);
+            const quint64 epoch = session.retryGeneration;
+            for (int i = 0; i < attempts; ++i) {
+                session.lastTxPlan.message = session.retryMessage;
+                session.lastTxPlan.slotBoundaryUtcMs = 1792310000000LL + 2LL*i*period;
+                check(session.noteRetryTxCompleted(period), "TX counted once");
+                check(!session.noteRetryTxCompleted(period), "duplicate callbacks do not consume attempts");
+                check(session.retryRemaining == attempts-i-1, "exact configured attempt limit");
+                check(session.retryReplySlotUtcMs == session.lastTxPlan.slotBoundaryUtcMs+period,
+                      "last opposite RX slot remains owned");
+                check(session.qsoActive && session.state == Seq::State::WaitingFinal73,
+                      "final transmission does not erase QSO before listening");
+            }
+            Seq::Decode reply;
+            reply.message = "IZ6NNH LZ2KSQ RR73";
+            reply.frequencyHz = 1033;
+            reply.slotStartUtcMs = session.retryReplySlotUtcMs;
+            const auto decision = Seq::evaluateDecode(reply, session.makeContext("IZ6NNH",1033,1033));
+            check(decision.action == Seq::Action::ArmRow && decision.txRow == 5,
+                  "RR73 after last permitted TX still arms final 73");
+            check(session.reportReceived == "-02", "reports survive the last RX window");
+            session.beginRetry("LZ2KSQ IZ6NNH 73", "SEQ", attempts);
+            check(session.retryGeneration != epoch && session.retryReplySlotUtcMs == 0,
+                  "new exchange invalidates old timeout");
+            check(!session.noteRetryTxCompleted(period), "old TX cannot consume new message budget");
+            session.beginRetry(session.lastTxPlan.message, "SEQ", attempts);
+            check(!session.noteRetryTxCompleted(period) && session.retryRemaining == attempts,
+                  "rearming identical text does not recount an old TX before audio");
+            const auto newEpoch = session.retryGeneration;
+            session.clearQso();
+            check(!session.qsoActive && session.retryGeneration != newEpoch &&
+                  session.retryReplySlotUtcMs == 0, "STOP/QSO reset invalidates timeout");
+        }
+    }
+    return ok;
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -107,6 +159,7 @@ int main(int argc, char **argv)
     Q_UNUSED(app);
 
     bool ok = runParserTrapChecks();
+    ok = runLastResponseWindowChecks() && ok;
     const QList<Expect> cases = {
         {QStringLiteral("locator reply -> Tx3 report"), QStringLiteral("IZ6NNH PT2ND JN63"), Seq::State::WaitingDxReply, true, QStringLiteral("PT2ND"), Seq::Action::ArmRow, Seq::State::SendingReport, 2},
         {QStringLiteral("report reply -> Tx4 R-report"), QStringLiteral("IZ6NNH PT2ND -10"), Seq::State::WaitingReport, true, QStringLiteral("PT2ND"), Seq::Action::ArmRow, Seq::State::SendingRReport, 3},

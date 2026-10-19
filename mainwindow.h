@@ -1145,6 +1145,8 @@ private:
                                 const QColor &background,
                                 const QColor &foreground = QColor(Qt::black));
     void scheduleFt8RetryIfNeeded();
+    void finishFt8ResponseWait(quint64 retryGeneration, qint64 replySlotUtcMs);
+    void refreshQrzStationPanel();
 
     /**
      * @brief Creates the central text terminal pages used by RTTY/BPSK.

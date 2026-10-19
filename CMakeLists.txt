@@ -1162,6 +1162,8 @@ if(MADMODEM_BUILD_FT_TESTS)
         modems/ft8/FtDecodedText.cpp
         modems/ft8/FtQsoSequencer.h
         modems/ft8/FtQsoSequencer.cpp
+        modems/ft8/FtQsoSession.h
+        modems/ft8/FtQsoSession.cpp
         modems/ft8/FtTxPlan.h
     )
     target_include_directories(MadModemFtSequencerSelfTest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

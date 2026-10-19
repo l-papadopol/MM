@@ -12,6 +12,7 @@
 
 #include <array>
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -255,6 +256,7 @@ private:
     bool markDecodeEmitted(const Decode &decode, const QDateTime &slotStartUtc);
     void startAsyncDecodeSlot(const QVector<double> &samples, const QDateTime &slotStartUtc, const QString &phaseLabel = QString());
     void maybeLaunchPendingFinalDecode();
+    void applyPendingQsoContext();
     void deferFinalDecode(const QVector<double> &samples,
                           const QDateTime &slotStartUtc,
                           const QString &reason);
@@ -265,7 +267,8 @@ private:
     QVector<Decode> decodeSlot(const QVector<double> &samples,
                                const QDateTime &slotStartUtc,
                                int *candidateCount = nullptr,
-                               PerfStats *stats = nullptr);
+                               PerfStats *stats = nullptr,
+                               const std::function<void(const QVector<Decode> &)> &publish = {});
     QVector<Candidate> findCandidates(const QVector<double> &samples, double threshold = 0.35) const;
     enum class DecodeRejectReason
     {
@@ -317,7 +320,8 @@ private:
     QVector<Decode> decodeSlotFt4(const QVector<double> &samples,
                                   const QDateTime &slotStartUtc,
                                   int *candidateCount = nullptr,
-                                  PerfStats *stats = nullptr);
+                                  PerfStats *stats = nullptr,
+                                  const std::function<void(const QVector<Decode> &)> &publish = {});
     QVector<Candidate> findFt4Candidates(const QVector<double> &samples, double threshold = 0.95) const;
     QVector<Candidate> findFt4DeadlineCandidates(const QVector<double> &samples,
                                                  int centerHz,
@@ -402,6 +406,11 @@ private:
     QString m_myCall;
     QString m_dxCall;
     std::atomic<bool> m_qsoDeadlineActive {false};
+    // Written/applied on the QObject owner thread; a running decode keeps its
+    // existing configuration snapshot without blocking capture-block delivery.
+    int m_pendingRxMarkerHz = -1;
+    QString m_pendingDxCall;
+    bool m_hasPendingDxCall = false;
     QString m_modeName = QStringLiteral("FT8");
     QString m_decodeEngine = QStringLiteral("mshv"); // fixed MSHV-derived native pipeline
     bool m_deepDecodeEnabled = true; // v4.10 unified FT8 engine: adaptive baseline always enabled

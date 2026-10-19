@@ -68,7 +68,14 @@ bool UpdateController::eventFilter(QObject* watched, QEvent* event) {
 }
 QString UpdateController::newerStableVersion(const QJsonObject& release, const QString& current) {
     if (release.value("draft").toBool() || release.value("prerelease").toBool()) return {};
-    const auto match = QRegularExpression("^v?([0-9]+\\.[0-9]+\\.[0-9]+)$").match(release.value("tag_name").toString());
+    // /releases/latest selects the release promoted by the publisher. Branch
+    // builds may be promoted without renaming their generated build tag.
+    // Read only our two tag formats; titles are freely editable display text.
+    static const QRegularExpression versionTag(QStringLiteral("\\Av?([0-9]+\\.[0-9]+\\.[0-9]+)\\z"));
+    static const QRegularExpression buildTag(QStringLiteral("\\Abuild-([0-9]+\\.[0-9]+\\.[0-9]+)-[0-9]+\\z"));
+    const QString tag = release.value("tag_name").toString();
+    auto match = versionTag.match(tag);
+    if (!match.hasMatch()) match = buildTag.match(tag);
     if (!match.hasMatch()) return {};
     const QString version = match.captured(1);
     return QVersionNumber::compare(QVersionNumber::fromString(version), QVersionNumber::fromString(current)) > 0 ? version : QString();

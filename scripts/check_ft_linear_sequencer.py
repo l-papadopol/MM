@@ -65,7 +65,9 @@ require("QMetaObject::invokeMethod" not in ft_branch and "m_ft8RxDecoder->proces
 
 require("m_ftTxWorker, &FtTxWorker::audioBlockReady" not in main,
         "generated FT TX audio is not injected into the RX waterfall")
-require("Keep the last RX waterfall frame frozen throughout FT TX" in main,
+monitor_start = main.index("connect(m_txAudioEngine, &TxAudioEngine::audioBlockReady")
+monitor = main[monitor_start:main.index("/*", monitor_start)]
+require("Ft8Mode::isFamilyMode(ui->cmbMode->currentText())" in monitor and "return;" in monitor,
         "generic TX monitor also freezes for FT family modes")
 
 require("maybeAdjustLocked" not in resources_h + resources_cpp and
@@ -84,8 +86,9 @@ require("m_txModeChangedByMadModem" in rig,
 clock_setup_start = main.index("void MainWindow::setupFt8Page")
 clock_setup_end = main.index("void MainWindow::setupProcessingConnections", clock_setup_start)
 clock_setup = main[clock_setup_start:clock_setup_end]
-require("sequencerLayout->addWidget(clockGroup)" in clock_setup,
-        "FT8/FT4 period clock is embedded under the sequencer")
+require("settingsLayout->addWidget(clockGroup)" in clock_setup and
+        "ui->modeTabLayout->insertWidget(ui->modeTabLayout->indexOf(modeScroll) + 1" in main,
+        "FT8/FT4 period clock is pinned outside the settings scroll area")
 require("statusTabLayout->insertWidget" not in clock_setup,
         "FT period clock is no longer placed in the Status tab")
 require("m_lblFt8PeriodStatus" not in main + main_h and "utcCaption" not in clock_setup,

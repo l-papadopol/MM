@@ -44,6 +44,9 @@ public:
     QString retryMessage;
     QString retryTag;
     int retryRemaining = 0;
+    quint64 retryGeneration = 0;
+    qint64 retryLastCompletedTxSlotUtcMs = 0;
+    qint64 retryReplySlotUtcMs = 0;
 
     int activeTxRow = -1;
     FtTxPlan lastTxPlan; // Updated only after the audio backend acknowledges progress.
@@ -55,6 +58,8 @@ public:
     void resetAll();
     void clearQso();
     void clearRetry();
+    void beginRetry(const QString &message, const QString &tag, int attempts);
+    bool noteRetryTxCompleted(int slotMs);
     void clearLastTx();
     void resetForCqRepeat(const QString &myCall, const QString &myGrid, int timeoutMinutes);
     void resetForCqRepeatCount(const QString &myCall, const QString &myGrid, int repeatCount);

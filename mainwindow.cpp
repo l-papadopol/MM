@@ -1712,13 +1712,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     m_qrzLookupPanel = new QrzLookupPanel(ui->tabModeSettings);
     ui->modeTabLayout->insertWidget(qMax(0, ui->modeTabLayout->indexOf(m_btnShowRuntimeLog)), m_qrzLookupPanel, 0);
-    auto refreshStation = [this] {
-        const auto *form = activeQsoForm();
-        const bool ft = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
-        m_qrzLookupPanel->setVisible(form != nullptr || ft);
-        m_qrzLookupPanel->setCallsign(form && form->callsign ? form->callsign->text() :
-                                    (ft && m_editFt8DxCall ? m_editFt8DxCall->text() : QString()));
-    };
+    auto refreshStation = [this] { refreshQrzStationPanel(); };
     for (auto *form : {m_rttyQsoForm, m_bpsk31QsoForm, m_mfskQsoForm, m_cwQsoForm, m_hellQsoForm, m_msk144QsoForm, m_q65QsoForm})
         if (form && form->callsign) connect(form->callsign, &QLineEdit::textChanged, this, [refreshStation](const QString&) { refreshStation(); });
     if (m_editFt8DxCall) connect(m_editFt8DxCall, &QLineEdit::textChanged, this, [refreshStation](const QString&) { refreshStation(); });
@@ -16073,8 +16067,19 @@ void MainWindow::handleFtSchedulerPendingChanged(bool pending, qint64 slotBounda
 }
 
 
+void MainWindow::refreshQrzStationPanel()
+{
+    if (!m_qrzLookupPanel || !ui || !ui->cmbMode) return;
+    const bool ft = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
+    const auto *form = activeQsoForm();
+    m_qrzLookupPanel->setVisible(ft || form != nullptr);
+    m_qrzLookupPanel->setCallsign(ft && m_editFt8DxCall ? m_editFt8DxCall->text() :
+                                (form && form->callsign ? form->callsign->text() : QString()));
+}
+
 void MainWindow::updateFt8SequencerUi()
 {
+    refreshQrzStationPanel();
     QString stateText;
     switch (m_ftSession.state) {
     case Ft8SequencerState::Idle:
@@ -16854,9 +16859,8 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
         // Keep the current exchange sticky, but not forever.  Count the first
         // transmission plus automatic retries; if the DX never answers, MM must
         // return to RX standby instead of calling the same station indefinitely.
-        m_ftSession.retryMessage = txMessage;
-        m_ftSession.retryTag = m_pendingFt8TxPlan.tag;
-        m_ftSession.retryRemaining = qBound(1, m_settings.ft8NoResponseRetryCount, 12);
+        m_ftSession.beginRetry(txMessage, m_pendingFt8TxPlan.tag,
+                               m_settings.ft8NoResponseRetryCount);
     }
 
     const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
@@ -18788,29 +18792,24 @@ void MainWindow::scheduleFt8RetryIfNeeded()
         return;
     }
 
-    // scheduleFt8RetryIfNeeded() is called after a TX slot completed.  First
-    // consume that completed unanswered attempt; only arm another retry if the
-    // operator-configured no-response limit still leaves room.
-    if (m_ftSession.retryRemaining > 0) {
-        --m_ftSession.retryRemaining;
-    }
+    const Ft8Mode::Profile profile = Ft8Mode::profileForMode(ui->cmbMode->currentText());
+    m_ftSession.noteRetryTxCompleted(profile.slotMs);
     if (m_ftSession.retryRemaining <= 0) {
-        const QString dx = m_ftSession.dxCall.trimmed().toUpper();
-        const bool fullAutoEnabled = m_ft8EvilModeUnlocked &&
-                                     m_chkFt8FullAutoQso != nullptr &&
-                                     m_chkFt8FullAutoQso->isChecked();
-        if (fullAutoEnabled && !dx.isEmpty()) {
-            m_ft8AutoNoResponseCooldown.insert(dx, QDateTime::currentDateTimeUtc().addSecs(15 * 60));
-            appendLog(QString("FT Auto QSO: %1 gave no reply; skipping this call for 15 minutes and waiting for another CQ.")
-                          .arg(dx));
+        // A transmission is unanswered only after its opposite RX period has
+        // been decoded. Keep reports, state and the final-73 path alive until
+        // then. Repeated decodes cannot consume another transmission attempt.
+        const quint64 generation = m_ftSession.retryGeneration;
+        const qint64 replySlot = m_ftSession.retryReplySlotUtcMs;
+        if (replySlot > 0) {
+            const int decodeGraceMs = profile.slotMs >= 15000 ? 2500 : 2000;
+            const qint64 deadline = replySlot + profile.slotMs + decodeGraceMs;
+            const int delay = static_cast<int>(qBound<qint64>(qint64{0},
+                deadline - QDateTime::currentDateTimeUtc().toMSecsSinceEpoch(), qint64{60000}));
+            QTimer::singleShot(delay, this, [this, generation, replySlot] {
+                finishFt8ResponseWait(generation, replySlot);
+            });
         }
-        stopFt8Sequencer(QString("no response after %1 unanswered transmission(s)%2")
-                             .arg(qBound(1, m_settings.ft8NoResponseRetryCount, 12))
-                             .arg(dx.isEmpty() ? QString() : QStringLiteral(" from ") + dx));
-        if (!m_rxRunning && !m_txRunning && m_audioEngine != nullptr && !m_audioEngine->isRunning()) {
-            startFt8RxShell();
-        }
-        QTimer::singleShot(0, this, [this]() { activateNextFt8QueuedCaller(); });
+        updateFt8SequencerUi();
         return;
     }
 
@@ -18822,6 +18821,30 @@ void MainWindow::scheduleFt8RetryIfNeeded()
                   .arg(m_ftSession.retryRemaining)
                   .arg(retryMessage));
     scheduleFt8SequencerMessage(retryMessage, QStringLiteral("RETRY"));
+}
+
+void MainWindow::finishFt8ResponseWait(quint64 retryGeneration, qint64 replySlotUtcMs)
+{
+    if (!m_ftSession.qsoActive || m_ftSession.retryRemaining > 0 ||
+        m_ftSession.retryGeneration != retryGeneration || replySlotUtcMs <= 0 ||
+        m_ftSession.retryReplySlotUtcMs != replySlotUtcMs) return;
+    const QString dx = m_ftSession.dxCall.trimmed().toUpper();
+    const bool fullAutoEnabled = m_ft8EvilModeUnlocked &&
+                                 m_chkFt8FullAutoQso != nullptr &&
+                                 m_chkFt8FullAutoQso->isChecked();
+    if (fullAutoEnabled && !dx.isEmpty()) {
+        m_ft8AutoNoResponseCooldown.insert(dx, QDateTime::currentDateTimeUtc().addSecs(15 * 60));
+        appendLog(QString("FT Auto QSO: %1 gave no reply; skipping this call for 15 minutes and waiting for another CQ.")
+                      .arg(dx));
+    }
+    stopFt8Sequencer(QString("no response after %1 unanswered transmission(s)%2")
+                         .arg(qBound(1, m_settings.ft8NoResponseRetryCount, 12))
+                         .arg(dx.isEmpty() ? QString() : QStringLiteral(" from ") + dx));
+    if (!m_rxRunning && !m_txRunning && m_audioEngine != nullptr && !m_audioEngine->isRunning()) {
+        startFt8RxShell();
+    }
+    QTimer::singleShot(0, this, [this]() { activateNextFt8QueuedCaller(); });
+    updateFt8SequencerUi();
 }
 
 void MainWindow::startFt8RxShell()
@@ -19043,6 +19066,10 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
         processFt8SequencerDecode(sequencerBatch.at(bestIndex));
     }
 
+    if (phase == QStringLiteral("boundary") &&
+        slotStartUtcMs == m_ftSession.retryReplySlotUtcMs) {
+        finishFt8ResponseWait(m_ftSession.retryGeneration, slotStartUtcMs);
+    }
     if (!m_ft8FullAutoCqCandidates.isEmpty()) {
         m_ft8FullAutoCqSelectionTimer.stop();
         processFt8FullAutoCqCandidates();
