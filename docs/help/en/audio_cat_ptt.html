@@ -5,5 +5,5 @@
 <h2>Audio, PTT and CAT</h2><p>The Audio / PTT / CAT tab contains audio devices, PTT method, CAT polling, Hamlib rig model and safe tests. CAT test reads frequency and never keys PTT.</p>
 <h2>FT4/FT8 Split Operation</h2><p>The Radio/CAT settings offer <b>None</b>, <b>Rig</b> and <b>Fake It</b>. Rig uses the transceiver's native split through Hamlib, which owns the physical VFO/bank mapping; Fake It temporarily retunes the current VFO before TX and restores it after PTT. Both require CAT and keep the generated FT TX audio between 1500 and 2000 Hz by moving the dial in 500 Hz steps.</p>
 <h2>Ports and radio filters</h2><p>Select the actual Hamlib maker and model, then choose or type the CAT serial port and select a standard baud rate matching the radio. CAT PTT uses that connection; the separate PTT serial port is for RTS/DTR control and is not the CAT model number. Avoid opening the same serial port independently for CAT and serial PTT. Test CAT reads before TX. Receive mode and filter width reported by supported radios inform the display; they cannot restore audio removed by the radio filter. AFSK audio TX and hardware FSK/CW keying are different paths: verify the radio data input and mode routing.</p>
-<div class='footer'>MadModem 0.6.3 — Qt Help — English</div>
+<div class='footer'>MadModem 0.6.4 — Qt Help — English</div>
 </body></html>

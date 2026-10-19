@@ -41,3 +41,11 @@ and before closing to install; the pre-release label appears in the offer.
 An old 0.6.3 client retains its old detection rules until this version is
 installed once, manually if necessary. New releases after that require neither
 Latest promotion nor generated-tag renaming for detection.
+
+## Source validation before platform setup
+
+All distribution builds depend on `source-check`, which checks the complete
+release identity and exercises intentionally mixed metadata before downloading
+platform dependencies. Fix all reported mismatches in one commit. Upload the
+whole source-directory contents at the repository root, including `.github`.
+Use the new commit's workflow; re-running an old workflow retains its old source.

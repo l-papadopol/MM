@@ -1,1 +1,1 @@
-0.6.4-source-r7-all-published-release-build-updates-ft-drift-rx-qrz-settings
+0.6.4-source-r8-release-metadata-preflight-all-platforms

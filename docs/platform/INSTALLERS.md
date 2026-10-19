@@ -1,4 +1,4 @@
-# MadModem 0.6.3 installation
+# MadModem 0.6.4 installation
 
 Close MadModem before running an installer. Interactive installers display
 Copyright (C) 2026 Papadopol Lucian-Ioan and the unmodified GNU GPL version 3,
@@ -42,7 +42,7 @@ are added only to the installer payload, never to the portable archives.
 
 ## Windows
 
-Run `MadModem-0.6.3-Windows-64bit-Installer-AutoCPU.exe`. The installer selects the AVX2 build
+Run `MadModem-0.6.4-Windows-64bit-Installer-AutoCPU.exe`. The installer selects the AVX2 build
 only when the CPU supports SSE4.2, FMA, XSAVE, OSXSAVE, AVX and AVX2, and the
 operating system enables the XMM/YMM register state. Otherwise it selects legacy.
 Both variants are 64-bit; legacy does not mean 32-bit Windows.
@@ -58,7 +58,7 @@ User data is not included in the uninstall file list.
 Choose the installer matching the distribution, then run:
 
 ```bash
-bash MadModem-0.6.3-Linux-Ubuntu24.04-64bit-Installer.run
+bash MadModem-0.6.4-Linux-Ubuntu24.04-64bit-Installer.run
 ```
 
 Use the `Linux-Fedora43-64bit-Installer.run` package on Fedora 43. The license appears in a Zenity
@@ -109,8 +109,8 @@ that file in the logbook. Never delete the old portable folder until settings an
 QSO counts have been checked. Portable builds without the marker keep their
 existing path behavior.
 
-Updates are applied by running the next installer. This release does not include
-an automatic download/update service.
+MM can discover, download and propose updates from inside the application.
+Managed installations apply the update through the native installer.
 
 ## In-application updates
 

@@ -1,6 +1,6 @@
-# MadModem 0.6.3 documentation
+# MadModem 0.6.4 documentation
 
-Operating help and maintained developer references for MadModem 0.6.3. Generated verification output is kept outside the source tree.
+Operating help and maintained developer references for MadModem 0.6.4. Generated verification output is kept outside the source tree.
 
 ## User help
 

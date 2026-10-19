@@ -1,5 +1,12 @@
 # MadModem changelog
 
+## 0.6.4 source R8 — consistent release metadata and early CI validation
+
+- Validate the header string/numeric fields, CMake, Windows resources, UI title and six Qt Help projects together, reporting all inconsistencies in one run.
+- Make every distribution build depend on one source validation job before platform dependency installation; include the check in the manual source workflow.
+- Align the Designer title, six translation dictionaries and current installation documentation with 0.6.4.
+- Retain all R7 updater behavior and all modem, audio, runtime, QRZ and sequencer implementation files unchanged.
+
 ## 0.6.4 source R7 — all published release updates
 
 - Inspect the paged published-release list, including pre-releases, independently of Latest.

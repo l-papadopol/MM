@@ -49,6 +49,7 @@ SUITES: dict[str, list[tuple[str, str]]] = {
         ("pyarg", "tools/audit_rtty_rules.py|rtty_rules"),
         ("pyarg", "tools/audit_rtty_rules.py|cw_rules"),
         ("unix", "scripts/ci_release_version_guard.sh"),
+        ("py", "tests/test_release_version_guard.py"),
     ],
     "waterfall": [
         ("unix", "scripts/check_waterfall_wsjtx_flattening.sh"),

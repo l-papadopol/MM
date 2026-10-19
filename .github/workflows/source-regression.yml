@@ -20,6 +20,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check source version and release metadata
+        run: bash scripts/ci_release_version_guard.sh
+
       - name: Install build dependencies
         run: |
           sudo apt-get update

@@ -1,6 +1,9 @@
 # MadModem 0.6.4
 
-Source R7 checks all published GitHub releases, including pre-releases, instead
+Source R8 adds a shared release-metadata check before all platform builds and
+aligns the UI title with 0.6.4. All inconsistencies are reported together.
+
+The updater checks all published GitHub releases, including pre-releases, instead
 of relying on the Latest badge. It compares public versions and automatically
 embedded distribution build numbers, so newer builds of the same version are
 detected and the installed build is not proposed again.

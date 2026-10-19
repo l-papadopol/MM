@@ -14,7 +14,11 @@ The version must agree in all release metadata:
 
 Development-only suffixes such as `.experimental` or `labNN` belong to temporary branches and test artifacts. They are not part of the 0.6.4 release identifier.
 
-Run `scripts/ci_release_version_guard.sh` before packaging. A full source archive should be named with the public version and preserve executable permissions on shell scripts.
+Run `bash scripts/ci_release_version_guard.sh` before packaging. It reports all
+metadata mismatches together, including header numeric fields, CMake, Windows
+resources, the Designer window title and all six Qt Help projects. Every
+distribution platform depends on the shared `source-check` job, which runs before
+platform dependency installation. A full source archive should be named with the public version and preserve executable permissions on shell scripts.
 
 Windows resource tuples and the six Qt Help namespaces must match the same version. Source revisions distinguish packaging updates without changing the public version.
 
@@ -46,3 +50,8 @@ Older 0.6.3 clients keep their old detection rules until 0.6.4 is installed once
 Install manually if necessary; all subsequent published builds use the new checker.
 An unidentified local build may be offered an official build of the same version
 once, acquiring a comparable build identity on installation.
+
+When updating GitHub by uploading sources, upload the entire contents of the
+archive's source directory into the repository root, including `.github`.
+Commit the files together. Re-running an older workflow keeps its original
+commit; use the new commit's run to compile the updated source tree.

@@ -3,8 +3,8 @@
 IDI_ICON1 ICON "icons/madmodem.ico"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION     0,6,3,0
- PRODUCTVERSION  0,6,3,0
+ FILEVERSION     0,6,4,0
+ PRODUCTVERSION  0,6,4,0
  FILEFLAGSMASK   0x3fL
  FILEFLAGS       0x0L
  FILEOS          0x40004L
@@ -21,8 +21,8 @@ BEGIN
       VALUE "OriginalFilename", "MadModem.exe\0"
       VALUE "ProductName",      "MadModem\0"
       VALUE "LegalCopyright",   "Copyright (C) 2026 Papadopol Lucian-Ioan\0"
-      VALUE "FileVersion",     "0.6.3\0"
-      VALUE "ProductVersion",   "0.6.3\0"
+      VALUE "FileVersion",     "0.6.4\0"
+      VALUE "ProductVersion",   "0.6.4\0"
     END
   END
   BLOCK "VarFileInfo"

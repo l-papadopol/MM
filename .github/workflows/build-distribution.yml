@@ -18,7 +18,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source-check:
+    name: Validate source version and release metadata
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check all release identities before platform setup
+        run: bash scripts/ci_release_version_guard.sh
+      - name: Verify rejection of mixed source versions
+        run: python3 tests/test_release_version_guard.py
+
   ubuntu:
+    needs: source-check
     name: Ubuntu 24.04 x64 portable and installer
     runs-on: ubuntu-24.04
     steps:
@@ -69,6 +80,7 @@ jobs:
           if-no-files-found: error
 
   fedora:
+    needs: source-check
     name: Fedora 43 x64 portable and installer
     runs-on: ubuntu-24.04
     container: fedora:43
@@ -129,6 +141,7 @@ jobs:
             bash -c 'dnf install -y python3 binutils mesa-libGL mesa-libEGL dejavu-sans-fonts && python3 /checks/test_linux_portable.py /packages/*.tar.gz'
 
   windows:
+    needs: source-check
     name: Windows x64 portable and automatic CPU installer
     runs-on: windows-2022
     steps:
@@ -195,6 +208,7 @@ jobs:
           if-no-files-found: error
 
   macos:
+    needs: source-check
     name: macOS ${{ matrix.arch }} portable and installer
     strategy:
       fail-fast: false
