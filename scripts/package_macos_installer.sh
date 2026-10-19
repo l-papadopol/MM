@@ -31,6 +31,8 @@ found = False
 for component in components:
     if component.get('RootRelativeBundlePath') == 'Applications/MadModem.app':
         component['BundleIsRelocatable'] = False
+        # Explicit same-public-version build updates must replace the bundle.
+        component['BundleIsVersionChecked'] = False
         # 'update' skips the entire bundle on a fresh Mac. 'upgrade' installs
         # both fresh and existing copies and removes stale program files.
         # The preinstall script preserves legacy portable data outside the bundle.

@@ -1,6 +1,7 @@
 // -----------------------------------------------------------------------------
 // MadModem
 #include "MadModemVersion.h"
+#include "MadModemBuildInfo.h"
 // Cross-platform amateur radio audio modem
 // -----------------------------------------------------------------------------
 
@@ -129,6 +130,12 @@ int main(int argc, char *argv[])
         (startupArguments.at(1) == QStringLiteral("--version") ||
          startupArguments.at(1) == QStringLiteral("-v"))) {
         std::fprintf(stdout, "MadModem %s\n", MADMODEM_VERSION_STRING);
+        std::fflush(stdout);
+        return 0;
+    }
+
+    if (startupArguments.size() == 2 && startupArguments.at(1) == QStringLiteral("--build-info")) {
+        std::fprintf(stdout, "MadModem %s\nBuild %s\nCommit %s\n", MADMODEM_VERSION_STRING, MADMODEM_BUILD_NUMBER, MADMODEM_BUILD_COMMIT);
         std::fflush(stdout);
         return 0;
     }

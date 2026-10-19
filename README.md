@@ -1,5 +1,9 @@
 # MadModem
 
+**0.6.4 — Aggiornamenti:** rileva anche le pre-release senza richiedere Latest, confronta versione e build e propone l’installazione. Conserva drift RX FT8/FT4, account QRZ persistente nelle Impostazioni e CW Nativo R12 / Neural R13.
+
+**0.6.4 — Updates:** detects pre-releases without a Latest badge, compares version/build and offers installation. FT drift RX, persistent QRZ account settings and CW Native R12 / Neural R13 are retained.
+
 **0.6.3 — CW:** due soli motori RX A/B: **Nativo R12** (predefinito) e **Neural R13** (sperimentale). Rimossi i vecchi motori e i pesi neurali superati; le relative impostazioni migrano a R13. Orologio FT sempre visibile fuori dall’area scorrevole, senza il riepilogo duplicato sopra il quadrante.
 
 Nel test su 32 QSO sintetici nuovi, gli errori del neurale scendono da 96 a 21; sui due estratti radio di sviluppo, da 127 a 92. Il nativo resta migliore sui QSO sintetici e sull'ARRL pulito. [Confronto completo, costo CPU e limiti](docs/architecture/CW_NEURAL_R13_RESULTS.md) · [Pubblicazioni e ricerca](docs/architecture/CW_NEURAL_R13_RESEARCH.md).
@@ -32,7 +36,7 @@ In **RTTY** trovi gli stessi comandi Skimmer e Testo/Solo CQ. Il controllo **Can
 
 La revisione sorgenti R6 aggiunge il recupero drift RX sperimentale in Impostazioni → FT8 / FT4 (inizialmente disattivato) e sposta le credenziali QRZ nelle Impostazioni, con salvataggio al riavvio. Il pannello con le informazioni della stazione resta nella finestra principale. La base R5 conserva il turno RX successivo all’ultimo tentativo FT8/FT4 prima di dichiarare assenza di risposta. Le risposte già decodificate vengono elaborate durante i passaggi successivi; QRZ segue il corrispondente attivo anche nella sequenza automatica.
 
-### Installazione e aggiornamenti — 0.6.3
+### Installazione e aggiornamenti — 0.6.4
 
 **Installer e pacchetti portabili rimangono entrambi disponibili. L'installazione è facoltativa.**
 
@@ -52,11 +56,11 @@ Per aggiornare, chiudere MM ed eseguire il nuovo installer: viene aggiornata la 
 Le finestre si ridimensionano trascinando bordi o angoli; i contenuti mantengono una dimensione minima utilizzabile. L'editor SSTV permette di scorrere gli strumenti anche su schermi più piccoli.
 
 
-Il workflow GitHub **Build installers** crea i pacchetti automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Quando tutte le piattaforme hanno completato la compilazione e i controlli, pubblica installer, archivi portabili e checksum SHA256 nella sezione **Releases → Assets**. Un tag corrispondente alla versione, per esempio `v0.6.3`, pubblica la release ufficiale; una compilazione da un ramo crea una prerelease `build-0.6.3-N`, senza modificare la release stabile. Per una release ufficiale manuale, selezionare il tag corretto in **Run workflow**. Gli artifact `portable-*` e `installer-*` rimangono disponibili anche in Actions. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
+Il workflow GitHub **Build installers** crea i pacchetti automaticamente su `main`/`master` e tag `v*`, oppure con **Actions → Build installers → Run workflow**. Quando tutte le piattaforme hanno completato la compilazione e i controlli, pubblica installer, archivi portabili e checksum SHA256 nella sezione **Releases → Assets**. Un tag corrispondente alla versione, per esempio `v0.6.4`, pubblica la release ufficiale; una compilazione da un ramo crea una prerelease `build-0.6.4-N`, senza modificare la release stabile. Per una release ufficiale manuale, selezionare il tag corretto in **Run workflow**. Gli artifact `portable-*` e `installer-*` rimangono disponibili anche in Actions. Gli installer Windows e macOS non hanno ancora una firma commerciale/Developer ID; il sistema operativo può quindi mostrare un avviso.
 
 ### Aggiornamenti dall’app
 
-All’avvio MM controlla le release stabili di l-papadopol/MM su GitHub. Il menu Aiuto offre un controllo manuale e l’opzione per disattivare il controllo iniziale. Bozze, prerelease e versioni uguali o precedenti vengono ignorate. Conferma il download e poi la chiusura di MM per applicarlo. Prima ferma TX e operazioni automatiche. Servono il pacchetto corretto e SHA256SUMS.txt. Le installazioni gestite aprono il proprio installer; restano le richieste di licenza e autorizzazione del sistema. Le copie portabili restano tali: viene conservato un backup completo accanto alla cartella del programma, impostazioni e logbook vengono preservati e MM riparte dopo una verifica della versione con tempo limite. Se la verifica fallisce, viene ripristinata la cartella precedente. Conserva il backup finché non hai provato l’aggiornamento. Windows conserva la variante CPU della copia portabile; gli installer la scelgono automaticamente. La selezione Linux automatica supporta solo Ubuntu 24.04 e Fedora 43. Dalla revisione sorgenti R4 puoi promuovere una build a stabile e Latest mantenendo il tag automatico `build-0.6.4-N`: togli la spunta pre-release e attiva Latest. MM legge la versione dal tag; il titolo è libero. Restano validi anche tag come `v0.6.4`. Occorre una versione pubblica superiore: sostituire i file o pubblicare un’altra build della 0.6.3 non attiva l’aggiornamento su una 0.6.3. I client precedenti richiedono ancora un tag numerico oppure un’installazione manuale per acquisire questa modifica.
+All’avvio MM controlla tutte le release pubblicate di l-papadopol/MM su GitHub, comprese le pre-release. L’etichetta Latest è irrilevante; le bozze sono escluse. Viene scelta prima la versione pubblica più alta, poi la build di distribuzione più recente della stessa versione. La stessa build o una precedente non viene riproposta dopo l’installazione. Aiuto offre un controllo manuale e il comando per il controllo iniziale. Se sono attive operazioni automatiche, il controllo iniziale attende che MM sia libero. La proposta mostra versione e build installata/disponibile e segnala le pre-release. Conferma il download e poi la chiusura di MM per installare. Prima ferma TX e operazioni automatiche. Servono il pacchetto adatto e SHA256SUMS.txt. Le installazioni gestite aprono il proprio installer. Le copie portabili conservano un backup completo, impostazioni e logbook; prima del riavvio si verificano versione e build del nuovo eseguibile, con ripristino se la verifica fallisce. Windows mantiene la variante CPU portabile; gli installer la scelgono automaticamente. La selezione Linux automatica supporta Ubuntu 24.04 e Fedora 43. Il workflow di distribuzione registra automaticamente l’identità della build: le build future possono restare pre-release senza promozione a Latest o rinomina dei tag. Installa una prima volta la 0.6.4 manualmente se il vecchio updater non la rileva. Da quel momento il nuovo controllo rileva le successive build pubblicate.
 
 ### Nominativi e vista CW/RTTY
 
@@ -68,7 +72,7 @@ Una porta KEY dedicata mantiene disponibile la CAT. Per condividere la porta CAT
 
 ### Stato del progetto
 
-MadModem è alla versione **0.6.3**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
+MadModem è alla versione **0.6.4**. Viene usato e provato realmente in radio, ma diverse parti sono tuttora in sviluppo e possono cambiare rapidamente. Segnalazioni di bug, prove con radio e configurazioni differenti e contributi al codice sono quindi benvenuti.
 
 Per compilazione, configurazione e dettagli tecnici trovate la documentazione nella cartella [`docs`](docs/README.md).
 
@@ -103,7 +107,7 @@ In the CW panel, enable **Skimmer** and select **Text** or **CQ calls only**. Th
 
 Source revision R6 adds experimental RX drift recovery in Settings → FT8 / FT4 (off by default) and moves the persistent QRZ account to Settings. Station details remain in the main window. The R5 baseline keeps the receive turn following the last FT8/FT4 attempt open before declaring no response. Validated replies can be handled while later decoder passes continue; QRZ follows the active correspondent during automatic sequencing.
 
-### Installation and updates — 0.6.3
+### Installation and updates — 0.6.4
 
 **Installers and portable packages are both available. Installation is optional.**
 
@@ -123,11 +127,11 @@ To update, close MM and run the new installer. It updates the existing installat
 Resize windows by dragging their edges or corners. Layouts retain a usable minimum size, and SSTV editing tools remain scrollable on smaller displays.
 
 
-GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Once all platform builds and checks succeed, installers, portable archives and SHA256 checksums are published under **Releases → Assets**. A tag matching the source version, such as `v0.6.3`, publishes an official release; branch builds publish numbered prereleases such as `build-0.6.3-N`, leaving the stable release unchanged. To publish an official release manually, select its version tag in **Run workflow**. The `portable-*` and `installer-*` artifacts also remain available in Actions. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
+GitHub's **Build installers** workflow creates packages on pushes to `main`/`master`, on `v*` tags, or through **Actions → Build installers → Run workflow**. Once all platform builds and checks succeed, installers, portable archives and SHA256 checksums are published under **Releases → Assets**. A tag matching the source version, such as `v0.6.4`, publishes an official release; branch builds publish numbered prereleases such as `build-0.6.4-N`, leaving the stable release unchanged. To publish an official release manually, select its version tag in **Run workflow**. The `portable-*` and `installer-*` artifacts also remain available in Actions. Windows and macOS installers do not yet have commercial/Developer ID signatures, so operating-system warnings may appear.
 
 ### Updates from the app
 
-At startup MM checks stable releases on l-papadopol/MM on GitHub. Help offers a manual check and a switch to disable startup checks. Drafts, prereleases and versions equal to or older than the running version are ignored. Confirm the download and then confirm closing MM to apply it. Stop TX and automatic operation first. Downloads require a matching package and SHA256SUMS.txt. Managed installations open their native installer; license and system permission dialogs still apply. Portable copies stay portable: a complete backup is kept beside the program folder, settings and logbooks are preserved, and MM restarts after a bounded version check. If that check fails, the helper restores the previous folder. Keep the backup until the update has been tested. Windows keeps the current portable CPU variant; installers choose automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43 only. Starting with source R4, promote a build to stable and Latest while keeping its automatic `build-0.6.4-N` tag: clear pre-release and enable Latest. MM reads the version from the tag; the title is freely editable. Tags such as `v0.6.4` remain valid. A higher public version is required: replacing assets or publishing another 0.6.3 build does not trigger an update on 0.6.3. Older clients still need a numeric tag or a manual installation to acquire this change.
+At startup MM checks all published releases on l-papadopol/MM on GitHub, including pre-releases. The Latest badge is irrelevant; drafts are excluded. Newer public versions take precedence, then newer distribution build numbers within the same version. The same or older build is not proposed again after installation. Help offers a manual check and a switch for startup checks. If automatic operation is active, the startup check waits for an idle state. The offer shows installed and available version/build and identifies pre-releases. Confirm the download, then confirm closing MM to install. Stop TX and automatic operation first. Downloads require the matching platform package and SHA256SUMS.txt. Managed installations open their native installer. Portable copies keep a full backup, settings and logbooks; the new executable is checked for version and build before restart, with rollback on failure. Windows keeps the portable CPU variant; installers select it automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43. The distribution workflow records the build identity automatically; future branch builds can remain pre-releases without promoting them to Latest or renaming their tags. Install 0.6.4 once manually if your older updater cannot detect it. Subsequent published builds are detected by the new checker.
 
 ### Callsigns and CW/RTTY view
 
@@ -139,7 +143,7 @@ A dedicated KEY port keeps CAT available. To share its CAT serial port, first se
 
 ### Project status
 
-MadModem is at version **0.6.3**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
+MadModem is at version **0.6.4**. It is actually used and tested on the air, but several parts are still under development and may change quickly. Bug reports, tests with different radios and station configurations, and code contributions are therefore very welcome.
 
 Build instructions, configuration notes and technical information are available in the [`docs`](docs/README.md) directory.
 

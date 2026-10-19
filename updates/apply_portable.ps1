@@ -1,4 +1,4 @@
-param([int]$ParentPid,[string]$TargetPath,[string]$Archive,[string]$ExpectedHash,[string]$Version)
+param([int]$ParentPid,[string]$TargetPath,[string]$Archive,[string]$ExpectedHash,[string]$Version,[string]$BuildNumber="0")
 $ErrorActionPreference = 'Stop'
 $work = $null
 $mutating = $false
@@ -21,12 +21,14 @@ try {
     Copy-Item -LiteralPath $target -Destination "$work\backup" -Recurse -Force
     $mutating = $true
     Get-ChildItem -LiteralPath $source -Force | Copy-Item -Destination $target -Recurse -Force
-    $probe = Start-Process -FilePath "$target\bin\MadModem.exe" -ArgumentList '--version' -PassThru -RedirectStandardOutput "$work\version.txt" -RedirectStandardError "$work\stderr.txt"
+    $probeArgument = if ($BuildNumber -ne "0") { "--build-info" } else { "--version" }
+    $probe = Start-Process -FilePath "$target\bin\MadModem.exe" -ArgumentList $probeArgument -PassThru -RedirectStandardOutput "$work\version.txt" -RedirectStandardError "$work\stderr.txt"
     $null = $probe.Handle
     if (-not $probe.WaitForExit(15000)) { $probe.Kill(); $probe.WaitForExit(); throw 'Updated program did not start.' }
     $probe.WaitForExit()
     $probe.Refresh()
     if ($probe.ExitCode -ne 0 -or -not ((Get-Content -LiteralPath "$work\version.txt") -contains "MadModem $Version")) { throw 'Updated program version check failed.' }
+    if ($BuildNumber -ne "0" -and -not ((Get-Content -LiteralPath "$work\version.txt") -contains "Build $BuildNumber")) { throw 'Updated program build check failed.' }
     $mutating = $false
     Start-Process -FilePath "$target\bin\MadModem.exe" -WorkingDirectory "$target\bin"
 } catch {

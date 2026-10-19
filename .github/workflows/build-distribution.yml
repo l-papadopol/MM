@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+env:
+  MADMODEM_BUILD_NUMBER: ${{ github.run_number }}
+  MADMODEM_BUILD_COMMIT: ${{ github.sha }}
+
 concurrency:
   group: installers-${{ github.ref }}
   cancel-in-progress: false

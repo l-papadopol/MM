@@ -1545,6 +1545,13 @@ for _lang, _body in FT_DRIFT_HELP.items():
     _title, _original = PAGES[_lang]['ft8_ft4.html']
     PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<p>' + _body + '</p>')
 
+from published_updates_help import TEXT as PUBLISHED_UPDATE_HELP
+for _lang, _body in PUBLISHED_UPDATE_HELP.items():
+    _title, _original = PAGES[_lang]['quickstart.html']
+    _at = _original.rfind('<h2>')
+    _heading_end = _original.index('</h2>', _at) + len('</h2>')
+    PAGES[_lang]['quickstart.html'] = (_title, _original[:_heading_end] + '<p>' + _body + '</p>')
+
 def main() -> int:
     for lang, pages in PAGES.items():
         for filename, (title, body) in pages.items():

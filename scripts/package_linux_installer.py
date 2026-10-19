@@ -21,6 +21,17 @@ def run(*args, **kwargs):
             print(error.stderr, file=sys.stderr)
         raise
 
+def distribution_release(build_dir: Path, fallback: str, expected: str = '') -> str:
+    """Use the compiled build identity for native same-version upgrades."""
+    header = build_dir / 'generated/MadModemBuildInfo.h'
+    match = re.search(r'^#define MADMODEM_BUILD_NUMBER "([0-9]+)"$', header.read_text(), re.M) if header.exists() else None
+    number = int(match[1]) if match else 0
+    if number > 2147483647:
+        raise SystemExit('Invalid compiled distribution identity')
+    if expected and (not expected.isdecimal() or int(expected) != number):
+        raise SystemExit('Package build identity does not match the compiled executable')
+    return str(number) if number else fallback
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--build-dir', type=Path, required=True)
@@ -31,7 +42,7 @@ def main():
     revision = re.search(r'-r(\d+)-', (ROOT / 'MADMODEM_SOURCE_REVISION.txt').read_text())
     if not re.fullmatch(r'\d+\.\d+\.\d+', version) or not revision:
         raise SystemExit('Native installer requires a numeric release and source revision.')
-    release = revision.group(1)
+    release = distribution_release(args.build_dir.resolve(), revision.group(1), os.environ.get("MADMODEM_BUILD_NUMBER", ""))
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='madmodem-package-') as tmp:

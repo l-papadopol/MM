@@ -2,6 +2,7 @@
 # Full portable-package update after MadModem exits. All arguments are data.
 set -euo pipefail
 pid="$1"; target="$2"; archive="$3"; expected="$4"; version="$5"; platform="$6"
+build="${7:-0}"
 mutating=false
 work=""
 rollback() {
@@ -59,11 +60,14 @@ cp -a "$target" "$work/backup"
 mutating=true
 if [[ "$platform" == mac ]]; then ditto "$source" "$target"; else cp -a "$source/." "$target/"; fi
 # Bounded startup check. Never wait forever on a broken new executable.
-"$target/$executable" --version >"$work/version.txt" 2>&1 & check_pid=$!
+probe_arg=--version
+if [[ "$build" != 0 ]]; then probe_arg=--build-info; fi
+"$target/$executable" "$probe_arg" >"$work/version.txt" 2>&1 & check_pid=$!
 for ((i=0;i<60;i++)); do kill -0 "$check_pid" 2>/dev/null || break; sleep .25; done
 if kill -0 "$check_pid" 2>/dev/null; then kill -9 "$check_pid" || true; wait "$check_pid" || true; exit 9; fi
 wait "$check_pid"
 grep -Fx "MadModem $version" "$work/version.txt"
+if [[ "$build" != 0 ]]; then grep -Fx "Build $build" "$work/version.txt"; fi
 mutating=false
 # Keep the complete previous copy and log for recovery, outside the app folder.
 if [[ "$platform" == mac ]]; then open "$target"; else nohup "$target/$executable" >/dev/null 2>&1 </dev/null & fi

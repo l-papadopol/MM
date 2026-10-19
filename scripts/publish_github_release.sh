@@ -79,11 +79,14 @@ else
     edit_options+=(--latest=false)
 fi
 
+notes_file="$publish_dir/release-notes.md"
+python3 "$root/scripts/stamp_release_notes.py" "$root/RELEASE_NOTES.md" "$notes_file" "$GITHUB_RUN_NUMBER" "$GITHUB_SHA"
+
 # New releases stay drafts until every asset has uploaded. Re-runs resume drafts
 # or replace same-named assets on an existing mutable release, preserving its notes.
 if ! gh release view "$tag" --json id >/dev/null 2>&1; then
     gh release create "$tag" --draft --target "$GITHUB_SHA" \
-        --title "$title" --notes-file "$root/RELEASE_NOTES.md" \
+        --title "$title" --notes-file "$notes_file" \
         --prerelease="$prerelease" "${create_options[@]}"
 fi
 gh release upload "$tag" "${packages[@]}" --clobber
@@ -103,7 +106,11 @@ while IFS= read -r asset; do
     esac
     if [[ "$obsolete" == true ]]; then gh release delete-asset "$tag" "$asset" --yes; fi
 done <<< "$remote_names"
-gh release edit "$tag" --draft=false --prerelease="$prerelease" "${edit_options[@]}"
+# Keep the operator's notes and refresh only our machine identity, also on
+# same-tag rebuilds. Every platform binary carries this workflow's build number.
+gh release view "$tag" --json body --jq .body > "$publish_dir/existing-notes.md"
+python3 "$root/scripts/stamp_release_notes.py" "$publish_dir/existing-notes.md" "$notes_file" "$GITHUB_RUN_NUMBER" "$GITHUB_SHA"
+gh release edit "$tag" --draft=false --prerelease="$prerelease" --notes-file "$notes_file" "${edit_options[@]}"
 release_url="$(gh release view "$tag" --json url --jq .url)"
 printf 'Published downloads: %s\n' "$release_url"
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then

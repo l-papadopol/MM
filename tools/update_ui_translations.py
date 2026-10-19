@@ -2224,6 +2224,11 @@ for _values in FT_DRIFT_QRZ_PHRASES:
 for _lang, _value in QRZ_SETTINGS.items():
     KEY_EXACT.setdefault(_lang, {})['qrz_settings_help'] = _value
 
+from published_updates_i18n import KEYS as PUBLISHED_UPDATE_KEYS
+for _key, _translations in PUBLISHED_UPDATE_KEYS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

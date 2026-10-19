@@ -1,5 +1,16 @@
 # MadModem changelog
 
+## 0.6.4 source R7 — all published release updates
+
+- Inspect the paged published-release list, including pre-releases, independently of Latest.
+- Compare numeric public version and distribution build identity; skip drafts, installed/older builds and public-version downgrades.
+- Embed the distribution workflow build number/commit in each platform binary and stamp release notes while preserving custom text.
+- Show installed/available build identity and the pre-release label before asking to download/install.
+- Verify portable replacement version and build, retaining backup, user state and rollback.
+- Defer automatic startup checks while operations are active; preserve the user's startup-check switch.
+- Advance the public version to 0.6.4 and retain the R6 modem and QRZ changes.
+
+
 ## 0.6.3 source R6 — optional FT drift RX and QRZ account settings
 
 - Add bounded, marker-local linear-drift recovery after unchanged standard FT8/FT4 passes; use Costas evidence, an analytic audio copy and normal LDPC/CRC validation.

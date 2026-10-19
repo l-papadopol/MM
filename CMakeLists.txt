@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.6.3
+    VERSION 0.6.4
     LANGUAGES CXX
 )
 
@@ -28,6 +28,31 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/MADMODEM_SOURCE_REVISION.txt")
     endif()
 endif()
 message(STATUS "MadModem source revision: ${MADMODEM_SOURCE_REVISION}")
+
+# One distribution workflow run identifies the SAME build on every platform.
+# Local builds remain 0 (unknown); source-regression workflow numbers are not
+# distribution identities. Configure once, rather than reading CI at runtime.
+set(MADMODEM_BUILD_NUMBER "$ENV{MADMODEM_BUILD_NUMBER}" CACHE STRING "Official distribution build number")
+if(NOT "$ENV{MADMODEM_BUILD_NUMBER}" STREQUAL "")
+    set(MADMODEM_BUILD_NUMBER "$ENV{MADMODEM_BUILD_NUMBER}" CACHE STRING "Official distribution build number" FORCE)
+endif()
+if(MADMODEM_BUILD_NUMBER STREQUAL "")
+    set(MADMODEM_BUILD_NUMBER "0")
+endif()
+if(NOT MADMODEM_BUILD_NUMBER MATCHES "^(0|[1-9][0-9]*)$" OR
+   MADMODEM_BUILD_NUMBER GREATER 2147483647)
+    message(FATAL_ERROR "MADMODEM_BUILD_NUMBER must be an integer from 0 to 2147483647")
+endif()
+set(MADMODEM_BUILD_COMMIT "$ENV{MADMODEM_BUILD_COMMIT}" CACHE STRING "Distribution source commit")
+if(NOT "$ENV{MADMODEM_BUILD_COMMIT}" STREQUAL "")
+    set(MADMODEM_BUILD_COMMIT "$ENV{MADMODEM_BUILD_COMMIT}" CACHE STRING "Distribution source commit" FORCE)
+endif()
+if(NOT MADMODEM_BUILD_COMMIT STREQUAL "" AND
+   NOT MADMODEM_BUILD_COMMIT MATCHES "^[0-9a-fA-F]+$")
+    message(FATAL_ERROR "MADMODEM_BUILD_COMMIT must be a hexadecimal commit id")
+endif()
+configure_file(cmake/MadModemBuildInfo.h.in generated/MadModemBuildInfo.h @ONLY)
+message(STATUS "MadModem distribution build: ${MADMODEM_BUILD_NUMBER}")
 
 # -------------------------------------------------------------------------
 # C++ standard
@@ -672,7 +697,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cty.csv" "${CMAKE_CURRENT_BINARY_DIR}/cty.csv" COPYONLY)
 endif()
 
-target_include_directories(MadModem PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(MadModem PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set_property(TARGET MadModem PROPERTY AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}")
 if(WIN32)
     target_link_libraries(MadModem PRIVATE winmm)
@@ -999,6 +1024,14 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(madmodem_update_regression tests/UpdateReleaseRegression.cpp
+        updates/UpdateController.cpp utils/RuntimeI18n.cpp
+        settings/AppSettings.cpp rotator/RotatorPeakSearch.cpp)
+    target_include_directories(madmodem_update_regression PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    target_link_libraries(madmodem_update_regression PRIVATE ${QT}::Core ${QT}::Gui ${QT}::Widgets ${QT}::Network)
+    add_test(NAME madmodem_update_regression COMMAND madmodem_update_regression)
+    set_tests_properties(madmodem_update_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 20)
     add_test(NAME madmodem_async_architecture_regression COMMAND MadModem --architecture-regression)
     set_tests_properties(madmodem_async_architecture_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 90)
     add_test(NAME madmodem_window_rotator_regression COMMAND MadModem --window-rotator-regression)
