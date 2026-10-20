@@ -1,5 +1,9 @@
 # MadModem
 
+**0.6.4 R11:** recupero FT8 coerente aggiuntivo entro il budget UTC della risposta, dopo le passate normali e il drift. Conserva barre compatte, font e DT corretti. Misurati anche UI, sequencer e preparazione waveform; FT4 mantiene il decoder live attuale. [Budget e risultati](docs/architecture/RELEASE_0_6_4_R11.md).
+
+**0.6.4 R10:** barre dei periodi FT compatte, font delle tabelle corretti, riferimento DT FT8 sistemato e cache trigonometrica verificata. I tentativi di recupero coerente live non hanno superato il confronto velocità/affidabilità e restano esclusi. [Risultati e limiti](docs/architecture/RELEASE_0_6_4_R10.md).
+
 **0.6.4 — Aggiornamenti:** rileva anche le pre-release senza richiedere Latest, confronta versione e build e propone l’installazione. Conserva drift RX FT8/FT4, account QRZ persistente nelle Impostazioni e CW Nativo R12 / Neural R13.
 
 **0.6.4 — Updates:** detects pre-releases without a Latest badge, compares version/build and offers installation. FT drift RX, persistent QRZ account settings and CW Native R12 / Neural R13 are retained.

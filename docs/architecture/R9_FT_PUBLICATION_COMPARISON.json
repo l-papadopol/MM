@@ -1,0 +1,890 @@
+[
+  {
+    "version": "r8",
+    "state": "passive",
+    "run": 1,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 1140.362042,
+        "first_canonical_ms": 1140.352672,
+        "first_ms": 1140.352672,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 1139.852296,
+        "valid": true
+      },
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 452.967103,
+        "first_canonical_ms": 452.955302,
+        "first_ms": 452.955302,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "",
+        "total_ms": 452.595501,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "version": "r9",
+    "state": "passive",
+    "run": 1,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 1094.124241,
+        "first_canonical_ms": 1094.114233,
+        "first_ms": 237.858375,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 6,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 1093.594734,
+        "valid": true
+      },
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 511.791654,
+        "first_canonical_ms": 511.78379,
+        "first_ms": 200.097147,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 6,
+        "stop_reason": "",
+        "total_ms": 511.404839,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "version": "r8",
+    "state": "passive",
+    "run": 2,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 839.783346,
+        "first_canonical_ms": 839.770006,
+        "first_ms": 839.770006,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 839.148907,
+        "valid": true
+      },
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 418.3325,
+        "first_canonical_ms": 418.326078,
+        "first_ms": 418.326078,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "",
+        "total_ms": 417.993011,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "version": "r9",
+    "state": "passive",
+    "run": 2,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 753.050338,
+        "first_canonical_ms": 753.036326,
+        "first_ms": 110.750341,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 6,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 752.502625,
+        "valid": true
+      },
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 362.679882,
+        "first_canonical_ms": 362.669175,
+        "first_ms": 109.372766,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 6,
+        "stop_reason": "",
+        "total_ms": 362.422435,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "version": "r8",
+    "state": "passive",
+    "run": 3,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 881.320006,
+        "first_canonical_ms": 881.310181,
+        "first_ms": 881.310181,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 880.699736,
+        "valid": true
+      },
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 383.292702,
+        "first_canonical_ms": 383.281525,
+        "first_ms": 383.281525,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "",
+        "total_ms": 383.009225,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "version": "r9",
+    "state": "passive",
+    "run": 3,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 800.452504,
+        "first_canonical_ms": 800.438908,
+        "first_ms": 146.599372,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 6,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 773.45661,
+        "valid": true
+      },
+      {
+        "active_qso": false,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 382.504929,
+        "first_canonical_ms": 382.492673,
+        "first_ms": 103.244084,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 6,
+        "stop_reason": "",
+        "total_ms": 382.182661,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "version": "r8",
+    "state": "active",
+    "run": 1,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": true,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 895.206864,
+        "first_canonical_ms": 130.168374,
+        "first_ms": 130.168374,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 894.670642,
+        "valid": true
+      },
+      {
+        "active_qso": true,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 380.564846,
+        "first_canonical_ms": 115.383239,
+        "first_ms": 115.383239,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "",
+        "total_ms": 380.292833,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  },
+  {
+    "version": "r9",
+    "state": "active",
+    "run": 1,
+    "exit": 0,
+    "rows": [
+      {
+        "active_qso": true,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": 0.5,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 4
+          },
+          {
+            "dt": 0.5,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 3
+          },
+          {
+            "dt": 0.5,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -15
+          },
+          {
+            "dt": 0.5,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": -2
+          }
+        ],
+        "final_ms": 915.332708,
+        "first_canonical_ms": 129.147754,
+        "first_ms": 129.147754,
+        "mode": "FT8",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "live boundary deep: full-slot wideband pass",
+        "total_ms": 914.866374,
+        "valid": true
+      },
+      {
+        "active_qso": true,
+        "budget_hit": false,
+        "decodes": [
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1800,
+            "message": "CQ DL2LAU JO31",
+            "snr": 10
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 2175,
+            "message": "CQ EA5GVJ IM97",
+            "snr": 9
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1425,
+            "message": "CQ F4JXL IN94",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 675,
+            "message": "CQ G0JEI IO93",
+            "snr": 11
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1050,
+            "message": "CQ LA8ENA JO48",
+            "snr": -2
+          },
+          {
+            "dt": -0.15200000000000002,
+            "freq": 1033,
+            "message": "IZ6NNH LZ2KSQ RR73",
+            "snr": 4
+          }
+        ],
+        "final_ms": 387.504124,
+        "first_canonical_ms": 152.160695,
+        "first_ms": 152.160695,
+        "mode": "FT4",
+        "passes": 3,
+        "previews": 0,
+        "stop_reason": "",
+        "total_ms": 387.194502,
+        "valid": true
+      }
+    ],
+    "stderr": ""
+  }
+]

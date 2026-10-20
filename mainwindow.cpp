@@ -12,6 +12,7 @@
 #include "dialogs/SstvImageEditorDialog.h"
 #include "modems/sstv/SstvModeDefinition.h"
 #include "modems/ft8/Ft8Mode.h"
+#include "modems/ft8/FtTimingPolicy.h"
 #include "modems/ft8/Ft8RxDecoder.h"
 #include "modems/ft8/FtDecodedText.h"
 #include "modems/ft8/FtQsoSequencer.h"
@@ -253,10 +254,10 @@ namespace {
 // boundary gets a fresh backend-preparation interval. Automatic plans require
 // the full waveform plus the final guard to fit; an explicit operator action
 // may instead emit a bounded frame prefix that ends before the slot changes.
-constexpr int kFtPttPrearmLeadMs = 650;
-constexpr int kFtLateStartPreparationMs = 700;
-constexpr int kFtGeneratedSignalAllowanceMs = 120;
-constexpr int kFtSlotEndGuardMs = 200;
+constexpr int kFtPttPrearmLeadMs = MadModemFtTiming::pttPrearmLeadMs;
+constexpr int kFtLateStartPreparationMs = MadModemFtTiming::lateStartPreparationMs;
+constexpr int kFtGeneratedSignalAllowanceMs = MadModemFtTiming::generatedSignalAllowanceMs;
+constexpr int kFtSlotEndGuardMs = MadModemFtTiming::slotEndGuardMs;
 constexpr int kFtMinimumLatePartialToneMs = 600;
 
 // Forward declaration: contest-dupe highlighting is implemented before the
@@ -266,9 +267,7 @@ QString rttyContestPeriodId(const RttyContestProfile &profile, const QDateTime &
 
 int latestFtFullFrameArmMs(const Ft8Mode::Profile &profile)
 {
-    return qMax(0,
-                profile.slotMs - profile.signalMs - kFtGeneratedSignalAllowanceMs
-                    - kFtLateStartPreparationMs - kFtSlotEndGuardMs);
+    return MadModemFtTiming::latestFullFrameArmMs(profile.slotMs, profile.signalMs);
 }
 
 int latestFtManualPartialArmMs(const Ft8Mode::Profile &profile)
@@ -367,6 +366,7 @@ bool decodeTableSettingsChanged(const AppSettings &a, const AppSettings &b)
 
 constexpr int kFtRowRedOutlineRole = Qt::UserRole + 427;
 constexpr int kFtOriginalMessageRole = Qt::UserRole + 428;
+constexpr int kFtPresentationOnlyRole = Qt::UserRole + 429;
 
 class FtDecodeRowDelegate final : public QStyledItemDelegate
 {
@@ -1260,26 +1260,21 @@ Ft8DecodeDisplayInfo makeFt8DecodeDisplayInfo(const ParsedFt8Message &parsed,
 
 } // namespace
 
-/**
- * @brief Compact analogue 30-second FT8 period clock.
- *
- * The dial shows one complete 30-second FT8 cycle. The two 15-second periods
- * are indicated by labels/ticks, while the background stays neutral so it does
- * not look like the selected TX/RX marker colors.
- */
+// Compact UTC period bars, using the scheduler FT8/FT4 slot state.
 class Ft8SlotClockWidget : public QWidget
 {
 public:
     explicit Ft8SlotClockWidget(QWidget *parent = nullptr)
         : QWidget(parent)
     {
-        setMinimumSize(118, 118);
-        setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        setMinimumSize(150, 48);
+        setMaximumHeight(48);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     }
 
     QSize sizeHint() const override
     {
-        return QSize(132, 132);
+        return QSize(190, 48);
     }
 
     void setSlotState(double cycleSeconds,
@@ -1307,93 +1302,27 @@ protected:
     {
         QPainter painter(this);
         painter.setRenderHint(QPainter::Antialiasing, true);
-
-        const int side = qMin(width(), height()) - 8;
-        const QRectF rect((width() - side) * 0.5,
-                          (height() - side) * 0.5,
-                          side,
-                          side);
-        const QPointF center = rect.center();
-        const qreal radius = rect.width() * 0.5;
-        const QRectF dialRect = rect.adjusted(5, 5, -5, -5);
-
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(QColor(47, 55, 62));
-        painter.drawEllipse(rect.adjusted(1, 1, -1, -1));
-
-        painter.setBrush(QColor(205, 220, 230));
-        painter.drawEllipse(dialRect);
-
-        // Draw the two UTC T/R periods explicitly.  For FT8 this is 0-15 / 15-30 s;
-        // for FT4 it is 0-7.5 / 7.5-15 s.  The hand and scheduler use the same
-        // slot/cycle values, so the analogue dial can no longer stay FT8-centric.
-        const qreal startAngle = 90.0 * 16.0;
-        const qreal halfSpan = -180.0 * 16.0;
-        painter.setBrush(QColor(210, 234, 219, 130));
-        painter.drawPie(dialRect.adjusted(2, 2, -2, -2), static_cast<int>(startAngle), static_cast<int>(halfSpan));
-        painter.setBrush(QColor(230, 219, 219, 110));
-        painter.drawPie(dialRect.adjusted(2, 2, -2, -2), static_cast<int>(startAngle + halfSpan), static_cast<int>(halfSpan));
-
-        painter.setPen(QPen(QColor(105, 119, 128), 2.0));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawEllipse(dialRect);
-        painter.setPen(QPen(QColor(105, 119, 128), 1.6));
-        painter.drawLine(QPointF(center.x(), dialRect.top() + 3), QPointF(center.x(), dialRect.bottom() - 3));
-
-        painter.setPen(QPen(QColor(38, 50, 58), 1.2));
-        QFont f = painter.font();
-        f.setBold(true);
-        f.setPointSize(qMax(7, height() / 19));
-        painter.setFont(f);
-        painter.drawText(QRectF(center.x() + radius * 0.25, center.y() - radius * 0.12,
-                                radius * 0.40, radius * 0.24),
-                         Qt::AlignCenter,
-                         QStringLiteral("I"));
-        painter.drawText(QRectF(center.x() - radius * 0.65, center.y() - radius * 0.12,
-                                radius * 0.40, radius * 0.24),
-                         Qt::AlignCenter,
-                         QStringLiteral("II"));
-
-        QFont small = painter.font();
-        small.setBold(true);
-        small.setPointSize(qMax(6, height() / 22));
-        painter.setFont(small);
-        painter.drawText(QRectF(center.x() - radius * 0.45, center.y() - radius * 0.18,
-                                radius * 0.90, radius * 0.25),
-                         Qt::AlignCenter,
-                         m_modeLabel);
-
-        const int tickCount = qBound(15, static_cast<int>(std::lround(m_cycleLengthSeconds * 2.0)), 60);
-        for (int i = 0; i < tickCount; ++i) {
-            const double fraction = static_cast<double>(i) / static_cast<double>(tickCount);
-            const double degrees = -90.0 + fraction * 360.0;
-            const double radians = qDegreesToRadians(degrees);
-            const bool major = (i == 0) || (std::abs(fraction - 0.5) < (0.51 / tickCount)) || (i % qMax(1, tickCount / 6) == 0);
-            const qreal outer = radius * 0.88;
-            const qreal inner = major ? radius * 0.73 : radius * 0.81;
-            const QPointF a(center.x() + qCos(radians) * outer,
-                            center.y() + qSin(radians) * outer);
-            const QPointF b(center.x() + qCos(radians) * inner,
-                            center.y() + qSin(radians) * inner);
-            painter.setPen(QPen(QColor(45, 58, 66, major ? 230 : 145), major ? 1.7 : 1.0));
-            painter.drawLine(a, b);
+        const double progress = qBound(0.0,
+            std::fmod(m_cycleSeconds, m_slotLengthSeconds) / m_slotLengthSeconds, 1.0);
+        const int active = m_firstPeriodNow ? 0 : 1;
+        const qreal rowHeight = (height() - 8.0) / 2.0;
+        QFont labelFont = font(); labelFont.setBold(true); painter.setFont(labelFont);
+        for (int row = 0; row < 2; ++row) {
+            const QRectF bar(2, 2 + row * (rowHeight + 4), width() - 4, rowHeight);
+            const QColor colour = row == 0 ? QColor(32, 150, 85) : QColor(194, 66, 66);
+            painter.setPen(QPen(row == active ? colour : palette().color(QPalette::Mid), 1));
+            painter.setBrush(palette().color(QPalette::Base));
+            painter.drawRoundedRect(bar, 3, 3);
+            if (row == active && progress > 0.0)
+                painter.fillRect(QRectF(bar.left()+1, bar.top()+1,
+                    (bar.width()-2)*progress, bar.height()-2), colour);
+            painter.setPen(palette().color(QPalette::Text));
+            const QString label = (row == 0 ? QStringLiteral("I") : QStringLiteral("II"))
+                + (row == active ? QStringLiteral("  >  %1  %2 s")
+                    .arg(m_txWindow ? QStringLiteral("TX") : QStringLiteral("RX"))
+                    .arg(m_slotLengthSeconds * progress, 0, 'f', 1) : QString());
+            painter.drawText(bar.adjusted(6,0,-4,0), Qt::AlignVCenter | Qt::AlignLeft, label);
         }
-
-        const double handDegrees = -90.0 + (m_cycleSeconds / qMax(1.0, m_cycleLengthSeconds)) * 360.0;
-        const double handRadians = qDegreesToRadians(handDegrees);
-        const QPointF handEnd(center.x() + qCos(handRadians) * radius * 0.70,
-                              center.y() + qSin(handRadians) * radius * 0.70);
-        const QPointF tail(center.x() - qCos(handRadians) * radius * 0.16,
-                           center.y() - qSin(handRadians) * radius * 0.16);
-        painter.setPen(QPen(m_txWindow ? QColor(220, 60, 60) : QColor(30, 150, 78), 3.0, Qt::SolidLine, Qt::RoundCap));
-        painter.drawLine(tail, handEnd);
-        painter.setPen(QPen(QColor(10, 10, 10), 1.4));
-        painter.setBrush(QColor(245, 245, 245));
-        painter.drawEllipse(center, 4.5, 4.5);
-
-        painter.setPen(QPen(m_firstPeriodNow ? QColor(30, 150, 78) : QColor(200, 68, 68), 2.5));
-        painter.setBrush(Qt::NoBrush);
-        painter.drawEllipse(rect.adjusted(1.5, 1.5, -1.5, -1.5));
     }
 
 private:
@@ -8897,7 +8826,7 @@ void MainWindow::setupFt8Page()
     m_grpFt8UtcClock = clockGroup;
     clockGroup->setObjectName(QStringLiteral("ftUtcClockGroup"));
     clockGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    QVBoxLayout *clockLayout = new QVBoxLayout(clockGroup);
+    QHBoxLayout *clockLayout = new QHBoxLayout(clockGroup);
     clockLayout->setContentsMargins(8, 8, 8, 8);
     clockLayout->setSpacing(6);
     clockLayout->setSizeConstraint(QLayout::SetMinimumSize);
@@ -8911,11 +8840,11 @@ void MainWindow::setupFt8Page()
     m_lcdFt8UtcClock->setMinimumHeight(40);
     m_lcdFt8UtcClock->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_lblFt8WindowStatus = nullptr;
-    clockLayout->addWidget(m_ft8SlotClock, 0, Qt::AlignHCenter);
-    clockLayout->addWidget(m_lcdFt8UtcClock);
+    clockLayout->addWidget(m_ft8SlotClock, 1, Qt::AlignVCenter);
+    clockLayout->addWidget(m_lcdFt8UtcClock, 1, Qt::AlignVCenter);
     clockGroup->setMinimumHeight(clockLayout->minimumSize().height());
 
-    // The period dial and TX banner already show the period and selected
+    // The period bars and TX banner already show the period and selected
     // message. Do not reserve rows above the clock for duplicate labels.
     // Detailed sequencer state is available in the clock tooltip.
 
@@ -9038,8 +8967,7 @@ void MainWindow::setupFt8Page()
     m_tableFt8TxMessages->setColumnWidth(0, 28);
     m_tableFt8TxMessages->setColumnWidth(1, 34); // v1.89: TX label column reduced by about 50%.
     m_tableFt8TxMessages->setAlternatingRowColors(true);
-    m_tableFt8TxMessages->setMinimumHeight(190);
-    m_tableFt8TxMessages->setMaximumHeight(260);
+    m_tableFt8TxMessages->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     for (int i = 0; i < 6; ++i) {
         QTableWidgetItem *arrow = new QTableWidgetItem(QString());
         arrow->setTextAlignment(Qt::AlignCenter);
@@ -11791,7 +11719,7 @@ void MainWindow::applyDecodeTableVisualSettings(QTableWidget *table)
     const int fontPt = qBound(8, m_settings.decodeTableFontPointSize, 18);
     const int rowPx = qBound(16, m_settings.decodeTableRowHeightPx, 48);
 
-    QFont f = table->font();
+    QFont f = QApplication::font(table);
     const QString decodeFamily = m_settings.decodeTableFontFamily.trimmed();
     if (!decodeFamily.isEmpty()) {
         f.setFamily(decodeFamily);
@@ -11808,6 +11736,18 @@ void MainWindow::applyDecodeTableVisualSettings(QTableWidget *table)
     }
     for (int r = 0; r < table->rowCount(); ++r) {
         table->setRowHeight(r, rowPx);
+        for (int c = 0; c < table->columnCount(); ++c) {
+            QTableWidgetItem *item = table->item(r, c);
+            if (item == nullptr || !item->data(Qt::FontRole).isValid()) continue;
+            QFont cellFont = item->font();
+            cellFont.setFamily(f.family()); cellFont.setPointSize(fontPt);
+            item->setFont(cellFont); // Preserve CQ bold / worked strikeout.
+        }
+    }
+    if (table == m_tableFt8TxMessages) {
+        int height = table->horizontalHeader()->sizeHint().height() + 2 * table->frameWidth();
+        for (int r = 0; r < table->rowCount(); ++r) height += table->rowHeight(r);
+        table->setFixedHeight(height);
     }
 }
 
@@ -11836,7 +11776,7 @@ void MainWindow::applyPersistentSettingsToRuntime(const AppSettings *previousSet
     if (appearanceChanged) {
         applyUiAppearanceSettings();
     }
-    if (decodeVisualChanged) {
+    if (decodeVisualChanged || appearanceChanged) {
         applyDecodeTableVisualSettings();
     }
 
@@ -16384,6 +16324,12 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                       .arg(stats.modeName).arg(stats.driftAttempts).arg(stats.driftDecodes)
                       .arg(stats.driftRecoveryMs, 0, 'f', 1));
     }
+    if (stats.replyArmDeadlineUtcMs > 0 && stats.coherentTailCandidates > 0) {
+        appendLog(QStringLiteral("%1 RX coherent tail: %2 tried, %3 new, %4 ms; UI/sequencer delivered with %5 ms to full-frame arm cutoff")
+                      .arg(stats.modeName).arg(stats.coherentTailCandidates).arg(stats.coherentTailDecodes)
+                      .arg(stats.coherentTailMs, 0, 'f', 1)
+                      .arg(stats.replyArmDeadlineUtcMs - QDateTime::currentMSecsSinceEpoch()));
+    }
     m_lastFt8PerfStats = stats;
     m_haveFt8PerfStats = true;
 
@@ -17599,7 +17545,9 @@ void MainWindow::stopFt8Sequencer(const QString &reason)
     m_ft8FullAutoCqCandidates.clear();
     m_ft8FullAutoCqSelectionTimer.stop();
     if (!reason.trimmed().isEmpty()) {
-        appendLog("FT8 sequencer stopped: " + reason.trimmed());
+        appendLog(uiText("log.ft8_sequencer_stopped", "FT8 sequencer stopped:")
+                      .replace(QStringLiteral("FT8"), Ft8Mode::profileForMode(ui->cmbMode->currentText()).shortLabel) +
+                  QLatin1Char(' ') + reason.trimmed());
     }
     updateFt8SequencerUi();
 }
@@ -18697,7 +18645,7 @@ void MainWindow::appendFt8LocalTxRow(const QString &message, int frequencyHz, co
             sep->setFlags(sep->flags() & ~Qt::ItemIsEditable & ~Qt::ItemIsSelectable);
             sep->setBackground(QBrush(m_tableFt8Rx->palette().color(QPalette::AlternateBase)));
             sep->setForeground(QBrush(MadModemUi::themeColor(MadModemUi::ThemeColorRole::MutedText)));
-            QFont f = sep->font();
+            QFont f = m_tableFt8Rx->font();
             f.setBold(true);
             sep->setFont(f);
             m_tableFt8Rx->setItem(sepRow, col, sep);
@@ -18722,7 +18670,7 @@ void MainWindow::appendFt8LocalTxRow(const QString &message, int frequencyHz, co
     for (QTableWidgetItem *it : items) {
         it->setBackground(QBrush(txBackground));
         it->setForeground(QBrush(txForeground));
-        QFont f = it->font();
+        QFont f = m_tableFt8Rx->font();
         f.setBold(true);
         it->setFont(f);
     }
@@ -18770,7 +18718,7 @@ void MainWindow::appendFt8QsoHistoryRow(const QString &utc,
         it->setBackground(QBrush(background));
         it->setForeground(QBrush(foreground));
         if (direction.trimmed().toUpper() == QStringLiteral("TX")) {
-            QFont f = it->font();
+            QFont f = m_tableFt8QsoHistory->font();
             f.setBold(true);
             it->setFont(f);
         }
@@ -18998,6 +18946,7 @@ int MainWindow::selectBestFt8SequencerDecode(const QVector<Ft8RxDecoder::Decode>
 
 void MainWindow::queueFt8SequencerDecode(const Ft8RxDecoder::Decode &decode)
 {
+    if (m_ft8DecodeBatchPhase.endsWith(QStringLiteral(" presentation"))) return;
     if (!m_ft8DecodeBatchActive) {
         processFt8SequencerDecode(decode);
         return;
@@ -19068,6 +19017,9 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
     m_ft8DecodeBatchSlotStartUtcMs = 0;
     m_ft8DecodeBatchPhase.clear();
 
+    // Presentation batches must never choose a caller, arm TX, or end an RX wait.
+    if (phase.endsWith(QStringLiteral(" presentation"))) return;
+
     const int bestIndex = selectBestFt8SequencerDecode(sequencerBatch);
     if (bestIndex >= 0) {
         processFt8SequencerDecode(sequencerBatch.at(bestIndex));
@@ -19093,6 +19045,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         return;
     }
 
+    const bool presentationOnly = m_ft8DecodeBatchPhase.endsWith(QStringLiteral(" presentation"));
     const QString ftDisplayMode = Ft8Mode::profileForMode(ui->cmbMode->currentText()).shortLabel.trimmed().toUpper();
     const QString ftDisplaySlotKey = ftDisplayMode + QLatin1Char('|') + decode.utc.trimmed();
     if (m_ftDisplayDiagSlotKey != ftDisplaySlotKey) {
@@ -19104,7 +19057,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         m_ftDisplayDiagRowsBefore = m_tableFt8Rx->rowCount();
         m_ftDisplayDiagRowsAfter = m_ftDisplayDiagRowsBefore;
     }
-    ++m_ftDisplayDiagDecodeSignals;
+    if (!presentationOnly) ++m_ftDisplayDiagDecodeSignals;
     if (std::abs(decode.driftHzPerSec) > 0.0) {
         appendLog(QStringLiteral("%1 RX drift: %2 Hz/s; sync evidence %3; %4 Hz; %5")
                       .arg(ftDisplayMode).arg(decode.driftHzPerSec, 0, 'f', 2)
@@ -19233,10 +19186,10 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         rememberFt8AudioActivity(decode, primaryCallForDisplay);
     }
 
-    considerFt8CallerForQueue(decode, blacklistedDecode);
+    if (!presentationOnly) considerFt8CallerForQueue(decode, blacklistedDecode);
 
     bool fullAutoStartedFromThisDecode = false;
-    if (!blacklistedDecode && cqMessage) {
+    if (!presentationOnly && !blacklistedDecode && cqMessage) {
         if (!primaryStatus.isEmpty()) {
             fullAutoStartedFromThisDecode = tryStartFt8FullAutoQso(decode, primaryStatus);
         } else {
@@ -19287,11 +19240,23 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
                                   decode.message);
     }
 
+    const auto recordDecodeMetrics = [this, &decode]() {
+        m_ftSession.haveLastSnr = true;
+        m_ftSession.lastSnrDb = decode.snrDb;
+        m_ftSession.lastSnrMessage = decode.message;
+        m_ft8RecentDtSeconds.append(decode.dt);
+        while (m_ft8RecentDtSeconds.size() > 12) {
+            m_ft8RecentDtSeconds.remove(0);
+        }
+    };
+
     // Decodium/Raptor-style table hygiene: keep the best copy of the same
     // decode within the same UTC slot/frequency neighborhood instead of
     // flooding the operator with near-identical rows from multiple candidates
     // or the second subtraction pass.
-    for (int row = qMax(0, m_tableFt8Rx->rowCount() - 80); row < m_tableFt8Rx->rowCount(); ++row) {
+    // A dense preview may contain more than 80 rows. Search the bounded
+    // table (at most 600 rows), so the final batch updates every preview.
+    for (int row = 0; row < m_tableFt8Rx->rowCount(); ++row) {
         QTableWidgetItem *utcItem = m_tableFt8Rx->item(row, 0);
         QTableWidgetItem *snrItem = m_tableFt8Rx->item(row, 1);
         QTableWidgetItem *dtItem = m_tableFt8Rx->item(row, 2);
@@ -19305,6 +19270,11 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         if (utcItem->text() == decode.utc &&
             compareMessage == decode.message.trimmed().toUpper() &&
             qAbs(freqItem->text().toInt() - decode.frequencyHz) <= 12) {
+            const bool wasPresentation = msgItem->data(kFtPresentationOnlyRole).toBool();
+            if (!presentationOnly) {
+                msgItem->setData(kFtPresentationOnlyRole, false);
+                if (wasPresentation) recordDecodeMetrics();
+            }
             if (decode.snrDb > snrItem->text().toInt()) {
                 snrItem->setText(QString::number(decode.snrDb));
                 dtItem->setText(QString::number(decode.dt, 'f', 1));
@@ -19329,7 +19299,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             // WSJT-X may receive multiple candidate copies of the same message;
             // the UI table should keep one row, but a valid direct report/RR73
             // must still be offered to the sequencer immediately.
-            if (!blacklistedDecode && directReplyToMe) {
+            if (!blacklistedDecode && (directReplyToMe || wasPresentation)) {
                 queueFt8SequencerDecode(decode);
             }
             ++m_ftDisplayDiagRowsUpdated;
@@ -19353,6 +19323,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     if (!items.isEmpty()) {
         if (QTableWidgetItem *messageItem = items.value(4, nullptr)) {
             messageItem->setData(kFtOriginalMessageRole, decode.message.trimmed().toUpper());
+            messageItem->setData(kFtPresentationOnlyRole, presentationOnly);
         }
         if (newCountryForLog) {
             const QString neededTip = uiText("ft_new_dxcc_country_tooltip", "New DXCC country not present in logbook: %1").arg(displayInfo.country);
@@ -19382,6 +19353,8 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
             callItem->setToolTip(uiText("ft_call_tooltip", "Primary callsign extracted from the decoded FT message."));
         }
     }
+
+    for (QTableWidgetItem *item : items) item->setFont(m_tableFt8Rx->font());
 
     if (blacklistedDecode) {
         const QColor bg(82, 0, 0);
@@ -19476,13 +19449,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 
     addFt8WaterfallOverlayForDecode(decode, blacklistedDecode);
 
-    m_ftSession.haveLastSnr = true;
-    m_ftSession.lastSnrDb = decode.snrDb;
-    m_ftSession.lastSnrMessage = decode.message;
-    m_ft8RecentDtSeconds.append(decode.dt);
-    while (m_ft8RecentDtSeconds.size() > 12) {
-        m_ft8RecentDtSeconds.remove(0);
-    }
+    if (!presentationOnly) recordDecodeMetrics();
     if (!m_ft8UiBatchApplying) {
         updateFt8SignalReportUi();
         updateFt8DecodePerformanceUi();

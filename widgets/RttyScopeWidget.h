@@ -24,6 +24,7 @@ class RttyScopeWidget : public QWidget
 
 public:
     explicit RttyScopeWidget(QWidget *parent = nullptr);
+    QSize sizeHint() const override { return QSize(190, 190); }
 
 public slots:
     void setTuningMetrics(double markLevel,

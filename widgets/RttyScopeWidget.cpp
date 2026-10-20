@@ -9,8 +9,9 @@
 RttyScopeWidget::RttyScopeWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setFixedSize(230, 230);
-    setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    setMinimumSize(160, 160);
+    setMaximumSize(230, 230);
+    setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
 
     m_animTimer.setInterval(50);
     connect(&m_animTimer, &QTimer::timeout,
@@ -185,7 +186,10 @@ void RttyScopeWidget::paintEvent(QPaintEvent *event)
     painter.setPen(QColor(150, 255, 180, 205));
     const QString leftLabel = m_reverse ? QStringLiteral("SPACE") : QStringLiteral("MARK");
     const QString rightLabel = m_reverse ? QStringLiteral("MARK") : QStringLiteral("SPACE");
-    const QRectF labelRect = screenRect.adjusted(11.0, 10.0, -11.0, -10.0);
+    // Keep both captions inside the circular clipping path at every supported size.
+    const double captionInset = screenRadius * 0.32;
+    const QRectF labelRect = screenRect.adjusted(captionInset, captionInset,
+                                                -captionInset, -captionInset);
     painter.drawText(labelRect, Qt::AlignLeft | Qt::AlignTop, leftLabel);
     painter.drawText(labelRect, Qt::AlignRight | Qt::AlignTop, rightLabel);
 

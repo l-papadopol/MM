@@ -6,6 +6,7 @@ CPP = (ROOT / 'mainwindow.cpp').read_text(encoding='utf-8')
 HDR = (ROOT / 'mainwindow.h').read_text(encoding='utf-8')
 TX_CPP = (ROOT / 'modems/ft8/tx/Ft8Transmitter.cpp').read_text(encoding='utf-8')
 TX_HDR = (ROOT / 'modems/ft8/tx/Ft8Transmitter.h').read_text(encoding='utf-8')
+TIMING = (ROOT / 'modems/ft8/FtTimingPolicy.h').read_text(encoding='utf-8')
 
 
 def old_delta(slot_ms: int, cycle_ms: int, selected_start: int, cycle_pos: int) -> int:
@@ -78,7 +79,9 @@ assert 'audio-start token was already cleared, but slot boundary still matches' 
 
 # CAT is armed in the quiet tail and the time-critical TX path must never block
 # behind the FT decoder's boundary/deep decode queue.
-assert 'constexpr int kFtPttPrearmLeadMs = 650;' in CPP
+assert 'constexpr int kFtPttPrearmLeadMs = MadModemFtTiming::pttPrearmLeadMs;' in CPP
+assert 'constexpr int pttPrearmLeadMs = 650;' in TIMING
+assert 'MadModemFtTiming::latestFullFrameArmMs(profile.slotMs, profile.signalMs)' in CPP
 start_begin = CPP.index('void MainWindow::startFtPreparedSlotTransmit()')
 start_end = CPP.index('void MainWindow::stopImageTx()', start_begin)
 start_tx = CPP[start_begin:start_end]

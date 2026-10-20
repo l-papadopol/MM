@@ -176,6 +176,10 @@ public:
         double systemCpuLoadPercent = -1.0;
         QString simdBackend;
         QString resourceAdjustment;
+        int coherentTailCandidates = 0;
+        int coherentTailDecodes = 0; // New messages, excluding coherent duplicates.
+        double coherentTailMs = 0.0;
+        qint64 replyArmDeadlineUtcMs = 0;
     };
 
     explicit Ft8RxDecoder(QObject *parent = nullptr);
@@ -324,7 +328,8 @@ private:
                          DecodeRejectReason *rejectReasonOut = nullptr,
                          CandidateAttemptQuality *qualityOut = nullptr,
                          bool allowMetricRecovery = true,
-                         bool allowGf2Osd = true);
+                         bool allowGf2Osd = true,
+                         bool coherentRecoveryOnly = false);
     void subtractDecodedSignal(QVector<double> &samples, const Candidate &candidate, const Decode &decode) const;
     QVector<Decode> decodeSlotFt4(const QVector<double> &samples,
                                   const QDateTime &slotStartUtc,

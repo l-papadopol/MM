@@ -287,8 +287,24 @@ def test_source_invariants() -> None:
 
     require(CPP.count("const bool sumProductAllowed = m_offlineAnalysisActive.load();") == 2,
             "FT8/FT4 sum-product is not restricted to controlled offline A/B")
-    require("if (!metricDecoded && allowFt8bMetricRecovery &&\n        m_offlineAnalysisActive.load()" in CPP,
-            "FT8 coherent path is not restricted to offline A/B")
+    require("if (!metricDecoded && allowFt8bMetricRecovery &&\n        (m_offlineAnalysisActive.load() || coherentRecoveryOnly)" in CPP,
+            "FT8 coherent path must require offline analysis or an explicit final retry")
+    require("liveBoundaryDecode && pass == 0 ? &coherentRetries : nullptr" in CPP and
+            "failedForCoherent->size() < 32" in CPP,
+            "tail failures must be bounded and collected in search order only at boundary")
+    tail_start = CPP.index("for (const Candidate &candidate : coherentRetries)")
+    tail_end = CPP.index("m_lastCandidateCount.store", tail_start)
+    tail = CPP[tail_start:tail_end]
+    require(CPP.index("recoverDriftingSignal(samples, slotStartUtc, out, stats, publish)") < tail_start,
+            "coherent tail must run after every baseline stage, including drift")
+    require("QDateTime::currentMSecsSinceEpoch() >= recoveryDeadline" in tail and
+            "decodeCancellationRequested()" in tail,
+            "coherent tail must respect the original UTC reply deadline and cancellation")
+    require("nullptr, &reason, &quality, true, false, true" in tail,
+            "coherent-only retry must not acquire another GF2 OSD allowance")
+    require("std::any_of(out.cbegin()" in tail and "out.append(decode)" in tail and
+            "++coherentTailDecodes" in tail,
+            "tail must append new messages while retaining all baseline results")
     require("if (!fecDecoded && m_offlineAnalysisActive.load()" in CPP,
             "FT4 coherent path is not restricted to offline A/B")
     require("for (int offset : {-120, -60, 0, 60, 120})" in CPP,

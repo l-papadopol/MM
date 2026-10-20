@@ -1,5 +1,7 @@
 #include "Ft8RxDecoder.h"
 #include "Ft8Mode.h"
+#include "FtCoherentCorrelation.h"
+#include "FtTimingPolicy.h"
 #include "../../dsp/cpu/CpuFeatures.h"
 #include "../../utils/SystemResourceManager.h"
 #include "../../runtime/FtDecodeWorkerPool.h"
@@ -2390,13 +2392,33 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
                     }
                     emit decodeBatchFinished(slotStartUtc.toMSecsSinceEpoch(), batchPhase);
                 };
-                std::function<void(const QVector<Decode> &)> progressPublisher;
-                if (m_qsoDeadlineActive.load(std::memory_order_acquire)) {
-                    progressPublisher = [this, &publishBatch, &phase](const QVector<Decode> &batch) {
-                        if (!batch.isEmpty() && m_qsoDeadlineActive.load(std::memory_order_acquire))
+                // Passive reception can display CRC-validated pass results now.
+                // Keep these separate from canonical publication: the complete
+                // batch must still reach Auto CQ and the sequencer unchanged.
+                QSet<QString> presented;
+                std::function<void(const QVector<Decode> &)> progressPublisher =
+                    [this, &publishBatch, &phase, &slotStartUtc, generation, &presented](const QVector<Decode> &batch) {
+                        if (batch.isEmpty() || decodeCancellationRequested() ||
+                            generation != m_decodeGeneration.load(std::memory_order_acquire)) return;
+                        if (m_qsoDeadlineActive.load(std::memory_order_acquire)) {
                             publishBatch(batch, phase + QStringLiteral(" progress"));
+                            return;
+                        }
+                        QVector<Decode> fresh;
+                        for (const Decode &decode : batch) {
+                            const QString key = QString::number(qRound(decode.frequencyHz / 5.0) * 5) +
+                                QLatin1Char('|') + decode.message.trimmed().toUpper();
+                            if (!presented.contains(key)) {
+                                presented.insert(key);
+                                fresh.append(decode);
+                            }
+                        }
+                        if (fresh.isEmpty()) return;
+                        const QString displayPhase = phase + QStringLiteral(" presentation");
+                        emit decodeBatchStarted(slotStartUtc.toMSecsSinceEpoch(), displayPhase);
+                        for (const Decode &decode : fresh) emit decodeReady(decode);
+                        emit decodeBatchFinished(slotStartUtc.toMSecsSinceEpoch(), displayPhase);
                     };
-                }
                 const QVector<Decode> decodes = decodeSlot(samples, slotStartUtc, &candidateCount, &stats,
                                                            progressPublisher);
 
@@ -2769,7 +2791,10 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         if (a.syncScore != b.syncScore) {
             return a.syncScore > b.syncScore;
         }
-        return std::abs(a.dt) < std::abs(b.dt);
+        // DT is reported relative to the nominal 0.5 s FT8 start. Preserve
+        // the established internal tie-break in absolute slot coordinates:
+        // correcting a displayed value must not change which signal is SIC'd.
+        return std::abs(a.dt + 0.5) < std::abs(b.dt + 0.5);
     };
 
     std::atomic<int> diagAttemptedCandidates {0};
@@ -2911,7 +2936,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     auto decodeCandidateSet = [this, &slotStartUtc, &betterDecode, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueCandidates, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, gateCandidateSet](const QVector<double> &slotSamples,
                                                                                                                const QVector<Candidate> &candidateSet,
                                                                                                                int *workerCountOut,
-                                                                                                               bool qsoDeadlineSet) {
+                                                                                                               bool qsoDeadlineSet,
+                                                                                                               QVector<Candidate> *failedForCoherent = nullptr) {
         QVector<CandidateDecode> rawPairs;
         if (candidateSet.isEmpty()) {
             if (workerCountOut != nullptr) {
@@ -2946,12 +2972,14 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         std::atomic<int> osdGf2TenthsMsInSet {0};
 
         std::mutex rawMutex;
+        // One byte per candidate: disjoint worker writes, read after join.
+        std::vector<unsigned char> coherentFailed(failedForCoherent ? candidateSet.size() : 0, 0);
         std::mutex diagMutex;
         std::atomic<int> nextCandidate {0};
         // LDPC and metric retries have variable cost. Dynamic candidate
         // stealing keeps every permitted worker useful without creating threads
         // or statically pinning one expensive cluster to one worker.
-        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet, qsoDeadlineSet](int, int) {
+        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, &coherentFailed, failedForCoherent, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet, qsoDeadlineSet](int, int) {
             QVector<CandidateDecode> localPairs;
             localPairs.reserve(8);
             int localAttempted = 0;
@@ -3023,6 +3051,10 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                     localPairs.append(pair);
                 } else {
                     localRejects.append(rejectReason);
+                    if (failedForCoherent && (rejectReason == DecodeRejectReason::Ldpc ||
+                                              rejectReason == DecodeRejectReason::Crc)) {
+                        coherentFailed[static_cast<size_t>(i)] = 1;
+                    }
                     if (rejectReason == DecodeRejectReason::Ldpc) {
                         localLdpcFailureQualities.append(quality);
                     }
@@ -3054,6 +3086,13 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 }
             }
         });
+
+        // Preserve search ranking independently of worker completion order.
+        if (failedForCoherent) {
+            for (int i = 0; i < candidateSet.size() && failedForCoherent->size() < 32; ++i) {
+                if (coherentFailed[static_cast<size_t>(i)]) failedForCoherent->append(candidateSet[i]);
+            }
+        }
 
         std::sort(rawPairs.begin(), rawPairs.end(), [&betterDecode](const CandidateDecode &a, const CandidateDecode &b) {
             if (a.decode.message == b.decode.message && std::abs(a.decode.frequencyHz - b.decode.frequencyHz) < 10) {
@@ -3145,6 +3184,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     QVector<CandidateDecode> rawPairs;
     QVector<CandidateDecode> decodedSoFar;
     QVector<CandidateDecode> alreadySubtractedFromWorking;
+    QVector<Candidate> coherentRetries;
     QVector<double> working = samples;
     int firstWorkerCount = 0;
     int totalCandidates = 0;
@@ -3348,7 +3388,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
         int workersThisPass = 0;
         const auto decodeStart = Clock::now();
-        QVector<CandidateDecode> passPairs = decodeCandidateSet(working, filtered, &workersThisPass, false);
+        QVector<CandidateDecode> passPairs = decodeCandidateSet(working, filtered, &workersThisPass, false,
+            liveBoundaryDecode && pass == 0 ? &coherentRetries : nullptr);
         const auto decodeEnd = Clock::now();
         decodeMs += std::chrono::duration<double, std::milli>(decodeEnd - decodeStart).count();
         firstWorkerCount = qMax(firstWorkerCount, workersThisPass);
@@ -3705,6 +3746,66 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     }
 
     if (!gateCandidateSet) recoverDriftingSignal(samples, slotStartUtc, out, stats, publish);
+
+    // All baseline passes, including optional drift recovery, have finished.
+    // Retry only failed first-pass candidates; never replace any baseline row.
+    // The deadline includes actual UTC job age, GUI dispatch and the existing
+    // TX preparation/full-frame guards. A deferred job cannot buy fresh time.
+    int coherentTailCandidates = 0;
+    int coherentTailDecodes = 0;
+    const auto coherentTailStart = Clock::now();
+    const Ft8Mode::Profile timingProfile = Ft8Mode::profileForMode(m_modeName);
+    const qint64 replyDeadline = liveBoundaryDecode
+        ? MadModemFtTiming::replyArmDeadlineUtcMs(slotStartUtc.toMSecsSinceEpoch(),
+                                                timingProfile.slotMs, timingProfile.signalMs) : 0;
+    const qint64 recoveryDeadline = liveBoundaryDecode
+        ? MadModemFtTiming::recoveryDeadlineUtcMs(slotStartUtc.toMSecsSinceEpoch(),
+                                                timingProfile.slotMs, timingProfile.signalMs) : 0;
+    for (const Candidate &candidate : coherentRetries) {
+        if (decodeCancellationRequested()) break;
+        if (elapsedLiveMs() >= kLiveAdaptiveBudgetMs ||
+            QDateTime::currentMSecsSinceEpoch() >= recoveryDeadline) {
+            earlyStopReason += QStringLiteral("; coherent tail stopped at reply reserve");
+            break;
+        }
+        ++totalCandidates;
+        ++secondPassCandidates;
+        ++coherentTailCandidates;
+        Decode decode;
+        CandidateAttemptQuality quality;
+        DecodeRejectReason reason = DecodeRejectReason::None;
+        const auto retryStart = Clock::now();
+        const bool ok = decodeCandidate(samples, slotStartUtc, candidate, decode,
+                                         nullptr, &reason, &quality, true, false, true);
+        decodeMs += std::chrono::duration<double, std::milli>(Clock::now() - retryStart).count();
+        ++diagAttemptedCandidates;
+        noteOsdQuality(quality);
+        if (quality.coherentMetricAttempts > 0) ++diagLdpcTried;
+        if (!ok) continue;
+        noteQuality(true, quality);
+        const bool known = std::any_of(out.cbegin(), out.cend(), [&decode](const Decode &d) {
+            return d.message.trimmed().compare(decode.message.trimmed(), Qt::CaseInsensitive) == 0;
+        });
+        if (!known) {
+            out.append(decode);
+            ++coherentTailDecodes;
+            if (publish) publish(QVector<Decode>{decode});
+            passCount = qMax(passCount, 3);
+        }
+    }
+    if (coherentTailDecodes > 0) {
+        std::stable_sort(out.begin(), out.end(), [](const Decode &a, const Decode &b) {
+            if (a.frequencyHz != b.frequencyHz) return a.frequencyHz < b.frequencyHz;
+            return a.syncScore > b.syncScore;
+        });
+    }
+    if (stats != nullptr) {
+        stats->coherentTailCandidates = coherentTailCandidates;
+        stats->coherentTailDecodes = coherentTailDecodes;
+        stats->coherentTailMs = std::chrono::duration<double, std::milli>(Clock::now() - coherentTailStart).count();
+        stats->replyArmDeadlineUtcMs = replyDeadline;
+    }
+
 
     m_lastCandidateCount.store(totalCandidates);
     if (candidateCount != nullptr) {
@@ -4146,7 +4247,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                                    DecodeRejectReason *rejectReasonOut,
                                    CandidateAttemptQuality *qualityOut,
                                    bool allowMetricRecovery,
-                                   bool allowGf2Osd)
+                                   bool allowGf2Osd,
+                                    bool coherentRecoveryOnly)
 {
     /*
      * v3.27: first real recovery step: keep the fast v3.25 candidate matrix,
@@ -4599,7 +4701,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         return true;
     };
 
-    bool metricDecoded = tryDecodeMetric(llr, true);
+    // Tail recovery already exhausted these metric families on this candidate.
+    bool metricDecoded = !coherentRecoveryOnly && tryDecodeMetric(llr, true);
 
     /*
      * v3.33 synthesis: after the WSJT-X/MSHV hard Costas bail-out, use the
@@ -4628,7 +4731,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     const bool allowFt8bMetricRecovery = allowMetricRecovery &&
                                          (m_deepDecodeEnabled || m_dspPlusDecodeEnabled) &&
                                          promisingForMetricRecovery;
-    if (!metricDecoded && allowFt8bMetricRecovery) {
+    if (!metricDecoded && allowFt8bMetricRecovery && !coherentRecoveryOnly) {
         auto normalizeBmet = [](std::array<double, 174> &bmet) {
             double mean = 0.0;
             double mean2 = 0.0;
@@ -4765,7 +4868,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     // the 1/2/3-symbol metrics are formed.  This is never run by the early gate
     // and does not alter the ghost-candidate policy above.
     if (!metricDecoded && allowFt8bMetricRecovery &&
-        m_offlineAnalysisActive.load() &&
+        (m_offlineAnalysisActive.load() || coherentRecoveryOnly) &&
         t_currentFtWorkClass != MadModemRuntime::WorkClass::FtGate) {
         if (qualityOut != nullptr) {
             ++qualityOut->coherentMetricAttempts;
@@ -4783,20 +4886,9 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                                    baseHz,
                                    coherentTaps,
                                    baseband)) {
-            auto correlationAt = [&baseband](int symbol, int tone, int shift) {
-                std::complex<double> sum(0.0, 0.0);
+            auto ft8CorrelationAt = [&baseband](int symbol, int tone, int shift) {
                 const int begin = kMargin + shift + symbol * kBasebandSamplesPerSymbol;
-                for (int n = 0; n < kBasebandSamplesPerSymbol; ++n) {
-                    const int index = begin + n;
-                    if (index < 0 || index >= static_cast<int>(baseband.size())) {
-                        continue;
-                    }
-                    const double phase = -kTwoPi * static_cast<double>(tone * n) /
-                                         static_cast<double>(kBasebandSamplesPerSymbol);
-                    sum += baseband[static_cast<size_t>(index)] *
-                           std::complex<double>(std::cos(phase), std::sin(phase));
-                }
-                return sum;
+                return MadModemFt::coherentCorrelation32<8>(baseband, begin, tone);
             };
 
             int coherentShift = 0;
@@ -4807,7 +4899,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                 for (int blockIndex = 0; blockIndex < 3; ++blockIndex) {
                     const int syncStart = kCostasStarts[blockIndex];
                     for (int i = 0; i < 7; ++i) {
-                        score += std::abs(correlationAt(syncStart + i, kCostas[i], shift));
+                        score += std::abs(ft8CorrelationAt(syncStart + i, kCostas[i], shift));
                         ++costasIndex;
                     }
                 }
@@ -4829,7 +4921,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                     const int grayIndex = grayInverse(tone);
                     symbolCorrelation[static_cast<size_t>(sym)]
                                      [static_cast<size_t>(grayIndex)] =
-                        correlationAt(sym, tone, coherentShift);
+                        ft8CorrelationAt(sym, tone, coherentShift);
                 }
             }
 
@@ -4929,7 +5021,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     // currentSlotMs() accessor from this pool thread: the coordinator owns the
     // recursive mutex while waiting for the pool and that would deadlock.
     decodeOut.slotPeriodMs = Ft8Mode::profileForMode(m_modeName).slotMs;
-    decodeOut.dt = static_cast<double>(startSample) / static_cast<double>(kDecodeSampleRate);
+    // FT8 DT is relative to the nominal start 0.5 s into the UTC slot.
+    decodeOut.dt = static_cast<double>(startSample) / static_cast<double>(kDecodeSampleRate) - 0.5;
     decodeOut.frequencyHz = qRound(baseHz);
     decodeOut.message = message;
     decodeOut.syncScore = refinedSync;
@@ -6025,19 +6118,8 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
                                    coherentTaps,
                                    baseband)) {
             auto correlationAt = [&baseband](int symbol, int tone, int shift) {
-                std::complex<double> sum(0.0, 0.0);
                 const int begin = kMargin + shift + symbol * kSamplesPerBasebandSymbol;
-                for (int n = 0; n < kSamplesPerBasebandSymbol; ++n) {
-                    const int index = begin + n;
-                    if (index < 0 || index >= static_cast<int>(baseband.size())) {
-                        continue;
-                    }
-                    const double phase = -kTwoPi * static_cast<double>(tone * n) /
-                                         static_cast<double>(kSamplesPerBasebandSymbol);
-                    sum += baseband[static_cast<size_t>(index)] *
-                           std::complex<double>(std::cos(phase), std::sin(phase));
-                }
-                return sum;
+                return MadModemFt::coherentCorrelation32<4>(baseband, begin, tone);
             };
 
             int coherentShift = 0;

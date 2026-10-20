@@ -1,5 +1,32 @@
 # MadModem changelog
 
+## 0.6.4 source R11 — FT reply deadlines and additive coherent recovery
+
+- Share the existing full-frame TX admission constants with RX recovery; preserve TX timing and protocol guards.
+- Re-evaluate recovery by its complete reply deadline, including GUI/decision reserve, instead of requiring a lower median decode time.
+- Retry at most 32 failed first-pass FT8 candidates after every baseline stage, including drift. Append new validated messages without changing baseline output; skip optional work when the original slot deadline is exhausted.
+- Count actual new tail messages and log final delivery margin. Preserve the early QSO gate and the FT4 live decoder.
+- Include real-audio, expired-deadline, UI/sequencer/waveform and message-retention measurements.
+- Retain R10 bars/fonts/DT/cache and CW Native R12 / Neural R13.
+
+## 0.6.4 source R10 — compact FT periods, table fonts and isolated DT correction
+
+- Replace the FT dial with compact period I/II bars; retain digital UTC and scheduler timing.
+- Apply table fonts to existing/new CQ, TX and history cells while preserving emphasis.
+- Report FT8 DT relative to 0.5 seconds while retaining the absolute internal tie-break used for SIC.
+- Cache coherent phasors with bit-identical regression coverage for FT8/FT4.
+- Test and reject live coherent recovery variants: no established improvement in both speed and reliability. Keep the validated R9 live paths.
+- Include measured comparisons and explicit limits; retain CW Native R12 / Neural R13, updater, CAT and sequencer behavior.
+
+## 0.6.4 source R9 — compact mode panels and earlier FT display
+
+- Display validated passive FT8/FT4 pass results early while preserving canonical sequencing, Auto CQ selection and complete decoder work.
+- Deduplicate previews and final rows across the full bounded table, including dense slots.
+- Place analogue/digital clock displays side by side, size the TX table to six rows, and adapt QRZ height to its contents.
+- Compact the RTTY scope and keep its Mark/Space captions inside the circular display.
+- Correct the FT4 sequencer-stop log label while retaining all six translations.
+- Preserve 0.6.4 release/update metadata, optional RX drift, QRZ account persistence and CW Native R12 / Neural R13.
+
 ## 0.6.4 source R8 — consistent release metadata and early CI validation
 
 - Validate the header string/numeric fields, CMake, Windows resources, UI title and six Qt Help projects together, reporting all inconsistencies in one run.

@@ -27,7 +27,7 @@ static void checkClock(MainWindow& window) {
     require(!qobject_cast<QGroupBox*>(group->parentWidget()), "clock still nested in sequencer box");
     require(dial->parentWidget()==group && lcd->parentWidget()==group,"clock children reparented");
     require(dial->y()<40,"duplicate content still reserves space above dial");
-    require(dial->geometry().bottom()<lcd->y(),"dial overlaps digital clock");
+    require(!dial->geometry().intersects(lcd->geometry()),"dial overlaps digital clock");
     require(group->rect().contains(lcd->geometry()),"digital clock is clipped");
     require(lcd->visibleRegion().boundingRect()==lcd->rect(),"digital clock clipped by settings viewport");
     require(dial->visibleRegion().boundingRect()==dial->rect(),"dial clipped by settings viewport");
