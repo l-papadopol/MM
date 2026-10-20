@@ -16,12 +16,12 @@ PHRASES = [
      "Das Konto wird im lokalen Profil gespeichert und nach dem Neustart wiederverwendet. Vollständige Stationsdaten erfordern QRZ-XML-Zugang.",
      "Kontoen lagres i den lokale profilen og brukes etter omstart. Fullstendige stasjonsdata krever QRZ XML-tilgang.",
      "Účet se ukládá do místního profilu a použije se po restartu. Úplné údaje o stanici vyžadují přístup QRZ XML."),
-    ("An additional bounded RX recovery follows the standard decoder. Select the signal with the RX marker. TX frequency and CAT remain under your control. Estimates are shown in the runtime log.",
-     "Un recupero RX aggiuntivo con lavoro limitato segue il decoder standard. Seleziona il segnale con il marcatore RX. Frequenza TX e CAT restano sotto il tuo controllo. Le stime sono mostrate nel registro operativo.",
-     "Une récupération RX supplémentaire limitée suit le décodeur standard. Sélectionnez le signal avec le marqueur RX. La fréquence TX et le CAT restent sous votre contrôle. Les estimations figurent dans le journal d’exécution.",
-     "Eine begrenzte zusätzliche RX-Wiederherstellung folgt dem Standarddecoder. Signal mit dem RX-Marker auswählen. TX-Frequenz und CAT bleiben unter Ihrer Kontrolle. Schätzwerte stehen im Laufzeitprotokoll.",
-     "En begrenset ekstra RX-gjenfinning følger standarddekoderen. Velg signalet med RX-markøren. TX-frekvens og CAT er under din kontroll. Estimater vises i driftsloggen.",
-     "Po standardním dekodéru následuje omezená dodatečná obnova RX. Vyberte signál RX markerem. Frekvenci TX a CAT ovládáte sami. Odhady jsou v provozním protokolu."),
+    ("Select the signal with the RX marker. This option helps decode it when its frequency changes during reception. You control the transmit frequency. Results appear in the runtime log.",
+     "Posiziona il marcatore RX sul segnale da seguire. Questa opzione aiuta a decodificarlo se la frequenza cambia durante la ricezione. La frequenza TX resta quella impostata. I risultati compaiono nel registro.",
+     "Placez le marqueur RX sur le signal à suivre. Cette option aide à le décoder si sa fréquence change pendant la réception. Vous réglez la fréquence d’émission. Les résultats apparaissent dans le journal.",
+     "Setzen Sie den RX-Marker auf das gewünschte Signal. Diese Option hilft beim Dekodieren, wenn sich seine Frequenz während des Empfangs ändert. Die Sendefrequenz stellen Sie selbst ein. Ergebnisse stehen im Laufzeitprotokoll.",
+     "Plasser RX-markøren på signalet du vil følge. Dette alternativet hjelper med dekoding når frekvensen endres under mottak. Du velger sendefrekvensen selv. Resultatene vises i loggen.",
+     "Umístěte RX marker na sledovaný signál. Tato volba pomáhá s dekódováním, pokud se jeho frekvence během příjmu mění. Vysílací frekvenci nastavujete sami. Výsledky se zobrazují v protokolu."),
 ]
 QRZ_SETTINGS = {
     'it': 'Configura l’account QRZ in Impostazioni → QRZ.com. I dati completi richiedono l’accesso XML.',

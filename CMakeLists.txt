@@ -1024,6 +1024,11 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(madmodem_ft_incremental_producer tests/FtIncrementalProducerRegression.cpp)
+    target_include_directories(madmodem_ft_incremental_producer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(madmodem_ft_incremental_producer PRIVATE ${QT}::Core Threads::Threads)
+    add_test(NAME madmodem_ft_incremental_producer COMMAND madmodem_ft_incremental_producer)
+    set_tests_properties(madmodem_ft_incremental_producer PROPERTIES TIMEOUT 10)
     add_executable(madmodem_update_regression tests/UpdateReleaseRegression.cpp
         updates/UpdateController.cpp utils/RuntimeI18n.cpp
         settings/AppSettings.cpp rotator/RotatorPeakSearch.cpp)
@@ -1096,6 +1101,12 @@ if(BUILD_TESTING)
         set(MADMODEM_GUARD_UNIX_ARGS)
         if(UNIX)
             set(MADMODEM_GUARD_UNIX_ARGS --with-unix-checks)
+        endif()
+
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            add_test(NAME madmodem_linux_update_helpers COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_update_helpers.py")
+            add_test(NAME madmodem_linux_installer_preflight COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_linux_installer_preflight.py")
+            set_tests_properties(madmodem_linux_update_helpers madmodem_linux_installer_preflight PROPERTIES TIMEOUT 30)
         endif()
 
         add_test(NAME madmodem_architecture_guard

@@ -30,6 +30,7 @@ for user_file in settings.mad logbook.adi; do
     fi
 done
 rm -f "$PACKAGE_DIR/bin/managed-install.flag"
+printf '%s\n' "$PLATFORM" > "$PACKAGE_DIR/bin/distribution-platform.txt"
 
 # User-facing documentation/legal files for the binary package.
 for f in README.md RELEASE_NOTES.md CHANGELOG.md LICENSE.md COPYING AUTHORS.md THIRD_PARTY_NOTICES.md TRANSLATION_AUDIT.md; do

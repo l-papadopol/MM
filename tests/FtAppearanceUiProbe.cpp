@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "callsign/QrzLookupPanel.h"
 #include <QApplication>
 #include <QSettings>
 #include <QTableWidget>
@@ -16,7 +17,11 @@ int main(int argc,char**argv){
  QSettings s(AppSettings::settingsFilePath(),QSettings::IniFormat);s.setValue("Updates/checkAtStartup",false);s.sync();
  MainWindow w;w.show();w.ui->sideTabWidget->setFixedWidth(426);
  for(QString mode:{QString("FT8"),QString("FT4")}) {
-  w.ui->cmbMode->setCurrentText(mode);w.ui->sideTabWidget->setCurrentWidget(w.ui->tabModeSettings);w.resize(1280,900);settle();
+  w.ui->cmbMode->setCurrentText(mode);w.ui->sideTabWidget->setCurrentWidget(w.m_tabDx);w.resize(1280,900);settle();
+  require(w.ui->sideTabWidget->indexOf(w.m_tabDx)>w.ui->sideTabWidget->indexOf(w.ui->tabModeSettings),"DX must follow Mode");
+  require(w.ui->sideTabWidget->indexOf(w.m_tabDx)<w.ui->sideTabWidget->indexOf(w.m_tabCatRotator),"DX must precede Rotator");
+  require(w.m_grpFt8UtcClock->isVisible(),"FT periods hidden in DX");
+  require(w.m_qrzLookupPanel->parentWidget()==w.m_tabDx,"QRZ not in DX");
   auto *bars=w.findChild<QWidget*>("ftSlotClock");
   require(bars&&bars->height()<=48,"period bars are not compact");
   require(w.m_grpFt8UtcClock->height()<110,"period group still consumes dial height");

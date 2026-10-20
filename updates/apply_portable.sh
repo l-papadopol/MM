@@ -43,7 +43,12 @@ if [[ "$platform" == mac ]]; then
     source="$work/stage/MadModem.app"
     executable=Contents/MacOS/MadModem
 else
-    tar -xzf "$archive" -C "$work/stage"
+    case "$archive" in
+        *.tar.gz) tar -xzf "$archive" -C "$work/stage" ;;
+        *.zip) command -v unzip >/dev/null || { echo 'ZIP update requires unzip. Install unzip and retry.' >&2; exit 6; }
+               unzip -q "$archive" -d "$work/stage" ;;
+        *) echo 'Unsupported portable archive format.' >&2; exit 6 ;;
+    esac
     shopt -s nullglob
     roots=("$work/stage"/*)
     [[ ${#roots[@]} == 1 ]] || exit 6

@@ -45,14 +45,9 @@ QrzLookupPanel::QrzLookupPanel(QWidget* parent) : QGroupBox(QStringLiteral("QRZ.
     auto *layout = new QVBoxLayout(this); layout->setContentsMargins(6, 4, 6, 6); layout->setSpacing(4);
     m_details = new QTextBrowser(this); m_details->setObjectName(QStringLiteral("qrzStationDetails"));
     m_details->setOpenLinks(false);
-    m_details->setFixedHeight(48);
-    m_details->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    connect(m_details->document()->documentLayout(), &QAbstractTextDocumentLayout::documentSizeChanged,
-            this, [this](const QSizeF &size) {
-        const int height = qBound(48, qCeil(size.height()) + 2 * m_details->frameWidth() + 4, 100);
-        if (m_details->height() != height) m_details->setFixedHeight(height);
-    });
-    layout->addWidget(m_details);
+    m_details->setMinimumHeight(100);
+    m_details->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    layout->addWidget(m_details, 1);
     auto *buttons = new QHBoxLayout;
     m_open = new QPushButton(uiText("text.open_qrz_page", "Open QRZ page"), this);
     m_open->setProperty("i18nSourceText", "Open QRZ page");

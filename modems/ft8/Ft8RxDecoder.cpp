@@ -2,6 +2,7 @@
 #include "Ft8Mode.h"
 #include "FtCoherentCorrelation.h"
 #include "FtTimingPolicy.h"
+#include "FtIncrementalAnalysis.h"
 #include "../../dsp/cpu/CpuFeatures.h"
 #include "../../utils/SystemResourceManager.h"
 #include "../../runtime/FtDecodeWorkerPool.h"
@@ -372,6 +373,23 @@ void fftRadix2Transform(std::vector<std::complex<double>> &a, bool inverse)
 void fftRadix2(std::vector<std::complex<double>> &a)
 {
     fftRadix2Transform(a, false);
+}
+
+std::vector<double> incrementalFt8Row(const QVector<double> &samples, int start)
+{
+    static const std::vector<double> window = [] {
+        std::vector<double> values(1920, 1.0);
+        for (int n=0;n<1920;++n) values[static_cast<size_t>(n)] =
+            0.5 - 0.5 * std::cos(kTwoPi * static_cast<double>(n) / static_cast<double>(1920 - 1));
+        return values;
+    }();
+    std::vector<std::complex<double>> fft(4096, {0.0,0.0});
+    const double *x=samples.constData()+start;
+    for(int n=0;n<1920;++n)fft[static_cast<size_t>(n)]={x[n]*window[static_cast<size_t>(n)],0.0};
+    fftRadix2(fft);
+    std::vector<double> energy(2048);
+    for(int bin=0;bin<2048;++bin)energy[static_cast<size_t>(bin)]=std::norm(fft[static_cast<size_t>(bin)]);
+    return energy;
 }
 
 void inverseFftRadix2(std::vector<std::complex<double>> &a)
@@ -1132,11 +1150,16 @@ Ft8RxDecoder::Ft8RxDecoder(QObject *parent)
     // Create the persistent workers during application initialization rather
     // than on the first busy FT slot, avoiding a one-time RX-start stall.
     (void)FtDecodeWorkerPool::instance();
+    m_incrementalAnalysis = std::make_unique<MadModemFt::IncrementalAnalysis>(
+        incrementalFt8Row, [this](const QVector<double> &samples,int start,double frequency) {
+            return ft4SymbolToneEnergy(samples,start,frequency,576);
+        });
 }
 
 Ft8RxDecoder::~Ft8RxDecoder()
 {
     requestShutdown();
+    if (m_incrementalAnalysis) m_incrementalAnalysis->stop();
     if (m_decodeCoordinator) {
         m_decodeCoordinator->stopAndJoin();
     }
@@ -1193,7 +1216,9 @@ void Ft8RxDecoder::reset()
     }
     m_currentSlotStartUtc = QDateTime();
     m_slotSamples.clear();
+    resetIncrementalAnalysis();
     m_pendingFinalSamples.clear();
+    m_pendingFinalAnalysis.reset();
     m_pendingFinalSlotStartUtc = QDateTime();
     m_pendingFinalDecode = false;
     m_lastCandidateCount = 0;
@@ -1405,6 +1430,7 @@ void Ft8RxDecoder::beginUtcSlot(qint64 slotId, int maxPrepadMs, const QString &r
     m_finalDecodeLaunchedForSlot = false;
     m_currentSlotStartUtc = QDateTime::fromMSecsSinceEpoch(startMs, Qt::UTC);
     m_slotSamples.clear();
+    resetIncrementalAnalysis();
     m_initialUtcPadSamples = 0;
 
     if (maxPrepadMs > 0 && elapsedMs > 0 && elapsedMs <= maxPrepadMs) {
@@ -1864,7 +1890,9 @@ void Ft8RxDecoder::resetCaptureTimeline(quint64 generation, const QString &reaso
     m_skipCurrentSlotReason.clear();
     m_currentSlotStartUtc = QDateTime();
     m_slotSamples.clear();
+    resetIncrementalAnalysis();
     m_pendingFinalSamples.clear();
+    m_pendingFinalAnalysis.reset();
     m_pendingFinalSlotStartUtc = QDateTime();
     m_pendingFinalDecode = false;
     m_lastCaptureSequence = 0;
@@ -1897,6 +1925,7 @@ void Ft8RxDecoder::beginUtcSlotAtOffset(qint64 slotId, int prepadSamples, const 
     const qint64 startMs = slotId * static_cast<qint64>(currentSlotMs());
     m_currentSlotStartUtc = QDateTime::fromMSecsSinceEpoch(startMs, Qt::UTC);
     m_slotSamples.clear();
+    resetIncrementalAnalysis();
     m_initialUtcPadSamples = qBound(0, prepadSamples, qMax(0, slotSamples - 1));
     m_skipCurrentSlotDecode = false;
     m_skipCurrentSlotReason.clear();
@@ -2163,8 +2192,38 @@ void Ft8RxDecoder::maybeStartEarlyDecodeSlot()
     maybeStartStreamingDecodeSlot();
 }
 
+void Ft8RxDecoder::resetIncrementalAnalysis()
+{
+    ++m_incrementalEpoch;
+    m_incrementalSubmitted = 0;
+    m_haveIncrementalConfig = false;
+    if (m_incrementalAnalysis) m_incrementalAnalysis->invalidate();
+}
+
+void Ft8RxDecoder::prepareIncrementalAnalysis()
+{
+    if (!m_incrementalEnabled || !m_incrementalAnalysis || !m_liveInputEnabled ||
+        m_currentSlotId < 0 || m_skipCurrentSlotDecode || isPostTxIgnoredSlot() ||
+        m_decodeJobActive.load(std::memory_order_acquire)) return;
+    MadModemFt::AnalysisConfig config;
+    config.epoch=m_incrementalEpoch;
+    config.slotUtcMs=m_currentSlotStartUtc.toMSecsSinceEpoch();
+    config.ft4=m_modeName==QStringLiteral("FT4");
+    config.hop=(m_deepDecodeEnabled||m_dspPlusDecodeEnabled)?480:240;
+    config.lowHz=m_searchLowHz;config.highHz=m_searchHighHz;config.markerHz=m_rxMarkerHz;
+    if(!m_haveIncrementalConfig || config!=m_incrementalConfig){
+        m_incrementalSubmitted=0;m_incrementalConfig=config;m_haveIncrementalConfig=true;
+    }
+    const int available=qMin(m_slotSamples.size(),currentSlotSamples());
+    const bool crossesGate=m_incrementalSubmitted<wsjtxDecodeGateSamples() && available>=wsjtxDecodeGateSamples();
+    if(available<=m_incrementalSubmitted || (available-m_incrementalSubmitted<1200 && !crossesGate && available<currentSlotSamples()))return;
+    QVector<double> tail=m_slotSamples.mid(m_incrementalSubmitted,available-m_incrementalSubmitted);
+    if(m_incrementalAnalysis->submit(config,m_incrementalSubmitted,std::move(tail)))m_incrementalSubmitted=available;
+}
+
 void Ft8RxDecoder::maybeStartStreamingDecodeSlot()
 {
+    prepareIncrementalAnalysis();
     if (m_currentSlotId < 0 || m_slotSamples.isEmpty()) {
         return;
     }
@@ -2274,6 +2333,7 @@ void Ft8RxDecoder::deferFinalDecode(const QVector<double> &samples,
                           .arg(formatSlotTime(m_pendingFinalSlotStartUtc, currentSlotMs()));
     }
     m_pendingFinalSamples = samples;
+    m_pendingFinalAnalysis = m_incrementalAnalysis ? m_incrementalAnalysis->snapshot(samples, slotStartUtc.toMSecsSinceEpoch()) : nullptr;
     m_pendingFinalSlotStartUtc = slotStartUtc;
     m_pendingFinalDecode = true;
 
@@ -2293,7 +2353,8 @@ void Ft8RxDecoder::deferFinalDecode(const QVector<double> &samples,
 
 void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
                                           const QDateTime &slotStartUtc,
-                                          const QString &phaseLabel)
+                                          const QString &phaseLabel,
+                                          std::shared_ptr<const MadModemFt::PreparedAnalysis> prepared)
 {
     bool expected = false;
     if (!m_decodeJobActive.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
@@ -2311,6 +2372,10 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
         return;
     }
 
+    if (!prepared && m_incrementalEnabled && m_incrementalAnalysis)
+        prepared=m_incrementalAnalysis->snapshot(samples,slotStartUtc.toMSecsSinceEpoch());
+    if(prepared && (!prepared->matches(samples,slotStartUtc.toMSecsSinceEpoch()) ||
+                    prepared->config.ft4!=(m_modeName==QStringLiteral("FT4")))) prepared.reset();
     const int generation = m_decodeGeneration.load(std::memory_order_acquire);
     const QString label = currentShortLabel();
     const QString jobModeName = modeName();
@@ -2341,7 +2406,7 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
     const quint64 timestampJumps = m_timestampJumps;
     const quint64 invalidSlotsSkipped = m_invalidSlotsSkipped;
 
-    auto job = [this, samples, slotStartUtc, generation, phase, jobModeName, jobSlotMs,
+    auto job = [this, samples, prepared, slotStartUtc, generation, phase, jobModeName, jobSlotMs,
                 audioBlocksReceived, audioBoundarySplits, audioSequenceGaps,
                 audioGapSamples, audioOverlapSamples, currentCaptureQueueLatencyMs,
                 maxCaptureQueueLatencyMs,
@@ -2419,12 +2484,17 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
                         for (const Decode &decode : fresh) emit decodeReady(decode);
                         emit decodeBatchFinished(slotStartUtc.toMSecsSinceEpoch(), displayPhase);
                     };
+                MadModemFt::AnalysisReadScope analysisScope(prepared,samples);
                 const QVector<Decode> decodes = decodeSlot(samples, slotStartUtc, &candidateCount, &stats,
                                                            progressPublisher);
 
                 if (!decodeCancellationRequested() &&
                     generation == m_decodeGeneration.load(std::memory_order_acquire)) {
                     publishBatch(decodes, phase);
+                    stats.incrementalFftHits=analysisScope.context.fftHits.load();
+                    stats.incrementalToneHits=analysisScope.context.toneHits.load();
+                    stats.incrementalPreparedRows=prepared?int(prepared->rows.size()):0;
+                    stats.incrementalPreparationMs=prepared?prepared->preparationMs:0.0;
                     stats.decodeCount = emittedCount;
                     emit performanceUpdated(stats);
                     if (phase.startsWith(QStringLiteral("wsjtx-gate"))) {
@@ -2547,14 +2617,16 @@ void Ft8RxDecoder::maybeLaunchPendingFinalDecode()
     }
     const QVector<double> samples = m_pendingFinalSamples;
     const QDateTime slotUtc = m_pendingFinalSlotStartUtc;
+    auto prepared = m_pendingFinalAnalysis;
     m_pendingFinalSamples.clear();
+    m_pendingFinalAnalysis.reset();
     m_pendingFinalSlotStartUtc = QDateTime();
     m_pendingFinalDecode = false;
     const QString message = QStringLiteral("%1 launching deferred boundary decode for slot %2")
         .arg(currentShortLabel())
         .arg(formatSlotTime(slotUtc, currentSlotMs()));
     emit runtimeDiagnostic(message);
-    startAsyncDecodeSlot(samples, slotUtc, QStringLiteral("boundary"));
+    startAsyncDecodeSlot(samples, slotUtc, QStringLiteral("boundary"), std::move(prepared));
 }
 
 // Optional, local recovery deliberately runs AFTER every established search/SIC
@@ -4013,7 +4085,9 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
         return window;
     }();
 
-    auto buildCacheForStart = [&samples, maxEnergyBin](int startSample,
+    auto *incremental=MadModemFt::currentAnalysis;
+    if(incremental && !incremental->originalInput(samples))incremental=nullptr;
+    auto buildCacheForStart = [&samples, maxEnergyBin, incremental](int startSample,
                                                                           CostasSpectrumCache &cache,
                                                                           std::vector<std::complex<double>> &fft) {
         cache.binHz = kFftBinHz;
@@ -4024,6 +4098,13 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
             for (int i = 0; i < 7; ++i) {
                 const int sym = syncStart + i;
                 const int symStart = startSample + sym * kSamplesPerSymbol;
+                if(incremental){
+                    if(const auto *ready=incremental->frame->fftRow(symStart,samples.size())){
+                        std::copy_n(ready->data(),maxEnergyBin+2,cache.rowData(costasIndex));
+                        incremental->fftHits.fetch_add(1,std::memory_order_relaxed);
+                        ++costasIndex;continue;
+                    }
+                }
                 std::fill(fft.begin(), fft.end(), std::complex<double>(0.0, 0.0));
                 if (symStart >= 0 && symStart + kSamplesPerSymbol < samples.size()) {
                     const double *x = samples.constData() + symStart;
@@ -5668,7 +5749,9 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4Candidates(const QVector<d
     const double high = qMin(static_cast<double>(m_searchHighHz), 3000.0 - 3.0 * kFt4ToneSpacingHz);
     const int freqCount = qMax(0, static_cast<int>(std::floor((high - low) / freqStep)) + 1);
 
-    auto syncScoreAt = [this, &samples, &blocks](double baseHz, int startSample) {
+    auto *incremental=MadModemFt::currentAnalysis;
+    if(incremental && !incremental->originalInput(samples))incremental=nullptr;
+    auto syncScoreAt = [this, &samples, &blocks, incremental](double baseHz, int startSample, int &cacheHits) {
         double blockScores[4] = {0.0, 0.0, 0.0, 0.0};
         for (int b = 0; b < 4; ++b) {
             double block = 0.0;
@@ -5676,10 +5759,9 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4Candidates(const QVector<d
                 const int sym = blocks[b].pos + k;
                 const int tone = blocks[b].tones[k];
                 const int symStart = startSample + sym * kFt4SamplesPerSymbol;
-                const double e = ft4SymbolToneEnergy(samples,
-                                                      symStart,
-                                                      baseHz + tone * kFt4ToneSpacingHz,
-                                                      kFt4SamplesPerSymbol);
+                double e=0.0;
+                if(incremental && incremental->frame->ft4Energy(symStart,samples.size(),baseHz+tone*kFt4ToneSpacingHz,e))++cacheHits;
+                else e=ft4SymbolToneEnergy(samples,symStart,baseHz+tone*kFt4ToneSpacingHz,kFt4SamplesPerSymbol);
                 block += std::log(e + kEps);
             }
             blockScores[b] = block / 4.0;
@@ -5695,11 +5777,12 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4Candidates(const QVector<d
     std::mutex rawMutex;
     FtDecodeWorkerPool::instance().parallelFor(freqCount, workerCount, [&](int begin, int end) {
         QVector<Candidate> local;
+        int cacheHits=0;
         local.reserve(64);
         for (int fi = begin; fi < end; ++fi) {
             const double baseHz = low + static_cast<double>(fi) * freqStep;
             for (int start = firstStart; start <= lastStart; start += startStep) {
-                const double score = syncScoreAt(baseHz, start);
+                const double score = syncScoreAt(baseHz, start, cacheHits);
                 Candidate c;
                 c.score = score;
                 c.startSec = static_cast<double>(start) / static_cast<double>(kDecodeSampleRate);
@@ -5711,6 +5794,7 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4Candidates(const QVector<d
                 local.append(c);
             }
         }
+        if(incremental)incremental->toneHits.fetch_add(cacheHits,std::memory_order_relaxed);
         if (!local.isEmpty()) {
             std::lock_guard<std::mutex> lock(rawMutex);
             for (const Candidate &c : local) {
@@ -5785,7 +5869,9 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4DeadlineCandidates(const Q
         ? qMax(0, static_cast<int>(std::floor((high - low) / freqStep)) + 1)
         : 0;
 
-    auto syncScoreAt = [this, &samples, &blocks](double baseHz, int startSample) {
+    auto *incremental=MadModemFt::currentAnalysis;
+    if(incremental && !incremental->originalInput(samples))incremental=nullptr;
+    auto syncScoreAt = [this, &samples, &blocks, incremental](double baseHz, int startSample, int &cacheHits) {
         double blockScores[4] = {0.0, 0.0, 0.0, 0.0};
         for (int b = 0; b < 4; ++b) {
             double block = 0.0;
@@ -5793,10 +5879,9 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4DeadlineCandidates(const Q
                 const int sym = blocks[b].pos + k;
                 const int tone = blocks[b].tones[k];
                 const int symStart = startSample + sym * kFt4SamplesPerSymbol;
-                const double e = ft4SymbolToneEnergy(samples,
-                                                      symStart,
-                                                      baseHz + tone * kFt4ToneSpacingHz,
-                                                      kFt4SamplesPerSymbol);
+                double e=0.0;
+                if(incremental && incremental->frame->ft4Energy(symStart,samples.size(),baseHz+tone*kFt4ToneSpacingHz,e))++cacheHits;
+                else e=ft4SymbolToneEnergy(samples,symStart,baseHz+tone*kFt4ToneSpacingHz,kFt4SamplesPerSymbol);
                 block += std::log(e + kEps);
             }
             blockScores[b] = block / 4.0;
@@ -5812,11 +5897,12 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4DeadlineCandidates(const Q
     std::mutex rawMutex;
     FtDecodeWorkerPool::instance().parallelFor(freqCount, workerCount, [&](int begin, int end) {
         QVector<Candidate> local;
+        int cacheHits=0;
         local.reserve(64);
         for (int fi = begin; fi < end; ++fi) {
             const double baseHz = low + static_cast<double>(fi) * freqStep;
             for (int start = firstStart; start <= lastStart; start += startStep) {
-                const double score = syncScoreAt(baseHz, start);
+                const double score = syncScoreAt(baseHz, start, cacheHits);
                 Candidate c;
                 c.score = score;
                 c.startSec = static_cast<double>(start) / static_cast<double>(kDecodeSampleRate);
@@ -5828,6 +5914,7 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4DeadlineCandidates(const Q
                 local.append(c);
             }
         }
+        if(incremental)incremental->toneHits.fetch_add(cacheHits,std::memory_order_relaxed);
         if (!local.isEmpty()) {
             std::lock_guard<std::mutex> lock(rawMutex);
             for (const Candidate &c : local) {
@@ -5841,7 +5928,7 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4DeadlineCandidates(const Q
     });
 
     // This is a separate, selected-QSO deadline lane.  The validated
-    // whole-passband FT4 finder above remains byte-for-byte unchanged.
+    // whole-passband FT4 finder above retains its original scoring and limits.
     const int kMaxCandidates = qBound(1, maxCandidates, 512);
     for (const Candidate &candidate : raw) {
         bool duplicate = false;

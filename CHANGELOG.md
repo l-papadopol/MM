@@ -1,5 +1,15 @@
 # MadModem changelog
 
+## 0.6.4 source R12 — incremental FT receive, DX sidebar and Linux updates
+
+- Prepare exact FT8 FFT rows and FT4 synchronization-tone energies in a separate worker as capture arrives; reuse only validated original-audio windows, retain ordinary fallback and recompute modified SIC/drift audio.
+- Bound the input mailbox, invalidate old capture/slot/config generations, retain immutable snapshots for deferred boundary jobs, and keep capture/decode independent of worker progress or failure.
+- Preserve candidate scores, ranking limits, thresholds, LDPC/CRC, normal passes, FT8 coherent tail and existing RX-to-TX timing policy. Include exact candidate parity and measured timing/count comparisons with explicit corpus limits.
+- Move FT periods and expanding QRZ station information to the DX tab between Mode and Rotator; retain QRZ account settings and automatic station refresh. Rewrite drift help in all six UI languages.
+- Stop DEB installation before APT when dpkg has an unfinished operation, with the administrator repair command. Do not automatically configure unrelated system packages.
+- Select Linux update assets by bundle identity before host distribution; support noble derivatives, canonical/legacy portable TAR/ZIP names and precise missing-package/checksum diagnostics. Preserve checksum checks, state, backup and rollback.
+- Keep public version 0.6.4 and CW Native R12 / Neural R13.
+
 ## 0.6.4 source R11 — FT reply deadlines and additive coherent recovery
 
 - Share the existing full-frame TX admission constants with RX recovery; preserve TX timing and protocol guards.

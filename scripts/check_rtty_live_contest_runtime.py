@@ -84,7 +84,10 @@ for old in ['m_autoInvert', 'm_markRunSamples', 'm_spaceRunSamples', 'm_framingF
 # remain part of this consolidated UI/runtime audit rather than creating more
 # one-bug CTest entries.
 rtty_h=must(Path('modems/rtty/RttyDecoder.h'), ['resumeAfterLocalTransmit()', 'setVisualizationEnabled(bool enabled)'])
-rtty_multi=must(Path('modems/rtty/RttyMultiDecoder.cpp'), ['resumeAfterLocalTransmit()', 'track.decoder->resumeAfterLocalTransmit()', 'm_scanBuffer.clear()', 'track.decoder->setVisualizationEnabled(false)'])
+# The established skimmer resumes by clearing all owned channels/history.
+# The selected RTTY decoder keeps its own fast-resume context; do not require
+# a per-channel call that the unchanged R11 baseline does not make.
+rtty_multi=must(Path('modems/rtty/RttyMultiDecoder.cpp'), ['void RttyMultiDecoder::resumeAfterLocalTransmit() { reset(); }', 'for (auto& track : m_tracks) delete track.decoder;', 'm_tracks.clear(); m_previousCandidates.clear(); m_scanBuffer.clear(); m_resampler.reset();', 'track.decoder->setVisualizationEnabled(false)'])
 cw_h=must(Path('modems/cw/CwDecoder.h'), ['resumeAfterLocalTransmit()'])
 cw_tracker=must(Path('modems/cw/skimmer/SelectedToneCwTracker.cpp'),
                 ['resumeAfterLocalTransmit()', 'timingTask.reset(true)', 'discriminator.resumeAfterGap()'])

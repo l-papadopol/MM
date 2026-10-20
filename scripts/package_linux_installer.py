@@ -60,6 +60,7 @@ def main():
             for lib in private.glob(pattern):
                 lib.unlink()
         (private / 'bin/managed-install.flag').write_text('MadModem managed installation\n')
+        (private / 'bin/distribution-platform.txt').write_text(('Ubuntu24.04' if args.format == 'deb' else 'Fedora43') + '\n')
         shared = payload / 'usr/share'
         shutil.move(str(private / 'share'), str(shared))
         bindir = payload / 'usr/bin'

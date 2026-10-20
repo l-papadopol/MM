@@ -1629,18 +1629,22 @@ MainWindow::MainWindow(QWidget *parent)
     modeScroll->setWidget(ui->stkModeSettings);
     ui->modeTabLayout->insertWidget(qMax(0, modeIndex), modeScroll, 1);
 
-    // The clock must remain visible even when FT settings need scrolling.
-    // Keep it above QRZ/runtime log, outside the mode settings viewport.
+    // Station information has its own page, leaving the Mode controls their height.
+    m_tabDx = new QWidget(ui->sideTabWidget);
+    m_tabDx->setObjectName(QStringLiteral("tabDx"));
+    auto *dxLayout = new QVBoxLayout(m_tabDx);
+    dxLayout->setContentsMargins(6, 6, 6, 6);
+    const int rotatorIndex = ui->sideTabWidget->indexOf(m_tabCatRotator);
+    ui->sideTabWidget->insertTab(rotatorIndex >= 0 ? rotatorIndex : ui->sideTabWidget->count(),
+                                m_tabDx, uiText("tab_dx", "DX"));
     if (m_grpFt8UtcClock != nullptr) {
         m_pageFt8Settings->layout()->removeWidget(m_grpFt8UtcClock);
-        m_grpFt8UtcClock->setParent(ui->tabModeSettings);
-        ui->modeTabLayout->insertWidget(ui->modeTabLayout->indexOf(modeScroll) + 1,
-                                       m_grpFt8UtcClock, 0);
+        m_grpFt8UtcClock->setParent(m_tabDx);
+        dxLayout->addWidget(m_grpFt8UtcClock, 0);
         updateFtUtcClockVisibility(ui->cmbMode->currentText());
     }
-
-    m_qrzLookupPanel = new QrzLookupPanel(ui->tabModeSettings);
-    ui->modeTabLayout->insertWidget(qMax(0, ui->modeTabLayout->indexOf(m_btnShowRuntimeLog)), m_qrzLookupPanel, 0);
+    m_qrzLookupPanel = new QrzLookupPanel(m_tabDx);
+    dxLayout->addWidget(m_qrzLookupPanel, 1);
     auto refreshStation = [this] { refreshQrzStationPanel(); };
     for (auto *form : {m_rttyQsoForm, m_bpsk31QsoForm, m_mfskQsoForm, m_cwQsoForm, m_hellQsoForm, m_msk144QsoForm, m_q65QsoForm})
         if (form && form->callsign) connect(form->callsign, &QLineEdit::textChanged, this, [refreshStation](const QString&) { refreshStation(); });
@@ -10426,6 +10430,10 @@ void MainWindow::applyUiLanguage()
         if (m_tabRttyContest != nullptr) {
             const int i = ui->sideTabWidget->indexOf(m_tabRttyContest);
             if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("rtty_contest", "Contest"));
+        }
+        if (m_tabDx != nullptr) {
+            const int i = ui->sideTabWidget->indexOf(m_tabDx);
+            if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("tab_dx", "DX"));
         }
         if (m_tabCatRotator != nullptr) {
             const int i = ui->sideTabWidget->indexOf(m_tabCatRotator);

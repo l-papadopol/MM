@@ -64,6 +64,17 @@ int main(int argc,char **argv){
     auto page2=UpdateController::newestPublishedRelease(QJsonArray{newest});
     best=UpdateController::newestPublishedRelease(QJsonArray{page1,page2});
     check(best.value("tag_name")=="build-0.6.4-116","paged candidate merge lost the newest build");
+    check(UpdateController::linuxPlatform("Ubuntu24.04","","ID=fedora\nVERSION_ID=43") == "Ubuntu24.04","bundle marker must win over host");
+    check(UpdateController::linuxPlatform("","Build platform: Fedora43\n","ID=ubuntu\nVERSION_ID=24.04") == "Fedora43","legacy BUILD_INFO ignored");
+    check(UpdateController::linuxPlatform("","","ID=linuxmint\nVERSION_ID=22\nUBUNTU_CODENAME=noble") == "Ubuntu24.04","Ubuntu derivative rejected");
+    check(UpdateController::linuxPlatform("","","ID=ubuntu\nVERSION_ID=\"24.04\"") == "Ubuntu24.04","quoted Ubuntu version rejected");
+    check(UpdateController::linuxPlatform("","","ID=fedora\nVERSION_ID='43'") == "Fedora43","quoted Fedora version rejected");
+    check(UpdateController::linuxPlatform("","","ID=arch").isEmpty(),"unknown ABI guessed");
+    QJsonObject assets{{"assets",QJsonArray{QJsonObject{{"name","test.zip"}},QJsonObject{{"name","test.tar.gz"}},QJsonObject{{"name","wrong-platform.run"}}}}};
+    check(UpdateController::selectAsset(assets,{"test.tar.gz","test.zip"}).value("name")=="test.tar.gz","asset preference follows API order");
+    check(UpdateController::selectAsset(assets,{"absent.tar.gz","test.zip"}).value("name")=="test.zip","ZIP fallback ignored");
+    check(UpdateController::selectAsset(assets,{"managed.run"}).isEmpty(),"portable selected for managed install");
+    std::cout<<"PASS Linux bundle/legacy/host identity, Ubuntu derivatives, unknown ABI rejection, TAR preference and ZIP fallback\n";
     QSettings settings(AppSettings::settingsFilePath(),QSettings::IniFormat);
     settings.setValue("Updates/checkAtStartup",false);settings.sync();
     QWidget window;QMenu menu;bool idle=false;

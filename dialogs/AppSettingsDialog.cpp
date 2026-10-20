@@ -891,7 +891,7 @@ QWidget *AppSettingsDialog::makeFtDecoderPage()
     m_spinFtDriftMax->setEnabled(m_chkFtDriftRx->isChecked());
     connect(m_chkFtDriftRx, &QCheckBox::toggled, m_spinFtDriftMax, &QWidget::setEnabled);
     form->addRow(L(QStringLiteral("Maximum drift (±)")), m_spinFtDriftMax);
-    auto *info = new QLabel(L(QStringLiteral("An additional bounded RX recovery follows the standard decoder. Select the signal with the RX marker. TX frequency and CAT remain under your control. Estimates are shown in the runtime log.")), group);
+    auto *info = new QLabel(L(QStringLiteral("Select the signal with the RX marker. This option helps decode it when its frequency changes during reception. You control the transmit frequency. Results appear in the runtime log.")), group);
     info->setWordWrap(true);
     form->addRow(info);
     layout->addWidget(group);

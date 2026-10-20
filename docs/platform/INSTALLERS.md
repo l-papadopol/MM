@@ -117,3 +117,27 @@ Managed installations apply the update through the native installer.
 At startup MM checks all published releases on l-papadopol/MM on GitHub, including pre-releases. The Latest badge is irrelevant; drafts are excluded. Newer public versions take precedence, then newer distribution build numbers within the same version. The same or older build is not proposed again after installation. Help offers a manual check and a switch for startup checks. If automatic operation is active, the startup check waits for an idle state. The offer shows installed and available version/build and identifies pre-releases. Confirm the download, then confirm closing MM to install. Stop TX and automatic operation first. Downloads require the matching platform package and SHA256SUMS.txt. Managed installations open their native installer. Portable copies keep a full backup, settings and logbooks; the new executable is checked for version and build before restart, with rollback on failure. Windows keeps the portable CPU variant; installers select it automatically. Automatic Linux selection supports Ubuntu 24.04 and Fedora 43. The distribution workflow records the build identity automatically; future branch builds can remain pre-releases without promoting them to Latest or renaming their tags. Install 0.6.4 once manually if your older updater cannot detect it. Subsequent published builds are detected by the new checker.
 
 GitHub HTTPS and SHA-256 protect transfer integrity; the checksum is not an independent publisher signature. Windows remains unsigned and macOS ad-hoc signed. The downloaded installer can require normal OS authorization. A non-writable portable folder or an unsupported distribution requires a manual update. Native Windows/macOS helper behavior must be verified on those systems.
+
+## Linux package-manager interruption
+
+If the installer reports an unfinished dpkg operation, open a terminal and run
+`sudo dpkg --configure -a`. When it finishes successfully, run the installer again.
+The DEB installer checks `dpkg --audit` and pending dpkg journal files before APT;
+it stops with exit code 32 and displays that repair command. It does not repair
+or configure unrelated system packages automatically.
+
+## Linux portable automatic update
+
+R12 identifies the existing bundle using `bin/distribution-platform.txt`, then the
+older root `BUILD_INFO.txt`, before consulting `/etc/os-release`. This preserves
+the selected Ubuntu24.04/Fedora43 ABI on compatible derivatives. A noble-based
+distribution is also recognized when bundle metadata is absent. Unsupported or
+unknown ABIs are not guessed. Portable selection prefers the matching canonical
+TAR.GZ asset, then ZIP, then the historical archive names. Managed installations
+continue to select only their matching installer. SHA256SUMS.txt is required.
+Both archive formats preserve user state and support rollback after a failed
+version/build check. ZIP extraction requires `unzip`.
+
+If an older portable executable cannot identify its matching asset, install R12
+manually once, keeping the existing user files. Editing the release title or its
+Latest badge is unnecessary. No current release assets are changed by this patch.

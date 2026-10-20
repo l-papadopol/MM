@@ -1,26 +1,29 @@
 # MadModem 0.6.4
 
-Source R8 adds a shared release-metadata check before all platform builds and
-aligns the UI title with 0.6.4. All inconsistencies are reported together.
+The DX tab between Mode and Rotator now contains FT period bars, UTC time and
+QRZ information for the selected station. QRZ account settings and saved
+credentials remain in Settings. The drift help explains how to select a signal
+with the RX marker and what frequency changes the option can recover.
 
-The updater checks all published GitHub releases, including pre-releases, instead
-of relying on the Latest badge. It compares public versions and automatically
-embedded distribution build numbers, so newer builds of the same version are
-detected and the installed build is not proposed again.
+FT8/FT4 prepare reusable synchronization calculations while receiving audio.
+Message validation and the existing decode passes are preserved. Recorded FT8
+checks show earlier results; the detailed comparison also records output
+variations and does not claim increased sensitivity. See
+`docs/architecture/RELEASE_0_6_4_R12.md` for measurements and limits.
 
-The update offer identifies pre-releases and shows installed/available builds.
-Download and installation require confirmation. Existing package selection,
-SHA256 verification, user-data preservation and portable rollback remain active.
-Portable startup verification checks the expected build as well as the version.
-Automatic checks wait for idle operation if TX or automatic activity is running.
+The Linux DEB installer checks for unfinished dpkg operations before starting
+APT and shows the repair command `sudo dpkg --configure -a` when required.
+Portable updates identify the existing Ubuntu24.04/Fedora43 bundle before the
+host distribution, accept matching TAR.GZ and ZIP downloads, and provide clearer
+messages when a package or its checksums are unavailable. User settings,
+logbooks, backup, SHA-256 verification and rollback are preserved.
 
-The GitHub distribution workflow embeds the same build identity on every platform
-and stamps it into release metadata. Published builds may remain pre-releases;
-there is no need to promote them to Latest or rename generated tags.
+The updater checks all published GitHub releases, including pre-releases,
+independently of Latest. It compares the public version and distribution build.
+Download and installation require confirmation and wait for idle operation.
+If an old executable cannot select the matching Linux package, install this
+revision manually once. Future checks use its corrected package selection.
 
-Install this version once manually if the old 0.6.3 checker cannot detect it.
-Subsequent published builds are handled by the new checker. Drafts are excluded.
-
-Retained: experimental FT8/FT4 RX drift recovery, persistent QRZ credentials in
-Settings, main QRZ station information, CW Native R12 / Neural R13, pinned FT
-clock, R5 response-window fixes and Windows UCRT64/Hamlib packaging fixes.
+Retained: experimental FT8/FT4 RX drift recovery, CW Native R12 / Neural R13,
+compact FT periods, table font controls, response-window fixes and consistent
+release metadata across the platform builds.

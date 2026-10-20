@@ -2,6 +2,7 @@
 #define FT8RXDECODER_H
 
 #include "../../audio/AudioBlock.h"
+#include "FtIncrementalAnalysis.h"
 #include "../../third_party/mshv_gpl/port/HvGenFt8/gen_ft8.h"
 
 #include <QObject>
@@ -180,6 +181,8 @@ public:
         int coherentTailDecodes = 0; // New messages, excluding coherent duplicates.
         double coherentTailMs = 0.0;
         qint64 replyArmDeadlineUtcMs = 0;
+        int incrementalFftHits = 0, incrementalToneHits = 0, incrementalPreparedRows = 0;
+        double incrementalPreparationMs = 0.0;
     };
 
     explicit Ft8RxDecoder(QObject *parent = nullptr);
@@ -240,6 +243,15 @@ signals:
 
 private:
     bool m_liveInputEnabled = false;
+    bool m_incrementalEnabled = true;
+    quint64 m_incrementalEpoch = 0;
+    int m_incrementalSubmitted = 0;
+    bool m_haveIncrementalConfig = false;
+    MadModemFt::AnalysisConfig m_incrementalConfig;
+    std::unique_ptr<MadModemFt::IncrementalAnalysis> m_incrementalAnalysis;
+    std::shared_ptr<const MadModemFt::PreparedAnalysis> m_pendingFinalAnalysis;
+    void resetIncrementalAnalysis();
+    void prepareIncrementalAnalysis();
     struct Candidate
     {
         double score = 0.0;
@@ -264,7 +276,7 @@ private:
     void maybeStartEarlyDecodeSlot();
     void maybeStartStreamingDecodeSlot();
     bool markDecodeEmitted(const Decode &decode, const QDateTime &slotStartUtc);
-    void startAsyncDecodeSlot(const QVector<double> &samples, const QDateTime &slotStartUtc, const QString &phaseLabel = QString());
+    void startAsyncDecodeSlot(const QVector<double> &samples, const QDateTime &slotStartUtc, const QString &phaseLabel = QString(), std::shared_ptr<const MadModemFt::PreparedAnalysis> prepared = {});
     void maybeLaunchPendingFinalDecode();
     void applyPendingQsoContext();
     void recoverDriftingSignal(const QVector<double> &samples, const QDateTime &slotStartUtc,

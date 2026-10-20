@@ -2277,6 +2277,7 @@ private:
     bool m_rxStopPending = false;
     quint64 m_audioInputRequest = 0;
     std::function<void()> m_audioStopCompletion;
+    QWidget *m_tabDx = nullptr;
     QrzLookupPanel *m_qrzLookupPanel = nullptr;
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;

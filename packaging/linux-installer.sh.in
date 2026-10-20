@@ -36,6 +36,25 @@ fi
 package="$work/@PACKAGE@"
 if [[ "$package" == *.deb ]]; then
   command -v apt-get >/dev/null || { echo 'This installer requires Ubuntu 24.04 or a compatible distribution.' >&2; exit 1; }
+  # Inspect package-manager state before changing the system. Repair remains
+  # an explicit administrator operation; the installer never configures unrelated packages.
+  audit_failed=false
+  LC_ALL=C dpkg --audit > "$work/dpkg-audit.txt" 2>&1 || audit_failed=true
+  journal_pending=false
+  if [[ -d /var/lib/dpkg/updates ]]; then
+    while IFS= read -r journal; do
+      [[ "${journal##*/}" =~ ^[0-9]+$ ]] && journal_pending=true
+    done < <(find /var/lib/dpkg/updates -maxdepth 1 -type f 2>/dev/null)
+  fi
+  if "$audit_failed" || "$journal_pending" || [[ -s "$work/dpkg-audit.txt" ]]; then
+    message=$'MadModem installation stopped: the system package manager has an unfinished operation.\n\nOpen a terminal and run:\n  sudo dpkg --configure -a\n\nWhen that command finishes successfully, run this installer again.'
+    printf '%s\n' "$message" >&2
+    cat "$work/dpkg-audit.txt" >&2
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v zenity >/dev/null; then
+      zenity --error --title='MadModem - package manager repair required' --text="$message" || true
+    fi
+    exit 32
+  fi
   "${privilege[@]}" apt-get install -y --reinstall "$package"
 else
   command -v dnf >/dev/null || { echo 'This installer requires Fedora with dnf.' >&2; exit 1; }

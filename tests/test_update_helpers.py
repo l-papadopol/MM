@@ -7,6 +7,7 @@ import os
 import subprocess
 import tarfile
 import tempfile
+import zipfile
 ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('stamp', ROOT/'scripts/stamp_release_notes.py')
 stamp=importlib.util.module_from_spec(spec);spec.loader.exec_module(stamp)
@@ -33,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='mm-native-id-') as t:
 print('PASS native package build ordering, local fallback and mixed-build rejection')
 with tempfile.TemporaryDirectory(prefix='mm-update-check-') as t:
     base=Path(t)
-    for label,actual,expected in [('same-build',115,115),('wrong-build',114,115)]:
+    for label,actual,expected in [('same-build',115,115),('wrong-build',114,115),('zip-same-build',115,115),('zip-wrong-build',114,115)]:
         case=base/label;target=case/'portable copy';source=case/'stage/package'
         (target/'bin').mkdir(parents=True);(source/'bin').mkdir(parents=True)
         old='#!/bin/bash\necho "old installation"\n'
@@ -45,8 +46,12 @@ if [[ "${{1:-}}" == --build-info ]]; then printf 'MadModem 0.6.4\\nBuild {actual
 exit 0
 '''
         (source/'bin/MadModem').write_text(new);(source/'bin/MadModem').chmod(0o755)
-        archive=case/'release.tar.gz'
-        with tarfile.open(archive,'w:gz') as tar:tar.add(source,arcname='package')
+        archive=case/('release.zip' if label.startswith('zip-') else 'release.tar.gz')
+        if label.startswith('zip-'):
+            with zipfile.ZipFile(archive,'w') as z:
+                for f in source.rglob('*'):z.write(f,Path('package')/f.relative_to(source))
+        else:
+            with tarfile.open(archive,'w:gz') as tar:tar.add(source,arcname='package')
         sha=hashlib.sha256(archive.read_bytes()).hexdigest()
         p=subprocess.run(['bash',str(ROOT/'updates/apply_portable.sh'),'2147483647',str(target),str(archive),sha,'0.6.4','linux',str(expected)],capture_output=True,text=True,timeout=25)
         assert (target/'settings.mad').read_text()=='fixture user state\n'

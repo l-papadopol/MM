@@ -129,31 +129,60 @@ QJsonObject UpdateController::newestPublishedRelease(const QJsonArray& releases)
     }
     return best;
 }
-QString UpdateController::assetName(const QString& version, bool managed) {
+QString UpdateController::linuxPlatform(const QString& marker, const QString& bundleInfo, const QString& osRelease) {
+    // The build identity travels with the bundle, including on Ubuntu derivatives.
+    const QString identity = marker.trimmed();
+    if (identity == "Ubuntu24.04" || identity == "Fedora43") return identity;
+    const auto bundled = QRegularExpression("(?:^|\\n)Build platform: (Ubuntu24\\.04|Fedora43)(?:\\r?\\n|$)").match(bundleInfo);
+    if (bundled.hasMatch()) return bundled.captured(1);
+    auto value = [&](const QString& key) {
+        QString v = QRegularExpression("(?:^|\\n)" + key + "=([^\\n]*)").match(osRelease).captured(1).trimmed();
+        if (v.size() >= 2 && ((v.front() == QChar(34) && v.back() == QChar(34)) ||
+                             (v.front() == QChar(39) && v.back() == QChar(39)))) v = v.mid(1, v.size()-2);
+        return v;
+    };
+    if ((value("ID") == "ubuntu" && value("VERSION_ID") == "24.04") || value("UBUNTU_CODENAME") == "noble") return "Ubuntu24.04";
+    if (value("ID") == "fedora" && value("VERSION_ID") == "43") return "Fedora43";
+    return {};
+}
+QStringList UpdateController::assetNames(const QString& version, bool managed) {
     const QString base = "MadModem-" + version;
 #ifdef Q_OS_WIN
     if (QSysInfo::buildCpuArchitecture() != "x86_64") return {};
-    if (managed) return base + "-Windows-64bit-Installer-AutoCPU.exe";
+    if (managed) return {base + "-Windows-64bit-Installer-AutoCPU.exe"};
 #if defined(__AVX2__)
-    return base + "-Windows-64bit-Portable-AVX2-FMA.zip";
+    return {base + "-Windows-64bit-Portable-AVX2-FMA.zip"};
 #else
-    return base + "-Windows-64bit-Portable-Compatible.zip";
+    return {base + "-Windows-64bit-Portable-Compatible.zip"};
 #endif
 #elif defined(Q_OS_MACOS)
     const QString arch = QSysInfo::buildCpuArchitecture();
     if (arch != "arm64" && arch != "x86_64") return {};
-    return base + "-macOS-" + (arch == "arm64" ? "AppleSilicon" : "Intel") + (managed ? "-Installer.pkg" : "-Portable.zip");
+    return {base + "-macOS-" + (arch == "arm64" ? "AppleSilicon" : "Intel") + (managed ? "-Installer.pkg" : "-Portable.zip")};
 #else
     if (QSysInfo::buildCpuArchitecture() != "x86_64") return {};
-    QFile file("/etc/os-release"); if (!file.open(QIODevice::ReadOnly)) return {};
-    const QString os = QString::fromUtf8(file.readAll());
-    auto value = [&](const QString& key) { return QRegularExpression("(?:^|\\n)" + key + "=\"?([^\"\\n]+)").match(os).captured(1); };
-    QString platform;
-    if (value("ID") == "ubuntu" && value("VERSION_ID") == "24.04") platform = "Ubuntu24.04";
-    if (value("ID") == "fedora" && value("VERSION_ID") == "43") platform = "Fedora43";
+    auto read = [](const QString &path) { QFile file(path); return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString(); };
+    const QString dir = QCoreApplication::applicationDirPath();
+    const QString platform = linuxPlatform(read(dir + "/distribution-platform.txt"), read(dir + "/../BUILD_INFO.txt"), read("/etc/os-release"));
     if (platform.isEmpty()) return {};
-    return base + "-Linux-" + platform + (managed ? "-64bit-Installer.run" : "-64bit-Portable.tar.gz");
+    if (managed) return {base + "-Linux-" + platform + "-64bit-Installer.run"};
+    return {base + "-Linux-" + platform + "-64bit-Portable.tar.gz",
+            base + "-Linux-" + platform + "-64bit-Portable.zip",
+            base + "-" + platform + "-x86_64.tar.gz",
+            base + "-" + platform + "-x86_64.zip"};
 #endif
+}
+QString UpdateController::assetName(const QString& version, bool managed) {
+    return assetNames(version, managed).value(0);
+}
+QJsonObject UpdateController::selectAsset(const QJsonObject& release, const QStringList& names) {
+    for (const auto& wanted : names) {
+        for (const auto& entry : release.value("assets").toArray()) {
+            const auto asset = entry.toObject();
+            if (asset.value("name").toString() == wanted) return asset;
+        }
+    }
+    return {};
 }
 void UpdateController::check(bool manual) {
     if (m_busy) return;
@@ -222,17 +251,22 @@ void UpdateController::fetch(const QUrl& url, qint64 maximum, std::function<void
 void UpdateController::offer(const QJsonObject& release) {
     if (!m_idle()) { m_busy = false; if (!m_manual) m_automaticCheck->start(30000); return; }
     m_managed = MadModemInstallation::isManaged();
-    const QString name = assetName(m_version, m_managed);
-    QJsonObject asset, sums;
+    const QStringList names = assetNames(m_version, m_managed);
+    const QJsonObject asset = selectAsset(release, names);
+    const QString name = asset.value("name").toString();
+    QJsonObject sums;
     for (const auto& value : release.value("assets").toArray()) {
         const auto item = value.toObject();
-        if (item.value("name").toString() == name) asset = item;
         if (item.value("name").toString() == "SHA256SUMS.txt") sums = item;
     }
     if (name.isEmpty() || asset.isEmpty() || sums.isEmpty()) {
         m_busy = false;
         if (m_manual) {
-            QMessageBox::information(m_window, "MadModem", uiText("update_no_package", "A newer release exists, but no complete update package matches this installation. Opening the releases page."));
+            QString reason;
+            if (sums.isEmpty()) reason = uiText("update_missing_checksums", "The release has no SHA256SUMS.txt file to verify downloads.");
+            else if (names.isEmpty()) reason = uiText("update_unknown_bundle", "The Linux package type could not be identified. Download the package for your distribution.");
+            else reason = uiText("update_missing_compatible_package", "The release has no compatible package. Expected: %1").arg(names.join(QStringLiteral("\n")));
+            QMessageBox::information(m_window, "MadModem", uiText("update_manual_download_reason", "A newer release is available. %1\n\nOpening the release page.").arg(reason));
             QDesktopServices::openUrl(QUrl(repository + "/releases"));
         }
         return;

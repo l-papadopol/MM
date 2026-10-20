@@ -1,5 +1,6 @@
 #pragma once
 #include <QObject>
+#include <QStringList>
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QNetworkAccessManager>
@@ -18,6 +19,9 @@ public:
     static quint64 releaseBuildNumber(const QJsonObject& release);
     static QJsonObject newestPublishedRelease(const QJsonArray& releases);
     static QString assetName(const QString& version, bool managed);
+    static QStringList assetNames(const QString& version, bool managed);
+    static QString linuxPlatform(const QString& marker, const QString& bundleInfo, const QString& osRelease);
+    static QJsonObject selectAsset(const QJsonObject& release, const QStringList& names);
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
 private:

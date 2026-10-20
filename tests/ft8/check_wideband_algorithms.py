@@ -254,6 +254,35 @@ def test_ft8_coherent_metric_sign_and_crossing() -> None:
             require((llr > 0.0) == (bit == 0),
                     f"FT8 coherent LLR sign/index mismatch for group {group_size}")
 
+
+def without_incremental_reuse(function: str) -> str:
+    """Remove only the exact cache read wrappers; pin all original search maths.
+
+    FtIncrementalRegression separately compares cached/uncached candidate values
+    and order exactly, including the selected-QSO FT4 finder and SIC fallback.
+    """
+    function = function.replace("    auto *incremental=MadModemFt::currentAnalysis;\n    if(incremental && !incremental->originalInput(samples))incremental=nullptr;\n", "")
+    function = function.replace("[&samples, maxEnergyBin, incremental]", "[&samples, maxEnergyBin]")
+    function = function.replace("""                if(incremental){
+                    if(const auto *ready=incremental->frame->fftRow(symStart,samples.size())){
+                        std::copy_n(ready->data(),maxEnergyBin+2,cache.rowData(costasIndex));
+                        incremental->fftHits.fetch_add(1,std::memory_order_relaxed);
+                        ++costasIndex;continue;
+                    }
+                }
+""", "")
+    function = function.replace("[this, &samples, &blocks, incremental](double baseHz, int startSample, int &cacheHits)", "[this, &samples, &blocks](double baseHz, int startSample)")
+    function = function.replace("""                double e=0.0;
+                if(incremental && incremental->frame->ft4Energy(symStart,samples.size(),baseHz+tone*kFt4ToneSpacingHz,e))++cacheHits;
+                else e=ft4SymbolToneEnergy(samples,symStart,baseHz+tone*kFt4ToneSpacingHz,kFt4SamplesPerSymbol);""", """                const double e = ft4SymbolToneEnergy(samples,
+                                                      symStart,
+                                                      baseHz + tone * kFt4ToneSpacingHz,
+                                                      kFt4SamplesPerSymbol);""")
+    function = function.replace("        int cacheHits=0;\n", "")
+    function = function.replace("syncScoreAt(baseHz, start, cacheHits)", "syncScoreAt(baseHz, start)")
+    function = function.replace("        if(incremental)incremental->toneHits.fetch_add(cacheHits,std::memory_order_relaxed);\n", "")
+    return function
+
 def test_source_invariants() -> None:
     ghost_hash = hashlib.sha256(extract_ghost_block(CPP).encode()).hexdigest()
     require(ghost_hash == "6e7b4f9c15b21a01f3351442c08c916a7f57f49686a98dfc7acb2296adee1e36",
@@ -269,10 +298,10 @@ def test_source_invariants() -> None:
         "QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findFt4Candidates"
         "(const QVector<double> &samples, double threshold) const",
     )
-    require(hashlib.sha256(ft8_finder.encode()).hexdigest() ==
+    require(hashlib.sha256(without_incremental_reuse(ft8_finder).encode()).hexdigest() ==
             "6d2ffe9464be8dceca6351665a50ae810ff289bc2d386f4535f4019c6b118cd1",
             "FT8 live candidate finder differs from the validated QSO-deadline checkpoint")
-    require(hashlib.sha256(ft4_finder.encode()).hexdigest() ==
+    require(hashlib.sha256(without_incremental_reuse(ft4_finder).encode()).hexdigest() ==
             "3b160cfb8f022a74282c6907a2e470e2615f6792a81bb2af95baa6191fff2af3",
             "FT4 live candidate finder differs from the validated adaptive-runtime checkpoint")
     require("finalizeBaseline" not in ft8_finder,
