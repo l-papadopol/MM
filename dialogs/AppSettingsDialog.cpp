@@ -883,7 +883,7 @@ QWidget *AppSettingsDialog::makeFtDecoderPage()
     form->addRow(m_chkFtDriftRx);
     m_spinFtDriftMax = new QDoubleSpinBox(group);
     m_spinFtDriftMax->setObjectName(QStringLiteral("ftDriftMaxHzPerSec"));
-    m_spinFtDriftMax->setRange(0.25, 5.0);
+    m_spinFtDriftMax->setRange(0.25, 20.0);
     m_spinFtDriftMax->setDecimals(2);
     m_spinFtDriftMax->setSingleStep(0.25);
     m_spinFtDriftMax->setSuffix(QStringLiteral(" Hz/s"));
@@ -894,6 +894,9 @@ QWidget *AppSettingsDialog::makeFtDecoderPage()
     auto *info = new QLabel(L(QStringLiteral("Select the signal with the RX marker. This option helps decode it when its frequency changes during reception. You control the transmit frequency. Results appear in the runtime log.")), group);
     info->setWordWrap(true);
     form->addRow(info);
+    auto *bands = new QLabel(L(QStringLiteral("Active only at 144 MHz and above, up to ±20 Hz/s. Uses CAT frequency, or the selected band without CAT. Keep the entire drifting signal inside the receiver passband.")), group);
+    bands->setWordWrap(true);
+    form->addRow(bands);
     layout->addWidget(group);
     layout->addStretch();
     return page;

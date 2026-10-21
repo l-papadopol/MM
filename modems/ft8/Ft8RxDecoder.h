@@ -126,6 +126,9 @@ public:
         int bucketRescueDecodes = 0;
         int coherentMetricAttempts = 0;
         int coherentMetricDecodes = 0;
+        int driftWorkers = 0;
+        double driftRadioHz = 0.0;
+        double driftSearchCenterHz = 0.0;
         int driftAttempts = 0;
         int driftDecodes = 0;
         double driftRecoveryMs = 0.0;
@@ -218,6 +221,8 @@ public slots:
     void setDeepDecodeEnabled(bool enabled);
     void setDspPlusDecodeEnabled(bool enabled);
     void setDriftRxOptions(bool enabled, double maxHzPerSec);
+    // Atomic RF context: callable from the GUI without waiting for a decode.
+    void setRadioFrequencyHz(double hz);
     void analyzeAudioFile(const QString &filePath);
 
 public:
@@ -440,6 +445,7 @@ private:
     int m_pendingRxMarkerHz = -1;
     QString m_pendingDxCall;
     bool m_hasPendingDxCall = false;
+    std::atomic<double> m_radioFrequencyHz {0.0};
     bool m_driftRxEnabled = false;
     double m_driftMaxHzPerSec = 2.0;
     bool m_pendingDriftOptions = false;
@@ -449,6 +455,7 @@ private:
     qint64 m_driftTrackSlotMs = 0;
     int m_driftTrackMarkerHz = 0;
     double m_driftTrackFrequencyHz = 0.0, m_driftTrackRate = 0.0;
+    double m_driftTrackRadioHz = 0.0;
     QString m_modeName = QStringLiteral("FT8");
     QString m_decodeEngine = QStringLiteral("mshv"); // fixed MSHV-derived native pipeline
     bool m_deepDecodeEnabled = true; // v4.10 unified FT8 engine: adaptive baseline always enabled

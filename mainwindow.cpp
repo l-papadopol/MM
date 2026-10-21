@@ -11850,6 +11850,7 @@ void MainWindow::handleRigFrequencyChanged(double frequencyHz)
 {
     const double previousFrequencyHz = m_lastRigFrequencyHz;
     m_lastRigFrequencyHz = frequencyHz;
+    if (m_ft8RxDecoder) m_ft8RxDecoder->setRadioFrequencyHz(frequencyHz);
     if (previousFrequencyHz > 0 && qAbs(frequencyHz - previousFrequencyHz) >= 1.0 &&
         m_settings.cwSkimmerEnabled && ui->cmbMode->currentText() == CwDecoder::modeName()) {
         invokeRxDecoder(m_cwDecoder, &CwDecoder::resetBandSkimmer);
@@ -12071,6 +12072,10 @@ void MainWindow::updateFtBandFrequencyUi()
     const QString band = m_cmbFt8Band->currentText();
     const double standard = ftStandardFrequencyHz(modeName, band);
     const bool haveCat = m_lastRigFrequencyHz > 0.0;
+    if (m_ft8RxDecoder) {
+        const bool connected = m_rigController && m_rigController->isConnected();
+        m_ft8RxDecoder->setRadioFrequencyHz(connected ? m_lastRigFrequencyHz : standard);
+    }
     const bool onSlot = haveCat && isFtFrequencyOnStandardSlot(m_lastRigFrequencyHz, modeName, band);
 
     if (m_lblFt8BandStatus != nullptr) {
@@ -16206,6 +16211,8 @@ void MainWindow::updateFt8SignalReportUi()
 void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats)
 {
     if (stats.driftRecoveryMs > 0.0) {
+        appendLog(QStringLiteral("%1 RX drift resources: RF %2 MHz, %3 CPU workers")
+                      .arg(stats.modeName).arg(stats.driftRadioHz / 1e6, 0, 'f', 6).arg(stats.driftWorkers));
         appendLog(QStringLiteral("%1 RX drift recovery: %2 attempts, %3 recovered, %4 ms")
                       .arg(stats.modeName).arg(stats.driftAttempts).arg(stats.driftDecodes)
                       .arg(stats.driftRecoveryMs, 0, 'f', 1));

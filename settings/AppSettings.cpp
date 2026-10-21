@@ -525,7 +525,7 @@ void AppSettings::load()
     qrzUsername = settings.value("QRZ/username", qrzUsername).toString().trimmed();
     qrzPassword = settings.value("QRZ/password", qrzPassword).toString();
     ftDriftRxEnabled = settings.value("FT/driftRxEnabled", false).toBool();
-    ftDriftMaxHzPerSec = qBound(0.25, settings.value("FT/driftMaxHzPerSec", 2.0).toDouble(), 5.0);
+    ftDriftMaxHzPerSec = qBound(0.25, settings.value("FT/driftMaxHzPerSec", 2.0).toDouble(), 20.0);
     ft8RxFrequencyHz = settings.value("FT8/rxFrequencyHz", ft8RxFrequencyHz).toInt();
     ft8TxFrequencyHz = settings.value("FT8/txFrequencyHz", ft8TxFrequencyHz).toInt();
     ft8CqTarget = settings.value("FT8/cqTarget", ft8CqTarget).toString().trimmed().toUpper();
@@ -921,7 +921,7 @@ bool AppSettings::save() const
     if (qrzPassword.isEmpty()) settings.remove("QRZ/password");
     else settings.setValue("QRZ/password", qrzPassword);
     settings.setValue("FT/driftRxEnabled", ftDriftRxEnabled);
-    settings.setValue("FT/driftMaxHzPerSec", qBound(0.25, ftDriftMaxHzPerSec, 5.0));
+    settings.setValue("FT/driftMaxHzPerSec", qBound(0.25, ftDriftMaxHzPerSec, 20.0));
     settings.setValue("FT8/rxFrequencyHz", ft8RxFrequencyHz);
     settings.setValue("FT8/txFrequencyHz", ft8TxFrequencyHz);
     settings.setValue("FT8/cqTarget", ft8CqTarget);

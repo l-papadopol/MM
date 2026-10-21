@@ -1,6 +1,8 @@
 #include "mainwindow.h"
 #include "callsign/QrzLookupPanel.h"
 #include <QApplication>
+#include <QComboBox>
+#include "modems/ft8/Ft8RxDecoder.h"
 #include <QCheckBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
@@ -16,6 +18,15 @@ int main(int argc, char **argv)
     QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
     settings.setValue("Updates/checkAtStartup", false); settings.sync();
     MainWindow window;
+    for (const QString band : {QString("40m"), QString("2m")}) {
+        const int index = window.m_cmbFt8Band->findText(band);
+        check(index >= 0, "test band missing");
+        window.m_cmbFt8Band->setCurrentIndex(index);
+        window.updateFtBandFrequencyUi();
+        const double rf = window.m_ft8RxDecoder->m_radioFrequencyHz.load();
+        check((rf >= 144000000.0) == (band == "2m"), "manual band RF drift context wrong");
+    }
+
     check(!window.m_qrzLookupPanel->findChild<QPushButton *>("qrzAccountButton"), "QRZ account button remained in main UI");
     check(window.m_qrzLookupPanel->m_details != nullptr, "station details removed");
     AppSettings initial;
@@ -32,14 +43,15 @@ int main(int argc, char **argv)
     auto *limit = dialog.findChild<QDoubleSpinBox *>("ftDriftMaxHzPerSec");
     check(enabled && limit && !enabled->isChecked() && !limit->isEnabled(), "drift default must be off");
     app.processEvents(); dialog.grab().save("ft-drift-settings.png");
-    enabled->setChecked(true); limit->setValue(3.25);
+    check(limit->maximum() == 20.0, "drift UI must allow 20 Hz/s");
+    enabled->setChecked(true); limit->setValue(20.0);
     dialog.accept(); const AppSettings saved = dialog.settings();
     check(saved.qrzUsername == "next-user" && saved.qrzPassword == " next-password ", "credentials not collected verbatim");
-    check(saved.ftDriftRxEnabled && saved.ftDriftMaxHzPerSec == 3.25, "drift settings not collected");
+    check(saved.ftDriftRxEnabled && saved.ftDriftMaxHzPerSec == 20.0, "drift settings not collected");
     check(saved.save(), "settings write failed");
     AppSettings loaded; loaded.load();
     check(loaded.qrzUsername == saved.qrzUsername && loaded.qrzPassword == saved.qrzPassword, "credentials did not survive profile reload");
-    check(loaded.ftDriftRxEnabled && loaded.ftDriftMaxHzPerSec == 3.25, "drift settings did not survive reload");
+    check(loaded.ftDriftRxEnabled && loaded.ftDriftMaxHzPerSec == 20.0, "drift settings did not survive reload");
     QrzLookupPanel restarted;
     check(restarted.m_username == saved.qrzUsername && restarted.m_password == saved.qrzPassword, "QRZ panel did not restore credentials after restart");
     AppSettingsDialog cancelDialog(loaded, {}, {}, {}, {}, {}, AppSettingsDialog::InitialPage::QrzAccount);

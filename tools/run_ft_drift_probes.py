@@ -43,7 +43,7 @@ def main():
         start = .5 if mode == 'FT8' else .348
         t = np.arange(len(wave)) / 12000 - start - duration / 2
         # Positive/negative LO drifts, two noise levels, zero drift, no signal.
-        for drift in ((-2., -1., 0., 1., 2.) if mode == 'FT8' else (-5., -2., 0., 2., 5.)):
+        for drift in (-20., -10., -2., 0., 2., 5., 10., 20.):
             for noise in (.01, .04):
                 rng = np.random.default_rng(2931)
                 fixture = .15 * (analytic * np.exp(1j * np.pi * drift * t * t)).real
@@ -51,10 +51,15 @@ def main():
                 file = output / f'{mode}-{drift:+.1f}-{noise}.f64'
                 fixture.astype('<f8').tofile(file)
                 action = 'pipeline'
-                run = subprocess.run([str(exe), action, mode, str(file), str(drift), 'yes', str(max(2., abs(drift)))], text=True, capture_output=True)
+                run = subprocess.run([str(exe), action, mode, str(file), str(drift), 'yes', '20'], text=True, capture_output=True)
                 print(run.stdout, end='', flush=True)
                 results.append(dict(mode=mode, drift=drift, noise=noise, action=action,
                                     passed=run.returncode == 0, output=run.stdout, stderr=run.stderr))
+        for rf in (0, 14074000, 50313000, 143999999):
+            file = output / f'{mode}-{20.:+.1f}-0.01.f64'
+            run = subprocess.run([str(exe), 'rfblock', mode, str(file), '20', 'no', '20', str(rf)], text=True, capture_output=True)
+            print(run.stdout, end='', flush=True)
+            results.append(dict(mode=mode, action='rfblock', rf_hz=rf, passed=run.returncode == 0, output=run.stdout, stderr=run.stderr))
         drift = 2. if mode == 'FT8' else 5.
         first = output / f'{mode}-{drift:+.1f}-0.01.f64'
         shift = drift * (30 if mode == 'FT8' else 15)

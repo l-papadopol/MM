@@ -1,5 +1,13 @@
 # MadModem changelog
 
+## 0.6.4 source R17 — drift RX VHF/UHF
+
+- Recupero drift solo con frequenza RF almeno 144 MHz; CAT o banda manuale.
+- Limite configurabile fino a ±20 Hz/s, mantenendo valore e spunta del profilo.
+- Ricerca Costas per simbolo, baseband ampliata e calcolo CPU multicore.
+- 40 prove mirate e UI superate; build Linux e 14 CTest selezionati superati.
+- GPU DSP non introdotta; dettagli e limiti in `docs/architecture/RELEASE_0_6_4_R17.md`.
+
 ## 0.6.4 source R16 — Hellschreiber RX
 
 - Filtro I/Q a quattro poli per Feld Hell e tempi di risposta uniformi fra sample rate.

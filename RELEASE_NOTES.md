@@ -1,5 +1,12 @@
 # MadModem 0.6.4
 
+### R17 — drift RX da 144 MHz
+
+Il recupero FT8/FT4 lavora solo da 144 MHz in su e consente fino a ±20 Hz/s.
+La ricerca segue i singoli simboli Costas e usa il pool CPU multicore.
+Impostazioni e guida chiariscono la selezione RF tramite CAT o banda manuale.
+Prove sintetiche, tempi e limiti: `docs/architecture/RELEASE_0_6_4_R17.md`.
+
 ### R16 — ricezione Hellschreiber
 
 Feld Hell usa un filtro più selettivo e tempi DSP uniformi fra sample rate. FSK-105 distingue i toni con un discriminatore di frequenza e conserva il segnale durante trasmissioni continue, correggendo la crescita della stima di rumore. Confronto sintetico con R15, prove e limiti in `docs/architecture/RELEASE_0_6_4_R16.md`.

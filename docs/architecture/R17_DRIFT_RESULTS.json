@@ -1,0 +1,363 @@
+{
+  "revision": "0.6.4-source-r17-vhf-drift20-multicore",
+  "synthetic_only": true,
+  "tests": [
+    {
+      "mode": "FT8",
+      "drift": -20.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=-20 baseline=0 found=1 drift=-20 attempts=1 workers=7 recovery_ms=94.8097 baseline_ms=0.000992\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": -20.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=-20 baseline=0 found=1 drift=-20 attempts=1 workers=7 recovery_ms=81.2544 baseline_ms=0.003836\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": -10.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=-10 baseline=0 found=1 drift=-10 attempts=1 workers=7 recovery_ms=83.074 baseline_ms=0.000992\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": -10.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=-10 baseline=0 found=1 drift=-10 attempts=1 workers=7 recovery_ms=84.0502 baseline_ms=0.003956\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": -2.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=-2 baseline=0 found=1 drift=-2 attempts=1 workers=7 recovery_ms=95.1878 baseline_ms=0.003836\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": -2.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=-2 baseline=0 found=1 drift=-2 attempts=1 workers=7 recovery_ms=94.0676 baseline_ms=0.004857\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": 2.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=2 baseline=0 found=1 drift=2 attempts=1 workers=7 recovery_ms=96.1109 baseline_ms=0.003956\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": 2.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=2 baseline=0 found=1 drift=2 attempts=1 workers=7 recovery_ms=94.4162 baseline_ms=0.001082\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": 10.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=10 baseline=0 found=1 drift=10 attempts=1 workers=7 recovery_ms=85.1998 baseline_ms=0.003946\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": 10.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=10 baseline=0 found=1 drift=10 attempts=1 workers=7 recovery_ms=86.9677 baseline_ms=0.001272\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": 20.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=20 baseline=0 found=1 drift=20 attempts=1 workers=7 recovery_ms=82.9337 baseline_ms=0.000931\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": 20.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT8 truth=20 baseline=0 found=1 drift=20 attempts=1 workers=7 recovery_ms=91.9164 baseline_ms=0.003466\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "rf": 0,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT8 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "rf": 14074000,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT8 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "rf": 50313000,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT8 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "rf": 143999999,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT8 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "kind": "noise-off",
+      "passed": true,
+      "output": "OFF PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "kind": "noise-recover",
+      "passed": true,
+      "output": "FT8 truth=0 baseline=0 found=0 drift=0 attempts=3 workers=7 recovery_ms=96.0646 baseline_ms=0.004096\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT8",
+      "drift": 2.0,
+      "kind": "track",
+      "passed": true,
+      "output": "FT8 next-slot prediction/reset PASS\n",
+      "stderr": "track first 1033 drift 2\ntrack next 1093 drift 2\n"
+    },
+    {
+      "mode": "FT8",
+      "drift": 20.0,
+      "kind": "track",
+      "passed": true,
+      "output": "FT8 next-slot prediction/reset PASS\n",
+      "stderr": "track first 1033 drift 20\ntrack next 1633 drift 20\n"
+    },
+    {
+      "mode": "FT4",
+      "drift": -20.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=-20 baseline=0 found=1 drift=-19.5 attempts=1 workers=7 recovery_ms=33.6121 baseline_ms=0.003805\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": -20.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=-20 baseline=0 found=1 drift=-19.5 attempts=1 workers=7 recovery_ms=32.307 baseline_ms=0.003305\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": -10.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=-10 baseline=0 found=1 drift=-11 attempts=1 workers=7 recovery_ms=31.7687 baseline_ms=0.000942\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": -10.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=-10 baseline=0 found=1 drift=-11 attempts=1 workers=7 recovery_ms=33.1783 baseline_ms=0.000841\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": -2.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=-2 baseline=0 found=1 drift=-2.5 attempts=1 workers=7 recovery_ms=34.5454 baseline_ms=0.000902\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": -2.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=-2 baseline=0 found=1 drift=-2.5 attempts=1 workers=7 recovery_ms=34.3384 baseline_ms=0.000812\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": 2.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=2 baseline=0 found=1 drift=2.5 attempts=1 workers=7 recovery_ms=33.4404 baseline_ms=0.000891\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": 2.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=2 baseline=0 found=1 drift=2.5 attempts=1 workers=7 recovery_ms=38.1112 baseline_ms=0.001161\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": 10.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=10 baseline=0 found=1 drift=9 attempts=1 workers=7 recovery_ms=53.227 baseline_ms=0.004667\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": 10.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=10 baseline=0 found=1 drift=9 attempts=1 workers=7 recovery_ms=33.0055 baseline_ms=0.000931\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": 20.0,
+      "noise": 0.01,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=20 baseline=0 found=1 drift=19 attempts=1 workers=7 recovery_ms=34.3606 baseline_ms=0.000832\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": 20.0,
+      "noise": 0.04,
+      "kind": "recovery",
+      "passed": true,
+      "output": "FT4 truth=20 baseline=0 found=1 drift=19 attempts=1 workers=7 recovery_ms=32.1453 baseline_ms=0.001392\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "rf": 0,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT4 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "rf": 14074000,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT4 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "rf": 50313000,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT4 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "rf": 143999999,
+      "kind": "rf-gate",
+      "passed": true,
+      "output": "FT4 RF gate PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "kind": "noise-off",
+      "passed": true,
+      "output": "OFF PASS\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "kind": "noise-recover",
+      "passed": true,
+      "output": "FT4 truth=0 baseline=0 found=0 drift=0 attempts=3 workers=7 recovery_ms=40.8773 baseline_ms=0.002664\n",
+      "stderr": ""
+    },
+    {
+      "mode": "FT4",
+      "drift": 2.0,
+      "kind": "track",
+      "passed": true,
+      "output": "FT4 next-slot prediction/reset PASS\n",
+      "stderr": "track first 1033 drift 2.5\ntrack next 1065 drift 1.5\n"
+    },
+    {
+      "mode": "FT4",
+      "drift": 20.0,
+      "kind": "track",
+      "passed": true,
+      "output": "FT4 next-slot prediction/reset PASS\n",
+      "stderr": "track first 1033 drift 19\ntrack next 1333 drift 19.5\n"
+    }
+  ],
+  "timings": {
+    "FT8": {
+      "min_ms": 81.2544,
+      "max_ms": 96.1109
+    },
+    "FT4": {
+      "min_ms": 31.7687,
+      "max_ms": 53.227
+    }
+  },
+  "cpu_workers": 7,
+  "gpu_drift_backend_added": false,
+  "gpu_device_available_here": false,
+  "normal_search_fec_subtraction_byte_identical_to_r16": true,
+  "ui_20_save_reload_manual_band": "PASS",
+  "selected_ctest": "14/14",
+  "full_linux_build": "PASS"
+}
