@@ -1562,6 +1562,11 @@ for _lang in LANGUAGE_NAMES:
     _title, _original = PAGES[_lang]['ft8_ft4.html']
     PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<h2>' + FT_CQ_WORKLIST_HELP['ft_cq_list_title'][_lang] + '</h2><p>' + FT_CQ_WORKLIST_HELP['ft_cq_list_help'][_lang] + '</p>')
 
+from ft_gpu_decode_help import GPU_DECODE
+for _lang, _body in GPU_DECODE.items():
+    _title, _original = PAGES[_lang]['ft8_ft4.html']
+    PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<h2>FT8 / FT4 GPU</h2><p>' + _body + '</p>')
+
 def main() -> int:
     for lang, pages in PAGES.items():
         for filename, (title, body) in pages.items():

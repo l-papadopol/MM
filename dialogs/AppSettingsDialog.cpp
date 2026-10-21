@@ -875,8 +875,21 @@ QWidget *AppSettingsDialog::makeFtDecoderPage()
 {
     auto *page = new QWidget(this);
     auto *layout = new QVBoxLayout(page);
+    auto *gpuGroup = new QGroupBox(QStringLiteral("FT8 / FT4 GPU"), page);
+    auto *gpuForm = new QFormLayout(gpuGroup);
+    m_chkFtGpuDecode = new QCheckBox(L(QStringLiteral("Try GPU FT8/FT4 decoding (experimental, all bands)")), gpuGroup);
+    m_chkFtGpuDecode->setObjectName(QStringLiteral("ftGpuDecodeEnabled"));
+    m_chkFtGpuDecode->setChecked(m_initialSettings.ftGpuDecodeEnabled);
+    m_chkFtGpuDecode->setToolTip(L(QStringLiteral("Offloads symbol tone energies to OpenCL FP64. Checks CPU parity and total time, with automatic CPU fallback. Independent of drift compensation.")));
+    gpuForm->addRow(m_chkFtGpuDecode);
+    layout->addWidget(gpuGroup);
     auto *group = new QGroupBox(L(QStringLiteral("RX drift compensation")), page);
     auto *form = new QFormLayout(group);
+    m_chkFtGpuSync = new QCheckBox(L(QStringLiteral("Try GPU drift sync (experimental, automatic CPU fallback)")), group);
+    m_chkFtGpuSync->setObjectName(QStringLiteral("ftGpuSyncEnabled"));
+    m_chkFtGpuSync->setChecked(m_initialSettings.ftGpuSyncEnabled);
+    m_chkFtGpuSync->setToolTip(L(QStringLiteral("Requires an OpenCL GPU with double precision. The first batch checks CPU parity and total time; slower or failed devices keep the CPU path. Applies to drift recovery from 144 MHz.")));
+    form->addRow(m_chkFtGpuSync);
     m_chkFtDriftRx = new QCheckBox(L(QStringLiteral("Recover drifting signals near the RX marker (experimental)")), group);
     m_chkFtDriftRx->setObjectName(QStringLiteral("ftDriftRxEnabled"));
     m_chkFtDriftRx->setChecked(m_initialSettings.ftDriftRxEnabled);
@@ -2323,6 +2336,8 @@ void AppSettingsDialog::collectSettings()
     if (m_editQrzPassword) merged.qrzPassword = m_editQrzPassword->text();
     if (m_chkFtDriftRx) merged.ftDriftRxEnabled = m_chkFtDriftRx->isChecked();
     if (m_spinFtDriftMax) merged.ftDriftMaxHzPerSec = m_spinFtDriftMax->value();
+    if (m_chkFtGpuSync) merged.ftGpuSyncEnabled = m_chkFtGpuSync->isChecked();
+    if (m_chkFtGpuDecode) merged.ftGpuDecodeEnabled = m_chkFtGpuDecode->isChecked();
 
     if (m_audioPage != nullptr) {
         const AppSettings audio = m_audioPage->settings();

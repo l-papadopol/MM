@@ -524,6 +524,8 @@ void AppSettings::load()
     ft8DxGrid = settings.value("FT8/dxGrid", ft8DxGrid).toString().trimmed().toUpper();
     qrzUsername = settings.value("QRZ/username", qrzUsername).toString().trimmed();
     qrzPassword = settings.value("QRZ/password", qrzPassword).toString();
+    ftGpuDecodeEnabled = settings.value("FT/gpuDecodeEnabled", false).toBool();
+    ftGpuSyncEnabled = settings.value("FT/gpuSyncEnabled", false).toBool();
     ftDriftRxEnabled = settings.value("FT/driftRxEnabled", false).toBool();
     ftDriftMaxHzPerSec = qBound(0.25, settings.value("FT/driftMaxHzPerSec", 2.0).toDouble(), 20.0);
     ft8RxFrequencyHz = settings.value("FT8/rxFrequencyHz", ft8RxFrequencyHz).toInt();
@@ -920,6 +922,8 @@ bool AppSettings::save() const
     settings.setValue("QRZ/username", qrzUsername.trimmed());
     if (qrzPassword.isEmpty()) settings.remove("QRZ/password");
     else settings.setValue("QRZ/password", qrzPassword);
+    settings.setValue("FT/gpuSyncEnabled", ftGpuSyncEnabled);
+    settings.setValue("FT/gpuDecodeEnabled", ftGpuDecodeEnabled);
     settings.setValue("FT/driftRxEnabled", ftDriftRxEnabled);
     settings.setValue("FT/driftMaxHzPerSec", qBound(0.25, ftDriftMaxHzPerSec, 20.0));
     settings.setValue("FT8/rxFrequencyHz", ft8RxFrequencyHz);

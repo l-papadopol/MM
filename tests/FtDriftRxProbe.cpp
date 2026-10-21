@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QElapsedTimer>
 #include <QSet>
+#include <QThread>
 #include <QTextStream>
 #include <iostream>
 #include <algorithm>
@@ -34,6 +35,9 @@ int main(int argc, char **argv)
     QVector<double> samples(bytes.size() / sizeof(double));
     std::memcpy(samples.data(), bytes.constData(), samples.size() * sizeof(double));
     Ft8RxDecoder rx;
+    const bool gpuProbe = qEnvironmentVariableIsSet("MM_TEST_GPU_SYNC");
+    rx.setGpuSyncEnabled(gpuProbe);
+    if (gpuProbe) QThread::msleep(100); // probe-only warmup, outside measured DSP
     rx.setRadioFrequencyHz(144000000.0);
     rx.setModeName(mode); rx.setMyCall("IZ6NNH"); rx.setDxCall("LZ2KSQ"); rx.setRxMarkerHz(1033);
     const auto utc = QDateTime::fromMSecsSinceEpoch(1792309800000LL, Qt::UTC);
@@ -102,6 +106,7 @@ int main(int argc, char **argv)
     for (const auto &d : base) if (d.message == "IZ6NNH LZ2KSQ RR73") { found = true; estimate = d.driftHzPerSec; }
     std::cout << mode.toStdString() << " truth=" << truth << " baseline=" << baselineSize
               << " found=" << found << " drift=" << estimate << " attempts=" << stats.driftAttempts
+              << " gpu=" << stats.gpuSyncUsed << " gpu_status=" << stats.gpuSyncDiagnostic.toStdString()
               << " workers=" << stats.driftWorkers << " recovery_ms=" << stats.driftRecoveryMs << " baseline_ms=" << baselineMs << '\n';
     if (found != expected) return 1;
     if (expected && estimate != 0 && std::abs(estimate - truth) > (ft4 ? 1.1 : .55)) return 1;

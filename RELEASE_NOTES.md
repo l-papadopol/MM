@@ -1,5 +1,21 @@
 # MadModem 0.6.4
 
+### R19 — GPU per il decoder ordinario
+
+Nuova opzione GPU separata dal drift, valida su tutte le bande, per le
+energie dei simboli del decoder ordinario FT8/FT4. Confronto con CPU nativa,
+misura dei trasferimenti e ritorno automatico alla CPU. OpenCL software e
+parità dei candidati verificati; GPU fisica e guadagno end-to-end non verificati.
+Dettagli in `docs/architecture/RELEASE_0_6_4_R19.md`.
+
+### R18 — prova GPU per il drift
+
+Nuova opzione sperimentale in Impostazioni → FT8 / FT4 per provare la matrice
+Costas del recupero drift su GPU OpenCL FP64, confrontandola con la CPU.
+La selezione dipende da parità numerica e tempo totale; il percorso CPU resta
+disponibile. Verificati qui il kernel su OpenCL software e i fallback, non
+un'accelerazione su GPU fisica. Dettagli in `docs/architecture/RELEASE_0_6_4_R18.md`.
+
 ### R17 — drift RX da 144 MHz
 
 Il recupero FT8/FT4 lavora solo da 144 MHz in su e consente fino a ±20 Hz/s.

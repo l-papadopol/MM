@@ -126,6 +126,9 @@ public:
         int bucketRescueDecodes = 0;
         int coherentMetricAttempts = 0;
         int coherentMetricDecodes = 0;
+        QString gpuSyncDiagnostic;
+        double gpuSyncMs = 0.0, cpuSyncMs = 0.0;
+        bool gpuSyncUsed = false;
         int driftWorkers = 0;
         double driftRadioHz = 0.0;
         double driftSearchCenterHz = 0.0;
@@ -223,6 +226,8 @@ public slots:
     void setDriftRxOptions(bool enabled, double maxHzPerSec);
     // Atomic RF context: callable from the GUI without waiting for a decode.
     void setRadioFrequencyHz(double hz);
+    void setGpuSyncEnabled(bool enabled);
+    void setGpuDecodeEnabled(bool enabled);
     void analyzeAudioFile(const QString &filePath);
 
 public:
@@ -445,6 +450,18 @@ private:
     int m_pendingRxMarkerHz = -1;
     QString m_pendingDxCall;
     bool m_hasPendingDxCall = false;
+    bool gpuToneEnergies(const QVector<double> &samples, int start, double baseHz,
+                         int symbols, int window, int tones, std::vector<double> &energies);
+    std::atomic<bool> m_gpuDecodeEnabled {false};
+    std::atomic<bool> m_gpuDecodeBusy {false};
+    std::atomic<int> m_gpuDecodeState[2] {{0}, {0}}; // 0 trial, 1 verified/faster, 2 CPU
+    std::atomic<unsigned> m_gpuDecodeBatches[2] {{0}, {0}};
+    std::atomic<bool> m_gpuDecodeReported[2] {{false}, {false}};
+    std::atomic<bool> m_gpuSyncEnabled {false};
+    std::atomic<unsigned> m_gpuOptionsEpoch {0};
+    unsigned m_gpuSeenEpoch = 0;
+    bool m_gpuValidated[2] = {false,false}, m_gpuRejected[2] = {false,false};
+    unsigned m_gpuBatches[2] = {0,0};
     std::atomic<double> m_radioFrequencyHz {0.0};
     bool m_driftRxEnabled = false;
     double m_driftMaxHzPerSec = 2.0;

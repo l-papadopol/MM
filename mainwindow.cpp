@@ -11758,6 +11758,8 @@ void MainWindow::applyPersistentSettingsToRuntime(const AppSettings *previousSet
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDecodeEngine", Qt::QueuedConnection, Q_ARG(QString, QStringLiteral("mshv")));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDeepDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DeepDecode));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDspPlusDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DspPlusDecode));
+        QMetaObject::invokeMethod(m_ft8RxDecoder, "setGpuSyncEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftGpuSyncEnabled));
+        QMetaObject::invokeMethod(m_ft8RxDecoder, "setGpuDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftGpuDecodeEnabled));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDriftRxOptions", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftDriftRxEnabled), Q_ARG(double, m_settings.ftDriftMaxHzPerSec));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setRxMarkerHz", Qt::QueuedConnection, Q_ARG(int, m_settings.ft8RxFrequencyHz));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setMyCall", Qt::QueuedConnection, Q_ARG(QString, stationCallsign()));
@@ -15438,6 +15440,8 @@ void MainWindow::applyFt8Settings()
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDecodeEngine", Qt::QueuedConnection, Q_ARG(QString, QStringLiteral("mshv")));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDeepDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DeepDecode));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDspPlusDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ft8DspPlusDecode));
+        QMetaObject::invokeMethod(m_ft8RxDecoder, "setGpuSyncEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftGpuSyncEnabled));
+        QMetaObject::invokeMethod(m_ft8RxDecoder, "setGpuDecodeEnabled", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftGpuDecodeEnabled));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setDriftRxOptions", Qt::QueuedConnection, Q_ARG(bool, m_settings.ftDriftRxEnabled), Q_ARG(double, m_settings.ftDriftMaxHzPerSec));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setRxMarkerHz", Qt::QueuedConnection, Q_ARG(int, m_settings.ft8RxFrequencyHz));
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setMyCall", Qt::QueuedConnection, Q_ARG(QString, stationCallsign()));
@@ -16210,6 +16214,11 @@ void MainWindow::updateFt8SignalReportUi()
 
 void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats)
 {
+    if (!stats.gpuSyncDiagnostic.isEmpty()) {
+        appendLog(QStringLiteral("%1 GPU sync: %2; GPU total %3 ms, CPU grid %4 ms; used %5")
+            .arg(stats.modeName).arg(stats.gpuSyncDiagnostic).arg(stats.gpuSyncMs,0,'f',2)
+            .arg(stats.cpuSyncMs,0,'f',2).arg(stats.gpuSyncUsed?QStringLiteral("GPU"):QStringLiteral("CPU")));
+    }
     if (stats.driftRecoveryMs > 0.0) {
         appendLog(QStringLiteral("%1 RX drift resources: RF %2 MHz, %3 CPU workers")
                       .arg(stats.modeName).arg(stats.driftRadioHz / 1e6, 0, 'f', 6).arg(stats.driftWorkers));

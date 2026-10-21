@@ -1,4 +1,6 @@
 #include "Ft8RxDecoder.h"
+#include <QElapsedTimer>
+#include "../../dsp/gpu/FtSyncCompute.h"
 #include "Ft8Mode.h"
 #include "FtCoherentCorrelation.h"
 #include "FtTimingPolicy.h"
@@ -1270,6 +1272,85 @@ void Ft8RxDecoder::setDxCall(const QString &call)
     std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
     std::lock_guard<std::mutex> lock(m_unpackMutex);
     m_unpacker.save_hash_call_my_his_r1_r2(m_dxCall, 1);
+}
+
+void Ft8RxDecoder::setGpuSyncEnabled(bool enabled)
+{
+    if (m_gpuSyncEnabled.exchange(enabled, std::memory_order_acq_rel) != enabled)
+        m_gpuOptionsEpoch.fetch_add(1, std::memory_order_release);
+    if (enabled) (void)FtSyncCompute::Engine::instance(); // asynchronous warmup
+}
+
+void Ft8RxDecoder::setGpuDecodeEnabled(bool enabled)
+{
+    if (m_gpuDecodeEnabled.exchange(enabled) != enabled) {
+        for(int m=0;m<2;++m){m_gpuDecodeState[m]=0;m_gpuDecodeBatches[m]=0;m_gpuDecodeReported[m]=false;}
+    }
+    if(enabled)(void)FtSyncCompute::Engine::instance();
+}
+
+bool Ft8RxDecoder::gpuToneEnergies(const QVector<double> &samples, int start, double baseHz,
+                                  int symbols, int window, int tones, std::vector<double> &energies)
+{
+    if(!m_gpuDecodeEnabled.load() || decodeCancellationRequested())return false;
+    const int mode=tones==4?1:0;
+    if(m_gpuDecodeState[mode].load()==2)return false;
+    auto &engine=FtSyncCompute::Engine::instance();const auto status=engine.status();
+    if(!status.ready){
+        if(status.unavailable && !m_gpuDecodeReported[mode].exchange(true))
+            emit runtimeDiagnostic(QStringLiteral("GPU decode %1: %2; CPU fallback").arg(mode?"FT4":"FT8",status.reason));
+        return false;
+    }
+    if(start<0 || start+symbols*window>=samples.size())return false;
+    // No audio/RF gate: ordinary demodulation also applies to HF. Each request
+    // owns the current candidate's audio, including any SIC residual.
+    if(m_gpuDecodeBusy.exchange(true))return false;
+    struct Release { std::atomic<bool> &busy; ~Release(){busy=false;} } release{m_gpuDecodeBusy};
+    QElapsedTimer total;total.start();
+    auto input=std::make_shared<FtSyncCompute::Input>();input->toneEnergies=true;
+    input->rate=12000;input->lowHz=baseHz;input->stepHz=12000./window;
+    input->symbolSamples=window;input->frequencies=tones;
+    input->tones.resize(symbols,0);input->samples.reserve(size_t(symbols)*window);
+    for(int n=0;n<symbols*window;++n)input->samples.emplace_back(samples[start+n],0.);
+    for(int k=0;k<symbols;++k)input->starts.push_back(k*window);
+    const auto future=engine.submit(input);
+    if(!future.valid())return false; // dedicated service busy: CPU, no queue
+    const double packingMs=total.nsecsElapsed()/1e6;
+    const bool shadow=m_gpuDecodeState[mode].load()!=1 || (++m_gpuDecodeBatches[mode]%16)==0;
+    if(shadow){
+        QElapsedTimer cpu;cpu.start();energies.resize(size_t(symbols)*tones);
+        for(int k=0;k<symbols;++k){
+            if(tones==8){const auto e=symbolToneEnergies8(samples,start+k*window,baseHz);
+                std::copy(e.begin(),e.end(),energies.begin()+size_t(k)*tones);}
+            else for(int tone=0;tone<tones;++tone)
+                energies[size_t(k)*tones+tone]=ft4SymbolToneEnergy(samples,start+k*window,baseHz+tone*input->stepHz,window);
+        }
+        const double cpuMs=cpu.nsecsElapsed()/1e6;
+        if(future.wait_for(std::chrono::milliseconds(0))!=std::future_status::ready){
+            m_gpuDecodeState[mode]=2;
+            emit runtimeDiagnostic(QStringLiteral("GPU decode %1: slower than CPU; CPU retained").arg(mode?"FT4":"FT8"));
+            return true; // reference is already complete
+        }
+        const auto result=future.get();double error=0;
+        const bool parity=result.ok && result.gpuDevice && FtSyncCompute::equivalent(energies,result.scores,&error);
+        const double gpuMs=packingMs+result.totalMs;
+        const bool faster=parity && gpuMs<cpuMs*.9;
+        m_gpuDecodeState[mode]=faster?1:2;
+        emit runtimeDiagnostic(QStringLiteral("GPU decode %1: %2; parity %3, max error %4; GPU total %5 ms, CPU %6 ms; promoted %7")
+            .arg(mode?"FT4":"FT8",result.device).arg(parity).arg(error,0,'g',8).arg(gpuMs,0,'f',3).arg(cpuMs,0,'f',3).arg(faster));
+        return true;
+    }
+    // Bounded candidate-level experiment. Other CPU workers never wait for
+    // this service. Native FEC/CRC and message acceptance remain downstream.
+    if(future.wait_for(std::chrono::milliseconds(2))==std::future_status::ready){
+        const auto result=future.get();
+        if(result.ok && result.gpuDevice){energies=result.scores;
+            emit runtimeDiagnostic(QStringLiteral("GPU decode %1: tone energies used; GPU total %2 ms").arg(mode?"FT4":"FT8").arg(packingMs+result.totalMs,0,'f',3));
+            return true;}
+    }
+    m_gpuDecodeState[mode]=2;
+    emit runtimeDiagnostic(QStringLiteral("GPU decode %1: timeout/error; CPU fallback").arg(mode?"FT4":"FT8"));
+    return false;
 }
 
 void Ft8RxDecoder::setRadioFrequencyHz(double hz)
@@ -2724,43 +2805,101 @@ void Ft8RxDecoder::recoverDriftingSignal(const QVector<double> &samples,
     std::stable_sort(timingOrder.begin(), timingOrder.end(), [&](int a, int b) {
         return std::abs(startLow + a * startStep - 0.5) < std::abs(startLow + b * startStep - 0.5);
     });
-    std::mutex hypothesesMutex;
-    std::atomic<int> nextTiming {0};
-    const int workers = FtDecodeWorkerPool::instance().recommendedWorkerCount(t_currentFtWorkClass, startCount);
-    if (stats) { stats->driftWorkers = workers; stats->driftRadioHz = radioHz; }
-    FtDecodeWorkerPool::instance().parallelFor(workers, workers, [&](int, int) {
-      QVector<Hypothesis> localBest;
-      std::vector<double> scores(static_cast<size_t>(blockCount * blockLength * fCount));
-      while (true) {
-        if (decodeCancellationRequested() || elapsedMs() > budgetMs * 0.65 ||
-            m_radioFrequencyHz.load(std::memory_order_acquire) < 144000000.0) break;
-        const int order = nextTiming.fetch_add(1);
-        if (order >= startCount) break;
-        const int ti = timingOrder[static_cast<size_t>(order)];
-        const double start = startLow + ti * startStep;
-        for (int b = 0; b < blockCount; ++b) {
-            for (int fi = 0; fi < fCount; ++fi) {
-                const double frequency = fLow + fi * fStep;
-                for (int k = 0; k < blockLength; ++k) {
-                    const int sym = positions[b] + k;
-                    const int first = qRound((start + sym * symbolSec) * rate);
-                    if (first < 0 || first + symbolN > static_cast<int>(baseband.size())) {
-                        scores[static_cast<size_t>((b * blockLength + k) * fCount + fi)] = -1e9;
-                        continue;
-                    }
-                    const double omega = -kTwoPi * (frequency + patterns[b][k] * spacing - mixHz) / rate;
-                    const std::complex<double> step(std::cos(omega), std::sin(omega));
-                    std::complex<double> osc(1.0, 0.0), sum(0.0, 0.0);
-                    double power = 0.0;
-                    for (int n = 0; n < symbolN; ++n) {
-                        const auto x = baseband[static_cast<size_t>(first + n)];
-                        sum += x * osc; power += std::norm(x); osc *= step;
-                    }
-                    scores[static_cast<size_t>((b * blockLength + k) * fCount + fi)] =
-                        std::log1p(std::norm(sum) / (power + kEps));
+    // The same immutable matrix input is used by CPU and OpenCL. Candidate
+    // admission, trajectory fitting, FEC and publication remain on the CPU.
+    auto input = std::make_shared<FtSyncCompute::Input>();
+    input->samples = baseband;
+    input->frequencies = fCount; input->symbolSamples = symbolN;
+    input->lowHz = fLow; input->stepHz = fStep; input->spacingHz = spacing;
+    input->mixHz = mixHz; input->rate = rate;
+    for (int b = 0; b < blockCount; ++b)
+        for (int k = 0; k < blockLength; ++k) input->tones.push_back(patterns[b][k]);
+    for (int ti = 0; ti < startCount; ++ti)
+        for (int b = 0; b < blockCount; ++b)
+            for (int k = 0; k < blockLength; ++k)
+                input->starts.push_back(qRound((startLow + ti * startStep +
+                    (positions[b] + k) * symbolSec) * rate));
+    std::vector<double> grid(input->cells(), std::numeric_limits<double>::quiet_NaN());
+    std::vector<unsigned char> complete(static_cast<size_t>(startCount),0);
+    const int modeIndex = ft4 ? 1 : 0;
+    const unsigned epoch = m_gpuOptionsEpoch.load(std::memory_order_acquire);
+    if (epoch != m_gpuSeenEpoch) {
+        m_gpuSeenEpoch = epoch;
+        for (int i=0;i<2;++i){m_gpuValidated[i]=m_gpuRejected[i]=false;m_gpuBatches[i]=0;}
+    }
+    const bool requested = m_gpuSyncEnabled.load(std::memory_order_acquire);
+    bool usedGpu = false;
+    const bool verify = !m_gpuValidated[modeIndex] || (++m_gpuBatches[modeIndex] % 8 == 0);
+    std::shared_future<FtSyncCompute::Result> gpuJob;
+    if (requested && !m_gpuRejected[modeIndex]) {
+        auto &engine = FtSyncCompute::Engine::instance();
+        const auto state = engine.status();
+        if (stats) stats->gpuSyncDiagnostic = state.ready ? state.device :
+            (state.unavailable ? state.reason : QStringLiteral("OpenCL warming up; CPU retained"));
+        if (state.ready) gpuJob = engine.submit(input);
+        if (gpuJob.valid() && !verify) {
+            const double waitMs = std::max(0.0, std::min(80.0, (budgetMs-elapsedMs())*0.35));
+            if (gpuJob.wait_for(std::chrono::milliseconds(static_cast<int>(waitMs))) == std::future_status::ready) {
+                const auto &result = gpuJob.get();
+                if (stats) stats->gpuSyncMs = result.totalMs;
+                if (result.ok && result.gpuDevice && result.scores.size() == grid.size()) {
+                    grid = result.scores; std::fill(complete.begin(),complete.end(),1); usedGpu=true;
+                    if (stats) stats->gpuSyncDiagnostic = result.device + QStringLiteral("; verified GPU matrix used");
+                } else {
+                    m_gpuRejected[modeIndex]=true;
+                    if (stats) stats->gpuSyncDiagnostic = result.reason + QStringLiteral("; CPU fallback");
                 }
+            } else {
+                m_gpuRejected[modeIndex]=true;
+                if (stats) stats->gpuSyncDiagnostic = QStringLiteral("GPU wait budget reached; CPU fallback");
             }
         }
+    } else if (requested && stats) stats->gpuSyncDiagnostic = QStringLiteral("GPU rejected for this session; CPU retained");
+    const int workers = FtDecodeWorkerPool::instance().recommendedWorkerCount(t_currentFtWorkClass, startCount);
+    if (stats) { stats->driftWorkers = usedGpu ? 0 : workers; stats->driftRadioHz = radioHz; stats->gpuSyncUsed=usedGpu; }
+    const auto cpuStart=Clock::now();
+    if (!usedGpu) {
+        std::atomic<int> nextTiming {0};
+        FtDecodeWorkerPool::instance().parallelFor(workers, workers, [&](int,int) {
+            while (true) {
+                if (decodeCancellationRequested() || elapsedMs() > budgetMs*0.65 ||
+                    m_radioFrequencyHz.load(std::memory_order_acquire)<144000000.0) break;
+                const int order=nextTiming.fetch_add(1); if(order>=startCount)break;
+                const int ti=timingOrder[static_cast<size_t>(order)];
+                FtSyncCompute::cpuTiming(*input,ti,grid.data()+size_t(ti)*blockCount*blockLength*fCount);
+                complete[static_cast<size_t>(ti)]=1;
+            }
+        });
+        const double cpuMs=std::chrono::duration<double,std::milli>(Clock::now()-cpuStart).count();
+        if(stats)stats->cpuSyncMs=cpuMs;
+        if(gpuJob.valid() && verify) {
+            if(gpuJob.wait_for(std::chrono::milliseconds(0))==std::future_status::ready) {
+                const auto &result=gpuJob.get();double error=0;
+                if(stats)stats->gpuSyncMs=result.totalMs;
+                const bool full=std::all_of(complete.begin(),complete.end(),[](unsigned char x){return x!=0;});
+                if(result.ok && full && FtSyncCompute::equivalent(grid,result.scores,&error)) {
+                    const bool faster=result.gpuDevice && result.totalMs<cpuMs*0.90;
+                    m_gpuValidated[modeIndex]=faster;m_gpuRejected[modeIndex]=!faster;
+                    if(stats)stats->gpuSyncDiagnostic=QStringLiteral("%1; parity OK, max error %2; %3")
+                        .arg(result.device).arg(error,0,'g',3)
+                        .arg(faster?QStringLiteral("GPU selected for subsequent jobs"):QStringLiteral("CPU retained: device not faster"));
+                } else if(result.ok && !full) {
+                    if(stats)stats->gpuSyncDiagnostic=QStringLiteral("Partial CPU reference; GPU validation deferred, CPU retained");
+                } else {
+                    m_gpuRejected[modeIndex]=true;
+                    if(stats)stats->gpuSyncDiagnostic=result.ok?QStringLiteral("GPU/CPU validation failed; CPU retained"):
+                        result.reason+QStringLiteral("; CPU retained");
+                }
+            } else {
+                m_gpuRejected[modeIndex]=true;
+                if(stats)stats->gpuSyncDiagnostic=QStringLiteral("GPU batch not ready after CPU reference; CPU retained");
+            }
+        }
+    }
+    for(int ti:timingOrder) {
+        if(!complete[static_cast<size_t>(ti)] || decodeCancellationRequested() || elapsedMs()>budgetMs*0.85)continue;
+        const double start=startLow+ti*startStep;
+        const double *scores=grid.data()+size_t(ti)*blockCount*blockLength*fCount;
         auto symbolScore = [&](int b, int k, double frequency) {
             const double bin = (frequency - fLow) / fStep;
             const int i = static_cast<int>(std::floor(bin));
@@ -2791,13 +2930,10 @@ void Ft8RxDecoder::recoverDriftingSignal(const QVector<double> &samples,
                 }
                 score /= blockCount;
                 if (score < (ft4 ? 1.0 : 1.15) || weakest < 0.80 || score < zeroScore + 0.04) continue;
-                retain(localBest, {start, midpointHz, drift, score});
+                retain(best, {start, midpointHz, drift, score});
             }
         }
     }
-      std::lock_guard<std::mutex> lock(hypothesesMutex);
-      for (const auto &h : localBest) retain(best, h);
-    });
     if (best.isEmpty() || decodeCancellationRequested() || elapsedMs() > budgetMs ||
         m_radioFrequencyHz.load(std::memory_order_acquire) < 144000000.0) { finish(); return; }
     std::sort(best.begin(), best.end(), [](const Hypothesis &a, const Hypothesis &b) { return a.score > b.score; });
@@ -4508,9 +4644,13 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     double llrAbsSum = 0.0;
     int llrAbsCount = 0;
 
+    std::vector<double> gpuEnergies;
+    const bool hasGpuEnergies=gpuToneEnergies(samples,startSample,baseHz,kSymbols,kSamplesPerSymbol,8,gpuEnergies);
     for (int sym = 0; sym < kSymbols; ++sym) {
         const int symStart = startSample + sym * kSamplesPerSymbol;
-        const std::array<double, 8> energies = symbolToneEnergies8(samples, symStart, baseHz);
+        std::array<double, 8> energies;
+        if(hasGpuEnergies)std::copy_n(gpuEnergies.data()+size_t(sym)*8,8,energies.begin());
+        else energies=symbolToneEnergies8(samples, symStart, baseHz);
         double maxEnergy = 0.0;
         double sumEnergy = 0.0;
         for (int tone = 0; tone < 8; ++tone) {
@@ -6090,11 +6230,13 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
                (sym >= 99 && sym < 103);
     };
 
+    std::vector<double> gpuEnergies;
+    const bool hasGpuEnergies=gpuToneEnergies(samples,bestStart,bestBaseHz,kFt4Symbols,kFt4SamplesPerSymbol,4,gpuEnergies);
     for (int sym = 0; sym < kFt4Symbols; ++sym) {
         const int symStart = bestStart + sym * kFt4SamplesPerSymbol;
         double energies[4];
         for (int tone = 0; tone < 4; ++tone) {
-            energies[tone] = ft4SymbolToneEnergy(samples,
+            energies[tone] = hasGpuEnergies ? gpuEnergies[size_t(sym)*4+tone] : ft4SymbolToneEnergy(samples,
                                                   symStart,
                                                   bestBaseHz + tone * kFt4ToneSpacingHz,
                                                   kFt4SamplesPerSymbol);

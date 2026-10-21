@@ -1,5 +1,23 @@
 # MadModem changelog
 
+## 0.6.4 source R19 — GPU demodulazione sperimentale
+
+Nuova opzione GPU separata dal drift, valida su tutte le bande, per le
+energie dei simboli del decoder ordinario FT8/FT4. Confronto con CPU nativa,
+misura dei trasferimenti e ritorno automatico alla CPU. OpenCL software e
+parità dei candidati verificati; GPU fisica e guadagno end-to-end non verificati.
+Dettagli in `docs/architecture/RELEASE_0_6_4_R19.md`.
+
+## 0.6.4 source R18 — GPU drift sperimentale
+
+- Backend OpenCL FP64 opzionale per la matrice Costas del recupero drift FT8/FT4.
+- Riscaldamento asincrono, buffer persistenti, confronto iniziale con CPU multicore
+  e ritorno automatico alla CPU per errori, lentezza o divergenze numeriche.
+- Nuova casella disattivata inizialmente e log CPU/OpenCL; normale decoder e FEC su CPU.
+- Kernel verificato su OpenCL software: 493816 punteggi, errore massimo 5.05e-14.
+- GPU fisica e relativo guadagno ancora da misurare. 80 casi decoder/fallback,
+  UI, build Linux e 15 test selezionati superati. Rapporto `docs/architecture/RELEASE_0_6_4_R18.md`.
+
 ## 0.6.4 source R17 — drift RX VHF/UHF
 
 - Recupero drift solo con frequenza RF almeno 144 MHz; CAT o banda manuale.

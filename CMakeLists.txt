@@ -511,6 +511,7 @@ add_executable(MadModem
     modems/ft8/Ft8Mode.cpp
     modems/ft8/Ft8RxDecoder.h
     modems/ft8/Ft8RxDecoder.cpp
+    dsp/gpu/FtSyncCompute.cpp
     modems/ft8/FtDecodedText.h
     modems/ft8/FtDecodedText.cpp
     modems/ft8/FtStandardMessageSet.h
@@ -698,7 +699,7 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cty.csv")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cty.csv" "${CMAKE_CURRENT_BINARY_DIR}/cty.csv" COPYONLY)
 endif()
 
-target_include_directories(MadModem PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_include_directories(MadModem PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/opencl_headers" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set_property(TARGET MadModem PROPERTY AUTOUIC_SEARCH_PATHS "${CMAKE_CURRENT_SOURCE_DIR}")
 if(WIN32)
     target_link_libraries(MadModem PRIVATE winmm)
@@ -1372,6 +1373,12 @@ if(BUILD_TESTING)
 endif()
 
 if(BUILD_TESTING)
+    add_executable(madmodem_gpu_sync_regression tests/FtGpuSyncRegression.cpp dsp/gpu/FtSyncCompute.cpp)
+    target_include_directories(madmodem_gpu_sync_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/opencl_headers)
+    target_link_libraries(madmodem_gpu_sync_regression PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_gpu_sync_fallback COMMAND madmodem_gpu_sync_regression)
+    set_tests_properties(madmodem_gpu_sync_fallback PROPERTIES TIMEOUT 30)
+
     add_executable(madmodem_hell_image_regression
         tests/HellschreiberImageRegression.cpp
         modems/hell/HellschreiberDecoder.cpp)

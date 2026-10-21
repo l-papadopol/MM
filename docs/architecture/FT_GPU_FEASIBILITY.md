@@ -1,3 +1,9 @@
+# Current status — R18
+
+R18 introduces an opt-in OpenCL FP64 backend for the **local drift Costas correlation matrix only**. Normal FT search, LDPC and subtraction stay on the CPU. First-batch CPU parity and total-time comparison gates later device use; CPU fallback remains available. See RELEASE_0_6_4_R18.md and R18_GPU_RESULTS.json. Kernel execution was validated with CPU OpenCL, not a physical GPU; no hardware GPU speedup is established here.
+
+The R5 investigation below is historical.
+
 # FT GPU investigation — R5
 
 ## Measured bottleneck in the supplied Windows log

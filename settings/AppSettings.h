@@ -217,6 +217,8 @@ public:
     // FT live decode depth: fast = one pass, adaptive = guarded subtract/rescan only
     // after a successful first pass.  Deep/4-pass UI was removed in v3.22.
     QString ft8LiveDecodeDepth = "adaptive";
+    bool ftGpuSyncEnabled = false;
+    bool ftGpuDecodeEnabled = false;
     bool ftDriftRxEnabled = false;
     double ftDriftMaxHzPerSec = 2.0;
     bool ft8DeepDecode = true; // internal compatibility flag: adaptive enables subtract/rescan.

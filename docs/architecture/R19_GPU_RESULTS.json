@@ -1,0 +1,92 @@
+{
+  "revision": "R19",
+  "physical_gpu_available": false,
+  "physical_gpu_speedup_measured": false,
+  "backend": "OpenCL FP64; production GPU only; test PoCL CPU",
+  "opencl_software_batches_passed": 28,
+  "opencl_software_total_values": 502168,
+  "ordinary_batches": 16,
+  "ordinary_values": 8352,
+  "native_parity_cases": 8,
+  "native_parity_values": 4176,
+  "native_max_abs_energy_error": 1.70985e-10,
+  "candidate_fallback_pairs": 216,
+  "accepted_identical_pairs": 51,
+  "hf_rf_hz": 7074000,
+  "drift_enabled": false,
+  "live_replay": [
+    {
+      "file": "active/audio/191111_110615.f64",
+      "cpu": 22,
+      "fallback": 22,
+      "exact": true,
+      "messages_equal": true,
+      "cpu_ms": 683.820557,
+      "fallback_ms": 668.573233
+    },
+    {
+      "file": "active/audio/191111_110630.f64",
+      "cpu": 18,
+      "fallback": 17,
+      "exact": false,
+      "messages_equal": false,
+      "cpu_ms": 727.42869,
+      "fallback_ms": 629.261361
+    },
+    {
+      "file": "active/audio/191111_110645.f64",
+      "cpu": 22,
+      "fallback": 21,
+      "exact": false,
+      "messages_equal": false,
+      "cpu_ms": 804.357738,
+      "fallback_ms": 680.627108
+    },
+    {
+      "file": "active/audio/191111_110700.f64",
+      "cpu": 21,
+      "fallback": 21,
+      "exact": false,
+      "messages_equal": true,
+      "cpu_ms": 628.957556,
+      "fallback_ms": 635.999504
+    },
+    {
+      "file": "active/audio/websdr_test7.f64",
+      "cpu": 25,
+      "fallback": 26,
+      "exact": false,
+      "messages_equal": false,
+      "cpu_ms": 804.04657,
+      "fallback_ms": 781.572609
+    },
+    {
+      "file": "active/audio/websdr_test8.f64",
+      "cpu": 20,
+      "fallback": 19,
+      "exact": false,
+      "messages_equal": false,
+      "cpu_ms": 687.904253,
+      "fallback_ms": 781.534733
+    },
+    {
+      "file": "active/audio/websdr_test9.f64",
+      "cpu": 12,
+      "fallback": 11,
+      "exact": false,
+      "messages_equal": false,
+      "cpu_ms": 581.12791,
+      "fallback_ms": 603.313265
+    }
+  ],
+  "live_replay_conclusion": "inconclusive, timing-budgeted; no full live parity or gain asserted",
+  "ui": "PASS: default off, distinct option, settings persistence, RF bands and 20Hz/s drift maximum",
+  "selected_ctest": {
+    "selected": 15,
+    "passed_initially": 14,
+    "release_audit_after_regenerating_localizations": "PASS",
+    "final_passed_cases": 15,
+    "registered_total": 44
+  },
+  "build": "PASS: Linux final sources and resources"
+}

@@ -153,3 +153,7 @@ No DeepCW code or parameter tensors are included. DeepCW repositories were studi
 as architectural references. General CTC and gated recurrent unit techniques are
 identified in `tools/cw_neural/README.md`. Training-only PyTorch/NumPy/SciPy are
 not linked into or required by the MadModem application.
+
+## Khronos OpenCL C headers
+
+Location: `third_party/opencl_headers/`. Unmodified cl.h, cl_platform.h and cl_version.h from Khronos OpenCL-Headers, packaged as Ubuntu opencl-c-headers 3.0~2023.12.14-1. Copyright The Khronos Group Inc.; Apache License 2.0. Full LICENSE and package COPYRIGHT are included there. These declarations are compiled locally; the optional OpenCL runtime is loaded dynamically and is not bundled. Upstream: https://github.com/KhronosGroup/OpenCL-Headers

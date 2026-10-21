@@ -39,6 +39,12 @@ int main(int argc, char **argv)
     check(username->text() == initial.qrzUsername && password->text() == initial.qrzPassword, "saved credentials not loaded into UI");
     username->setText(" next-user "); password->setText(" next-password ");
     dialog.setInitialPage(AppSettingsDialog::InitialPage::FtDecoder);
+    auto *gpu = dialog.findChild<QCheckBox *>("ftGpuSyncEnabled");
+    check(gpu && !gpu->isChecked(), "GPU must be opt-in");
+    gpu->setChecked(true);
+    auto *gpuDecode=dialog.findChild<QCheckBox *>("ftGpuDecodeEnabled");
+    check(gpuDecode && !gpuDecode->isChecked(),"GPU decode must be independent and opt-in");
+    gpuDecode->setChecked(true);
     auto *enabled = dialog.findChild<QCheckBox *>("ftDriftRxEnabled");
     auto *limit = dialog.findChild<QDoubleSpinBox *>("ftDriftMaxHzPerSec");
     check(enabled && limit && !enabled->isChecked() && !limit->isEnabled(), "drift default must be off");
@@ -47,10 +53,14 @@ int main(int argc, char **argv)
     enabled->setChecked(true); limit->setValue(20.0);
     dialog.accept(); const AppSettings saved = dialog.settings();
     check(saved.qrzUsername == "next-user" && saved.qrzPassword == " next-password ", "credentials not collected verbatim");
+    check(saved.ftGpuDecodeEnabled,"GPU decode preference not collected");
+    check(saved.ftGpuSyncEnabled, "GPU preference not collected");
     check(saved.ftDriftRxEnabled && saved.ftDriftMaxHzPerSec == 20.0, "drift settings not collected");
     check(saved.save(), "settings write failed");
     AppSettings loaded; loaded.load();
     check(loaded.qrzUsername == saved.qrzUsername && loaded.qrzPassword == saved.qrzPassword, "credentials did not survive profile reload");
+    check(loaded.ftGpuDecodeEnabled,"GPU decode preference not persisted");
+    check(loaded.ftGpuSyncEnabled, "GPU preference not persisted");
     check(loaded.ftDriftRxEnabled && loaded.ftDriftMaxHzPerSec == 20.0, "drift settings did not survive reload");
     QrzLookupPanel restarted;
     check(restarted.m_username == saved.qrzUsername && restarted.m_password == saved.qrzPassword, "QRZ panel did not restore credentials after restart");
