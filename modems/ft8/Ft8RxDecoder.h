@@ -242,6 +242,8 @@ signals:
     void offlineAnalysisFinished(const QString &filePath, bool ok, int decodeCount, const QString &message);
 
 private:
+    // Capture/profile access must not wait for the coordinator's whole-decode lock.
+    std::atomic<int> m_captureSlotMs{15000};
     bool m_liveInputEnabled = false;
     bool m_incrementalEnabled = true;
     quint64 m_incrementalEpoch = 0;

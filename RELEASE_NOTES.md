@@ -1,7 +1,10 @@
 # MadModem 0.6.4
 
-The DX tab between Mode and Rotator now contains FT period bars, UTC time and
-QRZ information for the selected station. QRZ account settings and saved
+FT periods and UTC are now at the bottom of Mode; the QRZ tab contains station information. Select CQ rows with Ctrl/Shift and use Add selected CQs to prepare a worklist. Start works one selected station at a time after a fresh CQ check; Pause lets the current QSO finish, and STOP stops TX and pauses the list. The separate incoming caller queue remembers stations calling your callsign.
+
+FT capture profile reads use an atomic period snapshot so they can continue while the decoder owns its configuration lock. Search thresholds, passes, FEC and TX timing limits are preserved. Live logs now identify the source/build and report prepared FFT/tone reuse.
+
+The QRZ tab between Mode and Rotator contains information for the selected station. QRZ account settings and saved
 credentials remain in Settings. The drift help explains how to select a signal
 with the RX marker and what frequency changes the option can recover.
 

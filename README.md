@@ -1,5 +1,7 @@
 # MadModem
 
+**0.6.4 R13:** periodi FT in fondo a Modo; scheda **QRZ** dedicata alle informazioni della stazione. Lista manuale di CQ con selezione multipla, avvio/pausa e conferma di un CQ recente prima di ogni chiamata. Raccolta audio FT separata dal mutex del decoder. [Analisi del log live e verifiche](docs/architecture/RELEASE_0_6_4_R13.md).
+
 **0.6.4 R12:** calcoli RX anticipati mentre arriva l’audio FT8/FT4, con riuso delle stesse FFT/energie e fallback immediato al percorso normale. Scheda **DX** tra Mode e Rotator per periodi FT e informazioni QRZ. Aggiornamento portable Linux TAR/ZIP e controllo preventivo dello stato di dpkg. [Modifiche, prove e limiti](docs/architecture/RELEASE_0_6_4_R12.md).
 
 **0.6.4 R11:** recupero FT8 coerente aggiuntivo entro il budget UTC della risposta, dopo le passate normali e il drift. Conserva barre compatte, font e DT corretti. Misurati anche UI, sequencer e preparazione waveform; FT4 mantiene il decoder live attuale. [Budget e risultati](docs/architecture/RELEASE_0_6_4_R11.md).

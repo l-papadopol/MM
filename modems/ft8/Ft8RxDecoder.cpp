@@ -1309,13 +1309,13 @@ void Ft8RxDecoder::setModeName(const QString &modeName)
         return;
     }
     m_modeName = next;
+    m_captureSlotMs.store(next == QStringLiteral("FT4") ? 7500 : 15000, std::memory_order_release);
     reset();
 }
 
 QString Ft8RxDecoder::modeName() const
 {
-    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
-    return m_modeName;
+    return currentSlotMs() == 7500 ? QStringLiteral("FT4") : QStringLiteral("FT8");
 }
 
 void Ft8RxDecoder::setDecodeEngine(const QString &engineName)
@@ -1390,8 +1390,7 @@ void Ft8RxDecoder::setDspPlusDecodeEnabled(bool enabled)
 
 int Ft8RxDecoder::currentSlotMs() const
 {
-    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
-    return Ft8Mode::profileForMode(m_modeName).slotMs;
+    return m_captureSlotMs.load(std::memory_order_acquire);
 }
 
 int Ft8RxDecoder::currentSlotSamples() const
@@ -1401,19 +1400,17 @@ int Ft8RxDecoder::currentSlotSamples() const
 
 QString Ft8RxDecoder::currentShortLabel() const
 {
-    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
-    return Ft8Mode::profileForMode(m_modeName).shortLabel;
+    return modeName();
 }
 
 
 int Ft8RxDecoder::postTxPrepadLimitMs() const
 {
-    std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     // A TX audio/PTT release that is only slightly late after the UTC boundary
     // can still leave a useful FT RX slot.  Preserve its absolute timing by
     // inserting leading zero samples.  If we are much later than this, the slot
     // is considered too partial and is ignored until the next boundary.
-    return (m_modeName == QStringLiteral("FT4")) ? 1200 : 2500;
+    return currentSlotMs() == 7500 ? 1200 : 2500;
 }
 
 void Ft8RxDecoder::beginUtcSlot(qint64 slotId, int maxPrepadMs, const QString &reason)

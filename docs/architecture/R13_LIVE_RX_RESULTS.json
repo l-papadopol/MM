@@ -1,0 +1,193 @@
+{
+  "revision": "0.6.4-source-r13-ft-capture-qrz-cq-worklist",
+  "on_air_log": {
+    "sha256": "e564aaf5d570bfb3383d2a74107412efef06b88b34ee2041e3176d8fa095a39a",
+    "phases": {
+      "wsjtx-gate": {
+        "jobs": 29,
+        "new_rows": 470,
+        "median_ms": 478,
+        "min_ms": 23,
+        "max_ms": 483,
+        "median_delivered_after_boundary_ms": -780,
+        "max_delivered_after_boundary_ms": -362,
+        "median_subtract_ms": 170
+      },
+      "boundary": {
+        "jobs": 25,
+        "new_rows": 365,
+        "median_ms": 1402,
+        "min_ms": 1357,
+        "max_ms": 1531,
+        "median_delivered_after_boundary_ms": 1536,
+        "max_delivered_after_boundary_ms": 2042,
+        "median_subtract_ms": 439
+      }
+    },
+    "ui": {
+      "count": 74,
+      "median_ms": 60.6,
+      "max_ms": 93.7
+    },
+    "audio_queue_max_ms": 1655.1,
+    "complete_slots_skipped_for_gaps": 3,
+    "other_partial_slots_skipped": 13,
+    "exact_binary_revision_in_log": false,
+    "jtdx_same_audio_comparison": false
+  },
+  "controlled_capture_probe": {
+    "conditions": "100 blocks of 1024 samples at 48kHz, injected every 5ms into a real 64-block dispatcher while a test thread holds the decoder configuration mutex for 750ms. This is a controlled contention test, not on-air decode sensitivity. Blocking variant restores only four R12 capture accessors in the candidate binary.",
+    "blocking_accessors": [
+      {
+        "accepted": 65,
+        "capture_call_max_ms": 752.513875,
+        "collection_ms": 758,
+        "dropped": 35,
+        "expected_blocking": true,
+        "mode": "FT8",
+        "sequence_gaps": 35
+      },
+      {
+        "accepted": 65,
+        "capture_call_max_ms": 749.509047,
+        "collection_ms": 753,
+        "dropped": 35,
+        "expected_blocking": true,
+        "mode": "FT4",
+        "sequence_gaps": 35
+      }
+    ],
+    "atomic_accessors": [
+      {
+        "accepted": 100,
+        "capture_call_max_ms": 0.165727,
+        "collection_ms": 750,
+        "dropped": 0,
+        "expected_blocking": false,
+        "mode": "FT8",
+        "sequence_gaps": 0
+      },
+      {
+        "accepted": 100,
+        "capture_call_max_ms": 0.357837,
+        "collection_ms": 750,
+        "dropped": 0,
+        "expected_blocking": false,
+        "mode": "FT4",
+        "sequence_gaps": 0
+      }
+    ]
+  },
+  "limitations": [
+    "No proof of JTDX parity or superiority without identical WAV and paired outputs.",
+    "No Windows/macOS native build or radio hardware validation here.",
+    "Positive DT may require boundary recovery: FT8 DT +1.3 needs approximately 14.44s of the slot, beyond the 13.5s early gate.",
+    "No DSP search/FEC/threshold/pass or CW decoder changes in R13."
+  ],
+  "verification": {
+    "linux_qt5_release_build": "PASS",
+    "selected_ctest": "8/8 PASS",
+    "cq_model_ft8_ft4": "PASS",
+    "cq_ui_ft8_ft4": "PASS: multi-select, explicit Start, fresh canonical CQ, skip busy, duplicate double-clicks, active QSO unchanged, numbered order, next QSO, no overtaking, Pause and STOP",
+    "cq_gui_final_runs": 4,
+    "appearance_mode_qrz_clock_fonts": "PASS both modes; period bars 188x48, group84",
+    "existing_sequencer_and_qrz": "PASS both modes: last reply, final73, stale timeout, no response, QRZ target",
+    "cw_engine_ui": "PASS NativeR12/NeuralR13, migration, persistence, modes, three window sizes",
+    "exact_candidate_parity": [
+      {
+        "cache_hits": 1239,
+        "cached_finder_ms": 66.074546,
+        "candidates": 151,
+        "exact_parity": true,
+        "file": "active/audio/191111_110615.f64",
+        "invalidation": true,
+        "preparation_ms": 102.409717,
+        "residual_fallback": true,
+        "rows": 371
+      },
+      {
+        "cache_hits": 1239,
+        "cached_finder_ms": 70.136765,
+        "candidates": 168,
+        "exact_parity": true,
+        "file": "active/audio/191111_110630.f64",
+        "invalidation": true,
+        "preparation_ms": 91.614171,
+        "residual_fallback": true,
+        "rows": 371
+      },
+      {
+        "cache_hits": 1239,
+        "cached_finder_ms": 66.627242,
+        "candidates": 164,
+        "exact_parity": true,
+        "file": "active/audio/191111_110645.f64",
+        "invalidation": true,
+        "preparation_ms": 91.695181,
+        "residual_fallback": true,
+        "rows": 371
+      },
+      {
+        "cache_hits": 1239,
+        "cached_finder_ms": 61.40882,
+        "candidates": 143,
+        "exact_parity": true,
+        "file": "active/audio/191111_110700.f64",
+        "invalidation": true,
+        "preparation_ms": 92.99388400000001,
+        "residual_fallback": true,
+        "rows": 371
+      },
+      {
+        "cache_hits": 1239,
+        "cached_finder_ms": 65.400035,
+        "candidates": 167,
+        "exact_parity": true,
+        "file": "active/audio/websdr_test7.f64",
+        "invalidation": true,
+        "preparation_ms": 88.407842,
+        "residual_fallback": true,
+        "rows": 371
+      },
+      {
+        "cache_hits": 1239,
+        "cached_finder_ms": 61.571063,
+        "candidates": 168,
+        "exact_parity": true,
+        "file": "active/audio/websdr_test8.f64",
+        "invalidation": true,
+        "preparation_ms": 92.086333,
+        "residual_fallback": true,
+        "rows": 371
+      },
+      {
+        "cache_hits": 1239,
+        "cached_finder_ms": 62.607276,
+        "candidates": 132,
+        "exact_parity": true,
+        "file": "active/audio/websdr_test9.f64",
+        "invalidation": true,
+        "preparation_ms": 91.916216,
+        "residual_fallback": true,
+        "rows": 371
+      },
+      {
+        "cache_hits": 113632,
+        "cached_finder_ms": 3.11814,
+        "candidates": 120,
+        "exact_parity": true,
+        "file": "FT4",
+        "invalidation": true,
+        "preparation_ms": 86.660995,
+        "residual_fallback": true,
+        "rows": 156
+      }
+    ],
+    "decoder_source_restored_to_r12_after_only_profile_access_changes": true,
+    "existing_changed_modem_files": [
+      "modems/ft8/Ft8RxDecoder.cpp",
+      "modems/ft8/Ft8RxDecoder.h"
+    ],
+    "test_history_note": "An early CQ GUI probe exited with SIGSEGV during shutdown before the final revisions. It was not reproduced by the final probe plus three runs with a SIGSEGV backtrace handler. The cause of that early failure was not isolated. A separate extended-test assertion identified reuse of a CQ from the prior QSO; fixed with checkedSinceIdle and verified in the final runs."
+  }
+}

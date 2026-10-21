@@ -1557,6 +1557,11 @@ for _lang, (_heading, _body) in INCREMENTAL_RX_HELP.items():
     _title, _original = PAGES[_lang]['ft8_ft4.html']
     PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<h2>' + _heading + '</h2><p>' + _body + '</p>')
 
+from ft_cq_worklist_i18n import KEYS as FT_CQ_WORKLIST_HELP
+for _lang in LANGUAGE_NAMES:
+    _title, _original = PAGES[_lang]['ft8_ft4.html']
+    PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<h2>' + FT_CQ_WORKLIST_HELP['ft_cq_list_title'][_lang] + '</h2><p>' + FT_CQ_WORKLIST_HELP['ft_cq_list_help'][_lang] + '</p>')
+
 def main() -> int:
     for lang, pages in PAGES.items():
         for filename, (title, body) in pages.items():

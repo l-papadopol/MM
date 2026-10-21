@@ -65,7 +65,7 @@ int main(int argc,char** argv) {
         require(settings.value("CW/decodeEngine").toString()=="neural_search","Neural R13 not saved");
         if (argc>1) window.grab().save(QString::fromLocal8Bit(argv[1])+"-cw.png");
         for (const auto& ftMode:{"FT8","FT4"}) {
-            mode->setCurrentText(ftMode);window.ui->sideTabWidget->setCurrentWidget(window.m_tabDx);settle();
+            mode->setCurrentText(ftMode);window.ui->sideTabWidget->setCurrentWidget(window.ui->tabModeSettings);settle();
             for (const auto& size:{QSize(1280,900),QSize(1600,1000),QSize(1024,768)}) {
                 window.resize(size);settle();checkClock(window);
                 if (argc>1 && size==QSize(1280,900)) window.grab().save(QString::fromLocal8Bit(argv[1])+"-"+ftMode+"-window.png");

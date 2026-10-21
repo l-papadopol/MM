@@ -4,6 +4,7 @@
 #include "runtime/WeakSignalTxPreparer.h"
 #include "logbook/CqWwRtty.h"
 #include "mainwindow.h"
+#include "MadModemBuildInfo.h"
 #include "MadModemVersion.h"
 #include "ui_mainwindow.h"
 
@@ -367,6 +368,7 @@ bool decodeTableSettingsChanged(const AppSettings &a, const AppSettings &b)
 constexpr int kFtRowRedOutlineRole = Qt::UserRole + 427;
 constexpr int kFtOriginalMessageRole = Qt::UserRole + 428;
 constexpr int kFtPresentationOnlyRole = Qt::UserRole + 429;
+constexpr int kFtDecodeRole = Qt::UserRole + 430;
 
 class FtDecodeRowDelegate final : public QStyledItemDelegate
 {
@@ -1618,7 +1620,7 @@ MainWindow::MainWindow(QWidget *parent)
     updateTxPreview();
     queueLogbookIndexRebuild();
 
-    // Keep mode controls usable on shorter displays; RX/TX and QRZ remain outside the scroll area.
+    // Keep mode controls scrollable; FT periods stay at the bottom of Mode.
     auto *modeScroll = new QScrollArea(ui->tabModeSettings);
     modeScroll->setObjectName(QStringLiteral("modeSettingsScroll"));
     modeScroll->setFrameShape(QFrame::NoFrame);
@@ -1630,21 +1632,21 @@ MainWindow::MainWindow(QWidget *parent)
     ui->modeTabLayout->insertWidget(qMax(0, modeIndex), modeScroll, 1);
 
     // Station information has its own page, leaving the Mode controls their height.
-    m_tabDx = new QWidget(ui->sideTabWidget);
-    m_tabDx->setObjectName(QStringLiteral("tabDx"));
-    auto *dxLayout = new QVBoxLayout(m_tabDx);
-    dxLayout->setContentsMargins(6, 6, 6, 6);
+    m_tabQrz = new QWidget(ui->sideTabWidget);
+    m_tabQrz->setObjectName(QStringLiteral("tabQrz"));
+    auto *qrzLayout = new QVBoxLayout(m_tabQrz);
+    qrzLayout->setContentsMargins(6, 6, 6, 6);
     const int rotatorIndex = ui->sideTabWidget->indexOf(m_tabCatRotator);
     ui->sideTabWidget->insertTab(rotatorIndex >= 0 ? rotatorIndex : ui->sideTabWidget->count(),
-                                m_tabDx, uiText("tab_dx", "DX"));
+                                m_tabQrz, uiText("tab_qrz", "QRZ"));
     if (m_grpFt8UtcClock != nullptr) {
         m_pageFt8Settings->layout()->removeWidget(m_grpFt8UtcClock);
-        m_grpFt8UtcClock->setParent(m_tabDx);
-        dxLayout->addWidget(m_grpFt8UtcClock, 0);
+        m_grpFt8UtcClock->setParent(ui->tabModeSettings);
+        ui->modeTabLayout->addWidget(m_grpFt8UtcClock, 0);
         updateFtUtcClockVisibility(ui->cmbMode->currentText());
     }
-    m_qrzLookupPanel = new QrzLookupPanel(m_tabDx);
-    dxLayout->addWidget(m_qrzLookupPanel, 1);
+    m_qrzLookupPanel = new QrzLookupPanel(m_tabQrz);
+    qrzLayout->addWidget(m_qrzLookupPanel, 1);
     auto refreshStation = [this] { refreshQrzStationPanel(); };
     for (auto *form : {m_rttyQsoForm, m_bpsk31QsoForm, m_mfskQsoForm, m_cwQsoForm, m_hellQsoForm, m_msk144QsoForm, m_q65QsoForm})
         if (form && form->callsign) connect(form->callsign, &QLineEdit::textChanged, this, [refreshStation](const QString&) { refreshStation(); });
@@ -1664,6 +1666,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
 
     appendLog("MM started.");
+    appendLog(QStringLiteral("MadModem %1 | build %2 | source %3 | commit %4").arg(QStringLiteral(MADMODEM_VERSION_STRING), QStringLiteral(MADMODEM_BUILD_NUMBER), QStringLiteral(MADMODEM_SOURCE_REVISION), QStringLiteral(MADMODEM_BUILD_COMMIT)));
     appendLog("Settings file: " + AppSettings::settingsFilePath());
     appendLog("Receiver is ready. Use Status → ▶ RX to start live decoding, or analyze a WAV test file from the mode panel.");
     updateMainStateButton();
@@ -1672,6 +1675,7 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     m_terminalHighlightTimer.stop();
+    m_ftCqWorkListTimer.stop();
     m_pendingTerminalHighlights.clear();
     shutdownRuntime("destructor");
     delete m_logbookStore; m_logbookStore = nullptr;
@@ -8624,7 +8628,7 @@ void MainWindow::setupFt8Page()
         << uiText("locator", "Locator") << uiText("bearing", "Bearing")
         << uiText("country", "Country"));
     m_tableFt8Rx->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_tableFt8Rx->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tableFt8Rx->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_tableFt8Rx->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_tableFt8Rx->verticalHeader()->setVisible(false);
     m_tableFt8Rx->horizontalHeader()->setStretchLastSection(true);
@@ -8741,7 +8745,7 @@ void MainWindow::setupFt8Page()
     // toggle in the hot path.
     m_chkFt8CqRepeat = new QCheckBox(uiText("ft8_cq_retry", "CQ retry"), controlGroup);
     m_chkFt8AutoLog = new QCheckBox(uiText("ft8_auto_log", "Auto log completed QSOs"), controlGroup);
-    m_chkFt8CallerQueue = new QCheckBox(uiText("ft8_queue_callers", "Manage queued callers"), controlGroup);
+    m_chkFt8CallerQueue = new QCheckBox(uiText("ft8_queue_callers", "Queue stations calling me"), controlGroup);
     m_chkFt8CallerQueue->setToolTip(uiText("ft8_queue_callers_tooltip",
         "Keeps stations that call you directly while another FT QSO is active in a FIFO queue. MM still transmits only one QSO at a time and automatically serves the next caller after completion."));
     m_lblFt8SessionQueue = new QLabel(controlGroup);
@@ -8793,6 +8797,30 @@ void MainWindow::setupFt8Page()
     controlGrid->addWidget(m_chkFt8FullAutoQso, 2, 4);
     controlGrid->addWidget(m_chkFt8CallerQueue, 3, 0, 1, 3);
     controlGrid->addWidget(m_lblFt8SessionQueue, 3, 3, 1, 3);
+    m_btnFtCqAdd = new QPushButton(uiText("ft_cq_list_add", "Add selected CQs"), controlGroup);
+    m_btnFtCqAdd->setObjectName(QStringLiteral("ftCqWorkListAdd"));
+    m_btnFtCqAdd->setToolTip(uiText("ft_cq_list_selection_help", "Select several CQ rows with Ctrl/Shift, then add them. Open the CQ list and press Start to work them one at a time."));
+    m_btnFtCqList = new QPushButton(controlGroup);
+    m_btnFtCqList->setObjectName(QStringLiteral("ftCqWorkListOpen"));
+    m_chkFtCqQueue = new QCheckBox(uiText("ft_cq_queue_enable", "Manage CQ queue"), controlGroup);
+    m_chkFtCqQueue->setObjectName(QStringLiteral("ftCqQueueEnable"));
+    m_chkFtCqQueue->setToolTip(uiText("ft_cq_queue_tooltip", "When enabled, double-clicks add stations to the CQ list without interrupting the current QSO. Press Start list to begin."));
+    controlGrid->addWidget(m_chkFtCqQueue, 4, 0, 1, 2);
+    controlGrid->addWidget(m_btnFtCqAdd, 4, 2, 1, 2);
+    controlGrid->addWidget(m_btnFtCqList, 4, 4, 1, 2);
+    connect(m_chkFtCqQueue, &QCheckBox::toggled, this, [this](bool enabled){
+        if (enabled) showFtCqWorkList();
+        else { m_ftCqWorkList.running=false; refreshFtCqWorkListUi(); }
+    });
+    connect(m_btnFtCqAdd, &QPushButton::clicked, this, &MainWindow::addSelectedFtCqsToWorkList);
+    connect(m_btnFtCqList, &QPushButton::clicked, this, &MainWindow::showFtCqWorkList);
+    m_ftCqWorkListTimer.setInterval(1000);
+    connect(&m_ftCqWorkListTimer, &QTimer::timeout, this, [this]{
+        processFtCqWorkList();
+        if(m_ftCqDialog && m_ftCqDialog->isVisible()) refreshFtCqWorkListUi();
+    });
+    m_ftCqWorkListTimer.start();
+    refreshFtCqWorkListUi();
     updateFt8SessionQueueUi();
     updateFt8EvilModeVisibility();
 
@@ -10431,9 +10459,9 @@ void MainWindow::applyUiLanguage()
             const int i = ui->sideTabWidget->indexOf(m_tabRttyContest);
             if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("rtty_contest", "Contest"));
         }
-        if (m_tabDx != nullptr) {
-            const int i = ui->sideTabWidget->indexOf(m_tabDx);
-            if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("tab_dx", "DX"));
+        if (m_tabQrz != nullptr) {
+            const int i = ui->sideTabWidget->indexOf(m_tabQrz);
+            if (i >= 0) ui->sideTabWidget->setTabText(i, uiText("tab_qrz", "QRZ"));
         }
         if (m_tabCatRotator != nullptr) {
             const int i = ui->sideTabWidget->indexOf(m_tabCatRotator);
@@ -10463,7 +10491,7 @@ void MainWindow::applyUiLanguage()
         m_cwDiagnosticWidget->retranslateUi();
     }
     if (m_chkFt8CallerQueue != nullptr) {
-        m_chkFt8CallerQueue->setText(uiText("ft8_queue_callers", "Manage queued callers"));
+        m_chkFt8CallerQueue->setText(uiText("ft8_queue_callers", "Queue stations calling me"));
         m_chkFt8CallerQueue->setToolTip(uiText("ft8_queue_callers_tooltip",
             "Keeps stations that call you directly while another FT QSO is active in a FIFO queue. MM still transmits only one QSO at a time and automatically serves the next caller after completion."));
     }
@@ -11177,6 +11205,7 @@ void MainWindow::setupUiConnections()
     if (m_cmbFt8Band != nullptr) {
         connect(m_cmbFt8Band, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, [this](int) {
+                    m_ftCqWorkList.clear(); refreshFtCqWorkListUi();
                     clearFt8DecodeList();
                     applyFt8Settings();
                     qsyRigToSelectedFtBand();
@@ -13195,6 +13224,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
     if (Ft8Mode::isFamilyMode(modeName)) {
         if (!m_ftCallerQueueMode.isEmpty() && m_ftCallerQueueMode != ftPerfModeName) {
             clearFt8CallerQueue(QStringLiteral("FT mode changed"));
+            m_ftCqWorkList.clear(); refreshFtCqWorkListUi();
         }
         m_ftCallerQueueMode = ftPerfModeName;
     } else {
@@ -13202,6 +13232,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
             clearFt8CallerQueue(QStringLiteral("left FT mode"));
         }
         m_ftCallerQueueMode.clear();
+        m_ftCqWorkList.clear(); refreshFtCqWorkListUi();
     }
     if (Ft8Mode::isFamilyMode(modeName) && m_ft8RecentLiveDecodeModeName != ftPerfModeName) {
         m_ft8RecentLiveDecodeMs.clear();
@@ -16338,6 +16369,11 @@ void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats
                       .arg(stats.coherentTailMs, 0, 'f', 1)
                       .arg(stats.replyArmDeadlineUtcMs - QDateTime::currentMSecsSinceEpoch()));
     }
+    if (!stats.offline) {
+        appendLog(QStringLiteral("%1 RX prepared during capture: %2 FFT windows, %3 tone values reused; %4 rows ready, %5 ms background preparation")
+                      .arg(stats.modeName).arg(stats.incrementalFftHits).arg(stats.incrementalToneHits)
+                      .arg(stats.incrementalPreparedRows).arg(stats.incrementalPreparationMs, 0, 'f', 1));
+    }
     m_lastFt8PerfStats = stats;
     m_haveFt8PerfStats = true;
 
@@ -17162,6 +17198,7 @@ void MainWindow::selectFt8OppositePeriodFromDecode(const Ft8RxDecoder::Decode &d
 
 bool MainWindow::canStartFt8FullAutoQsoNow() const
 {
+    if (m_ftCqWorkList.running) return false;
     if (!m_ft8EvilModeUnlocked || m_chkFt8FullAutoQso == nullptr || !m_chkFt8FullAutoQso->isChecked()) {
         return false;
     }
@@ -17396,19 +17433,25 @@ bool MainWindow::tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode, cons
     return queueFt8FullAutoCqCandidate(decode, logbookStatus);
 }
 
-bool MainWindow::startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &candidate)
+bool MainWindow::startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &candidate, bool fromCqWorkList)
 {
-    if (!candidate.valid || !canStartFt8FullAutoQsoNow()) {
+    const bool plannedAllowed = fromCqWorkList && m_ftCqWorkList.running &&
+        !m_ft8OperatorStopLatched && !m_offlineAnalysisActive && !m_shutdownInProgress && !m_runtimeShutdownComplete &&
+        Ft8Mode::isFamilyMode(ui->cmbMode->currentText()) &&
+        !m_ftSession.qsoActive && !m_ft8PendingTxArmed && !m_hasDeferredFt8TxPlan &&
+        !m_txRunning && !m_ftTxWorkerRunning &&
+        !(m_txAudioEngine && m_txAudioEngine->isRunning());
+    if (!candidate.valid || !(fromCqWorkList ? plannedAllowed : canStartFt8FullAutoQsoNow())) {
         return false;
     }
 
     const QString call = candidate.call.trimmed().toUpper();
     const QString grid = candidate.grid.trimmed().left(4).toUpper();
-    if (call.isEmpty() || FtDecodedText::callMatches(call, stationCallsign())) {
+    if (call.isEmpty() || isFtCallBlacklisted(call) || FtDecodedText::callMatches(call, stationCallsign())) {
         return false;
     }
 
-    if (m_chkFt8AutoLog != nullptr && !m_chkFt8AutoLog->isChecked()) {
+    if (!fromCqWorkList && m_chkFt8AutoLog != nullptr && !m_chkFt8AutoLog->isChecked()) {
         const QSignalBlocker blockAutoLog(m_chkFt8AutoLog);
         m_chkFt8AutoLog->setChecked(true);
         m_settings.ft8AutoLog = true;
@@ -17428,17 +17471,17 @@ bool MainWindow::startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &
     }
     if (candidate.decode.frequencyHz >= 100 && candidate.decode.frequencyHz <= 3000) {
         const int correspondentHz = qBound(100, candidate.decode.frequencyHz, 3000);
-        if (m_spinFt8TxFreq != nullptr) {
+        if (!fromCqWorkList && m_spinFt8TxFreq != nullptr) {
             const QSignalBlocker blockTx(m_spinFt8TxFreq);
             m_spinFt8TxFreq->setValue(qBound(m_spinFt8TxFreq->minimum(), correspondentHz, m_spinFt8TxFreq->maximum()));
             m_settings.ft8TxFrequencyHz = m_spinFt8TxFreq->value();
-        } else {
+        } else if (!fromCqWorkList) {
             m_settings.ft8TxFrequencyHz = correspondentHz;
         }
         applyFt8RuntimeFrequencySelection(correspondentHz,
-                                          QStringLiteral("AutoQSO selected CQ from %1; TX follows correspondent").arg(call),
-                                          false);
-        appendLog(QStringLiteral("FT AutoQSO frequency: TX marker moved to correspondent %1 at %2 Hz.")
+                                          QStringLiteral("Selected CQ from %1").arg(call),
+                                          fromCqWorkList);
+        if (!fromCqWorkList) appendLog(QStringLiteral("FT AutoQSO frequency: TX marker moved to correspondent %1 at %2 Hz.")
                       .arg(call)
                       .arg(m_settings.ft8TxFrequencyHz));
     }
@@ -17473,11 +17516,12 @@ bool MainWindow::startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &
         startFt8RxShell();
     }
 
-    appendLog(QString("FT FULL AUTO QSO: answering prioritized CQ from %1 %2 at %3 Hz with %4 [%5].")
+    appendLog(QString("FT CQ: answering selected CQ from %1 %2 at %3 Hz with %4 [%5].")
                   .arg(call, grid.isEmpty() ? QStringLiteral("--") : grid)
                   .arg(candidate.decode.frequencyHz)
                   .arg(answer, candidate.priorityText));
-    scheduleFt8SequencerMessage(answer, QStringLiteral("AUTO"));
+    if (fromCqWorkList) appendLog(QStringLiteral("FT CQ list: fresh CQ confirmed, calling %1 via the normal sequencer.").arg(call));
+    scheduleFt8SequencerMessage(answer, fromCqWorkList ? QStringLiteral("CQ-LIST") : QStringLiteral("AUTO"));
     return true;
 }
 
@@ -17523,6 +17567,7 @@ void MainWindow::startFt8CqRepeat()
 
 void MainWindow::stopFt8Sequencer(const QString &reason)
 {
+    if (m_ft8OperatorStopLatched) { m_ftCqWorkList.running = false; refreshFtCqWorkListUi(); }
     m_ftSession.resetAll();
     if (m_ft8RxDecoder != nullptr) {
         QMetaObject::invokeMethod(m_ft8RxDecoder, "setQsoDeadlineActive", Qt::QueuedConnection, Q_ARG(bool, false));
@@ -18282,6 +18327,11 @@ void MainWindow::handleFt8QsoHistoryDoubleClicked(QTableWidgetItem *item)
 
 void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
 {
+    if (!m_ft8SelectionOnly && m_chkFtCqQueue && m_chkFtCqQueue->isChecked()) {
+        addFtDecodeToCqWorkList(item, false);
+        refreshFtCqWorkListUi();
+        return;
+    }
     m_ft8OperatorStopLatched = false;
     if (item == nullptr || m_tableFt8Rx == nullptr) {
         return;
@@ -19037,6 +19087,7 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
         slotStartUtcMs == m_ftSession.retryReplySlotUtcMs) {
         finishFt8ResponseWait(m_ftSession.retryGeneration, slotStartUtcMs);
     }
+    processFtCqWorkList();
     if (!m_ft8FullAutoCqCandidates.isEmpty()) {
         m_ft8FullAutoCqSelectionTimer.stop();
         processFt8FullAutoCqCandidates();
@@ -19076,6 +19127,12 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 
     const QString myCall = stationCallsign();
     const ParsedFt8Message parsed = parseFt8MessageText(decode.message, myCall);
+    if (!presentationOnly && !m_ftCqWorkList.entries.isEmpty()) {
+        const QString heard = parsed.cq ? ft8CqCallsignFromMessage(parsed) : parsed.senderCall;
+        m_ftCqWorkList.observe(heard.trimmed().toUpper(), parsed.cq, decode,
+            ui->cmbMode->currentText().trimmed().toUpper(),
+            m_cmbFt8Band ? m_cmbFt8Band->currentText().trimmed().toLower() : m_settings.ft8Band);
+    }
     const bool directReplyToMe = isFt8DirectReplyToMyCall(parsed, myCall);
     const bool cqMessage = parsed.cq;
     QString workedCall = parsed.senderCall;
@@ -19278,6 +19335,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
         if (utcItem->text() == decode.utc &&
             compareMessage == decode.message.trimmed().toUpper() &&
             qAbs(freqItem->text().toInt() - decode.frequencyHz) <= 12) {
+            msgItem->setData(kFtDecodeRole, QVariant::fromValue(decode));
             const bool wasPresentation = msgItem->data(kFtPresentationOnlyRole).toBool();
             if (!presentationOnly) {
                 msgItem->setData(kFtPresentationOnlyRole, false);
@@ -19331,6 +19389,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     if (!items.isEmpty()) {
         if (QTableWidgetItem *messageItem = items.value(4, nullptr)) {
             messageItem->setData(kFtOriginalMessageRole, decode.message.trimmed().toUpper());
+            messageItem->setData(kFtDecodeRole, QVariant::fromValue(decode));
             messageItem->setData(kFtPresentationOnlyRole, presentationOnly);
         }
         if (newCountryForLog) {

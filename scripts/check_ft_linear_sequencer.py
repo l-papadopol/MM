@@ -87,9 +87,9 @@ clock_setup_start = main.index("void MainWindow::setupFt8Page")
 clock_setup_end = main.index("void MainWindow::setupProcessingConnections", clock_setup_start)
 clock_setup = main[clock_setup_start:clock_setup_end]
 require("settingsLayout->addWidget(clockGroup)" in clock_setup and
-        "m_grpFt8UtcClock->setParent(m_tabDx)" in main and
-        "dxLayout->addWidget(m_grpFt8UtcClock, 0)" in main,
-        "FT8/FT4 period clock is in DX outside the Mode settings scroll area")
+        "m_grpFt8UtcClock->setParent(ui->tabModeSettings)" in main and
+        "ui->modeTabLayout->addWidget(m_grpFt8UtcClock, 0)" in main,
+        "FT8/FT4 periods are at the bottom of Mode outside the scroll area")
 require("statusTabLayout->insertWidget" not in clock_setup,
         "FT period clock is no longer placed in the Status tab")
 require("m_lblFt8PeriodStatus" not in main + main_h and "utcCaption" not in clock_setup,

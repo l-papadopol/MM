@@ -27,6 +27,7 @@
 #include "modems/hell/HellschreiberDecoder.h"
 #include "modems/ft8/Ft8Mode.h"
 #include "modems/ft8/Ft8RxDecoder.h"
+#include "modems/ft8/FtCqWorkList.h"
 #include "modems/ft8/FtSlotScheduler.h"
 #include "modems/ft8/FtQsoSequencer.h"
 #include "modems/ft8/FtQsoSession.h"
@@ -775,6 +776,11 @@ private slots:
     void removeFt8QueuedCaller(const QString &call);
     void clearFt8CallerQueue(const QString &reason = QString());
     void updateFt8SessionQueueUi();
+    bool addFtDecodeToCqWorkList(QTableWidgetItem *item, bool cqOnly);
+    void addSelectedFtCqsToWorkList();
+    void showFtCqWorkList();
+    void refreshFtCqWorkListUi();
+    void processFtCqWorkList();
 
     /**
      * @brief Starts a supervised WSJT-Z-style full-auto answer to a decoded CQ when enabled.
@@ -975,7 +981,7 @@ private:
     /**
      * @brief Starts the actual FT QSO after priority selection has chosen a candidate.
      */
-    bool startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &candidate);
+    bool startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &candidate, bool fromCqWorkList = false);
 
     void setupBandSchedulerTab();
     void updateBandSchedulerTabForMode(const QString &modeName);
@@ -2093,6 +2099,12 @@ private:
         QDateTime lastSeenUtc;
     };
     QVector<Ft8QueuedCaller> m_ft8CallerQueue;
+    QCheckBox *m_chkFtCqQueue = nullptr;
+    FtCqWorkList m_ftCqWorkList;
+    QTimer m_ftCqWorkListTimer;
+    QDialog *m_ftCqDialog = nullptr;
+    QTableWidget *m_ftCqTable = nullptr;
+    QPushButton *m_btnFtCqAdd = nullptr, *m_btnFtCqList = nullptr, *m_btnFtCqRun = nullptr;
     int m_ftSessionQsoCount = 0;
     QString m_ftCallerQueueMode;
     QWidget *m_tabBandScheduler = nullptr;
@@ -2277,7 +2289,7 @@ private:
     bool m_rxStopPending = false;
     quint64 m_audioInputRequest = 0;
     std::function<void()> m_audioStopCompletion;
-    QWidget *m_tabDx = nullptr;
+    QWidget *m_tabQrz = nullptr;
     QrzLookupPanel *m_qrzLookupPanel = nullptr;
     bool m_txRunning = false;
     bool m_offlineAnalysisActive = false;

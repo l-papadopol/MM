@@ -386,6 +386,7 @@ endif()
 
 add_executable(MadModem
     main.cpp
+    FtCqWorkListUi.cpp
     mainwindow.cpp
     updates/UpdateController.cpp updates/UpdateController.h
     callsign/QrzLookupPanel.cpp callsign/QrzLookupPanel.h widgets/FrequencyScaleTicks.h
@@ -1024,6 +1025,11 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(madmodem_ft_cq_worklist tests/FtCqWorkListRegression.cpp)
+    target_include_directories(madmodem_ft_cq_worklist PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(madmodem_ft_cq_worklist PRIVATE ${QT}::Core)
+    set_target_properties(madmodem_ft_cq_worklist PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME madmodem_ft_cq_worklist COMMAND madmodem_ft_cq_worklist)
     add_executable(madmodem_ft_incremental_producer tests/FtIncrementalProducerRegression.cpp)
     target_include_directories(madmodem_ft_incremental_producer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(madmodem_ft_incremental_producer PRIVATE ${QT}::Core Threads::Threads)

@@ -2229,6 +2229,11 @@ for _key, _translations in PUBLISHED_UPDATE_KEYS.items():
     for _lang, _value in _translations.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
+from ft_cq_worklist_i18n import KEYS as FT_CQ_WORKLIST_KEYS
+for _key, _translations in FT_CQ_WORKLIST_KEYS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

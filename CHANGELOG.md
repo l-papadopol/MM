@@ -1,5 +1,14 @@
 # MadModem changelog
 
+## 0.6.4 source R13 — continuous FT capture, QRZ page and selected CQ worklist
+
+- Keep FT period bars and UTC at the bottom of Mode; dedicate the QRZ tab to station information.
+- Replace capture-side blocking profile reads with an atomic FT8/FT4 period snapshot while preserving serialized decoder configuration and all DSP search/FEC limits.
+- Include the on-air log analysis, show source/build identity at startup and record FFT/tone reuse in live diagnostics.
+- Clarify the existing incoming-caller FIFO and add a separate operator-selected CQ worklist. Ctrl/Shift selects CQ rows; adding targets prepares a list; Start/Pause controls execution through the existing sequencer.
+- Require a fresh canonical CQ observation for the next target, skip directed/busy or absent stations, respect full-frame automatic timing and preserve one QSO at a time. STOP pauses the list; band/mode changes clear it.
+- Preserve CW Native R12 / Neural R13, incoming caller behavior, QRZ settings, R12 incremental analysis and Linux update fixes.
+
 ## 0.6.4 source R12 — incremental FT receive, DX sidebar and Linux updates
 
 - Prepare exact FT8 FFT rows and FT4 synchronization-tone energies in a separate worker as capture arrives; reuse only validated original-audio windows, retain ordinary fallback and recompute modified SIC/drift audio.
