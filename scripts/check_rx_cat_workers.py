@@ -9,7 +9,7 @@ gate=(root/'runtime/AsyncCatCommand.h').read_text(encoding='utf-8')
 assert 'm_rxDecoderWorker->moveToThread(m_rxDecoderThread)' in main
 assert 'm_rxDecoderWorker->queue(),&BoundedAudioDispatcher::enqueue,Qt::DirectConnection' in main
 assert not re.search(r'm_(?:rtty|rttyMulti|cw|bpsk31|mfsk|hell|weatherFax|sstv|msk144)Decoder->',main), 'GUI must use queued commands or immutable snapshots'
-assert 'm_continuity.accept(block)' in worker and 'if (dropped) { resetActive();' in worker
+assert 'm_continuity.accept(block)' in worker and 'if (dropped) { m_radioPower.markGap(); resetActive();' in worker
 assert 'reversePolarityRequested' not in worker, 'Obsolete automatic RTTY polarity wiring remains'
 assert 'invokeRigPttBlocking' not in main and 'invokeRigBeginFtSplitBlocking' not in main
 cat=main[main.index('void MainWindow::requestRigPtt'):main.index('bool MainWindow::requestAudioInputStart')]

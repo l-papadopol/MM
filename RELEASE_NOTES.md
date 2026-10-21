@@ -1,5 +1,13 @@
 # MadModem 0.6.4
 
+### R16 — ricezione Hellschreiber
+
+Feld Hell usa un filtro più selettivo e tempi DSP uniformi fra sample rate. FSK-105 distingue i toni con un discriminatore di frequenza e conserva il segnale durante trasmissioni continue, correggendo la crescita della stima di rumore. Confronto sintetico con R15, prove e limiti in `docs/architecture/RELEASE_0_6_4_R16.md`.
+
+### R14 — trasporto audio RX
+
+Q65 e Radio Telescope ora raccolgono/elaborano l’audio indipendentemente rispettivamente dal job di decodifica e dalla GUI. Le code mantengono contatori verificabili e segnalano le perdite. MSK144 interrompe la ricerca in corso quando viene resettato o chiuso. Vedere `docs/architecture/RELEASE_0_6_4_R14.md` per prove e limiti.
+
 FT periods and UTC are now at the bottom of Mode; the QRZ tab contains station information. Select CQ rows with Ctrl/Shift and use Add selected CQs to prepare a worklist. Start works one selected station at a time after a fresh CQ check; Pause lets the current QSO finish, and STOP stops TX and pauses the list. The separate incoming caller queue remembers stations calling your callsign.
 
 FT capture profile reads use an atomic period snapshot so they can continue while the decoder owns its configuration lock. Search thresholds, passes, FEC and TX timing limits are preserved. Live logs now identify the source/build and report prepared FFT/tone reuse.

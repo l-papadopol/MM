@@ -432,6 +432,7 @@ void WeatherFaxDecoder::resetDemodulatorState()
 {
     m_oscCos = 1.0;
     m_oscSin = 0.0;
+    m_iqFilter.reset();
     m_demodI = 0.0;
     m_demodQ = 0.0;
     m_prevDemodI = 0.0;
@@ -448,21 +449,19 @@ void WeatherFaxDecoder::updateDemodulatorCoefficients()
     if (m_sampleRate <= 0) {
         m_oscIncCos = 1.0;
         m_oscIncSin = 0.0;
-        m_demodAlpha = 0.20;
         return;
     }
 
     const double toneSpanHz = qMax(100.0, m_whiteHz - m_blackHz);
-    const double lowPassCutoffHz = qBound(250.0, toneSpanHz * 0.55, 600.0);
+    // Retain the FM deviation and video detail, reject the negative-frequency
+    // mixing image before phase differentiation. No look-ahead or block latency.
+    m_iqFilter.configure(m_sampleRate, qBound(600.0, toneSpanHz, 1100.0));
     const double phaseIncrement =
         (2.0 * M_PI * m_demodCenterHz) / static_cast<double>(m_sampleRate);
 
     m_oscIncCos = qCos(phaseIncrement);
     m_oscIncSin = qSin(phaseIncrement);
 
-    m_demodAlpha = 1.0 - qExp((-2.0 * M_PI * lowPassCutoffHz) /
-                              static_cast<double>(m_sampleRate));
-    m_demodAlpha = qBound(0.02, m_demodAlpha, 0.95);
 }
 
 
@@ -550,11 +549,11 @@ void WeatherFaxDecoder::appendDemodulatedSample(float sample)
     m_dcEstimate += 0.0005 * (static_cast<double>(sample) - m_dcEstimate);
     const double centeredSample = static_cast<double>(sample) - m_dcEstimate;
 
-    const double mixedI = centeredSample * m_oscCos;
-    const double mixedQ = centeredSample * (-m_oscSin);
-
-    m_demodI += m_demodAlpha * (mixedI - m_demodI);
-    m_demodQ += m_demodAlpha * (mixedQ - m_demodQ);
+    double mixedI = centeredSample * m_oscCos;
+    double mixedQ = centeredSample * (-m_oscSin);
+    m_iqFilter.process(mixedI, mixedQ);
+    m_demodI = mixedI;
+    m_demodQ = mixedQ;
 
     double frequencyHz = m_lastDemodFrequencyHz;
 
@@ -563,10 +562,9 @@ void WeatherFaxDecoder::appendDemodulatedSample(float sample)
                              (m_prevDemodQ * m_demodI);
         const double dot = (m_prevDemodI * m_demodI) +
                            (m_prevDemodQ * m_demodQ);
-        const double amplitude = qSqrt((m_demodI * m_demodI) +
-                                       (m_demodQ * m_demodQ));
+        const double amplitudeSquared = (m_demodI * m_demodI) + (m_demodQ * m_demodQ);
 
-        if (amplitude > 1.0e-5 && qAbs(dot) + qAbs(cross) > 1.0e-12) {
+        if (amplitudeSquared > 1.0e-10 && qAbs(dot) + qAbs(cross) > 1.0e-12) {
             const double deltaPhase = qAtan2(cross, dot);
             const double rawFrequencyHz =
                 m_demodCenterHz +
@@ -592,11 +590,12 @@ void WeatherFaxDecoder::appendDemodulatedSample(float sample)
     m_oscCos = nextCos;
     m_oscSin = nextSin;
 
-    const double norm = qSqrt((m_oscCos * m_oscCos) + (m_oscSin * m_oscSin));
-
-    if (norm > 0.0 && (m_frequencyBuffer.size() % 4096) == 0) {
-        m_oscCos /= norm;
-        m_oscSin /= norm;
+    if ((m_frequencyBuffer.size() % 4096) == 0) {
+        const double norm = std::hypot(m_oscCos, m_oscSin);
+        if (norm > 0.0) {
+            m_oscCos /= norm;
+            m_oscSin /= norm;
+        }
     }
 
     m_frequencyBuffer.append(frequencyHz);
@@ -1171,7 +1170,9 @@ WeatherFaxDecoder::DecodedLine WeatherFaxDecoder::decodeLineFromBuffer() const
             currentGray = rawGray;
             hasLocalGray = true;
         } else {
-            const double alpha = 0.55;
+            // I/Q filtering already removes the mixing image. Retain more
+            // horizontal detail instead of smoothing narrow map features twice.
+            const double alpha = 0.75;
             currentGray = qBound(
                 0,
                 static_cast<int>(

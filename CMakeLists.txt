@@ -1086,6 +1086,11 @@ if(BUILD_TESTING)
     target_link_libraries(madmodem_wav_reader_test PRIVATE ${QT}::Core)
     add_test(NAME madmodem_wav_reader_test COMMAND madmodem_wav_reader_test)
 
+    add_executable(madmodem_audio_flow_accounting tests/AudioFlowAccountingRegression.cpp audio/BoundedAudioDispatcher.cpp audio/BoundedAudioDispatcher.h)
+    target_include_directories(madmodem_audio_flow_accounting PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_audio_flow_accounting PRIVATE ${QT}::Core)
+    add_test(NAME madmodem_audio_flow_accounting COMMAND madmodem_audio_flow_accounting)
+
     add_executable(madmodem_q65_native_regression
         tests/Q65NativeRegression.cpp
     )
@@ -1364,4 +1369,25 @@ if(BUILD_TESTING)
     add_executable(madmodem_installer_cpu_regression tests/InstallerCpuRegression.cpp)
     set_target_properties(madmodem_installer_cpu_regression PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
     add_test(NAME madmodem_installer_cpu_regression COMMAND madmodem_installer_cpu_regression)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(madmodem_hell_image_regression
+        tests/HellschreiberImageRegression.cpp
+        modems/hell/HellschreiberDecoder.cpp)
+    target_include_directories(madmodem_hell_image_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_hell_image_regression PRIVATE ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_hell_image_regression COMMAND madmodem_hell_image_regression)
+    add_test(NAME madmodem_hell_image_extended COMMAND madmodem_hell_image_regression --extended)
+    set_tests_properties(madmodem_hell_image_regression madmodem_hell_image_extended PROPERTIES TIMEOUT 90)
+
+    add_executable(madmodem_weatherfax_image_regression
+        tests/WeatherFaxImageRegression.cpp
+        modems/weatherfax/WeatherFaxDecoder.cpp modems/weatherfax/WeatherFaxDecoder.h
+        modems/weatherfax/WeatherFaxIqFilter.h dsp/FrequencyTracker.cpp)
+    target_include_directories(madmodem_weatherfax_image_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_weatherfax_image_regression PRIVATE ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_weatherfax_image_regression COMMAND madmodem_weatherfax_image_regression)
+    add_test(NAME madmodem_weatherfax_image_extended COMMAND madmodem_weatherfax_image_regression --extended)
+    set_tests_properties(madmodem_weatherfax_image_regression madmodem_weatherfax_image_extended PROPERTIES TIMEOUT 30)
 endif()

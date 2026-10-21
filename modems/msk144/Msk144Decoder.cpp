@@ -454,6 +454,7 @@ void Msk144Decoder::tryPeriodDecode(bool force)
 
             Msk144Decoder worker;
             worker.m_asyncDecodeEnabled = false;
+            worker.m_cancelDecode=[this,generation]{return generation!=m_decodeGeneration.load(std::memory_order_acquire);};
             worker.m_samples12k = samples;
             worker.m_periodStartUtc = periodStartUtc;
             worker.m_periodSeconds = periodSeconds;
@@ -539,6 +540,7 @@ void Msk144Decoder::tryPeriodDecodeSync(bool force)
     // budgets therefore cover the whole period without spending LDPC work on
     // arbitrary high-energy offsets.
     for (int region = 0; region < regions; ++region) {
+        if(m_cancelDecode && m_cancelDecode())return;
         const int begin = region * regionSize;
         const int end = qMin(n - kFrameSamples, (region + 1) * regionSize - 1);
         if (begin > end) break;
@@ -617,6 +619,7 @@ void Msk144Decoder::tryPeriodDecodeSync(bool force)
                     const int localEnd = qMin(n - frameSamples, coarseStart + kFrameSamples / 2);
                     QVector<Candidate> syncScores;
                     for (int start = localBegin; start <= localEnd; start += timeStep) {
+                        if(m_cancelDecode && m_cancelDecode())return;
                         const double sync = frameSyncMetricAt(start, frameSamples,
                                                               refinedFrequency.frequencyHz, shortFrame);
                         syncScores.append(Candidate{start, refinedFrequency.frequencyHz, sync, shortFrame});
@@ -667,6 +670,7 @@ void Msk144Decoder::tryPeriodDecodeSync(bool force)
     std::set<QString> seen;
     Msk144Decode d;
     for (const Candidate &c : candidates) {
+        if(m_cancelDecode && m_cancelDecode())return;
         ++attempts;
         d = Msk144Decode{};
         const bool decodeSucceeded = c.shortFrame

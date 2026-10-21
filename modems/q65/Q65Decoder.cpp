@@ -12,9 +12,48 @@ Q65Decoder::Q65Decoder(QObject *parent)
     qRegisterMetaType<Q65Decode>("Q65Decode");
     m_resampler.configure(kInternalRate);
     reset();
+    m_decodeThread=std::thread([this]{decodeLoop();});
 }
 
-Q65Decoder::~Q65Decoder() = default;
+Q65Decoder::~Q65Decoder()
+{
+    m_decodeGeneration.fetch_add(1);
+    {std::lock_guard<std::mutex> lock(m_jobsMutex);m_stopDecode=true;m_jobs.clear();}
+    m_jobsAvailable.notify_one();
+    if(m_decodeThread.joinable())m_decodeThread.join();
+}
+
+void Q65Decoder::invalidateDecode()
+{
+    m_decodeGeneration.fetch_add(1,std::memory_order_acq_rel);
+    std::lock_guard<std::mutex> lock(m_jobsMutex);m_jobs.clear();
+}
+
+void Q65Decoder::decodeLoop()
+{
+    // This thread alone owns averaging and the native engine. Capture only
+    // submits immutable periods; decoding never holds the collection thread.
+    Q65NativeEngine engine;quint64 engineGeneration=0;
+    for(;;){
+        DecodeJob job;
+        {std::unique_lock<std::mutex> lock(m_jobsMutex);
+         m_jobsAvailable.wait(lock,[this]{return m_stopDecode||!m_jobs.empty();});
+         if(m_stopDecode)return;
+         job=std::move(m_jobs.front());m_jobs.pop_front();}
+        if(job.generation!=m_decodeGeneration.load(std::memory_order_acquire))continue;
+        if(engineGeneration!=job.generation){engine.clearAverages();engineGeneration=job.generation;}
+        try {
+            auto results=engine.decode(job.samples,job.periodId,job.config);
+            const int usable=engine.usableAverageCount(),all=engine.allAverageCount();
+            QMetaObject::invokeMethod(this,[this,job,results,usable,all]{
+                if(job.generation==m_decodeGeneration.load(std::memory_order_acquire))publishDecode(job,results,usable,all);
+            },Qt::QueuedConnection);
+        } catch(...) {
+            QMetaObject::invokeMethod(this,[this,job]{if(job.generation==m_decodeGeneration.load())emit statusChanged(QStringLiteral("Q65 decode failed; audio collection remains active."));},Qt::QueuedConnection);
+            engine.clearAverages();
+        }
+    }
+}
 
 void Q65Decoder::setPeriodSeconds(int seconds)
 {
@@ -34,7 +73,7 @@ void Q65Decoder::setSubmode(Q65Mode::Submode submode)
     m_submode = submode;
     m_rxFrequencyHz = qBound(Q65Mode::minimumBaseToneHz(m_submode, m_periodSeconds), m_rxFrequencyHz,
                              Q65Mode::maximumBaseToneHz(m_submode, m_periodSeconds));
-    m_engine.clearAverages();
+    invalidateDecode();
 }
 void Q65Decoder::setRxFrequencyHz(int hz)
 {
@@ -72,7 +111,7 @@ void Q65Decoder::reset()
     m_lastInputEndUtcNs = 0;
     m_captureGeneration = 0;
     m_periodTimelineValid = false;
-    m_engine.clearAverages();
+    invalidateDecode();
     m_avgUsable = 0;
     m_avgAll = 0;
     m_lastStatus.clear();
@@ -82,7 +121,7 @@ void Q65Decoder::reset()
 
 void Q65Decoder::clearAverages()
 {
-    m_engine.clearAverages();
+    invalidateDecode();
     m_avgUsable = 0;
     m_avgAll = 0;
     emit averageStatusChanged(m_avgUsable, m_avgAll);
@@ -135,7 +174,7 @@ void Q65Decoder::appendResampledTo12k(const AudioBlock &block)
         m_nextOutputUtcNs = 0;
         m_outputTimeRemainder = 0;
         m_periodTimelineValid = false;
-        m_engine.clearAverages();
+        invalidateDecode();
     }
     if (block.captureGeneration != 0) m_captureGeneration = block.captureGeneration;
 
@@ -211,28 +250,38 @@ void Q65Decoder::tryPeriodDecode(bool force)
     configuration.dxCall = m_dxCall;
     configuration.dxGrid = m_dxGrid;
 
-    const QVector<Q65NativeEngine::Result> results =
-        m_engine.decode(m_samples12k, m_currentPeriodId, configuration);
+    DecodeJob job;job.samples=m_samples12k;job.periodId=m_currentPeriodId;
+    job.start=m_periodStartUtc;job.secondsBuffered=secondsBuffered;job.config=configuration;
+    job.generation=m_decodeGeneration.load(std::memory_order_acquire);
+    bool accepted=false;
+    {std::lock_guard<std::mutex> lock(m_jobsMutex);
+     if(!m_stopDecode&&m_jobs.size()<2){m_jobs.push_back(std::move(job));accepted=true;}}
+    if(accepted)m_jobsAvailable.notify_one();
+    else emit statusChanged(QStringLiteral("Q65 decode backlog full: complete period not decoded; audio collection continues."));
+}
+
+void Q65Decoder::publishDecode(const DecodeJob &job, const QVector<Q65NativeEngine::Result> &results, int usable, int all)
+{
     for (const Q65NativeEngine::Result &result : results) {
         Q65Decode decode;
-        decode.utc = m_periodStartUtc.addMSecs(qRound64(result.dtSeconds * 1000.0));
+        decode.utc = job.start.addMSecs(qRound64(result.dtSeconds * 1000.0));
         decode.dtSeconds = result.dtSeconds;
         decode.snrDb = qBound(-50, qRound(result.snrDb), 49);
         decode.frequencyHz = result.frequencyHz;
-        decode.dfHz = qRound(result.frequencyHz - m_rxFrequencyHz);
+        decode.dfHz = qRound(result.frequencyHz - job.config.rxFrequencyHz);
         decode.message = result.message;
         decode.averageCount = result.averageCount;
-        decode.submode = submodeName();
+        decode.submode = Q65Mode::modeName(job.config.submode);
         emit decoded(decode);
     }
 
-    m_avgUsable = m_engine.usableAverageCount();
-    m_avgAll = m_engine.allAverageCount();
+    m_avgUsable = usable;
+    m_avgAll = all;
     emit averageStatusChanged(m_avgUsable, m_avgAll);
     const QString status = QStringLiteral("%1 native period: %2/%3 s, %4 decode(s), avg %5/%6")
-                               .arg(submodeName())
-                               .arg(secondsBuffered)
-                               .arg(m_periodSeconds)
+                               .arg(Q65Mode::modeName(job.config.submode))
+                               .arg(job.secondsBuffered)
+                               .arg(job.config.periodSeconds)
                                .arg(results.size())
                                .arg(m_avgUsable)
                                .arg(m_avgAll);

@@ -1,0 +1,652 @@
+{
+  "revision": "0.6.4-source-r14-all-mode-audio-continuity",
+  "real_rate_cases": [
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "CW-native",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "CW-neural",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "RTTY",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "RTTY-skimmer",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "PSK31",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MFSK16",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MFSK32",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "FeldHell",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "FSK105",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "SSTV",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "WEFAX",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MSK144",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "Radio Telescope",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 44100,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "CW-native",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "CW-neural",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "RTTY",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "RTTY-skimmer",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "PSK31",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MFSK16",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MFSK32",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "FeldHell",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "FSK105",
+      "pass": true,
+      "peak_pending": 2,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "SSTV",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "WEFAX",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 800,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MSK144",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 800
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "Radio Telescope",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 48000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "CW-native",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "CW-neural",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "RTTY",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "RTTY-skimmer",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "PSK31",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MFSK16",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MFSK32",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "FeldHell",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "FSK105",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "SSTV",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "WEFAX",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "MSK144",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    },
+    {
+      "blocks": 150,
+      "cleared": 0,
+      "cw_band_overloads": 0,
+      "dropped": 0,
+      "gui_events_processed": false,
+      "mode": "Radio Telescope",
+      "pass": true,
+      "peak_pending": 1,
+      "sample_rate": 96000,
+      "taken": 150
+    }
+  ],
+  "real_rate_summary": {
+    "cases": 39,
+    "blocks_enqueued": 6500,
+    "blocks_taken": 6500,
+    "dropped": 0,
+    "cleared": 0,
+    "gui_event_loop_running": false,
+    "max_pending_blocks": 2,
+    "conditions": "Linux Qt5; 1024 mono samples per block at 44100/48000/96000 Hz; DSP enabled, primary/secondary CW and band skimmer, 16 RTTY tracks, generated SSTV/WEFAX audio, full MSK Deep period at 48k. Family transport validation, not all subprotocol sensitivity or hardware validation."
+  },
+  "capture_framing": [
+    {
+      "blocks": 10,
+      "channels": 1,
+      "exact_pcm_and_sequence": true,
+      "sample_rate": 44100
+    },
+    {
+      "blocks": 10,
+      "channels": 2,
+      "exact_pcm_and_sequence": true,
+      "sample_rate": 44100
+    },
+    {
+      "blocks": 10,
+      "channels": 1,
+      "exact_pcm_and_sequence": true,
+      "sample_rate": 48000
+    },
+    {
+      "blocks": 10,
+      "channels": 2,
+      "exact_pcm_and_sequence": true,
+      "sample_rate": 48000
+    },
+    {
+      "blocks": 10,
+      "channels": 1,
+      "exact_pcm_and_sequence": true,
+      "sample_rate": 96000
+    },
+    {
+      "blocks": 10,
+      "channels": 2,
+      "exact_pcm_and_sequence": true,
+      "sample_rate": 96000
+    }
+  ],
+  "ft_collection_under_lock": [
+    {
+      "accepted": 100,
+      "capture_call_max_ms": 1.546728,
+      "collection_ms": 749,
+      "dropped": 0,
+      "expected_blocking": false,
+      "mode": "FT8",
+      "sequence_gaps": 0
+    },
+    {
+      "accepted": 100,
+      "capture_call_max_ms": 0.148563,
+      "collection_ms": 750,
+      "dropped": 0,
+      "expected_blocking": false,
+      "mode": "FT4",
+      "sequence_gaps": 0
+    }
+  ],
+  "q65_contention_control": [
+    {
+      "blocking_control": true,
+      "dropped": 36,
+      "enqueued": 100,
+      "max_collection_ms": 0.861195,
+      "pass": true,
+      "peak_pending": 64,
+      "taken": 64
+    },
+    {
+      "blocking_control": false,
+      "dropped": 0,
+      "enqueued": 100,
+      "max_collection_ms": 2.043845,
+      "pass": true,
+      "peak_pending": 1,
+      "taken": 100
+    }
+  ],
+  "q65_async_exact_results": [
+    {
+      "exact_results": true,
+      "max_collection_ms": 0.543639,
+      "messages": 1,
+      "mode": "Q65A",
+      "repeat": 0,
+      "submit_ms": 0.023485
+    },
+    {
+      "exact_results": true,
+      "max_collection_ms": 0.971853,
+      "messages": 1,
+      "mode": "Q65A",
+      "repeat": 1,
+      "submit_ms": 0.014552
+    },
+    {
+      "exact_results": true,
+      "max_collection_ms": 0.834196,
+      "messages": 1,
+      "mode": "Q65B",
+      "repeat": 0,
+      "submit_ms": 0.017987
+    },
+    {
+      "exact_results": true,
+      "max_collection_ms": 0.834196,
+      "messages": 1,
+      "mode": "Q65B",
+      "repeat": 1,
+      "submit_ms": 0.015984
+    },
+    {
+      "exact_results": true,
+      "max_collection_ms": 0.725872,
+      "messages": 1,
+      "mode": "Q65C",
+      "repeat": 0,
+      "submit_ms": 0.015934
+    },
+    {
+      "exact_results": true,
+      "max_collection_ms": 0.725872,
+      "messages": 1,
+      "mode": "Q65C",
+      "repeat": 1,
+      "submit_ms": 0.020541
+    },
+    {
+      "exact_results": true,
+      "max_collection_ms": 2.422156,
+      "messages": 1,
+      "mode": "Q65D",
+      "repeat": 0,
+      "submit_ms": 0.017967
+    },
+    {
+      "exact_results": true,
+      "max_collection_ms": 2.422156,
+      "messages": 1,
+      "mode": "Q65D",
+      "repeat": 1,
+      "submit_ms": 0.017076
+    }
+  ],
+  "ctest": "10/10 PASS",
+  "cq_and_appearance_gui": "PASS FT8 and FT4",
+  "unchanged_welch_function_bodies": true,
+  "msk_original_algorithm_restored_by_only_removing_cancellation_lines": true,
+  "existing_modem_files_changed": [
+    "modems/ft8/Ft8RxDecoder.h",
+    "modems/msk144/Msk144Decoder.cpp",
+    "modems/msk144/Msk144Decoder.h",
+    "modems/q65/Q65Decoder.cpp",
+    "modems/q65/Q65Decoder.h"
+  ],
+  "limitations": [
+    "Native Windows/macOS and sound-card/driver tests not executed.",
+    "Finite queues can overflow under sustained CPU, IO or scheduling stalls; tests cover specified conditions only.",
+    "CW band skimmer may drop its own history/reduce lanes on overload independently of A/B.",
+    "MSK144 Deep can take longer than a period; existing busy policy can skip a decode job while audio collection continues.",
+    "Q65 admits two pending complete periods; full decode backlog is explicitly reported.",
+    "Recorder retains previous policy of bounded silence insertion for some sample-index gaps; queue overflow stops the recording before further writes.",
+    "Stop, TX and mode switches intentionally reset/clear old-mode state."
+  ],
+  "test_history": [
+    "An initial MSK Deep probe preserved its 800 capture blocks but waited several minutes in shutdown; interrupted via session Ctrl-C. Cooperative reset/shutdown cancellation added, final three-rate runs exit successfully.",
+    "Initial RadioPowerWindow validation detected that later post-window blocks invalidated an already completed window; fixed by freezing the completed snapshot and regression-tested. The first fixture also returned before stopping its QThread on that failure; fixture cleanup corrected.",
+    "Two initial source audits required refresh after the owner-queue reset and new localized log text; final consolidated tests pass."
+  ]
+}

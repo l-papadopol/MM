@@ -2,6 +2,7 @@
 #define WEATHERFAXDECODER_H
 
 #include "../../audio/AudioBlock.h"
+#include "WeatherFaxIqFilter.h"
 #include "../../dsp/FrequencyMarker.h"
 
 #include <QImage>
@@ -669,7 +670,6 @@ private:
     int m_statusLineCounter = 0;
 
     double m_demodCenterHz = 1900.0;
-    double m_demodAlpha = 0.20;
     double m_oscCos = 1.0;
     double m_oscSin = 0.0;
     double m_oscIncCos = 1.0;
@@ -710,6 +710,7 @@ private:
     double m_toneHistogramMinHz = 300.0;
     double m_toneHistogramMaxHz = 3000.0;
     int m_toneHistogramBinHz = 10;
+    WeatherFaxIqFilter m_iqFilter;
 };
 
 #endif // WEATHERFAXDECODER_H

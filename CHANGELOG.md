@@ -1,5 +1,33 @@
 # MadModem changelog
 
+## 0.6.4 source R16 — Hellschreiber RX
+
+- Filtro I/Q a quattro poli per Feld Hell e tempi di risposta uniformi fra sample rate.
+- FSK-105 con discriminatore di frequenza e correzione del nastro che sbiancava.
+- Confronto sintetico R15/R16: errore inferiore in 18 casi base e 54 estesi.
+- Continuità audio: 900/900 blocchi; build Linux e 14 test selezionati superati.
+- Prove/limiti: `docs/architecture/RELEASE_0_6_4_R16.md`.
+
+## 0.6.4 source R15 — MeteoFax RX
+
+- Filtro I/Q Butterworth a quattro poli al posto del passa-basso a un polo.
+- Minore levigatura orizzontale: più dettagli conservati nella carta ricevuta.
+- Meno radici quadrate nel percorso per campione; nessuna finestra futura.
+- Test automatici immagine, rumore/fading/interferenza, 60/90/120/240 LPM,
+  continuità tra blocchi, reset e cambi sample rate.
+- Confronto sintetico con R14: migliora 34/36 immagini; due casi a 240 LPM
+  e SNR −5 dB peggiorano leggermente. Validazione su registrazioni reali aperta.
+- Dettagli: `docs/architecture/RELEASE_0_6_4_R15.md`.
+
+
+## 0.6.4 source R14 — audio continuity audit
+
+- Separate Q65 period decoding from audio collection, retaining one native engine and serial averaging state.
+- Move Radio Telescope band-power windows to the RX owner; reject discontinuous or incomplete measurements.
+- Add lifetime queue accounting and explicit FT/Q65 overflow diagnostics.
+- Cancel MSK144 background search on reset/shutdown without reducing normal candidate coverage.
+- Add real-rate, fragmented-PCM and queue/window regression probes.
+
 ## 0.6.4 source R13 — continuous FT capture, QRZ page and selected CQ worklist
 
 - Keep FT period bars and UTC at the bottom of Mode; dedicate the QRZ tab to station information.

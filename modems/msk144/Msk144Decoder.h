@@ -11,6 +11,7 @@
 #include <complex>
 #include <atomic>
 #include <thread>
+#include <functional>
 
 struct Msk144Decode
 {
@@ -109,6 +110,7 @@ private:
     std::atomic<quint64> m_decodeGeneration{0};
     std::thread m_decodeThread;
     bool m_asyncDecodeEnabled = true;
+    std::function<bool()> m_cancelDecode;
 };
 
 #endif // MSK144DECODER_H

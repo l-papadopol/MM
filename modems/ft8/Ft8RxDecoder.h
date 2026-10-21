@@ -221,6 +221,7 @@ public slots:
     void analyzeAudioFile(const QString &filePath);
 
 public:
+    bool liveInputEnabled() const { return m_liveInputEnabled; }
     QString modeName() const;
     QString decodeEngine() const;
     bool deepDecodeEnabled() const;

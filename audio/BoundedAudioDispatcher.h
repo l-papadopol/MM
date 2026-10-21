@@ -16,6 +16,11 @@ class BoundedAudioDispatcher final : public QObject
 public:
     explicit BoundedAudioDispatcher(int maxBlocks = 48, QObject *parent = nullptr);
 
+    struct Statistics {
+        quint64 enqueued=0, taken=0, dropped=0, cleared=0;
+        int pending=0, peakPending=0;
+    };
+    Statistics statistics();
     void enqueue(const AudioBlock &block);
     QVector<AudioBlock> takePending(int maximumBlocks, int *droppedBlocks = nullptr);
     void clear();
@@ -25,6 +30,7 @@ signals:
     void blocksAvailable();
 
 private:
+    Statistics m_statistics;
     QMutex m_mutex;
     QQueue<AudioBlock> m_queue;
     int m_maxBlocks = 48;

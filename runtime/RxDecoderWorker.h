@@ -1,6 +1,7 @@
 #pragma once
 #include "../audio/BoundedAudioDispatcher.h"
 #include "../audio/AudioContinuity.h"
+#include "../audio/RadioPowerWindow.h"
 #include "../dsp/common/DspConditioner.h"
 #include "../modems/rtty/RttyAfc.h"
 #include "../modems/rtty/RttyDecoder.h"
@@ -46,6 +47,7 @@ public:
     QImage image(QObject *decoder) const;
     QVector<FrequencyMarker> faxMarkers() const;
     CwSnapshot cwSnapshot() const;
+    RadioPowerWindow &radioPowerWindow() { return m_radioPower; }
     BoundedAudioDispatcher *queue() { return &m_queue; }
     template<class T, class Method, class... Args>
     void command(T *target, Method method, bool offline, Args... args) {
@@ -68,6 +70,7 @@ private:
     Config m_config;
     BoundedAudioDispatcher m_queue{24};
     AudioContinuity m_continuity;
+    RadioPowerWindow m_radioPower;
     DspConditioner m_conditioner;
     RttyAfc::Tracker m_afc;
     int m_afcSamples=0;

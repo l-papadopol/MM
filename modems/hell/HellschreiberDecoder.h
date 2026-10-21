@@ -2,6 +2,7 @@
 #define HELLSCHREIBERDECODER_H
 
 #include "../../audio/AudioBlock.h"
+#include "HellToneFilter.h"
 #include "../../dsp/FrequencyMarker.h"
 
 #include <QImage>
@@ -298,25 +299,23 @@ private:
     double m_phaseInc = 0.0;
     double m_i = 0.0;
     double m_q = 0.0;
-    double m_lpAlpha = 0.010;
-    double m_fskLpAlpha = 0.006;
     double m_pixelPhase = 0.0;
     double m_pixelsPerSample = 0.0;
 
+    HellToneFilter m_feldFilter;
+    double m_previousI = 0.0;
+    double m_previousQ = 0.0;
+    double m_frequency = 0.0;
+    double m_frequencyAlpha = 0.01;
+    double m_envelopeAlpha = 0.10;
+    double m_peakAttack = 0.015;
+    double m_peakDecay = 0.99995;
+    double m_noiseAttack = 0.005;
+    double m_noiseRise = 1.00001;
     double m_envelope = 0.0;
     double m_noise = 0.004;
     double m_peak = 0.040;
 
-    double m_lowPhase = 0.0;
-    double m_highPhase = 0.0;
-    double m_lowPhaseInc = 0.0;
-    double m_highPhaseInc = 0.0;
-    double m_lowI = 0.0;
-    double m_lowQ = 0.0;
-    double m_highI = 0.0;
-    double m_highQ = 0.0;
-    double m_lowEnvelope = 0.0;
-    double m_highEnvelope = 0.0;
 
     QImage m_logicalImage;
     QImage m_image;

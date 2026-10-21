@@ -28,7 +28,7 @@ void RxDecoderWorker::drain() {
     Q_ASSERT(QThread::currentThread()==thread());
     int dropped=0;
     const auto blocks=m_queue.takePending(2,&dropped);
-    if (dropped) { resetActive(); m_continuity.reset(); emit overload(dropped); }
+    if (dropped) { m_radioPower.markGap(); resetActive(); m_continuity.reset(); emit overload(dropped); }
     if (!m_config.enabled) return;
     for (const auto &block:blocks) process(block);
 }
@@ -45,8 +45,9 @@ void RxDecoderWorker::resetActive() {
     else if(mode==Msk144Decoder::modeName())m_graph.msk->reset();
 }
 void RxDecoderWorker::process(const AudioBlock &block) {
-    if(m_continuity.accept(block))resetActive();
+    if(m_continuity.accept(block)){m_radioPower.markGap();resetActive();}
     const auto mode=m_config.mode;
+    if(mode==QStringLiteral("Radio Telescope")){m_radioPower.process(block);return;}
     if(mode==RttyDecoder::modeName()) {
         const int mark=qRound(m_config.filter.blackHz),shift=qRound(m_config.filter.whiteHz-m_config.filter.blackHz);
         if (m_config.afc) m_afc.process(block,mark,shift,m_config.afcRange);

@@ -38,7 +38,9 @@ checks = {
         and "fftw" not in cmake.lower()
     ),
     "Q65 wrapper owns only the native engine": (
-        "m_engine.decode(" in q65_decoder
+        "engine.decode(job.samples,job.periodId,job.config)" in q65_decoder
+        and "std::thread([this]{decodeLoop();})" in q65_decoder
+        and "m_jobs.size()<2" in q65_decoder
         and "DecoderQ65" not in q65_decoder
         and "ensureMshv" not in q65_decoder
         and "#ifdef MADMODEM_Q65" not in q65_decoder

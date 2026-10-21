@@ -8,6 +8,10 @@
 
 #include <QObject>
 #include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <deque>
 #include <QDateTime>
 #include <QString>
 #include <QVector>
@@ -103,7 +107,23 @@ private:
     QString m_lastStatus;
     int m_avgUsable = 0;
     int m_avgAll = 0;
-    Q65NativeEngine m_engine;
+    struct DecodeJob {
+        QVector<double> samples;
+        Q65NativeEngine::Configuration config;
+        qint64 periodId=0;
+        QDateTime start;
+        int secondsBuffered=0;
+        quint64 generation=0;
+    };
+    void invalidateDecode();
+    void decodeLoop();
+    void publishDecode(const DecodeJob &job, const QVector<Q65NativeEngine::Result> &results, int usable, int all);
+    std::atomic<quint64> m_decodeGeneration{1};
+    std::mutex m_jobsMutex;
+    std::condition_variable m_jobsAvailable;
+    std::deque<DecodeJob> m_jobs;
+    bool m_stopDecode=false;
+    std::thread m_decodeThread;
 };
 
 #endif // Q65DECODER_H

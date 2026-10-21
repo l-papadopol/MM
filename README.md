@@ -1,5 +1,9 @@
 # MadModem
 
+**0.6.4 R15:** demodulazione MeteoFax con filtro I/Q più selettivo e migliore conservazione dei dettagli. Confronto R14/R15 su audio noto, rumore, fading e quattro velocità di scansione. [Risultati e limiti](docs/architecture/RELEASE_0_6_4_R15.md).
+
+**0.6.4 R14:** verifica del trasporto audio di tutte le famiglie RX; Q65 raccoglie il periodo successivo mentre decodifica; Radio Telescope misura sul worker RX, indipendentemente dalla GUI; contatori delle code e interruzione MSK144 su Stop/cambio modo. [Risultati e limiti](docs/architecture/RELEASE_0_6_4_R14.md).
+
 **0.6.4 R13:** periodi FT in fondo a Modo; scheda **QRZ** dedicata alle informazioni della stazione. Lista manuale di CQ con selezione multipla, avvio/pausa e conferma di un CQ recente prima di ogni chiamata. Raccolta audio FT separata dal mutex del decoder. [Analisi del log live e verifiche](docs/architecture/RELEASE_0_6_4_R13.md).
 
 **0.6.4 R12:** calcoli RX anticipati mentre arriva l’audio FT8/FT4, con riuso delle stesse FFT/energie e fallback immediato al percorso normale. Scheda **DX** tra Mode e Rotator per periodi FT e informazioni QRZ. Aggiornamento portable Linux TAR/ZIP e controllo preventivo dello stato di dpkg. [Modifiche, prove e limiti](docs/architecture/RELEASE_0_6_4_R12.md).

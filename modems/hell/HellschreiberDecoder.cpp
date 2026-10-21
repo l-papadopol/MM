@@ -3,6 +3,7 @@
 #include <QColor>
 #include <QPainter>
 #include <QtMath>
+#include <cmath>
 
 namespace {
 
@@ -112,16 +113,10 @@ QVector<FrequencyMarker> HellschreiberDecoder::frequencyMarkers(double toneHz,
 void HellschreiberDecoder::reset()
 {
     m_phase = 0.0;
+    m_feldFilter.reset();
+    m_previousI = m_previousQ = m_frequency = 0.0;
     m_i = 0.0;
     m_q = 0.0;
-    m_lowPhase = 0.0;
-    m_highPhase = 0.0;
-    m_lowI = 0.0;
-    m_lowQ = 0.0;
-    m_highI = 0.0;
-    m_highQ = 0.0;
-    m_lowEnvelope = 0.0;
-    m_highEnvelope = 0.0;
     m_pixelPhase = 0.0;
     m_envelope = 0.0;
     m_noise = 0.004;
@@ -155,6 +150,8 @@ void HellschreiberDecoder::processAudioBlock(const AudioBlock &block)
     }
 
     if (block.sampleRate != m_sampleRate) {
+        m_previousI = m_previousQ = m_frequency = 0.0;
+        m_i = m_q = m_envelope = 0.0;
         m_sampleRate = block.sampleRate;
         configureForSampleRate(m_sampleRate);
     }
@@ -173,14 +170,10 @@ void HellschreiberDecoder::setVariant(Variant variant)
     }
 
     m_variant = variant;
+    m_feldFilter.reset();
+    m_previousI = m_previousQ = m_frequency = 0.0;
     m_i = 0.0;
     m_q = 0.0;
-    m_lowI = 0.0;
-    m_lowQ = 0.0;
-    m_highI = 0.0;
-    m_highQ = 0.0;
-    m_lowEnvelope = 0.0;
-    m_highEnvelope = 0.0;
     m_envelope = 0.0;
     m_noise = 0.004;
     m_peak = 0.040;
@@ -323,22 +316,18 @@ void HellschreiberDecoder::configureForSampleRate(int sampleRate)
     }
 
     const double center = qBound(10.0, m_toneHz, sampleRate * 0.45);
-    const double halfShift = qMax(5.0, m_fskShiftHz * 0.5);
-    const double lowTone = qBound(10.0, center - halfShift, sampleRate * 0.45);
-    const double highTone = qBound(10.0, center + halfShift, sampleRate * 0.45);
+    const double referenceSamples = 48000.0 / sampleRate;
+    m_envelopeAlpha = 1.0 - std::pow(0.90, referenceSamples);
+    m_peakAttack = 1.0 - std::pow(0.985, referenceSamples);
+    m_peakDecay = std::pow(0.99995, referenceSamples);
+    m_noiseAttack = 1.0 - std::pow(0.995, referenceSamples);
+    m_noiseRise = std::pow(1.00001, referenceSamples);
+    m_feldFilter.configure(sampleRate, m_variant == Variant::Fsk105
+        ? qBound(80.0, m_columnRate * kLogicalRasterHeight, 400.0)
+        : m_bandwidthHz);
+    m_frequencyAlpha = 1.0 - std::exp(-1.0 / (0.0006 * sampleRate));
 
     m_phaseInc = kTwoPi * center / static_cast<double>(sampleRate);
-    m_lowPhaseInc = kTwoPi * lowTone / static_cast<double>(sampleRate);
-    m_highPhaseInc = kTwoPi * highTone / static_cast<double>(sampleRate);
-
-    const double rc = 1.0 / (kTwoPi * qBound(20.0, m_bandwidthHz, 1200.0));
-    const double dt = 1.0 / static_cast<double>(sampleRate);
-    m_lpAlpha = qBound(0.0005, dt / (rc + dt), 0.40);
-
-    const double fskDetectorBandwidth = qBound(12.0, m_fskShiftHz * 0.45, 90.0);
-    const double fskRc = 1.0 / (kTwoPi * fskDetectorBandwidth);
-    m_fskLpAlpha = qBound(0.0003, dt / (fskRc + dt), 0.30);
-
     const double pixelRate = m_columnRate * static_cast<double>(kLogicalRasterHeight);
     m_pixelsPerSample = pixelRate / static_cast<double>(sampleRate);
 }
@@ -377,33 +366,17 @@ double HellschreiberDecoder::processFeldHellSample(double sample)
 
 double HellschreiberDecoder::processFsk105Sample(double sample)
 {
-    const double lowEnvelope = processToneDetector(sample,
-                                                   m_lowPhaseInc,
-                                                   m_lowPhase,
-                                                   m_lowI,
-                                                   m_lowQ,
-                                                   m_lowEnvelope);
-    const double highEnvelope = processToneDetector(sample,
-                                                    m_highPhaseInc,
-                                                    m_highPhase,
-                                                    m_highI,
-                                                    m_highQ,
-                                                    m_highEnvelope);
-
-    const double total = lowEnvelope + highEnvelope;
-    const double gate = updateSignalGate(total);
-
-    if (total <= 1.0e-8) {
-        return 0.0;
-    }
-
-    /* FSK-105 is frequency-shift keyed rather than amplitude keyed.  Match the
-     * fldigi convention: the lower tone prints black ink, the upper tone prints
-     * white paper.  A soft ratio avoids noisy all-or-nothing bands.
-     */
-    const double lowRatio = lowEnvelope / qMax(1.0e-8, total);
-    const double ink = qBound(0.0, (lowRatio - 0.34) / 0.34, 1.0);
-    return ink * gate;
+    const double envelope = processToneDetector(sample, m_phaseInc, m_phase,
+                                                m_i, m_q, m_envelope);
+    // Polar discriminator: lower frequency writes ink, higher writes paper.
+    const double cross = m_previousI * m_q - m_previousQ * m_i;
+    const double dot = m_previousI * m_i + m_previousQ * m_q;
+    m_previousI = m_i;
+    m_previousQ = m_q;
+    const double frequency = std::atan2(cross, dot) * m_sampleRate / kTwoPi;
+    m_frequency += m_frequencyAlpha * (frequency - m_frequency);
+    const double gate = updateSignalGate(envelope);
+    return qBound(0.0, 0.5 - m_frequency / m_fskShiftHz, 1.0) * gate;
 }
 
 double HellschreiberDecoder::processToneDetector(double sample,
@@ -422,29 +395,35 @@ double HellschreiberDecoder::processToneDetector(double sample,
 
     const double mixedI = sample * c;
     const double mixedQ = sample * -s;
-    const double alpha = (m_variant == Variant::Fsk105) ? m_fskLpAlpha : m_lpAlpha;
-    iState += alpha * (mixedI - iState);
-    qState += alpha * (mixedQ - qState);
+    double i = mixedI, q = mixedQ;
+    m_feldFilter.process(i, q);
+    iState = i;
+    qState = q;
 
     const double instantEnvelope = 2.0 * qSqrt((iState * iState) + (qState * qState));
-    envelopeState += 0.10 * (instantEnvelope - envelopeState);
+    envelopeState += m_envelopeAlpha * (instantEnvelope - envelopeState);
     return envelopeState;
 }
 
 double HellschreiberDecoder::updateSignalGate(double observedLevel)
 {
     if (observedLevel > m_peak) {
-        m_peak = (0.985 * m_peak) + (0.015 * observedLevel);
+        m_peak = ((1.0 - m_peakAttack) * m_peak) + (m_peakAttack * observedLevel);
     } else {
-        m_peak *= 0.99995;
+        m_peak *= m_peakDecay;
     }
 
     if (observedLevel < m_peak * 0.55) {
-        m_noise = (0.995 * m_noise) + (0.005 * observedLevel);
+        m_noise = ((1.0 - m_noiseAttack) * m_noise) + (m_noiseAttack * observedLevel);
     } else {
-        m_noise *= 1.00001;
+        m_noise *= m_noiseRise;
     }
 
+    // FSK carries a tone for both ink and paper: it has no amplitude-off
+    // intervals from which to learn noise. Bound the old upward estimate so
+    // sustained valid FSK cannot eventually close its own confidence gate.
+    if (m_variant == Variant::Fsk105)
+        m_noise = qMin(m_noise, m_peak * 0.45);
     const double span = qMax(0.008, m_peak - m_noise);
     return qBound(0.0, (observedLevel - m_noise) / span, 1.0);
 }
