@@ -8588,8 +8588,10 @@ void MainWindow::setupFt8Page()
     controlGrid->setHorizontalSpacing(8);
     controlGrid->setVerticalSpacing(6);
 
-    m_radioFt8TxFirst = new QRadioButton(uiText("tx_first_period", "TX first period"), controlGroup);
-    m_radioFt8TxSecond = new QRadioButton(uiText("tx_second_period", "TX second period"), controlGroup);
+    m_radioFt8TxFirst = new QRadioButton(uiText("ft_tx_first_short", "TX I"), controlGroup);
+    m_radioFt8TxSecond = new QRadioButton(uiText("ft_tx_second_short", "TX II"), controlGroup);
+    m_radioFt8TxFirst->setToolTip(uiText("tx_first_period", "TX first period"));
+    m_radioFt8TxSecond->setToolTip(uiText("tx_second_period", "TX second period"));
     m_btnFt8Rx = new QPushButton(uiText("rx", "RX"), controlGroup);
     m_btnFt8Tx = new QPushButton(uiText("tx", "TX"), controlGroup);
     m_btnFt8Stop = new QPushButton(uiText("button.stop", "STOP"), controlGroup);
@@ -8640,18 +8642,18 @@ void MainWindow::setupFt8Page()
     m_chkFt8AutoSeq->hide();
     controlGrid->addWidget(m_chkFt8CqRepeat, 1, 0);
     m_lblFt8CqTimeout = new QLabel(uiText("ft8_cq_retry_count", "CQ retry count"), controlGroup);
-    controlGrid->addWidget(m_lblFt8CqTimeout, 1, 1);
-    controlGrid->addWidget(m_spinFt8CqTimeoutMin, 1, 2);
+    m_lblFt8CqTimeout->hide(); // count belongs directly beside CQ retry
+    controlGrid->addWidget(m_spinFt8CqTimeoutMin, 1, 1);
     m_lblFt8NoResponseLimit = new QLabel(uiText("ft8_no_response_limit", "No-response limit"), controlGroup);
     m_lblFt8NoResponseLimit->setToolTip(m_spinFt8NoResponseLimit->toolTip());
-    controlGrid->addWidget(m_lblFt8NoResponseLimit, 1, 3);
-    controlGrid->addWidget(m_spinFt8NoResponseLimit, 1, 4);
+    controlGrid->addWidget(m_lblFt8NoResponseLimit, 1, 2);
+    controlGrid->addWidget(m_spinFt8NoResponseLimit, 1, 3);
     controlGrid->addWidget(m_chkFt8HoldTxFreq, 2, 0);
     controlGrid->addWidget(m_cmbFt8TxStrategy, 2, 1, 1, 2);
-    controlGrid->addWidget(m_chkFt8AutoLog, 2, 3);
-    controlGrid->addWidget(m_chkFt8FullAutoQso, 2, 4);
-    controlGrid->addWidget(m_chkFt8CallerQueue, 3, 0, 1, 3);
-    controlGrid->addWidget(m_lblFt8SessionQueue, 3, 3, 1, 3);
+    controlGrid->addWidget(m_chkFt8AutoLog, 1, 4, 1, 2);
+    controlGrid->addWidget(m_chkFt8FullAutoQso, 2, 5);
+    controlGrid->addWidget(m_chkFt8CallerQueue, 2, 3, 1, 2);
+
     m_btnFtCqAdd = new QPushButton(uiText("ft_cq_list_add", "Add selected CQs"), controlGroup);
     m_btnFtCqAdd->setObjectName(QStringLiteral("ftCqWorkListAdd"));
     m_btnFtCqAdd->setToolTip(uiText("ft_cq_list_selection_help", "Select several CQ rows with Ctrl/Shift, then add them. Open the CQ list and press Start to work them one at a time."));
@@ -8660,9 +8662,9 @@ void MainWindow::setupFt8Page()
     m_chkFtCqQueue = new QCheckBox(uiText("ft_cq_queue_enable", "Manage CQ queue"), controlGroup);
     m_chkFtCqQueue->setObjectName(QStringLiteral("ftCqQueueEnable"));
     m_chkFtCqQueue->setToolTip(uiText("ft_cq_queue_tooltip", "When enabled, double-clicks add stations to the CQ list without interrupting the current QSO. Press Start list to begin."));
-    controlGrid->addWidget(m_chkFtCqQueue, 4, 0, 1, 2);
-    controlGrid->addWidget(m_btnFtCqAdd, 4, 2, 1, 2);
-    controlGrid->addWidget(m_btnFtCqList, 4, 4, 1, 2);
+    controlGrid->addWidget(m_chkFtCqQueue, 3, 0, 1, 2);
+    controlGrid->addWidget(m_btnFtCqAdd, 3, 2, 1, 2);
+    controlGrid->addWidget(m_btnFtCqList, 3, 4, 1, 2);
     connect(m_chkFtCqQueue, &QCheckBox::toggled, this, [this](bool enabled){
         if (enabled) showFtCqWorkList();
         else { m_ftCqWorkList.running=false; refreshFtCqWorkListUi(); }
@@ -8679,25 +8681,9 @@ void MainWindow::setupFt8Page()
     updateFt8SessionQueueUi();
     updateFt8EvilModeVisibility();
 
-    m_lblFt8TxBanner = new QLabel(controlGroup);
-    m_lblFt8TxBanner->setAlignment(Qt::AlignCenter);
-    m_lblFt8TxBanner->setWordWrap(true);
-    m_lblFt8TxBanner->setMinimumHeight(58);
-    m_lblFt8TxBanner->setMinimumWidth(200);
-    m_lblFt8TxBanner->setMaximumWidth(360);
-    m_lblFt8TxBanner->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    m_lblFt8TxBanner->setProperty("ftBannerState", QStringLiteral("idle"));
-    m_lblFt8TxBanner->setText(uiText("ft_tx_banner_rx", "RX"));
-    // Keep the live TX banner beside the operator controls, WSJT-X style, so
-    // the next/current message is visible without pushing controls downward.
-    controlGrid->addWidget(m_lblFt8TxBanner, 0, 6, 4, 1);
-    // Keep the operator controls and the live TX banner in a stable 66/33
-    // horizontal balance.  Previously only the banner column stretched, so on
-    // wide desktops it drifted too far right and became oversized.
-    for (int c = 0; c < 6; ++c) {
-        controlGrid->setColumnStretch(c, 1);
-    }
-    controlGrid->setColumnStretch(6, 3);
+    // Six aligned columns; the live state belongs to the side Mode page.
+    for (int c = 0; c < 6; ++c) controlGrid->setColumnStretch(c, 1);
+    controlGroup->setObjectName(QStringLiteral("ftOperatorControls"));
 
     mainLayout->addWidget(controlGroup);
 
@@ -8708,6 +8694,17 @@ void MainWindow::setupFt8Page()
     QVBoxLayout *settingsLayout = new QVBoxLayout(m_pageFt8Settings);
     settingsLayout->setContentsMargins(0, 0, 0, 0);
     settingsLayout->setSpacing(8);
+    m_lblFt8TxBanner = new QLabel(m_pageFt8Settings);
+    m_lblFt8TxBanner->setObjectName(QStringLiteral("ftCompactState"));
+    m_lblFt8TxBanner->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    m_lblFt8TxBanner->setWordWrap(true);
+    m_lblFt8TxBanner->setMinimumHeight(58);
+    m_lblFt8TxBanner->setMaximumWidth(360);
+    m_lblFt8TxBanner->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_lblFt8TxBanner->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_lblFt8TxBanner->setProperty("ftBannerState", QStringLiteral("idle"));
+    m_lblFt8TxBanner->setText(uiText("ft_tx_banner_rx", "RX"));
+
 
     QGroupBox *clockGroup = new QGroupBox(uiText("ft_period_clock", "FT periods"), m_pageFt8Settings);
     m_grpFt8UtcClock = clockGroup;
@@ -8875,8 +8872,10 @@ void MainWindow::setupFt8Page()
     settingsLayout->addWidget(settingsGroup);
     settingsLayout->addWidget(txGroup);
     settingsLayout->addWidget(qsoGroup);
-    settingsLayout->addWidget(clockGroup);
     settingsLayout->addStretch(1);
+    settingsLayout->addWidget(m_lblFt8TxBanner);
+    settingsLayout->addWidget(m_lblFt8SessionQueue);
+    settingsLayout->addWidget(clockGroup);
     ui->stkModeSettings->addWidget(m_pageFt8Settings);
 
     loadFt8SettingsToUi();
@@ -16108,52 +16107,31 @@ void MainWindow::updateFt8TxBannerUi()
     QString bannerState;
     QString toolTip;
 
+    auto compactText = [](const QString &state, const QString &row, const QString &message) {
+        const QString heading = state + (row.isEmpty() ? QString() : QStringLiteral(" · ") + row);
+        return QStringLiteral("<b>%1</b><br><span style='font-size:11pt;'>%2</span>")
+            .arg(htmlEscaped(heading), htmlEscaped(message));
+    };
     if (onAir) {
-        const QString row = rowLabelForMessage(m_ftSession.lastTxPlan.message);
-        const QString tag = m_ftSession.lastTxPlan.tag.trimmed().isEmpty() ? QStringLiteral("TX") : m_ftSession.lastTxPlan.tag.trimmed().toUpper();
-        text = QStringLiteral("<b>%1</b> · %2%3<br><span style='font-size:13pt;'>%4</span>")
-                   .arg(htmlEscaped(uiText("ft_tx_banner_on_air", "ON AIR")),
-                        htmlEscaped(tag),
-                        row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
-                        htmlEscaped(m_ftSession.lastTxPlan.message));
+        text = compactText(QStringLiteral("TX"), rowLabelForMessage(m_ftSession.lastTxPlan.message), m_ftSession.lastTxPlan.message);
         bannerState = QStringLiteral("tx");
         toolTip = uiText("ft_tx_banner_on_air_tip", "The FT transmitter is on air now. This is the exact message currently being sent.");
     } else if (schedulerArmed) {
-        const QString row = rowLabelForMessage(m_pendingFt8TxPlan.message);
-        const QString tag = m_pendingFt8TxPlan.tag.trimmed().isEmpty() ? QStringLiteral("TX") : m_pendingFt8TxPlan.tag.trimmed().toUpper();
-        const QString when = utcTextForBoundary(m_pendingFt8TxPlan.slotBoundaryUtcMs);
-        text = QStringLiteral("<b>%1</b> · %2%3 · %4<br><span style='font-size:13pt;'>%5</span>")
-                   .arg(htmlEscaped(uiText("ft_tx_banner_armed", "NEXT TX")),
-                        htmlEscaped(tag),
-                        row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
-                        htmlEscaped(when),
-                        htmlEscaped(m_pendingFt8TxPlan.message));
-        if (immediateSelectedPeriodMissed) {
-            text += QStringLiteral("<br><span style='font-size:9pt;'>%1</span>")
-                        .arg(htmlEscaped(uiText("ft_tx_banner_next_valid",
-                                               "Current slot already started; next TX in %1 s.")
-                                             .arg(QString::number(static_cast<double>(schedulerWaitMs) / 1000.0, 'f', 1))));
-        }
+        const QString state = uiText("ft_tx_countdown_short", "TX in %1 s")
+            .arg(QString::number(static_cast<double>(schedulerWaitMs) / 1000.0, 'f', 1));
+        text = compactText(state, rowLabelForMessage(m_pendingFt8TxPlan.message), m_pendingFt8TxPlan.message);
         bannerState = QStringLiteral("armed");
         toolTip = uiText("ft_tx_banner_armed_tip", "The TX scheduler is armed: PTT/audio will become mutex with RX only at the selected UTC transmit boundary.");
+        toolTip += QStringLiteral("\n") + utcTextForBoundary(m_pendingFt8TxPlan.slotBoundaryUtcMs);
+        if(immediateSelectedPeriodMissed) toolTip += QStringLiteral("\n") + uiText("ft_tx_banner_next_valid", "Current slot already started; next TX in %1 s.")
+            .arg(QString::number(static_cast<double>(schedulerWaitMs) / 1000.0, 'f', 1));
     } else if (sequencerReady) {
-        const QString row = rowLabelForMessage(m_pendingFt8TxPlan.message);
-        const QString tag = m_pendingFt8TxPlan.tag.trimmed().isEmpty() ? QStringLiteral("TX") : m_pendingFt8TxPlan.tag.trimmed().toUpper();
-        const QString when = utcTextForBoundary(m_pendingFt8TxPlan.slotBoundaryUtcMs);
-        text = QStringLiteral("<b>%1</b> · %2%3 · %4<br><span style='font-size:13pt;'>%5</span>")
-                   .arg(htmlEscaped(uiText("ft_tx_banner_seq_ready", "WAITING FOR SLOT")),
-                        htmlEscaped(tag),
-                        row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
-                        htmlEscaped(when),
-                        htmlEscaped(m_pendingFt8TxPlan.message));
+        text = compactText(uiText("ft_wait_short", "Waiting"), rowLabelForMessage(m_pendingFt8TxPlan.message), m_pendingFt8TxPlan.message);
         bannerState = QStringLiteral("ready");
         toolTip = uiText("ft_tx_banner_seq_ready_tip", "The QSO sequencer has selected the next message, but the TX scheduler is intentionally not armed yet; RX continues to collect and decode the current slot.");
+        toolTip += QStringLiteral("\n") + utcTextForBoundary(m_pendingFt8TxPlan.slotBoundaryUtcMs);
     } else if (!m_ftSession.lastTxPlan.message.trimmed().isEmpty() && !m_ftSession.lastTxPlan.tune) {
-        const QString row = rowLabelForMessage(m_ftSession.lastTxPlan.message);
-        text = QStringLiteral("<b>%1</b>%2<br><span style='font-size:12pt;'>%3</span>")
-                   .arg(htmlEscaped(uiText("ft_tx_banner_rx_monitor", "RX · LAST TX")),
-                        row.isEmpty() ? QString() : QStringLiteral(" / ") + htmlEscaped(row),
-                        htmlEscaped(m_ftSession.lastTxPlan.message));
+        text = compactText(uiText("ft_last_tx_short", "RX · Last TX"), rowLabelForMessage(m_ftSession.lastTxPlan.message), m_ftSession.lastTxPlan.message);
         bannerState = QStringLiteral("monitor");
         toolTip = uiText("ft_tx_banner_rx_last_tip", "Receiver is active. The banner shows the last completed FT transmission.");
     } else {
@@ -16857,7 +16835,7 @@ void MainWindow::updateFt8EvilModeVisibility()
         m_chkFt8CqRepeat->setEnabled(!m_offlineAnalysisActive);
     }
     if (m_lblFt8CqTimeout != nullptr) {
-        m_lblFt8CqTimeout->setVisible(true);
+        m_lblFt8CqTimeout->setVisible(false);
     }
     if (m_spinFt8CqTimeoutMin != nullptr) {
         m_spinFt8CqTimeoutMin->setVisible(true);

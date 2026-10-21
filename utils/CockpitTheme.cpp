@@ -228,10 +228,10 @@ QWidget[mmRole="muted"] { color:@MUTED@; }
 QWidget[mmRole="accent"] { color:@ACCENT@; }
 QLabel[mmRole="rxPrimary"] { color:@RX_PRIMARY@; }
 QLabel[mmRole="rxSecondary"] { color:@RX_SECONDARY@; }
-QLabel[ftBannerState="idle"] { border:2px solid @MAP_BORDER@; border-radius:6px; padding:6px; background:@BANNER_IDLE@; color:@BANNER_TEXT@; font-weight:500; font-size:10pt; }
-QLabel[ftBannerState="tx"] { border:2px solid @NEGATIVE@; border-radius:6px; padding:6px; background:@BANNER_TX@; color:@BANNER_TEXT@; font-weight:500; font-size:10pt; }
-QLabel[ftBannerState="armed"] { border:2px solid @WARNING@; border-radius:6px; padding:6px; background:@BANNER_WARNING@; color:@BANNER_TEXT@; font-weight:500; font-size:10pt; }
-QLabel[ftBannerState="ready"], QLabel[ftBannerState="monitor"] { border:2px solid @POSITIVE@; border-radius:6px; padding:6px; background:@BANNER_READY@; color:@BANNER_TEXT@; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="idle"] { border:0; border-left:3px solid @MAP_BORDER@; border-radius:2px; padding:6px 10px; background:transparent; color:@STATE_TEXT@; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="tx"] { border:0; border-left:3px solid @NEGATIVE@; border-radius:2px; padding:6px 10px; background:transparent; color:@STATE_TEXT@; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="armed"] { border:0; border-left:3px solid @WARNING@; border-radius:2px; padding:6px 10px; background:transparent; color:@STATE_TEXT@; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="ready"], QLabel[ftBannerState="monitor"] { border:0; border-left:3px solid @POSITIVE@; border-radius:2px; padding:6px 10px; background:transparent; color:@STATE_TEXT@; font-weight:500; font-size:10pt; }
 QGroupBox#grpWaterfall { margin-top:1px; padding:0; border:none; background:transparent; }
 QGroupBox#grpWaterfall::title { height:0; width:0; margin:0; padding:0; border:none; background:transparent; }
 QFrame#frameWaterfall { margin:0; padding:0; border:1px solid @MAP_BORDER@; border-radius:0; background:#020608; }
@@ -241,11 +241,6 @@ QFrame#frameWaterfall > QWidget { margin:0; padding:0; border:none; }
     const QColor hover = spec.button.lighter(spec.highContrast ? 125 : 112);
     const QColor close = spec.highContrast ? QColor("#000000") : QColor("#7A2525");
     const QColor closeBorder = spec.highContrast ? QColor("#FFFFFF") : QColor("#D76666");
-    const QColor bannerText = spec.highContrast ? spec.windowText : spec.mapText;
-    const QColor bannerIdle = spec.highContrast ? QColor("#000000") : spec.mapBackdrop.lighter(112);
-    const QColor bannerTx = spec.highContrast ? QColor("#000000") : spec.negative.darker(260);
-    const QColor bannerWarning = spec.highContrast ? QColor("#000000") : spec.warning.darker(280);
-    const QColor bannerReady = spec.highContrast ? QColor("#000000") : spec.positive.darker(280);
     const QMap<QString, QString> replacements = {
         {QStringLiteral("@HIGHLIGHT@"), spec.highlight.name()},
         {QStringLiteral("@HIGHLIGHT_TEXT@"), spec.highlightedText.name()},
@@ -262,11 +257,7 @@ QFrame#frameWaterfall > QWidget { margin:0; padding:0; border:none; }
         {QStringLiteral("@RX_SECONDARY@"), spec.rxSecondary.name()},
         {QStringLiteral("@SCROLL_HANDLE@"), spec.border.name()},
         {QStringLiteral("@MAP_BORDER@"), spec.mapBorder.name()},
-        {QStringLiteral("@BANNER_IDLE@"), bannerIdle.name()},
-        {QStringLiteral("@BANNER_TX@"), bannerTx.name()},
-        {QStringLiteral("@BANNER_WARNING@"), bannerWarning.name()},
-        {QStringLiteral("@BANNER_READY@"), bannerReady.name()},
-        {QStringLiteral("@BANNER_TEXT@"), bannerText.name()}
+        {QStringLiteral("@STATE_TEXT@"), spec.windowText.name()}
     };
     for (auto it = replacements.constBegin(); it != replacements.constEnd(); ++it) {
         qss.replace(it.key(), it.value());
@@ -1138,10 +1129,10 @@ QWidget[mmRole="muted"] { color: #9d8c78; }
 QWidget[mmRole="accent"] { color: #ff9a20; }
 QLabel[mmRole="rxPrimary"] { color: #53ff70; }
 QLabel[mmRole="rxSecondary"] { color: #55aaff; }
-QLabel[ftBannerState="idle"] { border:2px solid #33414d; border-radius:6px; padding:6px; background:#17202a; color:#d7e0e7; font-weight:500; font-size:10pt; }
-QLabel[ftBannerState="tx"] { border:2px solid #b33a32; border-radius:6px; padding:6px; background:#33100d; color:#ffe3df; font-weight:500; font-size:10pt; }
-QLabel[ftBannerState="armed"] { border:2px solid #a06400; border-radius:6px; padding:6px; background:#332100; color:#fff0cc; font-weight:500; font-size:10pt; }
-QLabel[ftBannerState="ready"], QLabel[ftBannerState="monitor"] { border:2px solid #1f6b4a; border-radius:6px; padding:6px; background:#10251b; color:#d9ffe9; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="idle"] { border:0; border-left:3px solid #33414d; border-radius:2px; padding:6px 10px; background:transparent; color:#d7e0e7; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="tx"] { border:0; border-left:3px solid #b33a32; border-radius:2px; padding:6px 10px; background:transparent; color:#d7e0e7; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="armed"] { border:0; border-left:3px solid #a06400; border-radius:2px; padding:6px 10px; background:transparent; color:#d7e0e7; font-weight:500; font-size:10pt; }
+QLabel[ftBannerState="ready"], QLabel[ftBannerState="monitor"] { border:0; border-left:3px solid #1f6b4a; border-radius:2px; padding:6px 10px; background:transparent; color:#d7e0e7; font-weight:500; font-size:10pt; }
 
 )QSS"));
 }

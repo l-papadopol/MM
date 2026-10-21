@@ -821,6 +821,11 @@ UI_058_KEY_TRANSLATIONS: dict[str, dict[str, str]] = {
         "it": "RX attiva", "fr": "RX active", "de": "RX aktiv",
         "no": "RX aktiv", "cs": "RX aktivní",
     },
+    "ft_tx_first_short": {"it":"TX I","fr":"TX I","de":"TX I","no":"TX I","cs":"TX I"},
+    "ft_tx_second_short": {"it":"TX II","fr":"TX II","de":"TX II","no":"TX II","cs":"TX II"},
+    "ft_tx_countdown_short": {"it":"TX tra %1 s","fr":"TX dans %1 s","de":"TX in %1 s","no":"TX om %1 s","cs":"TX za %1 s"},
+    "ft_wait_short": {"it":"In attesa","fr":"En attente","de":"Warten","no":"Venter","cs":"Čekání"},
+    "ft_last_tx_short": {"it":"RX · Ultima TX","fr":"RX · Dernière TX","de":"RX · Letzte TX","no":"RX · Siste TX","cs":"RX · Poslední TX"},
     "ft_tx_banner_on_air": {
         "it": "IN TRASMISSIONE", "fr": "EN ÉMISSION", "de": "AUF SENDUNG",
         "no": "PÅ LUFTA", "cs": "VE VYSÍLÁNÍ",

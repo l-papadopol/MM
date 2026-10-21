@@ -1,5 +1,11 @@
 # MadModem changelog
 
+## 0.6.4 source R20 — stato e controlli FT compatti
+
+Stato e messaggio TX nella scheda Modo, indicatori più sobri e controlli sopra
+il waterfall su quattro righe. Tutte le opzioni GPU R19 conservate. Dettagli in
+`docs/architecture/RELEASE_0_6_4_R20.md`.
+
 ## 0.6.4 source R19 — GPU demodulazione sperimentale
 
 Nuova opzione GPU separata dal drift, valida su tutte le bande, per le
