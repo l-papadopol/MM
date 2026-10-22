@@ -1,5 +1,13 @@
 # MadModem changelog
 
+## 0.6.4 source R21 — clock audio FT8/FT4
+
+Stima del clock di cattura e ricampionamento FT8/FT4 su griglia UTC12kHz,
+con correzione continua e diagnostica separata della latenza. Build Linux,
+15simulazioni prolungate,10casi PCM/CRC e12test selezionati passati.
+Verifica sulla USB Windows ancora da eseguire. Dettagli in
+`docs/architecture/RELEASE_0_6_4_R21.md`.
+
 ## 0.6.4 source R20 — stato e controlli FT compatti
 
 Stato e messaggio TX nella scheda Modo, indicatori più sobri e controlli sopra

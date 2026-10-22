@@ -1,0 +1,55 @@
+{
+  "revision": "R21",
+  "linux_build": "PASS",
+  "selected_ctest": {
+    "passed": 12,
+    "registered": 45
+  },
+  "clock_cases": 15,
+  "clock_nominal_rates_hz": [
+    44100,
+    48000,
+    96000
+  ],
+  "physical_sample_clock_offsets_ppm": [
+    -3000,
+    -1378.94,
+    0,
+    1378.94,
+    3000
+  ],
+  "simulated_duration_seconds_per_case": 900,
+  "settled_measurement_begins_seconds": 180,
+  "max_settled_utc_error_ms": 8.73711,
+  "worst_final_rate_error_ppm": 1.41507,
+  "clock_test_details": [
+    "nominal=44100 ppm=-3000 measured=43967.7 error_ppm=-0.646792 max_time_error_ms=2.3815 spans=38760",
+    "nominal=44100 ppm=-1378.94 measured=44039.2 error_ppm=-0.0385626 max_time_error_ms=2.32423 spans=38760",
+    "nominal=44100 ppm=0 measured=44100 error_ppm=-0.275064 max_time_error_ms=2.55533 spans=38760",
+    "nominal=44100 ppm=1378.94 measured=44160.8 error_ppm=-0.569434 max_time_error_ms=3.53957 spans=38760",
+    "nominal=44100 ppm=3000 measured=44232.3 error_ppm=-0.730844 max_time_error_ms=8.73711 spans=38760",
+    "nominal=48000 ppm=-3000 measured=47855.9 error_ppm=-1.10607 max_time_error_ms=2.37984 spans=42188",
+    "nominal=48000 ppm=-1378.94 measured=47933.8 error_ppm=0.814651 max_time_error_ms=2.32466 spans=42188",
+    "nominal=48000 ppm=0 measured=48000 error_ppm=0.0607757 max_time_error_ms=2.5441 spans=42188",
+    "nominal=48000 ppm=1378.94 measured=48066.2 error_ppm=-0.467635 max_time_error_ms=3.5524 spans=42188",
+    "nominal=48000 ppm=3000 measured=48144 error_ppm=-0.116268 max_time_error_ms=8.66932 spans=42188",
+    "nominal=96000 ppm=-3000 measured=95712 error_ppm=0.423286 max_time_error_ms=2.2739 spans=84375",
+    "nominal=96000 ppm=-1378.94 measured=95867.7 error_ppm=0.639671 max_time_error_ms=2.3444 spans=84375",
+    "nominal=96000 ppm=0 measured=96000 error_ppm=-0.162039 max_time_error_ms=2.50781 spans=84375",
+    "nominal=96000 ppm=1378.94 measured=96132.2 error_ppm=-1.41507 max_time_error_ms=3.58012 spans=84375",
+    "nominal=96000 ppm=3000 measured=96287.9 error_ppm=-0.80982 max_time_error_ms=8.65976 spans=84375"
+  ],
+  "extra_cases": [
+    "UTC one-second step resets epoch/model",
+    "manual correction retained without automatic fitting",
+    "capture reset",
+    "real input gap is not interpolated",
+    "two >12-minute tone resamplings, continuous exact12k UTC grid and1000Hz recovered"
+  ],
+  "native_pcm_conditioner_ft_crc_cases": 10,
+  "native_input_fixture_message": "IZ6NNH LZ2KSQ RR73",
+  "native_pipeline_result": "PASS: PCM frame indices, measured spans, metadata forwarding, contiguous12k output, complete FT slots, CRC and exact message",
+  "physical_audio_device_test": "not run here; required next on user Windows USB device",
+  "native_windows_macos_builds": "not run here",
+  "gpu_and_tx_scheduler_changes": false
+}

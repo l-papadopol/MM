@@ -4,6 +4,7 @@
 #include <QMetaType>
 #include <QVector>
 #include <QtGlobal>
+#include <chrono>
 
 /**
  * @brief Carries one normalized mono audio block through the DSP chain.
@@ -33,6 +34,14 @@ struct AudioBlock
     // stop/start or mode transition instead of corrupting the current UTC slot.
     // Zero keeps compatibility with offline/test producers.
     quint64 captureGeneration = 0;
+    // Continuous measured duration of this block. Zero is the legacy/offline
+    // producer contract. sampleRate remains the configured nominal PCM rate.
+    qint64 captureSpanNs = 0;
+    qint64 enqueuedSteadyNs = 0;
+    static qint64 steadyNowNs() {
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
+    }
 };
 
 Q_DECLARE_METATYPE(AudioBlock)

@@ -6,6 +6,7 @@
 #include "../../third_party/mshv_gpl/port/HvGenFt8/gen_ft8.h"
 
 #include <QObject>
+#include "dsp/common/TimestampResampler.h"
 #include <QDateTime>
 #include <QString>
 #include <QVector>
@@ -480,6 +481,7 @@ private:
     std::atomic<bool> m_offlineAnalysisActive {false}; // true only while decoding user-loaded WAV files
 
     int m_inputSampleRate = 0;
+    TimestampResampler m_timedResampler;
     double m_resampleAbsoluteInputIndex = 0.0;
     double m_resampleNextOutputInputIndex = 0.0;
     double m_resamplePreviousSample = 0.0;

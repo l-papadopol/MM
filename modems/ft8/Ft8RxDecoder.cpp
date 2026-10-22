@@ -1179,6 +1179,7 @@ void Ft8RxDecoder::reset()
     std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
     ++m_decodeGeneration;
     m_inputSampleRate = 0;
+    m_timedResampler.reset();
     m_resampleAbsoluteInputIndex = 0.0;
     m_resampleNextOutputInputIndex = 0.0;
     m_resamplePreviousSample = 0.0;
@@ -1638,6 +1639,7 @@ QVector<double> Ft8RxDecoder::resampleTo12k(const AudioBlock &block, qint64 *fir
 
     if (m_inputSampleRate != block.sampleRate) {
         m_inputSampleRate = block.sampleRate;
+        m_timedResampler.reset();
         m_resampleAbsoluteInputIndex = 0.0;
         m_resampleNextOutputInputIndex = 0.0;
         m_resamplePreviousSample = 0.0;
@@ -1654,6 +1656,8 @@ QVector<double> Ft8RxDecoder::resampleTo12k(const AudioBlock &block, qint64 *fir
         filtered[i] = m_resampleLp2;
     }
 
+    if(block.captureSpanNs>0 && block.firstSampleUtcNs>0)
+        return m_timedResampler.process(filtered,block.firstSampleUtcNs,block.captureSpanNs,firstOutputUtcNs);
     const double step = static_cast<double>(block.sampleRate) / static_cast<double>(kDecodeSampleRate);
     out.reserve(static_cast<int>(std::ceil(filtered.size() / step)) + 2);
     const double blockAbsoluteStart = m_resampleAbsoluteInputIndex;
@@ -1955,6 +1959,7 @@ void Ft8RxDecoder::resetCaptureTimeline(quint64 generation, const QString &reaso
     m_decodeGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_activeCaptureGeneration = generation > 0 ? generation : 1;
     m_inputSampleRate = 0;
+    m_timedResampler.reset();
     m_resampleAbsoluteInputIndex = 0.0;
     m_resampleNextOutputInputIndex = 0.0;
     m_resamplePreviousSample = 0.0;
@@ -2212,7 +2217,7 @@ void Ft8RxDecoder::processAudioBlock(const AudioBlock &block)
         const qint64 durationNs = static_cast<qint64>(std::llround(
             (1000000000.0 * static_cast<double>(block.samples.size())) /
             static_cast<double>(qMax(1, block.sampleRate))));
-        blockEndNs = block.firstSampleUtcNs + durationNs;
+        blockEndNs = block.firstSampleUtcNs + (block.captureSpanNs>0?block.captureSpanNs:durationNs);
         if (m_lastAcceptedEndSampleUtcNs > 0 && blockEndNs + 50000000LL < m_lastAcceptedEndSampleUtcNs) {
             ++m_staleCaptureBlocks;
             emitTimelineDiagnosticThrottled(QStringLiteral("FT stale audio timestamp rejected: block ended %1 ms behind active timeline")
@@ -2227,7 +2232,8 @@ void Ft8RxDecoder::processAudioBlock(const AudioBlock &block)
 
         const qint64 nowNs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch() * 1000000LL;
         m_latestCaptureQueueLatencyMs =
-            static_cast<double>(qMax<qint64>(qint64{0}, nowNs - blockEndNs)) / 1000000.0;
+            static_cast<double>(qMax<qint64>(qint64{0}, block.enqueuedSteadyNs>0
+                ? AudioBlock::steadyNowNs()-block.enqueuedSteadyNs : nowNs-blockEndNs)) / 1000000.0;
         m_maxCaptureQueueLatencyMs = qMax(m_maxCaptureQueueLatencyMs,
                                          m_latestCaptureQueueLatencyMs);
         m_lastAcceptedEndSampleUtcNs = qMax(m_lastAcceptedEndSampleUtcNs, blockEndNs);

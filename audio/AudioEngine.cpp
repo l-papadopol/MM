@@ -196,6 +196,8 @@ bool AudioEngine::startInput(const QString &deviceName, int requestedSampleRate)
     m_streamFirstUtcNs = 0;
     m_streamFirstMonotonicNs = 0;
     m_streamTimestampValid = false;
+    m_captureTracker.reset();
+    m_lastClockDiagnosticNs = 0;
     m_captureSequence = 0;
     ++m_captureGeneration;
     if (m_captureGeneration == 0) {
@@ -409,6 +411,8 @@ void AudioEngine::stopInput()
     m_streamFirstUtcNs = 0;
     m_streamFirstMonotonicNs = 0;
     m_streamTimestampValid = false;
+    m_captureTracker.reset();
+    m_lastClockDiagnosticNs = 0;
     m_inputDevice = nullptr;
     m_running.store(false, std::memory_order_release);
 
@@ -506,6 +510,19 @@ void AudioEngine::readInputData()
         m_streamTimestampValid = true;
     }
 
+    const qint64 completeFrames = m_diagnosticBytesReceived / qMax(1, bytesPerFrame);
+    if(m_captureTracker.observe(completeFrames,nowMonotonicNs,nowUtcNs,effectiveRate,
+                               std::abs(clockCorrectionPpm())<1e-9)) {
+        ++m_captureGeneration;m_captureSequence=0;
+        reportDiagnostic(QStringLiteral("Audio capture clock: new epoch after UTC/calibration change"));
+    }
+    if(nowMonotonicNs-m_lastClockDiagnosticNs>=30000000000LL) {
+        m_lastClockDiagnosticNs=nowMonotonicNs;
+        reportDiagnostic(QStringLiteral("Audio capture clock: nominal %1 Hz, measured %2 Hz, mapped %3 Hz, model residual %4 ms, locked %5; manual %6 ppm")
+            .arg(effectiveRate).arg(m_captureTracker.measuredRate(),0,'f',3)
+            .arg(m_captureTracker.effectiveRate(),0,'f',3).arg(m_captureTracker.residualMs(),0,'f',2)
+            .arg(m_captureTracker.locked()).arg(clockCorrectionPpm(),0,'f',2));
+    }
     m_pendingBytes.append(data);
     processPendingBytes();
 }
@@ -527,6 +544,11 @@ void AudioEngine::processPendingBytes()
             static_cast<double>(block.firstSampleIndex) * nsPerFrame));
         block.firstSampleUtcNs = m_streamTimestampValid ? m_streamFirstUtcNs + streamOffsetNs : 0;
         block.firstSampleMonotonicNs = m_streamTimestampValid ? m_streamFirstMonotonicNs + streamOffsetNs : 0;
+        if(m_captureTracker.initialized()) {
+            const auto timing=m_captureTracker.take(m_blockSamples);
+            block.firstSampleUtcNs=timing.utc;block.firstSampleMonotonicNs=timing.mono;
+            block.captureSpanNs=timing.duration;
+        }
         block.captureSequence = ++m_captureSequence;
         block.captureGeneration = m_captureGeneration;
         block.samples.resize(m_blockSamples);
@@ -550,6 +572,7 @@ void AudioEngine::processPendingBytes()
         m_totalSamples += m_blockSamples;
 
         emitLevel(block.samples);
+        block.enqueuedSteadyNs=AudioBlock::steadyNowNs();
         emit audioBlockReady(block);
         maybeEmitPeriodicDiagnostics();
     }

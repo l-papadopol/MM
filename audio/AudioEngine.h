@@ -2,6 +2,7 @@
 #define AUDIOENGINE_H
 
 #include "AudioBlock.h"
+#include "CaptureClockTracker.h"
 
 #include <QByteArray>
 #include <QElapsedTimer>
@@ -164,6 +165,8 @@ private:
     qint64 m_streamFirstUtcNs = 0;
     qint64 m_streamFirstMonotonicNs = 0;
     bool m_streamTimestampValid = false;
+    CaptureClockTracker m_captureTracker;
+    qint64 m_lastClockDiagnosticNs = 0;
     quint64 m_captureSequence = 0;
     quint64 m_captureGeneration = 0;
 
