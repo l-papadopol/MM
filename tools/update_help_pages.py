@@ -1567,6 +1567,11 @@ for _lang, _body in GPU_DECODE.items():
     _title, _original = PAGES[_lang]['ft8_ft4.html']
     PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<h2>FT8 / FT4 GPU</h2><p>' + _body + '</p>')
 
+from ft_caller_queue_i18n import HELP as FT_CALLER_HELP, KEYS as FT_CALLER_KEYS
+for _lang, _body in FT_CALLER_HELP.items():
+    _title, _original = PAGES[_lang]['ft8_ft4.html']
+    PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<h2>' + FT_CALLER_KEYS['ft_callers_title'][_lang] + '</h2><p>' + _body + '</p>')
+
 def main() -> int:
     for lang, pages in PAGES.items():
         for filename, (title, body) in pages.items():

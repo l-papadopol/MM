@@ -1,5 +1,11 @@
 # MadModem 0.6.4
 
+### R22 — controllo CQ e coda chiamanti
+
+Barre TX rosse/RX verdi secondo il periodo selezionato; serie CQ con conteggio
+visibile e ripartenza pulita; nuova finestra Chiamanti (N) per la coda FIFO
+in ingresso. Dettagli in `docs/architecture/RELEASE_0_6_4_R22.md`.
+
 ### R21 — allineamento del clock audio
 
 Stima del clock di cattura e ricampionamento FT8/FT4 su griglia UTC12kHz,

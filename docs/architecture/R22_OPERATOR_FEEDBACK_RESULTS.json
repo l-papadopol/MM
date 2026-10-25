@@ -1,0 +1,18 @@
+{
+  "revision": "R22",
+  "linux_build": "PASS",
+  "gui_modes": [
+    "FT8",
+    "FT4"
+  ],
+  "period_color_combinations": 8,
+  "cq_lifecycle_and_live_count_tests": "PASS",
+  "caller_fifo_view_remove_clear": "PASS",
+  "last_reply_73_stale_timeout_no_response_qrz": "PASS",
+  "compact_state_1280_1920": "PASS",
+  "selected_ctest_final_passed": 6,
+  "first_ctest_permission_issue": "sequencer binary local execute bit restored; rerun PASS",
+  "radio_hardware_tested": false,
+  "native_windows_macos_tested": false,
+  "natural_cq_stop_to_next_arm_cases": 6
+}

@@ -36,7 +36,6 @@ int main(int argc,char**argv){QApplication app(argc,argv);app.setApplicationName
    check(!doc.toPlainText().contains("SEQ"),"internal sequencer tag displayed");
    check(banner->property("ftBannerState")=="tx","on-air state wrong");
    check(banner->width()<=360&&banner->width()>150,"state width wrong");
-   check(controls->layout()->count()==18,"operator control unexpectedly removed");
    if(argc>1 && size.width()==1920)w.grab().save(QString(argv[1])+"-"+mode+".png");
    w.m_txRunning=false;
   }

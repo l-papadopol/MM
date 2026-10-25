@@ -1156,8 +1156,9 @@ protected:
         QFont labelFont = font(); labelFont.setBold(true); painter.setFont(labelFont);
         for (int row = 0; row < 2; ++row) {
             const QRectF bar(2, 2 + row * (rowHeight + 4), width() - 4, rowHeight);
-            const QColor colour = row == 0 ? QColor(32, 150, 85) : QColor(194, 66, 66);
-            painter.setPen(QPen(row == active ? colour : palette().color(QPalette::Mid), 1));
+            const bool txPeriod = row == (m_txWindow ? active : 1-active);
+            const QColor colour = txPeriod ? QColor(194, 66, 66) : QColor(32, 150, 85);
+            painter.setPen(QPen(colour, row == active ? 2 : 1));
             painter.setBrush(palette().color(QPalette::Base));
             painter.drawRoundedRect(bar, 3, 3);
             if (row == active && progress > 0.0)
@@ -8601,6 +8602,7 @@ void MainWindow::setupFt8Page()
     // an internal compatibility setting, but do not expose it as an operator
     // toggle in the hot path.
     m_chkFt8CqRepeat = new QCheckBox(uiText("ft8_cq_retry", "CQ retry"), controlGroup);
+    m_chkFt8CqRepeat->setToolTip(uiText("ft_cq_repeat_help","Starts a fresh CQ series. The count includes the first call. The no-response limit applies to QSO exchanges. The option turns off when the series finishes."));
     m_chkFt8AutoLog = new QCheckBox(uiText("ft8_auto_log", "Auto log completed QSOs"), controlGroup);
     m_chkFt8CallerQueue = new QCheckBox(uiText("ft8_queue_callers", "Queue stations calling me"), controlGroup);
     m_chkFt8CallerQueue->setToolTip(uiText("ft8_queue_callers_tooltip",
@@ -8651,8 +8653,14 @@ void MainWindow::setupFt8Page()
     controlGrid->addWidget(m_chkFt8HoldTxFreq, 2, 0);
     controlGrid->addWidget(m_cmbFt8TxStrategy, 2, 1, 1, 2);
     controlGrid->addWidget(m_chkFt8AutoLog, 1, 4, 1, 2);
-    controlGrid->addWidget(m_chkFt8FullAutoQso, 2, 5);
-    controlGrid->addWidget(m_chkFt8CallerQueue, 2, 3, 1, 2);
+
+    auto *callerRow=new QHBoxLayout;
+    callerRow->addWidget(m_chkFt8CallerQueue);
+    m_btnFt8CallerList=new QPushButton(controlGroup);
+    m_btnFt8CallerList->setObjectName(QStringLiteral("ftCallerQueueOpen"));
+    callerRow->addWidget(m_btnFt8CallerList);callerRow->addWidget(m_chkFt8FullAutoQso);callerRow->addStretch(1);
+    controlGrid->addLayout(callerRow,2,3,1,3);
+    connect(m_btnFt8CallerList,&QPushButton::clicked,this,&MainWindow::showFt8CallerQueue);
 
     m_btnFtCqAdd = new QPushButton(uiText("ft_cq_list_add", "Add selected CQs"), controlGroup);
     m_btnFtCqAdd->setObjectName(QStringLiteral("ftCqWorkListAdd"));
@@ -11153,6 +11161,7 @@ void MainWindow::setupUiConnections()
                 clearFt8CallerQueue(QStringLiteral("operator disabled caller queue"));
             } else {
                 updateFt8SessionQueueUi();
+                showFt8CallerQueue();
                 QTimer::singleShot(0, this, [this]() { activateNextFt8QueuedCaller(); });
             }
             applyFt8Settings();
@@ -11228,7 +11237,7 @@ void MainWindow::setupUiConnections()
     }
     if (m_spinFt8CqTimeoutMin != nullptr) {
         connect(m_spinFt8CqTimeoutMin, QOverload<int>::of(&QSpinBox::valueChanged),
-                this, [this](int) { applyFt8Settings(); });
+                this, &MainWindow::handleFt8CqRepeatCountChanged);
     }
     if (m_spinFt8NoResponseLimit != nullptr) {
         connect(m_spinFt8NoResponseLimit, QOverload<int>::of(&QSpinBox::valueChanged),
@@ -15796,7 +15805,7 @@ void MainWindow::handleFtSlotUpdated(const QString &modeLabel,
                                      int slotMs,
                                      int cycleMs,
                                      bool firstPeriodNow,
-                                     bool txWindow,
+                                     bool /*txWindow*/,
                                      int cyclePosMs,
                                      int slotElapsedMs,
                                      int remainMs,
@@ -15806,6 +15815,7 @@ void MainWindow::handleFtSlotUpdated(const QString &modeLabel,
     const double cycleSeconds = static_cast<double>(cyclePosMs) / 1000.0;
     const bool txFirst = (m_radioFt8TxFirst != nullptr) ? m_radioFt8TxFirst->isChecked() : true;
 
+    const bool txWindow = (firstPeriodNow == txFirst);
     const QString first = uiText("first_period", "first period");
     const QString second = uiText("second_period", "second period");
     const QString selectedPeriod = txFirst ? first : second;
@@ -15916,6 +15926,12 @@ void MainWindow::refreshQrzStationPanel()
 void MainWindow::updateFt8SequencerUi()
 {
     refreshQrzStationPanel();
+    if(m_chkFt8CqRepeat){
+        const int done=qMax(0,m_ftSession.cqRepeatTotal-m_ftSession.cqRepeatRemaining);
+        m_chkFt8CqRepeat->setText(m_ftSession.cqRepeatActive && m_ftSession.cqRepeatTotal>0
+            ? uiText("ft_cq_repeat_progress","Repeat CQ (%1/%2)").arg(done).arg(m_ftSession.cqRepeatTotal)
+            : uiText("ft8_cq_retry","CQ retry"));
+    }
     QString stateText;
     switch (m_ftSession.state) {
     case Ft8SequencerState::Idle:
@@ -16857,9 +16873,6 @@ void MainWindow::updateFt8EvilModeVisibility()
         }
     }
 
-    if (!visible) {
-        m_settings.ft8CqRepeat = false;
-    }
     updateFt8SequencerUi();
 }
 
@@ -16907,6 +16920,7 @@ void MainWindow::handleFt8EvilModeToggled(bool enabled)
 
 void MainWindow::handleFt8AutoCqToggled(bool enabled)
 {
+    if(enabled)m_ft8OperatorStopLatched=false;
     if (m_chkFt8CqRepeat == nullptr) {
         return;
     }
@@ -16928,12 +16942,23 @@ void MainWindow::handleFt8AutoCqToggled(bool enabled)
     }
 
     appendLog("FT CQ retry enabled: MM will repeat the selected CQ for the configured count, then stay in RX.");
+    const bool liveCq=(m_txRunning||m_ftTxWorkerRunning) && isFt8CqMessage(m_ftSession.lastTxPlan.message);
+    const bool pendingCq=m_ft8PendingTxArmed && isFt8CqMessage(m_pendingFt8TxPlan.message);
+    if(!m_ftSession.qsoActive && (liveCq||pendingCq)) {
+        m_ftSession.resetForCqRepeatCount(stationCallsign(),stationLocator(),m_spinFt8CqTimeoutMin->value());
+        if(liveCq){m_ftSession.lastTxPlan.tag=QStringLiteral("CQ");m_ftSession.cqLastCompletedSlotUtcMs=0;}
+        if(pendingCq)m_pendingFt8TxPlan.tag=QStringLiteral("CQ");
+        setFt8ActiveTxRow(0);
+        updateFt8SequencerUi();
+        return;
+    }
+
 
     if (ui != nullptr && ui->cmbMode != nullptr && Ft8Mode::isFamilyMode(ui->cmbMode->currentText()) &&
         !m_ftSession.qsoActive && !m_txRunning && !m_ftTxWorkerRunning && !m_ft8PendingTxArmed) {
         QTimer::singleShot(0, this, [this]() {
             if (m_chkFt8CqRepeat != nullptr && m_chkFt8CqRepeat->isChecked() &&
-                !m_ftSession.qsoActive && !m_txRunning && !m_ftTxWorkerRunning && !m_ft8PendingTxArmed) {
+                !m_ft8OperatorStopLatched && !m_ftSession.cqRepeatActive && !m_ftSession.qsoActive && !m_txRunning && !m_ftTxWorkerRunning && !m_ft8PendingTxArmed) {
                 startFt8CqRepeat();
             }
         });
@@ -17366,6 +17391,26 @@ bool MainWindow::startFt8FullAutoQsoFromCandidate(const Ft8FullAutoCqCandidate &
     return true;
 }
 
+void MainWindow::handleFt8CqRepeatCountChanged(int count)
+{
+    if(m_ftSession.cqRepeatActive && !m_ftSession.qsoActive && m_ftSession.cqRepeatTotal>0){
+        const int done=qMax(0,m_ftSession.cqRepeatTotal-m_ftSession.cqRepeatRemaining);
+        m_ftSession.cqRepeatTotal=qBound(1,count,99);
+        m_ftSession.cqRepeatRemaining=qMax(0,m_ftSession.cqRepeatTotal-done);
+        if(!m_ftSession.cqRepeatRemaining){
+            const bool busy=m_txRunning||m_ftTxWorkerRunning||(m_txAudioEngine&&m_txAudioEngine->isRunning());
+            if(!busy)stopFt8Sequencer(QStringLiteral("CQ series count reached after count update"));
+            else m_ftSession.cqRepeatActive=false;
+            if(m_hasDeferredFt8TxPlan && m_deferredFt8TxPlan.tag==QStringLiteral("CQ")){
+                m_hasDeferredFt8TxPlan=false;m_deferredFt8TxPlan=FtTxPlan();
+                m_ftSession.deferredState=Ft8SequencerState::Idle;
+            }
+            const QSignalBlocker block(m_chkFt8CqRepeat);m_chkFt8CqRepeat->setChecked(false);
+        }
+    }
+    applyFt8Settings();
+}
+
 void MainWindow::startFt8CqRepeat()
 {
     m_ft8OperatorStopLatched = false;
@@ -17449,6 +17494,7 @@ void MainWindow::stopFt8Sequencer(const QString &reason)
 
 void MainWindow::updateFt8SessionQueueUi()
 {
+    refreshFt8CallerQueueUi();
     if (m_lblFt8SessionQueue == nullptr) {
         return;
     }
@@ -17456,6 +17502,61 @@ void MainWindow::updateFt8SessionQueueUi()
         uiText("ft8_session_stats", "Session QSOs: %1 · Queued callers: %2")
             .arg(m_ftSessionQsoCount)
             .arg(m_ft8CallerQueue.size()));
+}
+
+void MainWindow::showFt8CallerQueue()
+{
+    if(!m_ft8CallerDialog){
+        m_ft8CallerDialog=new QDialog(this);m_ft8CallerDialog->setModal(false);
+        m_ft8CallerDialog->setObjectName(QStringLiteral("ftCallerQueueDialog"));
+        m_ft8CallerDialog->setWindowTitle(uiText("ft_callers_title","Waiting callers"));
+        m_ft8CallerDialog->resize(700,340);
+        auto *layout=new QVBoxLayout(m_ft8CallerDialog);
+        auto *help=new QLabel(uiText("ft_callers_help","Direct callers waiting for the current QSO to finish. Served in FIFO order."),m_ft8CallerDialog);
+        help->setWordWrap(true);layout->addWidget(help);
+        m_ft8CallerEmpty=new QLabel(uiText("ft_callers_empty","No callers waiting"),m_ft8CallerDialog);
+        layout->addWidget(m_ft8CallerEmpty);
+        m_ft8CallerTable=new QTableWidget(m_ft8CallerDialog);
+        m_ft8CallerTable->setObjectName(QStringLiteral("ftCallerQueueTable"));
+        m_ft8CallerTable->setColumnCount(6);
+        m_ft8CallerTable->setSortingEnabled(false);
+        m_ft8CallerTable->setHorizontalHeaderLabels({QStringLiteral("#"),uiText("callsign","Callsign"),uiText("locator","Locator"),QStringLiteral("dB"),QStringLiteral("Hz"),uiText("ft_callers_seen","Last heard UTC")});
+        m_ft8CallerTable->setSelectionBehavior(QAbstractItemView::SelectRows);
+        m_ft8CallerTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
+        m_ft8CallerTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+        m_ft8CallerTable->verticalHeader()->hide();
+        m_ft8CallerTable->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
+        m_ft8CallerTable->horizontalHeader()->setStretchLastSection(true);layout->addWidget(m_ft8CallerTable);
+        auto *buttons=new QHBoxLayout;
+        auto *remove=new QPushButton(uiText("ft_cq_list_remove","Remove selected"),m_ft8CallerDialog);
+        remove->setObjectName(QStringLiteral("ftCallerQueueRemove"));
+        auto *clear=new QPushButton(uiText("ft_cq_list_clear","Clear list"),m_ft8CallerDialog);
+        clear->setObjectName(QStringLiteral("ftCallerQueueClear"));
+        auto *close=new QPushButton(uiText("close","Close"),m_ft8CallerDialog);
+        buttons->addWidget(remove);buttons->addWidget(clear);buttons->addStretch();buttons->addWidget(close);layout->addLayout(buttons);
+        connect(close,&QPushButton::clicked,m_ft8CallerDialog,&QDialog::hide);
+        connect(clear,&QPushButton::clicked,this,[this]{clearFt8CallerQueue(QStringLiteral("operator cleared waiting list"));});
+        connect(remove,&QPushButton::clicked,this,[this]{
+            QSet<QString> calls;
+            for(auto *item:m_ft8CallerTable->selectedItems())calls.insert(item->data(Qt::UserRole).toString());
+            for(const auto &call:calls)removeFt8QueuedCaller(call);
+        });
+    }
+    refreshFt8CallerQueueUi();m_ft8CallerDialog->show();m_ft8CallerDialog->raise();
+}
+
+void MainWindow::refreshFt8CallerQueueUi()
+{
+    if(m_btnFt8CallerList)m_btnFt8CallerList->setText(uiText("ft_callers_open","Callers (%1)").arg(m_ft8CallerQueue.size()));
+    if(!m_ft8CallerTable)return;
+    QSet<QString> selected;
+    for(auto *item:m_ft8CallerTable->selectedItems())selected.insert(item->data(Qt::UserRole).toString());
+    const QSignalBlocker block(m_ft8CallerTable);m_ft8CallerTable->setRowCount(m_ft8CallerQueue.size());
+    for(int row=0;row<m_ft8CallerQueue.size();++row){const auto &caller=m_ft8CallerQueue[row];
+        const QStringList values{QString::number(row+1),caller.call,caller.grid,QString::number(caller.latestDecode.snrDb),QString::number(caller.latestDecode.frequencyHz),caller.lastSeenUtc.toUTC().toString(QStringLiteral("HH:mm:ss"))};
+        for(int col=0;col<values.size();++col){auto *item=new QTableWidgetItem(values[col]);item->setData(Qt::UserRole,caller.call);m_ft8CallerTable->setItem(row,col,item);if(selected.contains(caller.call))item->setSelected(true);}
+    }
+    if(m_ft8CallerEmpty)m_ft8CallerEmpty->setVisible(m_ft8CallerQueue.isEmpty());
 }
 
 void MainWindow::clearFt8CallerQueue(const QString &reason)
@@ -17853,13 +17954,14 @@ void MainWindow::handleFt8TxCompleted()
     const QDateTime now = QDateTime::currentDateTimeUtc();
 
     if (completedTag == QStringLiteral("CQ") && m_ftSession.cqRepeatActive && !m_ftSession.qsoActive) {
-        if (m_ftSession.cqRepeatRemaining > 0) {
-            --m_ftSession.cqRepeatRemaining;
-        }
-        if (m_ftSession.cqRepeatRemaining <= 0 ||
+        if(!m_ftSession.noteCqTxCompleted())return;
+        if ((m_ftSession.cqRepeatTotal>0 && m_ftSession.cqRepeatRemaining <= 0) ||
             (m_ftSession.cqRepeatDeadlineUtc.isValid() && now >= m_ftSession.cqRepeatDeadlineUtc)) {
             m_ftSession.cqRepeatActive = false;
             m_ftSession.state = Ft8SequencerState::Idle;
+            if(m_chkFt8CqRepeat){const QSignalBlocker block(m_chkFt8CqRepeat);m_chkFt8CqRepeat->setChecked(false);}
+            m_settings.ft8CqRepeat=false;
+            savePersistentSettings();
             appendLog("FT8 CQ retry count reached; staying in RX.");
             updateFt8SequencerUi();
             return;

@@ -1,5 +1,11 @@
 # MadModem changelog
 
+## 0.6.4 source R22 — periodi, CQ e chiamanti
+
+Barre TX rosse/RX verdi secondo il periodo selezionato; serie CQ con conteggio
+visibile e ripartenza pulita; nuova finestra Chiamanti (N) per la coda FIFO
+in ingresso. Dettagli in `docs/architecture/RELEASE_0_6_4_R22.md`.
+
 ## 0.6.4 source R21 — clock audio FT8/FT4
 
 Stima del clock di cattura e ricampionamento FT8/FT4 su griglia UTC12kHz,

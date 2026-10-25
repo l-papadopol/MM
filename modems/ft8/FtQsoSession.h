@@ -31,6 +31,8 @@ public:
 
     QDateTime cqRepeatDeadlineUtc;
     int cqRepeatRemaining = 0;
+    int cqRepeatTotal = 0;
+    qint64 cqLastCompletedSlotUtcMs = 0;
     QDateTime qsoStartUtc;
 
     QString dxCall;
@@ -62,6 +64,7 @@ public:
     bool noteRetryTxCompleted(int slotMs);
     void clearLastTx();
     void resetForCqRepeat(const QString &myCall, const QString &myGrid, int timeoutMinutes);
+    bool noteCqTxCompleted();
     void resetForCqRepeatCount(const QString &myCall, const QString &myGrid, int repeatCount);
     void startQso(const QString &call, const QString &grid, int audioFrequencyHz, const QDateTime &startUtc = QDateTime::currentDateTimeUtc());
     void applyDecision(const FtQsoSequencer::Decision &decision);

@@ -12,6 +12,8 @@ void FtQsoSession::resetAll()
     autoLogDone = false;
     cqRepeatDeadlineUtc = QDateTime();
     cqRepeatRemaining = 0;
+    cqRepeatTotal = 0;
+    cqLastCompletedSlotUtcMs = 0;
     qsoStartUtc = QDateTime();
     dxCall.clear();
     dxGrid.clear();
@@ -83,6 +85,8 @@ void FtQsoSession::resetForCqRepeat(const QString &, const QString &, int timeou
     cqRepeatActive = true;
     state = State::CallingCq;
     cqRepeatRemaining = 0;
+    cqRepeatTotal = 0;
+    cqLastCompletedSlotUtcMs = lastTxPlan.slotBoundaryUtcMs;
     cqRepeatDeadlineUtc = timeoutMinutes > 0
         ? QDateTime::currentDateTimeUtc().addSecs(timeoutMinutes * 60)
         : QDateTime();
@@ -94,6 +98,8 @@ void FtQsoSession::resetForCqRepeatCount(const QString &, const QString &, int r
     cqRepeatActive = true;
     state = State::CallingCq;
     cqRepeatRemaining = qBound(1, repeatCount, 99);
+    cqRepeatTotal = cqRepeatRemaining;
+    cqLastCompletedSlotUtcMs = lastTxPlan.slotBoundaryUtcMs;
     cqRepeatDeadlineUtc = QDateTime();
 }
 
@@ -198,4 +204,14 @@ void FtQsoSession::rememberGrid(const QString &call, const QString &grid)
 QString FtQsoSession::knownGridFor(const QString &call) const
 {
     return observedCallGrids.value(FtDecodedText::baseCall(call.trimmed().toUpper())).left(4).toUpper();
+}
+
+bool FtQsoSession::noteCqTxCompleted()
+{
+    if(!cqRepeatActive || qsoActive || lastTxPlan.tune || lastTxPlan.tag.trimmed().toUpper()!=QStringLiteral("CQ") ||
+       lastTxPlan.slotBoundaryUtcMs<=0 || lastTxPlan.slotBoundaryUtcMs==cqLastCompletedSlotUtcMs)
+        return false;
+    cqLastCompletedSlotUtcMs=lastTxPlan.slotBoundaryUtcMs;
+    if(cqRepeatRemaining>0)--cqRepeatRemaining;
+    return true;
 }

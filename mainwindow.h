@@ -776,6 +776,8 @@ private slots:
     void removeFt8QueuedCaller(const QString &call);
     void clearFt8CallerQueue(const QString &reason = QString());
     void updateFt8SessionQueueUi();
+    void showFt8CallerQueue();
+    void refreshFt8CallerQueueUi();
     bool addFtDecodeToCqWorkList(QTableWidgetItem *item, bool cqOnly);
     void addSelectedFtCqsToWorkList();
     void showFtCqWorkList();
@@ -837,6 +839,7 @@ private slots:
      * @brief Starts or restarts repeated CQ calling with the configured timeout.
      */
     void startFt8CqRepeat();
+    void handleFt8CqRepeatCountChanged(int count);
 
     /**
      * @brief Stops the FT8 automatic sequencer and CQ repeat state.
@@ -2099,6 +2102,10 @@ private:
         QDateTime lastSeenUtc;
     };
     QVector<Ft8QueuedCaller> m_ft8CallerQueue;
+    QPushButton *m_btnFt8CallerList = nullptr;
+    QDialog *m_ft8CallerDialog = nullptr;
+    QTableWidget *m_ft8CallerTable = nullptr;
+    QLabel *m_ft8CallerEmpty = nullptr;
     QCheckBox *m_chkFtCqQueue = nullptr;
     FtCqWorkList m_ftCqWorkList;
     QTimer m_ftCqWorkListTimer;
