@@ -486,6 +486,8 @@ add_executable(MadModem
     modems/rtty/RttyMultiDecoder.h
     modems/rtty/RttyMultiDecoder.cpp
     modems/rtty/contest/RttyContestRules.h
+    runtime/SstvImageArchive.cpp
+    runtime/SstvImageArchive.h
     runtime/RxDecoderWorker.cpp
     runtime/RxDecoderWorker.h
     runtime/LogbookIndexWorker.h
@@ -1402,4 +1404,41 @@ if(BUILD_TESTING)
     add_test(NAME madmodem_weatherfax_image_regression COMMAND madmodem_weatherfax_image_regression)
     add_test(NAME madmodem_weatherfax_image_extended COMMAND madmodem_weatherfax_image_regression --extended)
     set_tests_properties(madmodem_weatherfax_image_regression madmodem_weatherfax_image_extended PROPERTIES TIMEOUT 30)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(madmodem_sstv_vis_regression tests/SstvVisRegression.cpp
+        modems/sstv/SstvDecoder.cpp modems/sstv/tx/SstvTransmitter.cpp
+        third_party/mmsstv_lgpl/MmsstvRxCore.cpp)
+    target_include_directories(madmodem_sstv_vis_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_sstv_vis_regression PRIVATE ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_sstv_vis_regression COMMAND madmodem_sstv_vis_regression)
+    set_tests_properties(madmodem_sstv_vis_regression PROPERTIES TIMEOUT 60)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(madmodem_sstv_editor_regression tests/SstvEditorRegression.cpp
+        dialogs/SstvImageEditorDialog.cpp utils/RuntimeI18n.cpp modems/sstv/tx/SstvTransmitter.cpp)
+    target_include_directories(madmodem_sstv_editor_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_sstv_editor_regression PRIVATE ${QT}::Core ${QT}::Gui ${QT}::Widgets)
+    add_test(NAME madmodem_sstv_editor_regression COMMAND madmodem_sstv_editor_regression)
+    set_tests_properties(madmodem_sstv_editor_regression PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 30)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(madmodem_sstv_image_adjustment_regression
+        tests/SstvImageAdjustmentRegression.cpp modems/sstv/SstvDecoder.cpp
+        modems/sstv/tx/SstvTransmitter.cpp third_party/mmsstv_lgpl/MmsstvRxCore.cpp)
+    target_include_directories(madmodem_sstv_image_adjustment_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_sstv_image_adjustment_regression PRIVATE ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_sstv_image_adjustment_regression COMMAND madmodem_sstv_image_adjustment_regression)
+    set_tests_properties(madmodem_sstv_image_adjustment_regression PROPERTIES TIMEOUT 90)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(madmodem_sstv_archive_regression tests/SstvArchiveRegression.cpp runtime/SstvImageArchive.cpp)
+    target_include_directories(madmodem_sstv_archive_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_sstv_archive_regression PRIVATE ${QT}::Core ${QT}::Gui)
+    add_test(NAME madmodem_sstv_archive_regression COMMAND madmodem_sstv_archive_regression)
+    set_tests_properties(madmodem_sstv_archive_regression PROPERTIES TIMEOUT 30)
 endif()

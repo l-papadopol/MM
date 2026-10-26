@@ -1,0 +1,59 @@
+{
+  "revision": "0.6.4-source-r25-sstv-rx-auto-save",
+  "baseline": "R24 canonical version32",
+  "linux_qt5_build": "PASS",
+  "selected_ctest": "12/12 PASS",
+  "registered_ctest": 49,
+  "archive_regression": {
+    "disabled_default": "PASS",
+    "immutable_image_and_destination": "PASS",
+    "UTC_mode_names_and_sequence_suffixes": "PASS",
+    "existing_files_never_replaced": "PASS",
+    "concurrent_independent_writers": "PASS",
+    "Unicode_and_space_paths": "PASS",
+    "invalid_destination_and_subsequent_recovery": "PASS",
+    "bounded_queue_and_finish_drain": "PASS",
+    "temporary_cleanup_after_success": "PASS"
+  },
+  "native_workflow": {
+    "actual_completed_RX_to_PNG_exact_pixels": "PASS",
+    "own_QSL_TX_source_and_editor_isolation": "PASS",
+    "later_display_adjustments_do_not_resave_or_overwrite": "PASS",
+    "disabled_option_prevents_next_frame_save": "PASS",
+    "enabled_flag_and_folder_preferences_reload": "PASS",
+    "R24_wide_raster_trims_reload": "PASS",
+    "six_languages": [
+      "en",
+      "it",
+      "fr",
+      "de",
+      "no",
+      "cs"
+    ],
+    "folder_status_controls_and_mode_preserved": "PASS",
+    "queued_completion_at_Close_saved": "PASS",
+    "hardware_audio_PTT_opened": false
+  },
+  "implementation": {
+    "worker": "dedicated serial std::thread",
+    "maximum_pending_jobs": 8,
+    "save_trigger": "imageCompleted only",
+    "default_enabled": false,
+    "default_folder": "QStandardPaths PicturesLocation / MadModem/SSTV, home fallback",
+    "pixels": "snapshot at completion, including active trims",
+    "shutdown": "flush archive-specific queued completion events, drain accepted jobs",
+    "nonmodal_status_and_runtime_log": true
+  },
+  "initial_failures_corrected": [
+    "Missing QDesktopServices include",
+    "Anonymous temporary file must materialize its name before QFile rename",
+    "Queued VIS GUI callback needed shutdown guard after RX worker deletion"
+  ],
+  "not_tested": [
+    "native Windows/macOS",
+    "physical RF/audio hardware",
+    "network shares",
+    "real desktop file manager launch"
+  ],
+  "scope": "all R24 modem/audio/DSP/GPU/QSL-editor sources preserved byte-for-byte; no RX-to-editor handoff"
+}

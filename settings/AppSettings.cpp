@@ -357,10 +357,13 @@ void AppSettings::load()
     weatherFaxAgcEnabled = settings.value("WeatherFax/agcEnabled", weatherFaxAgcEnabled).toBool();
     weatherFaxWaveletDenoiseEnabled = settings.value("WeatherFax/waveletDenoiseEnabled", weatherFaxWaveletDenoiseEnabled).toBool();
 
+    sstvAutoSave = settings.value("SSTV/autoSave", sstvAutoSave).toBool();
+    sstvOutputFolder = settings.value("SSTV/outputFolder", sstvOutputFolder).toString();
     sstvMode = settings.value("SSTV/mode", sstvMode).toString();
+    sstvAutoVis = settings.value("SSTV/autoVis", sstvAutoVis).toBool();
     sstvAutoSync = settings.value("SSTV/autoSync", sstvAutoSync).toBool();
     sstvHorizontalShiftPixels = settings.value("SSTV/horizontalShiftPixels", sstvHorizontalShiftPixels).toInt();
-    if (sstvHorizontalShiftPixels < -320 || sstvHorizontalShiftPixels > 320) {
+    if (sstvHorizontalShiftPixels < -800 || sstvHorizontalShiftPixels > 800) {
         sstvHorizontalShiftPixels = 0;
     }
     sstvRedShiftPixels = settings.value("SSTV/redShiftPixels", sstvRedShiftPixels).toInt();
@@ -368,10 +371,10 @@ void AppSettings::load()
     sstvNoiseReductionEnabled = settings.value("SSTV/noiseReductionEnabled", sstvNoiseReductionEnabled).toBool();
     sstvAgcEnabled = settings.value("SSTV/agcEnabled", sstvAgcEnabled).toBool();
     sstvWaveletDenoiseEnabled = settings.value("SSTV/waveletDenoiseEnabled", sstvWaveletDenoiseEnabled).toBool();
-    if (sstvRedShiftPixels < -96 || sstvRedShiftPixels > 96) {
+    if (sstvRedShiftPixels < -266 || sstvRedShiftPixels > 266) {
         sstvRedShiftPixels = 0;
     }
-    if (sstvBlueShiftPixels < -96 || sstvBlueShiftPixels > 96) {
+    if (sstvBlueShiftPixels < -266 || sstvBlueShiftPixels > 266) {
         sstvBlueShiftPixels = 0;
     }
 
@@ -833,8 +836,11 @@ bool AppSettings::save() const
     settings.setValue("WeatherFax/agcEnabled", weatherFaxAgcEnabled);
     settings.setValue("WeatherFax/waveletDenoiseEnabled", weatherFaxWaveletDenoiseEnabled);
 
+    settings.setValue("SSTV/autoSave", sstvAutoSave);
+    settings.setValue("SSTV/outputFolder", sstvOutputFolder);
     settings.setValue("SSTV/mode", sstvMode);
     settings.setValue("SSTV/autoSync", sstvAutoSync);
+    settings.setValue("SSTV/autoVis", sstvAutoVis);
     settings.setValue("SSTV/horizontalShiftPixels", sstvHorizontalShiftPixels);
     settings.setValue("SSTV/redShiftPixels", sstvRedShiftPixels);
     settings.setValue("SSTV/blueShiftPixels", sstvBlueShiftPixels);

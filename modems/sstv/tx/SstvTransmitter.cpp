@@ -1,4 +1,5 @@
 #include "SstvTransmitter.h"
+#include "../SstvVis.h"
 
 #include <QColor>
 #include <QPainter>
@@ -69,7 +70,7 @@ SstvTransmitter::SstvTransmitter(const QImage &sourceImage,
     }
 
     m_lineSamples = (m_mode.lineMs * static_cast<double>(m_sampleRate)) / 1000.0;
-    m_leadSamples = static_cast<qint64>(qRound(1.0 * static_cast<double>(m_sampleRate)));
+    m_leadSamples = static_cast<qint64>(qRound(0.910 * static_cast<double>(m_sampleRate)));
     m_imageSamples = static_cast<qint64>(qCeil(m_lineSamples * static_cast<double>(m_mode.transmittedLines)));
     m_tailSamples = static_cast<qint64>(qRound(0.7 * static_cast<double>(m_sampleRate)));
     m_totalSamples = m_leadSamples + m_imageSamples + m_tailSamples;
@@ -295,14 +296,14 @@ QVector<SstvTransmitter::Mode> SstvTransmitter::modes()
     };
 
     addMartin("MARTIN_M1", "Martin M1", 320, 256, 146.432);
-    addMartin("MARTIN_M2", "Martin M2", 160, 256, 73.216);
+    addMartin("MARTIN_M2", "Martin M2", 320, 256, 73.216);
     addMartin("MARTIN_M3", "Martin M3", 320, 128, 146.432);
-    addMartin("MARTIN_M4", "Martin M4", 160, 128, 73.216);
+    addMartin("MARTIN_M4", "Martin M4", 320, 128, 73.216);
 
     addScottie("SCOTTIE_S1", "Scottie S1", 320, 256, 138.240);
-    addScottie("SCOTTIE_S2", "Scottie S2", 160, 256, 88.064);
+    addScottie("SCOTTIE_S2", "Scottie S2", 320, 256, 88.064);
     addScottie("SCOTTIE_S3", "Scottie S3", 320, 128, 138.240);
-    addScottie("SCOTTIE_S4", "Scottie S4", 160, 128, 88.064);
+    addScottie("SCOTTIE_S4", "Scottie S4", 320, 128, 88.064);
     addScottie("SCOTTIE_DX", "Scottie DX", 320, 256, 345.600);
 
     addRobotSingle("ROBOT_24", "Robot 24", 160, 120, 120, 24.00150, 6.0, 0.1, 3.0, 4.5);
@@ -440,7 +441,7 @@ QString SstvTransmitter::description() const
 double SstvTransmitter::frequencyAt(qint64 sampleIndex) const
 {
     if (sampleIndex < m_leadSamples) {
-        return kPorchHz;
+        return SstvVis::headerFrequency(1000.0*sampleIndex/m_sampleRate,SstvVis::code(m_mode.label));
     }
 
     qint64 pos = sampleIndex - m_leadSamples;

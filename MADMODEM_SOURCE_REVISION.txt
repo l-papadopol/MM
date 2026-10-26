@@ -1,1 +1,1 @@
-0.6.4-source-r22-ft-period-cq-caller-queue
+0.6.4-source-r25-sstv-rx-auto-save

@@ -4,6 +4,7 @@
 #include "runtime/WeakSignalTxPreparer.h"
 #include "logbook/CqWwRtty.h"
 #include "mainwindow.h"
+#include "runtime/SstvImageArchive.h"
 #include "audio/RadioBandPower.h"
 #include "MadModemBuildInfo.h"
 #include "MadModemVersion.h"
@@ -73,6 +74,8 @@
 #include <QComboBox>
 #include <QDateTime>
 #include <QDir>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
@@ -96,6 +99,7 @@
 #include <QImageReader>
 #include <QInputDialog>
 #include <QGroupBox>
+#include <QToolButton>
 #include <QIODevice>
 #include <QLineEdit>
 #include <QLocale>
@@ -1812,6 +1816,10 @@ void MainWindow::shutdownRuntime(const char *reason)
     m_dspEngine = nullptr;
     m_dspAudioDispatcher = nullptr;
 
+    if(m_sstvImageArchive) {
+        QCoreApplication::sendPostedEvents(m_sstvImageArchive,QEvent::MetaCall);
+        m_sstvImageArchive->finish();
+    }
     m_runtimeShutdownComplete = true;
     m_shutdownInProgress = false;
     shutdownLog(QStringLiteral("done in %1 ms").arg(shutdownTimer.elapsed()));
@@ -2173,9 +2181,116 @@ void MainWindow::setupCustomWidgets()
         ui->faxSettingsGridLayout->addWidget(m_btnFaxForceRx, 24, 0, 1, 2);
     }
 
-    m_btnSstvForceRx = new QPushButton(uiText("button.forceSstvRx", "Force SSTV RX now"), ui->grpSstvSettings);
-    m_btnSstvForceRx->setVisible(false);
-    m_btnSstvForceRx->setEnabled(false);
+    m_chkSstvAutoVis=new QCheckBox(uiText("text.auto_mode_vis", "Auto mode (VIS)"),ui->grpSstvSettings);
+    m_chkSstvAutoVis->setObjectName("sstvAutoVis");
+    m_chkSstvAutoVis->setChecked(m_settings.sstvAutoVis);
+    if (auto *grid=qobject_cast<QGridLayout*>(ui->grpSstvSettings->layout()))
+        grid->addWidget(m_chkSstvAutoVis,grid->rowCount(),0,1,2);
+    connect(m_chkSstvAutoVis,&QCheckBox::toggled,this,[this](bool enabled){
+        m_settings.sstvAutoVis=enabled;
+        invokeRxDecoder(m_sstvDecoder,&SstvDecoder::setAutoVisEnabled,enabled);savePersistentSettings();
+    });
+    connect(m_sstvDecoder,&SstvDecoder::modeDetected,this,[this](const QString &mode){
+        if(m_shutdownInProgress || m_runtimeShutdownComplete)return;
+        const QSignalBlocker block(ui->cmbSstvMode);
+        const int index=ui->cmbSstvMode->findText(mode);
+        if(index>=0)ui->cmbSstvMode->setCurrentIndex(index);
+        m_settings.sstvMode=mode;applySstvSettings();updateSstvTxPreparedImage();
+        appendLog("SSTV VIS: "+mode);
+    },Qt::QueuedConnection);
+    m_btnSstvAdjust=new QToolButton(ui->grpSstvSettings);
+    m_btnSstvAdjust->setObjectName("sstvAdjustImage");
+    m_btnSstvAdjust->setText(uiText("sstv_adjust_image", "Adjust received image"));
+    m_btnSstvAdjust->setCheckable(true);m_btnSstvAdjust->setArrowType(Qt::RightArrow);
+    m_btnSstvAdjust->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_grpSstvAdjust=new QGroupBox(ui->grpSstvSettings);
+    m_grpSstvAdjust->setObjectName("sstvImageAdjustments");
+    auto *adjust=new QGridLayout(m_grpSstvAdjust);
+    adjust->setVerticalSpacing(6);adjust->setColumnStretch(1,1);
+    adjust->setSizeConstraint(QLayout::SetMinimumSize);
+    m_grpSstvAdjust->setSizePolicy(QSizePolicy::Preferred,QSizePolicy::Minimum);
+    for(QWidget *control : QList<QWidget*>{ui->lblSstvHorizontalShift,ui->spinSstvHorizontalShift,
+        ui->lblSstvRedShift,ui->spinSstvRedShift,ui->lblSstvBlueShift,ui->spinSstvBlueShift})
+        ui->sstvSettingsGridLayout->removeWidget(control);
+    adjust->addWidget(ui->lblSstvHorizontalShift,0,0);adjust->addWidget(ui->spinSstvHorizontalShift,0,1);
+    adjust->addWidget(ui->lblSstvRedShift,1,0);adjust->addWidget(ui->spinSstvRedShift,1,1);
+    adjust->addWidget(ui->lblSstvBlueShift,2,0);adjust->addWidget(ui->spinSstvBlueShift,2,1);
+    ui->spinSstvHorizontalShift->setRange(-800,800);
+    ui->spinSstvHorizontalShift->setSingleStep(1);
+    ui->spinSstvRedShift->setRange(-266,266);ui->spinSstvBlueShift->setRange(-266,266);
+    m_btnSstvClearAdjust=new QPushButton(uiText("sstv_clear_adjust", "Reset adjustments"),m_grpSstvAdjust);
+    m_btnSstvClearAdjust->setObjectName("sstvClearAdjustments");
+    m_btnSstvClearAdjust->setMinimumHeight(28);
+    adjust->addWidget(m_btnSstvClearAdjust,3,0,1,2);
+    m_btnSstvForceRx = new QPushButton(uiText("sstv_start_free_run", "Start RX without synchronization"),m_grpSstvAdjust);
+    m_btnSstvForceRx->setMinimumHeight(28);
+    adjust->addWidget(m_btnSstvForceRx,4,0,1,2);
+    m_lblSstvManualHelp=new QLabel(uiText("sstv_free_run_help", "Restarts the image and disables VIS and line sync."),m_grpSstvAdjust);
+    m_lblSstvManualHelp->setWordWrap(true);
+    m_lblSstvManualHelp->setMinimumHeight(m_lblSstvManualHelp->fontMetrics().lineSpacing()*3);
+    adjust->addWidget(m_lblSstvManualHelp,5,0,1,2);
+    const int row=ui->sstvSettingsGridLayout->rowCount();
+    ui->sstvSettingsGridLayout->addWidget(m_btnSstvAdjust,row,0,1,3);
+    ui->sstvSettingsGridLayout->addWidget(m_grpSstvAdjust,row+1,0,1,3);
+    m_grpSstvAdjust->hide();
+    connect(m_btnSstvAdjust,&QToolButton::toggled,this,[this](bool open){
+        m_grpSstvAdjust->setVisible(open);m_btnSstvAdjust->setArrowType(open?Qt::DownArrow:Qt::RightArrow);
+    });
+    connect(m_btnSstvClearAdjust,&QPushButton::clicked,this,[this]{
+        const QSignalBlocker h(ui->spinSstvHorizontalShift),r(ui->spinSstvRedShift),b(ui->spinSstvBlueShift);
+        ui->spinSstvHorizontalShift->setValue(0);ui->spinSstvRedShift->setValue(0);ui->spinSstvBlueShift->setValue(0);
+        applySstvSettings();
+    });
+
+    m_sstvImageArchive=new SstvImageArchive(this);
+    if(m_settings.sstvOutputFolder.isEmpty()) {
+        QString pictures=QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
+        if(pictures.isEmpty())pictures=QDir::homePath();
+        m_settings.sstvOutputFolder=QDir(pictures).filePath(QStringLiteral("MadModem/SSTV"));
+    }
+    m_sstvImageArchive->configure(m_settings.sstvAutoSave,m_settings.sstvOutputFolder);
+    auto *archiveControls=new QWidget(ui->grpSstvSettings);
+    auto *archiveLayout=new QGridLayout(archiveControls);
+    archiveLayout->setContentsMargins(0,6,0,0);archiveLayout->setColumnStretch(0,1);
+    m_chkSstvAutoSave=new QCheckBox(uiText("sstv_auto_save", "Automatically save received images"),archiveControls);
+    m_chkSstvAutoSave->setObjectName("sstvAutoSave");m_chkSstvAutoSave->setChecked(m_settings.sstvAutoSave);
+    m_editSstvOutputFolder=new QLineEdit(m_settings.sstvOutputFolder,archiveControls);
+    m_editSstvOutputFolder->setObjectName("sstvOutputFolder");m_editSstvOutputFolder->setReadOnly(true);
+    m_editSstvOutputFolder->setToolTip(m_settings.sstvOutputFolder);
+    m_btnSstvBrowseFolder=new QPushButton(QStringLiteral("..."),archiveControls);
+    m_btnSstvBrowseFolder->setObjectName("sstvBrowseFolder");m_btnSstvBrowseFolder->setMaximumWidth(36);
+    m_btnSstvBrowseFolder->setToolTip(uiText("sstv_choose_folder", "Choose received-image folder"));
+    m_btnSstvOpenFolder=new QPushButton(uiText("sstv_open_folder", "Open received-image folder"),archiveControls);
+    m_btnSstvOpenFolder->setObjectName("sstvOpenFolder");
+    m_lblSstvArchiveStatus=new QLabel(uiText("sstv_save_off", "Automatic saving is off."),archiveControls);
+    m_lblSstvArchiveStatus->setObjectName("sstvArchiveStatus");m_lblSstvArchiveStatus->setWordWrap(true);
+    m_lblSstvArchiveStatus->setTextFormat(Qt::PlainText);
+    m_lblSstvArchiveStatus->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Minimum);
+    refreshSstvArchiveStatus();
+    archiveLayout->addWidget(m_chkSstvAutoSave,0,0,1,2);
+    archiveLayout->addWidget(m_editSstvOutputFolder,1,0);archiveLayout->addWidget(m_btnSstvBrowseFolder,1,1);
+    archiveLayout->addWidget(m_btnSstvOpenFolder,2,0,1,2);archiveLayout->addWidget(m_lblSstvArchiveStatus,3,0,1,2);
+    ui->sstvSettingsGridLayout->addWidget(archiveControls,ui->sstvSettingsGridLayout->rowCount(),0,1,3);
+    connect(m_chkSstvAutoSave,&QCheckBox::toggled,this,[this](bool enabled){
+        m_settings.sstvAutoSave=enabled;m_sstvImageArchive->configure(enabled,m_settings.sstvOutputFolder);
+        m_sstvArchiveStatus=0;refreshSstvArchiveStatus();
+        savePersistentSettings();
+    });
+    connect(m_btnSstvBrowseFolder,&QPushButton::clicked,this,&MainWindow::browseSstvOutputFolder);
+    connect(m_btnSstvOpenFolder,&QPushButton::clicked,this,&MainWindow::openSstvOutputFolder);
+    connect(m_sstvImageArchive,&SstvImageArchive::saveQueued,this,[this]{
+        if(!m_shutdownInProgress){m_sstvArchiveStatus=1;refreshSstvArchiveStatus();}
+    });
+    connect(m_sstvImageArchive,&SstvImageArchive::imageSaved,this,[this](const QString &path){
+        if(m_runtimeShutdownComplete || m_shutdownInProgress)return;
+        m_sstvArchiveStatus=2;m_sstvArchiveDetail=path;refreshSstvArchiveStatus();
+        appendLog(QStringLiteral("SSTV auto-save: ")+path);
+    });
+    connect(m_sstvImageArchive,&SstvImageArchive::saveFailed,this,[this](const QString &error){
+        if(m_runtimeShutdownComplete || m_shutdownInProgress)return;
+        m_sstvArchiveStatus=3;m_sstvArchiveDetail=error;refreshSstvArchiveStatus();
+        appendLog(QStringLiteral("SSTV auto-save failed: ")+error);
+    });
 
     // Keep the right-side tabs compact: Status holds live receiver/waterfall/clock
     // information, Mode contains only mode-specific controls.
@@ -9038,7 +9153,7 @@ void MainWindow::setupHelpTooltips()
     }
     if (ui->grpSstvSettings != nullptr) {
         ui->grpSstvSettings->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
-        ui->grpSstvSettings->setMaximumHeight(430);
+        ui->grpSstvSettings->setMaximumHeight(QWIDGETSIZE_MAX);
     }
     if (ui->sstvSettingsGridLayout != nullptr) {
         ui->sstvSettingsGridLayout->setContentsMargins(5, 5, 5, 5);
@@ -9064,20 +9179,6 @@ void MainWindow::setupHelpTooltips()
     }
     if (ui->lineSstvZoomSection != nullptr) {
         ui->lineSstvZoomSection->setVisible(false);
-    }
-    const QList<QWidget *> sstvAdvancedHidden = {
-        ui->lblSstvHorizontalShift,
-        ui->spinSstvHorizontalShift,
-        ui->lblSstvRedShift,
-        ui->spinSstvRedShift,
-        ui->lblSstvBlueShift,
-        ui->spinSstvBlueShift
-    };
-    for (QWidget *w : sstvAdvancedHidden) {
-        if (w != nullptr) {
-            w->setVisible(false);
-            w->setEnabled(false);
-        }
     }
     if (ui->sstvSettingsLayout != nullptr && ui->sstvSettingsLayout->count() > 1) {
         if (QLayoutItem *item = ui->sstvSettingsLayout->itemAt(1)) {
@@ -9174,9 +9275,9 @@ void MainWindow::setupHelpTooltips()
 
     setHelpText(ui->cmbSstvMode, uiText("tooltip.sstv_mode", "Select the manual SSTV mode. Martin, Scottie, Robot and PD modes are supported for RX/TX; Robot/PD use classic SSTV YUV timing."));
     setHelpText(ui->chkSstvAutoSync, uiText("tooltip.sstv_auto_sync", "Lock each SSTV line using the 1200 Hz horizontal sync pulse. Disable only for controlled tests with stable timing."));
-    setHelpText(ui->spinSstvHorizontalShift, uiText("tooltip.sstv_h_phase", "Manual horizontal phase correction in pixels. Use negative values to roll the image left and positive values to roll it right when the SSTV frame appears cylindrically wrapped."));
-    setHelpText(ui->spinSstvRedShift, "Manual red-channel registration in pixels. Leave at 0 unless the whole image phase is correct but red still has a horizontal fringe.");
-    setHelpText(ui->spinSstvBlueShift, "Manual blue-channel registration in pixels. Leave at 0 unless the whole image phase is correct but blue still has a horizontal fringe.");
+    setHelpText(ui->spinSstvHorizontalShift, uiText("sstv_adjust_phase_help", "Moves all received rows horizontally, including a completed image. Positive values move right. Returning to zero restores the original phase."));
+    setHelpText(ui->spinSstvRedShift, uiText("sstv_adjust_red_help", "Aligns red against green across the received image. Returning to zero restores the original red channel."));
+    setHelpText(ui->spinSstvBlueShift, uiText("sstv_adjust_blue_help", "Aligns blue against green across the received image. Returning to zero restores the original blue channel."));
     setHelpText(ui->btnSstvAnalyzeWav, uiText("tooltip.sstv_analyze_wav", "Decode an SSTV WAV recording directly through the active SSTV decoder without playing it to speakers."));
     setHelpText(ui->btnSstvResetImage, uiText("tooltip.sstv_reset_image", "Clear the current SSTV image and restart the selected SSTV decoder."));
     setHelpText(ui->btnSstvSaveImage, uiText("tooltip.sstv_save_png", "Save the currently displayed SSTV image as a PNG file selected manually."));
@@ -9590,6 +9691,8 @@ void MainWindow::setupProcessingConnections()
 
     connect(m_sstvDecoder, &SstvDecoder::imageCompleted,
             this, &MainWindow::handleSstvImageCompleted);
+    connect(m_sstvDecoder,&SstvDecoder::imageCompleted,m_sstvImageArchive,
+            &SstvImageArchive::enqueueCompleted,Qt::QueuedConnection);
 
     connect(m_rttyDecoder, &RttyDecoder::characterReceived,
             this, &MainWindow::handleRttyTextUpdated,
@@ -10270,7 +10373,17 @@ void MainWindow::applyUiLanguage()
 
     if (m_btnSstvEditor != nullptr) m_btnSstvEditor->setText(uiText("button.openSstvEditor", "Open SSTV editor..."));
     if (m_btnFaxForceRx != nullptr) m_btnFaxForceRx->setText(uiText("button.forceWefaxRx", "Force WEFAX RX now"));
-    if (m_btnSstvForceRx != nullptr) m_btnSstvForceRx->setText(uiText("button.forceSstvRx", "Force SSTV RX now"));
+    if (m_btnSstvForceRx != nullptr) m_btnSstvForceRx->setText(uiText("sstv_start_free_run", "Start RX without synchronization"));
+    refreshSstvArchiveStatus();
+    if(m_chkSstvAutoSave)m_chkSstvAutoSave->setText(uiText("sstv_auto_save", "Automatically save received images"));
+    if(m_btnSstvBrowseFolder)m_btnSstvBrowseFolder->setToolTip(uiText("sstv_choose_folder", "Choose received-image folder"));
+    if(m_btnSstvOpenFolder)m_btnSstvOpenFolder->setText(uiText("sstv_open_folder", "Open received-image folder"));
+    if(m_btnSstvAdjust)m_btnSstvAdjust->setText(uiText("sstv_adjust_image", "Adjust received image"));
+    if(m_btnSstvClearAdjust)m_btnSstvClearAdjust->setText(uiText("sstv_clear_adjust", "Reset adjustments"));
+    if(m_lblSstvManualHelp)m_lblSstvManualHelp->setText(uiText("sstv_free_run_help", "Restarts the image and disables VIS and line sync."));
+    ui->lblSstvHorizontalShift->setText(uiText("sstv_horizontal_position", "Horizontal position"));
+    ui->lblSstvRedShift->setText(uiText("sstv_red_alignment", "Red alignment"));
+    ui->lblSstvBlueShift->setText(uiText("sstv_blue_alignment", "Blue alignment"));
     if (m_btnStartImageTx != nullptr && ui->cmbMode != nullptr && ui->cmbMode->currentText() == SstvDecoder::modeName()) {
         m_btnStartImageTx->setText(uiText("button.sendSstv", "Send SSTV"));
     }
@@ -12738,6 +12851,7 @@ void MainWindow::setReceiverRunning(bool running)
     ui->spinSstvHorizontalShift->setEnabled(configurable);
     ui->spinSstvRedShift->setEnabled(configurable);
     ui->spinSstvBlueShift->setEnabled(configurable);
+    if(m_btnSstvClearAdjust)m_btnSstvClearAdjust->setEnabled(configurable);
     ui->btnSstvAnalyzeWav->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
     if (m_btnSstvForceRx != nullptr) m_btnSstvForceRx->setEnabled(!m_txRunning && !m_offlineAnalysisActive);
     ui->btnSstvResetImage->setEnabled(configurable);
@@ -14386,6 +14500,14 @@ void MainWindow::applySstvSettings()
     const QString modeName = ui->cmbSstvMode->currentText().trimmed().isEmpty()
                                  ? QString("Martin M1")
                                  : ui->cmbSstvMode->currentText().trimmed();
+    invokeRxDecoder(m_sstvDecoder,&SstvDecoder::setAutoVisEnabled,m_settings.sstvAutoVis);
+    const int width=SstvDecoder::imageSizeForMode(modeName).width();
+    {
+        const QSignalBlocker h(ui->spinSstvHorizontalShift),r(ui->spinSstvRedShift),b(ui->spinSstvBlueShift);
+        ui->spinSstvHorizontalShift->setRange(-width,width);
+        ui->spinSstvRedShift->setRange(-qMax(8,width/3),qMax(8,width/3));
+        ui->spinSstvBlueShift->setRange(-qMax(8,width/3),qMax(8,width/3));
+    }
     const bool autoSync = ui->chkSstvAutoSync->isChecked();
     const int horizontalShiftPixels = ui->spinSstvHorizontalShift->value();
     const int redShiftPixels = ui->spinSstvRedShift->value();
@@ -21138,11 +21260,16 @@ bool MainWindow::analyzeSstvWavFile(const QString &fileName)
         this
         );
     progress.setWindowModality(Qt::ApplicationModal);
-    progress.setCancelButton(nullptr);
+    progress.setCancelButtonText(uiTextFromSource("text","Cancel"));
     progress.setMinimumDuration(300);
     progress.setValue(0);
 
     while (remainingBytes > 0) {
+        if(progress.wasCanceled()) {
+            m_offlineAnalysisActive=false;setReceiverRunning(false);
+            ui->lblAppStatus->setText(uiText("ready","Ready"));
+            appendLog("SSTV WAV analysis cancelled.");return false;
+        }
         qint64 bytesToRead = qMin(remainingBytes, preferredBytes);
         bytesToRead -= bytesToRead % static_cast<qint64>(wav.blockAlign);
 
@@ -21226,6 +21353,7 @@ void MainWindow::forceSstvManualRx()
         requestModeChange(SstvDecoder::modeName());
     }
 
+    if(m_chkSstvAutoVis)m_chkSstvAutoVis->setChecked(false);
     if (ui->chkSstvAutoSync != nullptr) {
         ui->chkSstvAutoSync->setChecked(false);
     }
@@ -22598,6 +22726,7 @@ void MainWindow::openSstvImageEditor()
     }
 
     SstvImageEditorDialog dialog(this);
+    dialog.setTxMode(ui->cmbSstvMode->currentText());
     applyUiLanguageToObjectTree(&dialog);
     const bool sstvMode = (ui->cmbMode != nullptr && ui->cmbMode->currentText() == SstvDecoder::modeName());
     if (!m_sstvTxBaseImage.isNull()) {
@@ -22606,11 +22735,19 @@ void MainWindow::openSstvImageEditor()
         dialog.setBackgroundImage(m_txSourceImage, m_txImageFileName);
     }
 
+    if (!m_sstvEditorProject.isEmpty()) dialog.restoreProject(m_sstvEditorProject);
+    else dialog.setQsoFields(stationCallsign(),
+        m_editSstvTxCall->text(),m_editSstvTxName->text(),m_editSstvTxQth->text(),m_editSstvTxReport->text());
     connect(&dialog, &SstvImageEditorDialog::imageReadyForTx,
-            this, [this](const QImage &image, const QString &suggestedFileName) {
+            this, [this, &dialog](const QImage &image, const QString &suggestedFileName) {
                 if (image.isNull()) {
                     return;
                 }
+                const QStringList fields=dialog.qsoFields();
+                const QSignalBlocker b1(m_editSstvTxCall),b2(m_editSstvTxName),b3(m_editSstvTxQth),b4(m_editSstvTxReport);
+                m_editSstvTxCall->setText(fields.value(1));m_editSstvTxName->setText(fields.value(2));
+                m_editSstvTxQth->setText(fields.value(3));m_editSstvTxReport->setText(fields.value(4));
+                m_sstvEditorProject=dialog.projectData();
                 m_sstvTxBaseImage = image.convertToFormat(QImage::Format_RGB32);
                 m_txImageOwnerMode = SstvDecoder::modeName();
                 m_txImageFileName = QFileInfo(suggestedFileName).fileName();
@@ -22669,7 +22806,18 @@ void MainWindow::updateSstvTxPreparedImage()
         base = base.convertToFormat(QImage::Format_RGB32);
     }
 
+    if(!m_sstvEditorProject.isEmpty()) {
+        SstvImageEditorDialog document(this);
+        if(document.restoreProject(m_sstvEditorProject)) {
+            document.setQsoFields(document.qsoFields().value(0),call,name,qth,info);
+            base=document.composedImage();
+            m_sstvEditorProject=document.projectData();m_sstvTxBaseImage=base;
+        }
+    }
     QImage composed = base.copy();
+    // The editor owns composition. Quick fields are used only for an image
+    // that has not been handed off from an editable project.
+    if (m_sstvEditorProject.isEmpty() && hasQsoText) {
     QPainter painter(&composed);
     painter.setRenderHint(QPainter::Antialiasing, true);
     painter.setRenderHint(QPainter::TextAntialiasing, true);
@@ -22706,6 +22854,7 @@ void MainWindow::updateSstvTxPreparedImage()
 
     painter.end();
 
+    }
     m_txSourceImage = composed;
     m_txImageOwnerMode = SstvDecoder::modeName();
     m_txPreparedImage = SstvTransmitter::prepareImage(m_txSourceImage,
@@ -23635,6 +23784,7 @@ void MainWindow::handleWeatherFaxImageCompleted(const QImage &image, const QStri
 
 void MainWindow::handleSstvImageCompleted(const QImage &image, const QString &reason)
 {
+    if(m_shutdownInProgress || m_runtimeShutdownComplete)return;
     Q_UNUSED(image)
 
     appendLog("SSTV image complete: " + reason);
@@ -24415,6 +24565,7 @@ void MainWindow::loadTxImage()
     m_txSourceImage = image.convertToFormat(QImage::Format_RGB32);
     m_txImageOwnerMode = (ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QString();
     if (ui->cmbMode != nullptr && ui->cmbMode->currentText() == SstvDecoder::modeName()) {
+        m_sstvEditorProject.clear();
         m_sstvTxBaseImage = m_txSourceImage;
     }
     m_txImageFileName = fileName;
@@ -25462,4 +25613,44 @@ void MainWindow::txToneTest()
     }
 
     startImageTx();
+}
+
+void MainWindow::browseSstvOutputFolder()
+{
+    const QString folder=QFileDialog::getExistingDirectory(this,
+        uiText("sstv_choose_folder", "Choose received-image folder"),m_settings.sstvOutputFolder);
+    if(folder.isEmpty())return;
+    m_settings.sstvOutputFolder=QDir::cleanPath(folder);
+    m_editSstvOutputFolder->setText(m_settings.sstvOutputFolder);
+    m_editSstvOutputFolder->setToolTip(m_settings.sstvOutputFolder);
+    m_sstvImageArchive->configure(m_settings.sstvAutoSave,m_settings.sstvOutputFolder);
+    m_sstvArchiveStatus=0;m_sstvArchiveDetail.clear();refreshSstvArchiveStatus();
+    savePersistentSettings();
+}
+
+void MainWindow::openSstvOutputFolder()
+{
+    const QString folder=m_settings.sstvOutputFolder;
+    if(!QDir(folder).exists()) {
+        m_sstvArchiveStatus=4;refreshSstvArchiveStatus();return;
+    }
+    if(!QDesktopServices::openUrl(QUrl::fromLocalFile(folder))) {
+        m_sstvArchiveStatus=5;refreshSstvArchiveStatus();
+    }
+}
+
+void MainWindow::refreshSstvArchiveStatus()
+{
+    if(!m_lblSstvArchiveStatus)return;
+    QString text;
+    switch(m_sstvArchiveStatus) {
+    case 1:text=uiText("sstv_save_pending", "Saving received image...");break;
+    case 2:text=uiText("sstv_saved", "Saved: %1").arg(QFileInfo(m_sstvArchiveDetail).fileName());break;
+    case 3:text=uiText("sstv_save_failed", "Image not saved: %1").arg(m_sstvArchiveDetail);break;
+    case 4:text=uiText("sstv_folder_pending", "The folder is created when the first image is saved.");break;
+    case 5:text=uiText("sstv_folder_open_failed", "Unable to open the received-image folder.");break;
+    default:text=m_settings.sstvAutoSave?uiText("sstv_save_ready", "Ready to save completed images."):uiText("sstv_save_off", "Automatic saving is off.");break;
+    }
+    m_lblSstvArchiveStatus->setText(text);
+    m_lblSstvArchiveStatus->setToolTip(m_sstvArchiveDetail);
 }

@@ -6,18 +6,18 @@
 #include <QVector>
 
 /**
- * @brief Generates Martin/Scottie SSTV audio from a still image.
+ * @brief Generates Martin/Scottie/Robot/PD SSTV audio from a still image.
  *
  * Purpose:
  * - Adapt an arbitrary image to the selected SSTV mode size.
- * - Generate sync, porch and RGB video tones in real time.
- * - Provide a simple manual-mode TX path matching the first SSTV RX modes.
+ * - Generate standard VIS, sync, porch and RGB/YUV video tones in real time.
+ * - Match the supported receive modes and prepare their native raster.
  */
 class SstvTransmitter final : public TxModulator
 {
 public:
     /**
-     * @brief Creates an SSTV transmitter for a supported Martin/Scottie mode.
+     * @brief Creates an SSTV transmitter for a supported mode.
      */
     SstvTransmitter(const QImage &sourceImage,
                     const QString &modeName,

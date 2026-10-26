@@ -1572,6 +1572,21 @@ for _lang, _body in FT_CALLER_HELP.items():
     _title, _original = PAGES[_lang]['ft8_ft4.html']
     PAGES[_lang]['ft8_ft4.html'] = (_title, _original + '\n<h2>' + FT_CALLER_KEYS['ft_callers_title'][_lang] + '</h2><p>' + _body + '</p>')
 
+from sstv_editor_i18n import HELP as SSTV_EDITOR_HELP
+for _lang, (_heading, _body) in SSTV_EDITOR_HELP.items():
+    _title, _original = PAGES[_lang]['text_modes.html']
+    PAGES[_lang]['text_modes.html'] = (_title, _original + '\n<h2 id="sstv-editor">' + _heading + '</h2><p>' + _body + '</p>')
+
+from sstv_adjustment_i18n import HELP as SSTV_ADJUSTMENT_HELP
+for _lang, (_heading, _body) in SSTV_ADJUSTMENT_HELP.items():
+    _title, _original = PAGES[_lang]['text_modes.html']
+    PAGES[_lang]['text_modes.html'] = (_title, _original + '\n<h2 id="sstv-adjustments">' + _heading + '</h2><p>' + _body + '</p>')
+
+from sstv_archive_i18n import HELP as SSTV_ARCHIVE_HELP
+for _lang, (_heading, _body) in SSTV_ARCHIVE_HELP.items():
+    _title, _original = PAGES[_lang]['text_modes.html']
+    PAGES[_lang]['text_modes.html'] = (_title, _original + '\n<h2 id="sstv-auto-save">' + _heading + '</h2><p>' + _body + '</p>')
+
 def main() -> int:
     for lang, pages in PAGES.items():
         for filename, (title, body) in pages.items():

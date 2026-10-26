@@ -1,5 +1,29 @@
 # MadModem 0.6.4
 
+### R25 — salvataggio automatico SSTV ricevute
+
+Salvataggio PNG automatico delle immagini SSTV completate, con cartella scelta
+dall’operatore, nomi UTC/modo senza sovrascritture e apertura della cartella ricevute.
+Scrittura in background, esito nello stato RX e salvataggi accodati completati
+alla chiusura. RX e QSL da trasmettere rimangono separate. Dettagli e limiti in
+`docs/architecture/RELEASE_0_6_4_R25.md`.
+
+### R24 — regolazioni immagine SSTV
+
+Correzioni di fase e allineamento rosso/blu applicate a tutta l’immagine SSTV,
+anche a ricezione terminata. Azzera regolazioni ripristina i pixel originali;
+comandi raccolti in un pannello richiudibile. Avvio RX senza sincronismo esplicito,
+con indicazione della disattivazione di VIS e sync. Tutte le funzioni R23 incluse.
+Dettagli e verifiche in `docs/architecture/RELEASE_0_6_4_R24.md`.
+
+### R23 — editor e ricezione SSTV
+
+Editor SSTV a schede con progetto modificabile, annulla/ripristina, elenco elementi
+e anteprima nel formato TX. Composizione unica editor/TX, dati stazione e DX distinti.
+Intestazione VIS in trasmissione e riconoscimento automatico RX indipendente dal sync;
+nuova immagine al VIS successivo. WAV annullabile. Dettagli e limiti in
+`docs/architecture/RELEASE_0_6_4_R23.md`.
+
 ### R22 — controllo CQ e coda chiamanti
 
 Barre TX rosse/RX verdi secondo il periodo selezionato; serie CQ con conteggio

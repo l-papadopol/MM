@@ -7,6 +7,10 @@
 #include <QImage>
 
 class QCheckBox;
+class QLabel;
+class QListWidget;
+class QTabWidget;
+class QResizeEvent;
 class QFontComboBox;
 class QLineEdit;
 class QPushButton;
@@ -30,13 +34,26 @@ class SstvImageEditorDialog : public QDialog
 public:
     explicit SstvImageEditorDialog(QWidget *parent = nullptr);
 
+    void setTxMode(const QString &mode);
+    QImage composedImage() const;
+    QStringList qsoFields() const;
+    QByteArray projectData() const;
+    bool restoreProject(const QByteArray &data);
+    void setQsoFields(const QString &own,const QString &call,const QString &name,const QString &qth,const QString &report);
+    void reject() override;
+
     void setBackgroundImage(const QImage &image,
                             const QString &suggestedBaseName = QString());
 
 signals:
     void imageReadyForTx(const QImage &image, const QString &suggestedFileName);
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private slots:
+    void openProject();
+    void saveProject();
     void loadBackground();
     void makeWhiteCard();
     void loadLogo();
@@ -54,6 +71,21 @@ private slots:
 
 private:
     void rebuildPreviewFromFields();
+    void fitImage();
+    void refreshElements();
+    void updateTxPreview();
+    QString m_txMode=QStringLiteral("Martin M1");
+    QLabel *m_txPreview=nullptr;
+    QListWidget *m_elements=nullptr;
+    QTabWidget *m_toolTabs=nullptr;
+    QPushButton *m_btnUndo=nullptr;
+    QPushButton *m_btnRedo=nullptr;
+    void syncDocumentControls();
+    bool confirmDiscard();
+    bool m_fitImage=true;
+    QByteArray m_savedDocument;
+    QLabel *m_imageInfo=nullptr;
+    QLineEdit *m_editMyCall=nullptr;
     QString suggestedSavePath() const;
     QFont overlayFont(int pointSize, bool bold = false) const;
     void updateColorButton();

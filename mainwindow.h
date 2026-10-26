@@ -71,6 +71,8 @@
 #include <QThread>
 
 class QGroupBox;
+class SstvImageArchive;
+class QToolButton;
 class QLabel;
 class QProgressBar;
 class QPushButton;
@@ -1770,7 +1772,24 @@ private:
     QPushButton *m_btnSstvEditor = nullptr;
     QPushButton *m_btnFaxForceRx = nullptr;
     QPushButton *m_btnSstvForceRx = nullptr;
+    QCheckBox *m_chkSstvAutoVis=nullptr;
+    SstvImageArchive *m_sstvImageArchive=nullptr;
+    QCheckBox *m_chkSstvAutoSave=nullptr;
+    QLineEdit *m_editSstvOutputFolder=nullptr;
+    QPushButton *m_btnSstvBrowseFolder=nullptr;
+    QPushButton *m_btnSstvOpenFolder=nullptr;
+    QLabel *m_lblSstvArchiveStatus=nullptr;
+    int m_sstvArchiveStatus=0;
+    QString m_sstvArchiveDetail;
+    void refreshSstvArchiveStatus();
+    void browseSstvOutputFolder();
+    void openSstvOutputFolder();
+    QToolButton *m_btnSstvAdjust=nullptr;
+    QGroupBox *m_grpSstvAdjust=nullptr;
+    QPushButton *m_btnSstvClearAdjust=nullptr;
+    QLabel *m_lblSstvManualHelp=nullptr;
     QImage m_sstvTxBaseImage;
+    QByteArray m_sstvEditorProject;
 
     QWidget *m_pageRttySettings = nullptr;
     QComboBox *m_cmbRttyPreset = nullptr;

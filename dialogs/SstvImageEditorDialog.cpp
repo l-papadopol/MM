@@ -1,8 +1,20 @@
 #include "SstvImageEditorDialog.h"
+#include "../modems/sstv/tx/SstvTransmitter.h"
 #include "../utils/UiScale.h"
 #include "../utils/RuntimeI18n.h"
 
 #include <QCheckBox>
+#include <QDataStream>
+#include <QSaveFile>
+#include <QSignalBlocker>
+#include <QListWidget>
+#include <QTabWidget>
+#include <QTabBar>
+#include <QSplitter>
+#include <QFormLayout>
+#include <QShortcut>
+#include <QTimer>
+#include <QResizeEvent>
 #include <QColorDialog>
 #include <QDir>
 #include <QFileDialog>
@@ -66,15 +78,79 @@ public:
         m_selectionChanged = callback;
     }
 
+    QByteArray document() const
+    {
+        QByteArray data;
+        QDataStream out(&data, QIODevice::WriteOnly);
+        out.setVersion(QDataStream::Qt_5_12);
+        out << quint32(0x53535456) << quint32(2) << m_background << m_frameEnabled << m_suppressedFields << quint32(m_overlays.size());
+        for (const auto &o : m_overlays)
+            out << int(o.type) << o.text << o.image << o.pos << o.font << o.color << o.qsoField << o.qsoKey;
+        return data;
+    }
+
+    bool restoreDocument(const QByteArray &data)
+    {
+        QDataStream in(data); in.setVersion(QDataStream::Qt_5_12);
+        quint32 magic=0, version=0, count=0; QImage background; bool frame=false;
+        in >> magic >> version;
+        if (magic!=0x53535456 || (version!=1 && version!=2)) return false;
+        QStringList suppressed;
+        in >> background >> frame;
+        if(version==2)in >> suppressed;
+        in >> count;
+        if (background.isNull() || background.width()>8192 || background.height()>8192 || count>200) return false;
+        QVector<Overlay> overlays;
+        for (quint32 i=0;i<count;++i) {
+            Overlay o; int type=0;
+            in >> type >> o.text >> o.image >> o.pos >> o.font >> o.color >> o.qsoField >> o.qsoKey;
+            if (type<0 || type>1) return false;
+            o.type=OverlayType(type); overlays.append(o);
+        }
+        if (in.status()!=QDataStream::Ok || !in.atEnd()) return false;
+        m_background=background; m_frameEnabled=frame; m_overlays=overlays;m_suppressedFields=suppressed;
+        m_selectedIndex=-1; syncSize(); update(); notifySelection(); if(changed)changed();return true;
+    }
+
+    void restoreFields() {m_suppressedFields.clear();}
+    bool hasField(const QString &key) const {for(const auto &o:m_overlays)if(o.qsoKey==key)return true;return false;}
+    QString field(const QString &key) const { for (const auto &o:m_overlays) if(o.qsoKey==key) return o.text;return {}; }
+    QStringList elementNames() const { QStringList names;for(const auto &o:m_overlays) names << (o.type==OverlayType::Image?L18n("Logo / image"):o.text.isEmpty()?L18n("Empty text"):o.text);return names; }
+    int selectedIndex() const { return m_selectedIndex; }
+    void selectElement(int index) { setSelectedIndex(index);update(); }
+    void beginEdit() { m_groupEdit=true; }
+    void endEdit() { m_groupEdit=false;checkpoint(); }
+    std::function<void()> changed;
+    bool canUndo() const {return m_historyIndex>0;}
+    bool canRedo() const {return m_historyIndex+1<m_history.size();}
+    bool frameEnabled() const { return m_frameEnabled; }
+    void setZoom(double zoom) { m_zoom=qBound(0.05,zoom,4.0); syncSize(); update(); }
+    void checkpoint() {
+        if(m_groupEdit)return;
+        const QByteArray data=document();
+        if (m_historyIndex>=0 && m_history.value(m_historyIndex)==data) return;
+        while (m_history.size()>m_historyIndex+1) m_history.removeLast();
+        m_history.append(data);
+        qint64 bytes=0;for(const auto &item:m_history)bytes+=item.size();
+        while (m_history.size()>1 && (m_history.size()>25 || bytes>64*1024*1024)) {bytes-=m_history.first().size();m_history.removeFirst();}
+        m_historyIndex=m_history.size()-1;
+        if(changed)changed();
+    }
+    void undo() { if (m_historyIndex>0) restoreDocument(m_history.at(--m_historyIndex)); }
+    void redo() { if (m_historyIndex+1<m_history.size()) restoreDocument(m_history.at(++m_historyIndex)); }
+    void clearHistory() { m_history.clear(); m_historyIndex=-1; checkpoint(); }
+
     void makeWhiteCard()
     {
         m_background = QImage(960, 744, QImage::Format_RGB32);
         m_background.fill(Qt::white);
         m_overlays.clear();
+        m_suppressedFields.clear();
         m_selectedIndex = -1;
         syncSize();
         update();
         notifySelection();
+        checkpoint();
     }
 
     void setBackgroundImage(const QImage &image)
@@ -86,16 +162,19 @@ public:
 
         m_background = image.convertToFormat(QImage::Format_RGB32);
         m_overlays.clear();
+        m_suppressedFields.clear();
         m_selectedIndex = -1;
         syncSize();
         update();
         notifySelection();
+        checkpoint();
     }
 
     void setFrameEnabled(bool enabled)
     {
         m_frameEnabled = enabled;
         update();
+        checkpoint();
     }
 
     void addTextOverlay(const QString &text,
@@ -116,6 +195,7 @@ public:
         m_overlays.append(overlay);
         setSelectedIndex(m_overlays.size() - 1);
         update();
+        checkpoint();
     }
 
     void addImageOverlay(const QImage &image, const QPoint &pos = QPoint(430, 18))
@@ -131,6 +211,7 @@ public:
         m_overlays.append(overlay);
         setSelectedIndex(m_overlays.size() - 1);
         update();
+        checkpoint();
     }
 
     void deleteSelectedOverlay()
@@ -139,6 +220,7 @@ public:
             return;
         }
 
+        if(m_overlays.at(m_selectedIndex).qsoField)m_suppressedFields.append(m_overlays.at(m_selectedIndex).qsoKey);
         m_overlays.removeAt(m_selectedIndex);
         if (m_overlays.isEmpty()) {
             m_selectedIndex = -1;
@@ -147,6 +229,7 @@ public:
         }
         update();
         notifySelection();
+        checkpoint();
     }
 
     void clearQsoFieldOverlays()
@@ -161,6 +244,7 @@ public:
         }
         update();
         notifySelection();
+        checkpoint();
     }
 
     void updateOrCreateQsoField(const QString &key,
@@ -169,13 +253,12 @@ public:
                                 const QFont &font,
                                 const QColor &color)
     {
+        if(m_suppressedFields.contains(key))return;
         for (Overlay &overlay : m_overlays) {
             if (overlay.qsoField && overlay.qsoKey == key) {
                 overlay.text = text;
-                overlay.pos = pos;
-                overlay.font = font;
-                overlay.color = color;
                 update();
+                checkpoint();
                 return;
             }
         }
@@ -190,6 +273,7 @@ public:
         overlay.qsoKey = key;
         m_overlays.append(overlay);
         update();
+        checkpoint();
     }
 
     bool hasSelection() const
@@ -238,6 +322,7 @@ public:
         }
         m_overlays[m_selectedIndex].text = text;
         update();
+        checkpoint();
     }
 
     void setSelectedFont(const QFont &font)
@@ -247,6 +332,7 @@ public:
         }
         m_overlays[m_selectedIndex].font = font;
         update();
+        checkpoint();
     }
 
     void setSelectedColor(const QColor &color)
@@ -256,6 +342,7 @@ public:
         }
         m_overlays[m_selectedIndex].color = color;
         update();
+        checkpoint();
     }
 
     QImage composedImage() const
@@ -276,6 +363,7 @@ protected:
     {
         QPainter painter(this);
         painter.fillRect(rect(), QColor(180, 180, 180));
+        painter.scale(m_zoom, m_zoom);
         painter.drawImage(0, 0, m_background);
         renderCard(&painter);
 
@@ -297,10 +385,10 @@ protected:
         }
 
         setFocus(Qt::MouseFocusReason);
-        setSelectedIndex(hitTest(event->pos()));
+        setSelectedIndex(hitTest((QPointF(event->pos()) / m_zoom).toPoint()));
         if (hasSelection()) {
             m_dragging = true;
-            m_dragOffset = event->pos() - m_overlays.at(m_selectedIndex).pos;
+            m_dragOffset = (QPointF(event->pos()) / m_zoom).toPoint() - m_overlays.at(m_selectedIndex).pos;
         } else {
             m_dragging = false;
         }
@@ -315,12 +403,12 @@ protected:
         }
 
         Overlay &overlay = m_overlays[m_selectedIndex];
-        QPoint pos = event->pos() - m_dragOffset;
+        QPoint pos = (QPointF(event->pos()) / m_zoom).toPoint() - m_dragOffset;
         const QRect rect = overlayRect(m_selectedIndex);
         const int w = rect.width();
         const int h = rect.height();
-        pos.setX(qBound(0, pos.x(), qMax(0, width() - w)));
-        pos.setY(qBound(h, pos.y(), height()));
+        pos.setX(qBound(0, pos.x(), qMax(0, m_background.width() - w)));
+        pos.setY(qBound(overlay.type==OverlayType::Image ? 0 : h, pos.y(), qMax(overlay.type==OverlayType::Image ? 0 : h, m_background.height() - (overlay.type==OverlayType::Image ? h : 0))));
         overlay.pos = pos;
         update();
     }
@@ -329,6 +417,7 @@ protected:
     {
         if (event->button() == Qt::LeftButton) {
             m_dragging = false;
+            checkpoint();
         }
         QWidget::mouseReleaseEvent(event);
     }
@@ -362,20 +451,16 @@ private:
 
     void syncSize()
     {
-        setMinimumSize(m_background.size());
-        resize(m_background.size());
+        setFixedSize((QSizeF(m_background.size()) * m_zoom).toSize());
     }
 
     void renderCard(QPainter *painter) const
     {
         if (m_frameEnabled) {
-            painter->setPen(QPen(Qt::black, 8));
+            const int margin=qMax(3,m_background.width()/60);
+            painter->setPen(QPen(Qt::black,qMax(1,m_background.width()/240)));
             painter->setBrush(Qt::NoBrush);
-            painter->drawRect(10, 10, m_background.width() - 20, m_background.height() - 20);
-
-            painter->setPen(QPen(Qt::black, 2));
-            painter->drawRect(24, 24, m_background.width() - 48, m_background.height() - 116);
-            painter->drawRect(24, m_background.height() - 98, m_background.width() - 48, 54);
+            painter->drawRect(m_background.rect().adjusted(margin,margin,-margin,-margin));
         }
 
         for (const Overlay &overlay : m_overlays) {
@@ -416,6 +501,11 @@ private:
         return -1;
     }
 
+    QStringList m_suppressedFields;
+    bool m_groupEdit=false;
+    double m_zoom=1.0;
+    QVector<QByteArray> m_history;
+    int m_historyIndex=-1;
     QImage m_background;
     QVector<Overlay> m_overlays;
     int m_selectedIndex = -1;
@@ -453,8 +543,8 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
 
     for (QPushButton *button : {m_btnLoadBackground, m_btnWhiteCard, m_btnLoadLogo,
                                 m_btnSavePng, m_btnUseForTx, btnClose}) {
-        button->setMinimumHeight(56);
-        button->setMinimumWidth(210);
+        button->setMinimumHeight(30);
+        button->setMinimumWidth(0);
     }
 
     m_editCall = new QLineEdit(this);
@@ -469,6 +559,8 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     m_editOverlayText = new QLineEdit(this);
     m_editOverlayText->setPlaceholderText(P18n(QStringLiteral("Selected/new text overlay")));
     m_fontCombo = new QFontComboBox(this);
+    m_fontCombo->setMinimumContentsLength(10);
+    m_fontCombo->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
     m_spinFontSize = new QSpinBox(this);
     m_spinFontSize->setRange(8, 144);
     m_spinFontSize->setValue(28);
@@ -477,8 +569,8 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     m_btnAddText = new QPushButton(L18n(QStringLiteral("Add text overlay")), this);
     m_btnDeleteSelected = new QPushButton(L18n(QStringLiteral("Delete selected")), this);
     for (QPushButton *button : {m_btnAddText, m_btnDeleteSelected}) {
-        button->setMinimumHeight(52);
-        button->setMinimumWidth(230);
+        button->setMinimumHeight(30);
+        button->setMinimumWidth(0);
     }
     m_btnDeleteSelected->setEnabled(false);
 
@@ -486,89 +578,118 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     m_btnTemplateQsl = new QPushButton(L18n(QStringLiteral("QSL card template")), this);
     m_btnTemplate73 = new QPushButton("73", this);
     for (QPushButton *button : {m_btnTemplateCq, m_btnTemplateQsl, m_btnTemplate73}) {
-        button->setMinimumHeight(50);
-        button->setMinimumWidth(210);
+        button->setMinimumHeight(30);
+        button->setMinimumWidth(0);
     }
 
     QWidget *toolArea = new QWidget(this);
     QVBoxLayout *toolLayout = new QVBoxLayout(toolArea);
     toolLayout->setContentsMargins(8, 8, 8, 8);
     toolLayout->setSpacing(12);
+    m_toolTabs=new QTabWidget(toolArea);
+    m_toolTabs->setObjectName("sstvEditorTools");
+    m_toolTabs->tabBar()->setStyleSheet("QTabBar::tab { min-width: 0px; padding: 5px 7px; }");
+    m_toolTabs->tabBar()->setUsesScrollButtons(false);
+    m_toolTabs->tabBar()->setElideMode(Qt::ElideNone);
+    auto *imagePage=new QWidget(m_toolTabs),*qsoPage=new QWidget(m_toolTabs),*elementPage=new QWidget(m_toolTabs),*previewPage=new QWidget(m_toolTabs);
+    auto *imageTools=new QVBoxLayout(imagePage),*qsoTools=new QVBoxLayout(qsoPage),*elementTools=new QVBoxLayout(elementPage),*previewTools=new QVBoxLayout(previewPage);
+    m_toolTabs->addTab(imagePage,L18n("Card"));m_toolTabs->addTab(qsoPage,L18n("QSO"));
+    m_toolTabs->addTab(elementPage,L18n("Elements"));m_toolTabs->addTab(previewPage,L18n("TX"));
+    toolLayout->addWidget(m_toolTabs);
 
-    QHBoxLayout *fileRow = new QHBoxLayout;
-    fileRow->addWidget(m_btnLoadBackground);
-    fileRow->addWidget(m_btnWhiteCard);
-    fileRow->addWidget(m_btnLoadLogo);
-    fileRow->addWidget(m_chkFrame);
-    fileRow->addStretch(1);
-    fileRow->addWidget(m_btnSavePng);
-    fileRow->addWidget(m_btnUseForTx);
-    fileRow->addWidget(btnClose);
-    toolLayout->addLayout(fileRow);
+
+    QGridLayout *fileRow = new QGridLayout;
+    fileRow->addWidget(m_btnLoadBackground,0,0);
+    fileRow->addWidget(m_btnWhiteCard,1,0);
+    fileRow->addWidget(m_btnLoadLogo,2,0);
+    fileRow->addWidget(m_chkFrame,3,0);
+    imageTools->addLayout(fileRow);
 
     QLabel *qsoTitle = new QLabel(L18n(QStringLiteral("SSTV QSO / QSL fields")), this);
     QFont sectionFont = qsoTitle->font();
     sectionFont.setBold(true);
     qsoTitle->setFont(sectionFont);
-    toolLayout->addWidget(qsoTitle);
+    qsoTools->addWidget(qsoTitle);
 
-    QGridLayout *qsoGrid = new QGridLayout;
-    qsoGrid->setHorizontalSpacing(12);
-    qsoGrid->setVerticalSpacing(8);
-    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("Callsign"))), 0, 0);
-    qsoGrid->addWidget(m_editCall, 0, 1);
-    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("Name"))), 0, 2);
-    qsoGrid->addWidget(m_editName, 0, 3);
-    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("QTH"))), 1, 0);
-    qsoGrid->addWidget(m_editQth, 1, 1);
-    qsoGrid->addWidget(new QLabel(L18n(QStringLiteral("Report / note"))), 1, 2);
-    qsoGrid->addWidget(m_editReport, 1, 3);
-    qsoGrid->setColumnStretch(1, 1);
-    qsoGrid->setColumnStretch(3, 1);
-    toolLayout->addLayout(qsoGrid);
+    QFormLayout *qsoGrid = new QFormLayout;
+    qsoGrid->setRowWrapPolicy(QFormLayout::WrapAllRows);
+    qsoGrid->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    m_editMyCall=new QLineEdit(this);
+    qsoGrid->addRow(L18n("My callsign"),m_editMyCall);
+    qsoGrid->addRow(L18n("Correspondent"),m_editCall);
+    qsoGrid->addRow(L18n("Name"),m_editName);
+    qsoGrid->addRow(L18n("QTH"),m_editQth);
+    qsoGrid->addRow(L18n("Report / note"),m_editReport);
+    qsoTools->addLayout(qsoGrid);
 
-    QHBoxLayout *templateRow = new QHBoxLayout;
+    QVBoxLayout *templateRow = new QVBoxLayout;
     templateRow->addWidget(new QLabel(L18n(QStringLiteral("Templates"))));
     templateRow->addWidget(m_btnTemplateCq);
     templateRow->addWidget(m_btnTemplateQsl);
     templateRow->addWidget(m_btnTemplate73);
     templateRow->addStretch(1);
-    toolLayout->addLayout(templateRow);
+    imageTools->addLayout(templateRow);
 
+    m_elements=new QListWidget(this);
+    m_elements->setObjectName("sstvElements");m_elements->setMaximumHeight(125);
+    elementTools->addWidget(new QLabel(L18n("Elements"),this));
+    elementTools->addWidget(m_elements);
+    connect(m_elements,&QListWidget::currentRowChanged,this,[this](int row){m_canvas->selectElement(row);});
     QLabel *textTitle = new QLabel(L18n(QStringLiteral("Text overlay")), this);
     textTitle->setFont(sectionFont);
-    toolLayout->addWidget(textTitle);
+    elementTools->addWidget(textTitle);
 
-    QGridLayout *textGrid = new QGridLayout;
-    textGrid->setHorizontalSpacing(12);
-    textGrid->setVerticalSpacing(8);
-    textGrid->addWidget(new QLabel(L18n(QStringLiteral("Text"))), 0, 0);
-    textGrid->addWidget(m_editOverlayText, 0, 1, 1, 6);
-    textGrid->addWidget(new QLabel(L18n(QStringLiteral("Font"))), 1, 0);
-    textGrid->addWidget(m_fontCombo, 1, 1, 1, 2);
-    textGrid->addWidget(new QLabel(L18n(QStringLiteral("Size"))), 1, 3);
-    textGrid->addWidget(m_spinFontSize, 1, 4);
-    textGrid->addWidget(m_btnColor, 1, 5);
-    textGrid->addWidget(m_btnAddText, 1, 6);
-    textGrid->addWidget(m_btnDeleteSelected, 1, 7);
-    textGrid->setColumnStretch(2, 1);
-    toolLayout->addLayout(textGrid);
+    QFormLayout *textGrid = new QFormLayout;
+    textGrid->setRowWrapPolicy(QFormLayout::WrapLongRows);
+    textGrid->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
+    textGrid->addRow(L18n("Text"),m_editOverlayText);
+    textGrid->addRow(L18n("Font"),m_fontCombo);
+    textGrid->addRow(L18n("Size"),m_spinFontSize);
+    textGrid->addRow(L18n("Color"),m_btnColor);
+    textGrid->addRow(m_btnAddText);
+    textGrid->addRow(m_btnDeleteSelected);
+    elementTools->addLayout(textGrid);
 
-    QLabel *hint = new QLabel(L18n(QStringLiteral("Drag text/logo overlays directly on the card. Select an overlay and use Delete selected, Canc or Backspace to remove it. The QSL template creates correctly positioned editable text elements inspired by classic SSTV/QSL card editors.")), this);
+    QLabel *hint = new QLabel(L18n("Select an element in the list or on the image. Drag to move it; edit text, font and color below. Save a project to keep all elements editable."), this);
     hint->setWordWrap(true);
-    toolLayout->addWidget(hint);
+    elementTools->addWidget(hint);
 
-    QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->addWidget(m_scrollArea, 1);
-    // Controls remain reachable on smaller screens without imposing the old
-    // 1650x1180 minimum on the entire editor.
-    auto *toolsScroll = new QScrollArea(this);
-    toolsScroll->setWidgetResizable(true);
-    toolsScroll->setWidget(toolArea);
-    toolsScroll->setMinimumHeight(180);
-    mainLayout->addWidget(toolsScroll, 1);
-    setLayout(mainLayout);
-
+    m_txPreview=new QLabel(this);m_txPreview->setAlignment(Qt::AlignCenter);
+    m_txPreview->setMinimumHeight(140);
+    previewTools->addWidget(new QLabel(L18n("TX preview"),this));previewTools->addWidget(m_txPreview);
+    imageTools->addStretch();qsoTools->addStretch();elementTools->addStretch();previewTools->addStretch();
+    auto *mainLayout = new QVBoxLayout(this);
+    auto *top = new QHBoxLayout;
+    auto *openProject=new QPushButton(L18n("Open project..."),this);
+    auto *saveProject=new QPushButton(L18n("Save project..."),this);
+    auto *undoButton=new QPushButton(L18n("Undo"),this);m_btnUndo=undoButton;
+    auto *redoButton=new QPushButton(L18n("Redo"),this);m_btnRedo=redoButton;
+    auto *fitButton=new QPushButton(L18n("Fit image"),this);
+    auto *actualButton=new QPushButton("100%",this);
+    for (auto *button : {openProject,saveProject,undoButton,redoButton,fitButton,actualButton}) top->addWidget(button);
+    mainLayout->addLayout(top);
+    auto *split=new QSplitter(Qt::Horizontal,this);
+    split->addWidget(m_scrollArea);
+    auto *toolsScroll=new QScrollArea(split);
+    toolsScroll->setWidgetResizable(true); toolsScroll->setWidget(toolArea);
+    toolsScroll->setMinimumWidth(300);
+    split->addWidget(toolsScroll); split->setStretchFactor(0,1);split->setStretchFactor(1,0);
+    split->setSizes({740,320});
+    mainLayout->addWidget(split,1);
+    auto *bottom=new QHBoxLayout;
+    m_imageInfo=new QLabel(this);bottom->addWidget(m_imageInfo,1);
+    bottom->addWidget(m_btnSavePng);bottom->addWidget(m_btnUseForTx);bottom->addWidget(btnClose);
+    mainLayout->addLayout(bottom);
+    connect(openProject,&QPushButton::clicked,this,&SstvImageEditorDialog::openProject);
+    connect(saveProject,&QPushButton::clicked,this,&SstvImageEditorDialog::saveProject);
+    connect(undoButton,&QPushButton::clicked,this,[this]{m_canvas->undo();syncDocumentControls();});
+    connect(redoButton,&QPushButton::clicked,this,[this]{m_canvas->redo();syncDocumentControls();});
+    connect(fitButton,&QPushButton::clicked,this,[this]{m_fitImage=true;fitImage();});
+    connect(actualButton,&QPushButton::clicked,this,[this]{m_fitImage=false;m_canvas->setZoom(1.0);});
+    auto *undoKey=new QShortcut(QKeySequence::Undo,this);
+    connect(undoKey,&QShortcut::activated,undoButton,&QPushButton::click);
+    auto *redoKey=new QShortcut(QKeySequence::Redo,this);
+    connect(redoKey,&QShortcut::activated,redoButton,&QPushButton::click);
     updateColorButton();
 
     connect(m_btnLoadBackground, &QPushButton::clicked, this, &SstvImageEditorDialog::loadBackground);
@@ -576,7 +697,7 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     connect(m_btnLoadLogo, &QPushButton::clicked, this, &SstvImageEditorDialog::loadLogo);
     connect(m_btnSavePng, &QPushButton::clicked, this, &SstvImageEditorDialog::savePng);
     connect(m_btnUseForTx, &QPushButton::clicked, this, &SstvImageEditorDialog::useForTx);
-    connect(btnClose, &QPushButton::clicked, this, &QDialog::reject);
+    connect(btnClose, &QPushButton::clicked, this, &SstvImageEditorDialog::reject);
     connect(m_btnAddText, &QPushButton::clicked, this, &SstvImageEditorDialog::addTextOverlay);
     connect(m_btnDeleteSelected, &QPushButton::clicked, this, &SstvImageEditorDialog::deleteSelectedOverlay);
     connect(m_btnTemplateCq, &QPushButton::clicked, this, &SstvImageEditorDialog::applyCqTemplate);
@@ -594,8 +715,13 @@ SstvImageEditorDialog::SstvImageEditorDialog(QWidget *parent)
     connect(m_editQth, &QLineEdit::textChanged, this, &SstvImageEditorDialog::handleQsoFieldsChanged);
     connect(m_editReport, &QLineEdit::textChanged, this, &SstvImageEditorDialog::handleQsoFieldsChanged);
 
+    connect(m_editMyCall,&QLineEdit::textChanged,this,&SstvImageEditorDialog::handleQsoFieldsChanged);
     applyQslTemplate();
+    m_canvas->changed=[this]{refreshElements();updateTxPreview();};
+    m_canvas->clearHistory();m_savedDocument=projectData();
+    refreshElements();
     MadModemUi::scaleWidgetTree(this);
+    QTimer::singleShot(0,this,[this]{fitImage();});
 }
 
 void SstvImageEditorDialog::setBackgroundImage(const QImage &image, const QString &suggestedBaseName)
@@ -607,10 +733,12 @@ void SstvImageEditorDialog::setBackgroundImage(const QImage &image, const QStrin
         m_canvas->setBackgroundImage(image);
     }
     applyQslTemplate();
+    m_canvas->clearHistory();m_savedDocument=projectData();fitImage();
 }
 
 void SstvImageEditorDialog::loadBackground()
 {
+    if(!confirmDiscard())return;
     const QString fileName = QFileDialog::getOpenFileName(this,
                                                           L18n(QStringLiteral("Load SSTV background")),
                                                           QDir::homePath(),
@@ -630,10 +758,12 @@ void SstvImageEditorDialog::loadBackground()
     m_suggestedBaseName = QFileInfo(fileName).completeBaseName() + "_sstv";
     m_canvas->setBackgroundImage(image);
     applyQslTemplate();
+    fitImage();
 }
 
 void SstvImageEditorDialog::makeWhiteCard()
 {
+    if(!confirmDiscard())return;
     m_canvas->makeWhiteCard();
     applyQslTemplate();
 }
@@ -657,7 +787,7 @@ void SstvImageEditorDialog::loadLogo()
     }
 
     const QImage scaled = image.scaled(230, 230, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    m_canvas->addImageOverlay(scaled, QPoint(680, 55));
+    m_canvas->addImageOverlay(scaled.scaled(m_canvas->cardSize()/3,Qt::KeepAspectRatio,Qt::SmoothTransformation), QPoint(m_canvas->cardSize().width()*2/3, 0));
 }
 
 QString SstvImageEditorDialog::suggestedSavePath() const
@@ -682,7 +812,8 @@ void SstvImageEditorDialog::savePng()
         return;
     }
 
-    if (!m_canvas->composedImage().save(fileName, "PNG")) {
+    QSaveFile file(fileName);
+    if (!file.open(QIODevice::WriteOnly) || !m_canvas->composedImage().save(&file, "PNG") || !file.commit()) {
         QMessageBox::warning(this, L18n(QStringLiteral("SSTV editor")), L18n(QStringLiteral("Unable to save the PNG image.")));
     }
 }
@@ -703,7 +834,7 @@ void SstvImageEditorDialog::addTextOverlay()
 {
     QString text = m_editOverlayText->text().trimmed();
     if (text.isEmpty()) {
-        text = "CQ SSTV de IZ6NNH";
+        text = "CQ SSTV";
         m_editOverlayText->setText(text);
     }
 
@@ -719,22 +850,22 @@ void SstvImageEditorDialog::deleteSelectedOverlay()
 
 void SstvImageEditorDialog::applyCqTemplate()
 {
-    QFont big = overlayFont(66, true);
-    m_canvas->addTextOverlay(QString("CQ SSTV de %1").arg(m_editCall->text().trimmed().isEmpty() ? QString("IZ6NNH") : m_editCall->text().trimmed()),
-                             big,
-                             QColor(220, 0, 0),
-                             QPoint(80, 135));
+    const QSize size=m_canvas->cardSize();
+    const QString own=m_editMyCall->text().trimmed().toUpper();
+    m_canvas->updateOrCreateQsoField("cq",own.isEmpty()?QString("CQ SSTV"):QString("CQ SSTV de %1").arg(own),
+        QPoint(size.width()/12,size.height()/3),overlayFont(qMax(16,size.height()/14),true),QColor(220,0,0));
 }
 
 void SstvImageEditorDialog::applyQslTemplate()
 {
+    m_canvas->restoreFields();
     rebuildPreviewFromFields();
 }
 
 void SstvImageEditorDialog::apply73Template()
 {
-    QFont font = overlayFont(72, true);
-    m_canvas->addTextOverlay("73!", font, Qt::black, QPoint(720, 650));
+    const QSize size=m_canvas->cardSize();
+    m_canvas->updateOrCreateQsoField("73","73!",QPoint(size.width()*2/3,size.height()*4/5),overlayFont(qMax(16,size.height()/9),true),Qt::black);
 }
 
 void SstvImageEditorDialog::updateSelectedOverlayText()
@@ -745,9 +876,12 @@ void SstvImageEditorDialog::updateSelectedOverlayText()
 
     QFont font = m_fontCombo->currentFont();
     font.setPointSize(m_spinFontSize->value());
+    m_canvas->beginEdit();
     m_canvas->setSelectedText(m_editOverlayText->text());
     m_canvas->setSelectedFont(font);
     m_canvas->setSelectedColor(m_currentColor);
+    m_canvas->endEdit();
+    syncDocumentControls();
 }
 
 void SstvImageEditorDialog::chooseTextColor()
@@ -766,6 +900,8 @@ void SstvImageEditorDialog::chooseTextColor()
 void SstvImageEditorDialog::handleCanvasSelectionChanged(bool hasSelection)
 {
     m_btnDeleteSelected->setEnabled(hasSelection);
+    if(hasSelection && m_toolTabs)m_toolTabs->setCurrentIndex(2);
+    if(m_elements){QSignalBlocker b(m_elements);m_elements->setCurrentRow(m_canvas->selectedIndex());}
 
     if (!hasSelection || !m_canvas->selectedIsText()) {
         return;
@@ -785,74 +921,56 @@ void SstvImageEditorDialog::handleCanvasSelectionChanged(bool hasSelection)
 
 void SstvImageEditorDialog::handleQsoFieldsChanged()
 {
-    rebuildPreviewFromFields();
+    if (!m_updatingUi) rebuildPreviewFromFields();
 }
 
 void SstvImageEditorDialog::rebuildPreviewFromFields()
 {
-    const QString call = m_editCall->text().trimmed().isEmpty() ? QStringLiteral("W6HN") : m_editCall->text().trimmed();
-    const QString name = m_editName->text().trimmed().isEmpty() ? QStringLiteral("Operator name") : m_editName->text().trimmed();
-    const QString qth = m_editQth->text().trimmed().isEmpty() ? QStringLiteral("QTH / locator") : m_editQth->text().trimmed();
-    const QString report = m_editReport->text().trimmed().isEmpty() ? QStringLiteral("RST 599") : m_editReport->text().trimmed();
+    m_canvas->beginEdit();
+    const QString call = m_editCall->text().trimmed().isEmpty() ? QString() : m_editCall->text().trimmed();
+    const QString name = m_editName->text().trimmed().isEmpty() ? QString() : m_editName->text().trimmed();
+    const QString qth = m_editQth->text().trimmed().isEmpty() ? QString() : m_editQth->text().trimmed();
+    const QString report = m_editReport->text().trimmed().isEmpty() ? QString() : m_editReport->text().trimmed();
 
     const QSize s = m_canvas->cardSize();
     const int w = s.width();
     const int h = s.height();
-    const int left = qMax(55, w / 16);
-    const int top = qMax(70, h / 10);
-    const int bottom = h - qMax(65, h / 11);
-    const int tableTop = h - qMax(215, h / 3);
+    const int left = qMax(8, w / 16);
+    const int top = qMax(20, h / 8);
     const int rightTextX = w / 2 + w / 18;
 
     m_canvas->updateOrCreateQsoField("big_call", call,
                                      QPoint(left, top),
-                                     overlayFont(qMax(54, h / 9), true),
+                                     overlayFont(qMax(12, h / 15), true),
                                      QColor(220, 0, 0));
 
     m_canvas->updateOrCreateQsoField("name", name,
-                                     QPoint(left + 20, top + qMax(65, h / 10)),
-                                     overlayFont(qMax(18, h / 32)),
+                                     QPoint(left + w/40, top + h / 9),
+                                     overlayFont(qMax(9, h / 34)),
                                      Qt::black);
 
     m_canvas->updateOrCreateQsoField("qth", qth,
-                                     QPoint(left + 20, top + qMax(100, h / 7)),
-                                     overlayFont(qMax(18, h / 32)),
+                                     QPoint(left + w/40, top + h / 6),
+                                     overlayFont(qMax(9, h / 34)),
                                      Qt::black);
 
     m_canvas->updateOrCreateQsoField("report", report,
-                                     QPoint(left + 20, top + qMax(135, h / 5)),
-                                     overlayFont(qMax(18, h / 32)),
-                                     Qt::black);
-
-    m_canvas->updateOrCreateQsoField("table_header",
-                                     "DATE          UTC          BAND        2-WAY        RST",
-                                     QPoint(left + 20, tableTop),
-                                     overlayFont(qMax(13, h / 54), true),
-                                     Qt::black);
-
-    m_canvas->updateOrCreateQsoField("table_values",
-                                     "____/____     ______       ____        ____         ____",
-                                     QPoint(left + 20, tableTop + qMax(40, h / 18)),
-                                     overlayFont(qMax(15, h / 48)),
+                                     QPoint(left + w/40, top + h / 4),
+                                     overlayFont(qMax(9, h / 34)),
                                      Qt::black);
 
     m_canvas->updateOrCreateQsoField("my_info",
-                                     "IZ6NNH  SSTV QSO",
+                                     m_editMyCall->text().trimmed().toUpper(),
                                      QPoint(rightTextX, top + qMax(30, h / 16)),
-                                     overlayFont(qMax(24, h / 28), true),
+                                     overlayFont(qMax(10, h / 34), true),
                                      Qt::black);
 
-    m_canvas->updateOrCreateQsoField("location_left",
-                                     qth,
-                                     QPoint(left, bottom),
-                                     overlayFont(qMax(24, h / 28)),
-                                     Qt::black);
-
-    m_canvas->updateOrCreateQsoField("location_right",
-                                     "Italy",
-                                     QPoint(rightTextX, bottom),
-                                     overlayFont(qMax(24, h / 28)),
-                                     Qt::black);
+    if(!m_canvas->field("cq").isEmpty()) {
+        const QString own=m_editMyCall->text().trimmed().toUpper();
+        m_canvas->updateOrCreateQsoField("cq",own.isEmpty()?QString("CQ SSTV"):QString("CQ SSTV de %1").arg(own),
+            QPoint(w/12,h/3),overlayFont(qMax(16,h/14),true),QColor(220,0,0));
+    }
+    m_canvas->endEdit();
 }
 
 QFont SstvImageEditorDialog::overlayFont(int pointSize, bool bold) const
@@ -869,6 +987,109 @@ void SstvImageEditorDialog::updateColorButton()
         return;
     }
 
-    m_btnColor->setStyleSheet(QString("background-color:%1;").arg(m_currentColor.name()));
+    m_btnColor->setStyleSheet(QString("background-color:%1;color:%2;").arg(m_currentColor.name(),m_currentColor.lightness()<128?QString("white"):QString("black")));
     m_btnColor->setText(m_currentColor.name().toUpper());
+}
+
+QByteArray SstvImageEditorDialog::projectData() const
+{
+    QByteArray data;QDataStream out(&data,QIODevice::WriteOnly);out.setVersion(QDataStream::Qt_5_12);
+    out << quint32(0x4d4d5331) << m_canvas->document() << m_editMyCall->text() << m_editCall->text()
+        << m_editName->text() << m_editQth->text() << m_editReport->text();
+    return data;
+}
+
+bool SstvImageEditorDialog::restoreProject(const QByteArray &data)
+{
+    if (data.size()>64*1024*1024) return false;
+    QDataStream in(data);in.setVersion(QDataStream::Qt_5_12);
+    quint32 magic;QByteArray canvas;QString own,call,name,qth,report;
+    in >> magic >> canvas >> own >> call >> name >> qth >> report;
+    if (magic!=0x4d4d5331 || in.status()!=QDataStream::Ok || !in.atEnd()) return false;
+    if (!m_canvas->restoreDocument(canvas)) return false;
+    m_updatingUi=true;
+    m_editMyCall->setText(own);m_editCall->setText(call);m_editName->setText(name);
+    m_editQth->setText(qth);m_editReport->setText(report);
+    m_updatingUi=false;m_canvas->clearHistory();syncDocumentControls();
+    m_savedDocument=projectData();fitImage();return true;
+}
+
+void SstvImageEditorDialog::setQsoFields(const QString &own,const QString &call,const QString &name,const QString &qth,const QString &report)
+{
+    m_updatingUi=true;m_editMyCall->setText(own);m_editCall->setText(call);m_editName->setText(name);
+    m_editQth->setText(qth);m_editReport->setText(report);m_updatingUi=false;
+    rebuildPreviewFromFields();m_canvas->clearHistory();m_savedDocument=projectData();
+}
+
+void SstvImageEditorDialog::fitImage()
+{
+    const QSize image=m_canvas->cardSize();
+    updateTxPreview();
+    if (!m_fitImage || image.isEmpty()) return;
+    const QSize view=m_scrollArea->viewport()->size()-QSize(8,8);
+    m_canvas->setZoom(qMin(double(view.width())/image.width(),double(view.height())/image.height()));
+}
+void SstvImageEditorDialog::resizeEvent(QResizeEvent *event)
+{
+    QDialog::resizeEvent(event);QTimer::singleShot(0,this,[this]{fitImage();});
+}
+void SstvImageEditorDialog::syncDocumentControls()
+{
+    QSignalBlocker blocker(m_chkFrame);m_chkFrame->setChecked(m_canvas->frameEnabled());
+    m_updatingUi=true;
+    if(m_canvas->hasField("my_info"))m_editMyCall->setText(m_canvas->field("my_info"));
+    if(m_canvas->hasField("big_call"))m_editCall->setText(m_canvas->field("big_call"));
+    if(m_canvas->hasField("name"))m_editName->setText(m_canvas->field("name"));
+    if(m_canvas->hasField("qth"))m_editQth->setText(m_canvas->field("qth"));
+    if(m_canvas->hasField("report"))m_editReport->setText(m_canvas->field("report"));
+    m_updatingUi=false;
+    refreshElements();fitImage();
+}
+void SstvImageEditorDialog::openProject()
+{
+    if (!confirmDiscard()) return;
+    const QString path=QFileDialog::getOpenFileName(this,L18n("Open project..."),QString(),"MadModem SSTV (*.mmsstv)");
+    if (path.isEmpty()) return;
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly) || file.size()>64*1024*1024 || !restoreProject(file.readAll()))
+        QMessageBox::warning(this,L18n("SSTV editor"),L18n("Unable to open SSTV project."));
+}
+void SstvImageEditorDialog::saveProject()
+{
+    const QString path=QFileDialog::getSaveFileName(this,L18n("Save project..."),"SSTV.mmsstv","MadModem SSTV (*.mmsstv)");
+    if (path.isEmpty()) return;
+    QSaveFile file(path);const QByteArray data=projectData();
+    if (!file.open(QIODevice::WriteOnly) || file.write(data)!=data.size() || !file.commit()) {
+        QMessageBox::warning(this,L18n("SSTV editor"),L18n("Unable to save SSTV project."));return;
+    }
+    m_savedDocument=projectData();
+}
+bool SstvImageEditorDialog::confirmDiscard()
+{
+    return projectData()==m_savedDocument || QMessageBox::question(this,L18n("SSTV editor"),
+        L18n("Discard unsaved image changes?"),QMessageBox::Discard|QMessageBox::Cancel,QMessageBox::Cancel)==QMessageBox::Discard;
+}
+void SstvImageEditorDialog::reject() { if (confirmDiscard()) QDialog::reject(); }
+
+void SstvImageEditorDialog::refreshElements()
+{
+    if(!m_elements)return;
+    if(m_btnUndo)m_btnUndo->setEnabled(m_canvas->canUndo());
+    if(m_btnRedo)m_btnRedo->setEnabled(m_canvas->canRedo());
+    QSignalBlocker blocker(m_elements);m_elements->clear();m_elements->addItems(m_canvas->elementNames());
+    m_elements->setCurrentRow(m_canvas->selectedIndex());
+}
+QImage SstvImageEditorDialog::composedImage() const {return m_canvas->composedImage();}
+QStringList SstvImageEditorDialog::qsoFields() const {
+    return {m_editMyCall->text(),m_editCall->text(),m_editName->text(),m_editQth->text(),m_editReport->text()};
+}
+
+void SstvImageEditorDialog::setTxMode(const QString &mode) {m_txMode=mode;updateTxPreview();}
+void SstvImageEditorDialog::updateTxPreview()
+{
+    if(!m_txPreview || !m_imageInfo)return;
+    const QImage prepared=SstvTransmitter::prepareImage(m_canvas->composedImage(),m_txMode);
+    m_txPreview->setPixmap(QPixmap::fromImage(prepared).scaled(240,160,Qt::KeepAspectRatio,Qt::SmoothTransformation));
+    const QSize source=m_canvas->cardSize();
+    m_imageInfo->setText(QString("%1 × %2 px → %3 · %4 × %5 px").arg(source.width()).arg(source.height()).arg(m_txMode).arg(prepared.width()).arg(prepared.height()));
 }

@@ -2,6 +2,7 @@
 #define SSTVDECODER_H
 
 #include "../../audio/AudioBlock.h"
+#include "SstvVis.h"
 #include "../../dsp/FrequencyMarker.h"
 #include "../../third_party/mmsstv_lgpl/MmsstvRxCore.h"
 
@@ -24,11 +25,8 @@
  * - Martin M1, M2, M3, M4.
  * - Scottie S1, S2, S3, S4, DX.
  *
- * Current limitations:
- * - VIS automatic mode detection is not implemented yet.
- * - Robot, PD, MP/MR/ML and AVT families are not implemented yet.
- * - Scottie reception uses sync-based line reconstruction and may still need
- *   manual slant/phase refinement on weak HF signals.
+ * Standard VIS auto-detection and header-triggered consecutive pictures.
+ * Manual mode and free-running reception remain available.
  */
 class SstvDecoder : public QObject
 {
@@ -49,6 +47,7 @@ public:
      * @brief Returns all supported SSTV sub-mode labels.
      */
     static QStringList availableModeNames();
+    static QSize imageSizeForMode(const QString &modeName);
 
     /**
      * @brief Returns default SSTV waterfall markers.
@@ -73,7 +72,7 @@ public:
     /**
      * @brief Returns the displayed horizontal phase correction in pixels.
      *
-     * Positive values roll the decoded SSTV line to the right.
+     * Positive values roll all received rows to the right.
      * Negative values roll it to the left.
      */
     int horizontalShiftPixels() const;
@@ -85,6 +84,7 @@ public:
     int blueShiftPixels() const;
 
 public slots:
+    void setAutoVisEnabled(bool enabled);
     /**
      * @brief Processes one live audio block.
      */
@@ -106,12 +106,12 @@ public slots:
     void setAutoSyncEnabled(bool enabled);
 
     /**
-     * @brief Sets displayed horizontal phase correction in pixels.
+     * @brief Sets horizontal phase correction and immediately redraws all received rows.
      */
     void setHorizontalShiftPixels(int pixels);
 
     /**
-     * @brief Sets manual Martin/Scottie red and blue registration in pixels.
+     * @brief Sets manual red and blue registration for all received RGB/YUV modes.
      *
      * These are deliberately manual and default to zero.  They are a safe
      * post-decode trim for residual chroma offset after the whole-line phase
@@ -121,6 +121,7 @@ public slots:
     void setColorShiftPixels(int redPixels, int bluePixels);
 
 signals:
+    void modeDetected(const QString &mode);
     /**
      * @brief Emits the progressively decoded image.
      */
@@ -403,7 +404,7 @@ private:
     /**
      * @brief Applies the manual horizontal phase roll to one decoded line.
      */
-    QVector<QRgb> applyHorizontalShift(const QVector<QRgb> &line) const;
+    QVector<QRgb> applyHorizontalShift(const QVector<QRgb> &line, int automaticShift) const;
 
     /**
      * @brief Writes one decoded image line and emits updates.
@@ -426,8 +427,15 @@ private:
     void emitConfigurationStatus();
 
 private:
+    SstvVis::Detector m_vis;
+    bool m_autoVisEnabled=true;
     Mode m_mode;
     QImage m_image;
+    // Canonical rows retain automatic decode corrections, before operator trims.
+    QImage m_receivedImage;
+    QVector<int> m_receivedAutoPhase;
+    void renderReceivedRow(int y);
+    void renderReceivedImage();
 
     QVector<float> m_audioBuffer;
     QVector<double> m_frequencyBuffer;

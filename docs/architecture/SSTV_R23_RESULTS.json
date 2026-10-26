@@ -1,0 +1,216 @@
+{
+  "revision": "0.6.4-source-r23-sstv-editor-vis",
+  "baseline": "delivered R22 canonical version29",
+  "linux_qt5_build": "PASS",
+  "selected_ctest": "10/10 PASS; after final localization/tab polish,4/4 relevant checks PASS",
+  "registered_ctest": 47,
+  "vis": {
+    "independent_noisy_pcm_headers": 76,
+    "modes": 19,
+    "sample_rates": [
+      11025,
+      44100,
+      48000,
+      96000
+    ],
+    "tx_cell_tone_measurements": 988,
+    "negative_cases": [
+      "missing leader",
+      "bad parity",
+      "bad stop",
+      "unknown code"
+    ],
+    "negative_cases_result": "PASS",
+    "repeated_headers_and_manual_disable": "PASS"
+  },
+  "image_loopback": {
+    "rate": 12000,
+    "cases": [
+      {
+        "mode": "Martin M1",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 256,
+        "interior_rgb_patch_rmse": 0.117851
+      },
+      {
+        "mode": "Martin M2",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 256,
+        "interior_rgb_patch_rmse": 0.781736
+      },
+      {
+        "mode": "Martin M3",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 128,
+        "interior_rgb_patch_rmse": 0.204124
+      },
+      {
+        "mode": "Martin M4",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 128,
+        "interior_rgb_patch_rmse": 0.905232
+      },
+      {
+        "mode": "Scottie S1",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 256,
+        "interior_rgb_patch_rmse": 0.235702
+      },
+      {
+        "mode": "Scottie S2",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 256,
+        "interior_rgb_patch_rmse": 0.612372
+      },
+      {
+        "mode": "Scottie S3",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 128,
+        "interior_rgb_patch_rmse": 0.117851
+      },
+      {
+        "mode": "Scottie S4",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 128,
+        "interior_rgb_patch_rmse": 0.57735
+      },
+      {
+        "mode": "Scottie DX",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 256,
+        "interior_rgb_patch_rmse": 0.0
+      },
+      {
+        "mode": "Robot 24",
+        "completed_frames": 1,
+        "width": 160,
+        "height": 120,
+        "interior_rgb_patch_rmse": 1.77169
+      },
+      {
+        "mode": "Robot 36",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 240,
+        "interior_rgb_patch_rmse": 2.70288
+      },
+      {
+        "mode": "Robot 72",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 240,
+        "interior_rgb_patch_rmse": 2.13437
+      },
+      {
+        "mode": "PD50",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 256,
+        "interior_rgb_patch_rmse": 1.91485
+      },
+      {
+        "mode": "PD90",
+        "completed_frames": 1,
+        "width": 320,
+        "height": 256,
+        "interior_rgb_patch_rmse": 1.49071
+      },
+      {
+        "mode": "PD120",
+        "completed_frames": 1,
+        "width": 640,
+        "height": 496,
+        "interior_rgb_patch_rmse": 2.57391
+      },
+      {
+        "mode": "PD160",
+        "completed_frames": 1,
+        "width": 512,
+        "height": 400,
+        "interior_rgb_patch_rmse": 1.89297
+      },
+      {
+        "mode": "PD180",
+        "completed_frames": 1,
+        "width": 640,
+        "height": 496,
+        "interior_rgb_patch_rmse": 2.48328
+      },
+      {
+        "mode": "PD240",
+        "completed_frames": 1,
+        "width": 640,
+        "height": 496,
+        "interior_rgb_patch_rmse": 2.23917
+      },
+      {
+        "mode": "PD290",
+        "completed_frames": 1,
+        "width": 800,
+        "height": 616,
+        "interior_rgb_patch_rmse": 1.79118
+      }
+    ],
+    "result": "19/19 complete; patchRMSE <2.71",
+    "scope": "clean synthetic self-loop; not external interoperability or HF sensitivity"
+  },
+  "editor": {
+    "small_desktop": [
+      800,
+      600
+    ],
+    "six_languages": [
+      "en",
+      "it",
+      "fr",
+      "de",
+      "no",
+      "cs"
+    ],
+    "project_roundtrip": "PASS",
+    "manual_style_position_after_field_edit": "PASS",
+    "undo_redo": "PASS",
+    "deleted_field_stays_deleted_and_metadata_reopens": "PASS",
+    "invalid_truncated_project_atomicity": "PASS",
+    "exact_editor_image_handoff": "PASS",
+    "all_localized_tabs_inside_bar": "PASS"
+  },
+  "native_main_window": {
+    "result": "PASS",
+    "raster_modes": [
+      "Martin M1",
+      "Scottie S2",
+      "PD120"
+    ],
+    "composition_exact_without_extra_frame": "PASS",
+    "quick_fields_share_editable_project": "PASS",
+    "persisted_vis_toggle": "PASS",
+    "audio_or_ptt_started": false
+  },
+  "diagnostic_measurement_correction": "First128-row tests sampled colour boundaries after letterboxing. Retained diagnostics; transformed interior bar centres resolve discrepancy without product demodulation changes.",
+  "unverified": [
+    "physical audio/radio",
+    "native Windows/macOS",
+    "real HF recordings/fading",
+    "external SSTV application interoperability"
+  ],
+  "retained_limits": [
+    "Manual phase/colour trims affect subsequent rows",
+    "No automatic received-image disk archive",
+    "No new GPU acceleration"
+  ],
+  "references": [
+    "bundled third_party/mmsstv_lgpl/reference/mmsstv_sstv.cpp",
+    "bundled third_party/qsstv_gpl/reference/sstv/sstvparam.cpp",
+    "https://www.sstv-handbook.com/download/sstv-handbook.pdf"
+  ]
+}

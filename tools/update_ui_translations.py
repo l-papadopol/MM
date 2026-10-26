@@ -2244,6 +2244,21 @@ for _key, _translations in FT_CQ_WORKLIST_KEYS.items():
     for _lang, _value in _translations.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
+from sstv_editor_i18n import LANGS as SSTV_LANGS, PHRASES as SSTV_PHRASES
+for _source, _translations in SSTV_PHRASES.items():
+    for _lang, _value in zip(SSTV_LANGS, _translations):
+        KEY_EXACT.setdefault(_lang, {})["text." + norm_key(_source)] = _value
+
+from sstv_adjustment_i18n import KEYS as SSTV_ADJUSTMENT_KEYS
+for _key, _translations in SSTV_ADJUSTMENT_KEYS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
+from sstv_archive_i18n import KEYS as SSTV_ARCHIVE_KEYS
+for _key, _translations in SSTV_ARCHIVE_KEYS.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})[_key] = _value
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

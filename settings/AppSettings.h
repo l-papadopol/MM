@@ -117,6 +117,9 @@ public:
 
     QString sstvMode = "Martin M1";
     bool sstvAutoSync = true;
+    bool sstvAutoVis = true;
+    bool sstvAutoSave = false;
+    QString sstvOutputFolder;
     int sstvHorizontalShiftPixels = 0;
     int sstvRedShiftPixels = 0;
     int sstvBlueShiftPixels = 0;

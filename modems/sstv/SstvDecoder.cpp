@@ -270,14 +270,14 @@ QVector<SstvDecoder::Mode> SstvDecoder::modes()
     };
 
     addMartin("MARTIN_M1", "Martin M1", 320, 256, 146.432);
-    addMartin("MARTIN_M2", "Martin M2", 160, 256, 73.216);
+    addMartin("MARTIN_M2", "Martin M2", 320, 256, 73.216);
     addMartin("MARTIN_M3", "Martin M3", 320, 128, 146.432);
-    addMartin("MARTIN_M4", "Martin M4", 160, 128, 73.216);
+    addMartin("MARTIN_M4", "Martin M4", 320, 128, 73.216);
 
     addScottie("SCOTTIE_S1", "Scottie S1", 320, 256, 138.240);
-    addScottie("SCOTTIE_S2", "Scottie S2", 160, 256, 88.064);
+    addScottie("SCOTTIE_S2", "Scottie S2", 320, 256, 88.064);
     addScottie("SCOTTIE_S3", "Scottie S3", 320, 128, 138.240);
-    addScottie("SCOTTIE_S4", "Scottie S4", 160, 128, 88.064);
+    addScottie("SCOTTIE_S4", "Scottie S4", 320, 128, 88.064);
     addScottie("SCOTTIE_DX", "Scottie DX", 320, 256, 345.600);
 
     addRobotSingle("ROBOT_24", "Robot 24", 160, 120, 120, 24.00150, 6.0, 0.1, 3.0, 4.5);
@@ -357,7 +357,7 @@ void SstvDecoder::processAudioBlock(const AudioBlock &block)
         m_sampleRate = block.sampleRate;
         updateDemodulatorCoefficients();
         m_mmsstvFqc.setSampleRate(static_cast<double>(m_sampleRate));
-        resetDemodulatorState();
+        reset();
     }
 
     m_audioBuffer.reserve(m_audioBuffer.size() + block.samples.size());
@@ -374,6 +374,7 @@ void SstvDecoder::processAudioBlock(const AudioBlock &block)
 
 void SstvDecoder::reset()
 {
+    m_vis.reset();
     m_audioBuffer.clear();
     m_frequencyBuffer.clear();
     m_y = 0;
@@ -453,6 +454,7 @@ void SstvDecoder::setHorizontalShiftPixels(int pixels)
     }
 
     m_horizontalShiftPixels = bounded;
+    renderReceivedImage();
     emitConfigurationStatus();
 }
 
@@ -468,6 +470,7 @@ void SstvDecoder::setColorShiftPixels(int redPixels, int bluePixels)
 
     m_redShiftPixels = boundedRed;
     m_blueShiftPixels = boundedBlue;
+    renderReceivedImage();
     emitConfigurationStatus();
 }
 
@@ -479,6 +482,8 @@ void SstvDecoder::rebuildImage()
 {
     m_image = QImage(m_mode.width, m_mode.height, QImage::Format_RGB32);
     m_image.fill(Qt::black);
+    m_receivedImage = m_image.copy();
+    m_receivedAutoPhase.fill(0, m_mode.height);
 }
 
 void SstvDecoder::updateDemodulatorCoefficients()
@@ -539,6 +544,16 @@ void SstvDecoder::appendDemodulatedSample(float sample)
      */
     const double frequencyHz = m_mmsstvFqc.processSample(static_cast<double>(sample));
     m_lastDemodFrequencyHz = frequencyHz;
+    if (m_autoVisEnabled) {
+        const int vis=m_vis.feed(frequencyHz,m_sampleRate);
+        if (vis>=0) {
+            m_mode=modeByName(SstvVis::label(vis));
+            reset();
+            m_audioBuffer.append(sample);
+            emit modeDetected(m_mode.label);
+            emit statusChanged(QString("SSTV VIS: %1 — receiving new image").arg(m_mode.label));
+        }
+    }
     m_frequencyBuffer.append(frequencyHz);
 }
 
@@ -1431,8 +1446,8 @@ bool SstvDecoder::decodeLineAtSync(int syncStart, QVector<QVector<QRgb>> *lines)
     if (m_mode.encoding == kEncodingRgb) {
         updateAutomaticChromaRegistration(red, green, blue);
 
-        const double redShift = static_cast<double>(m_redShiftPixels) + activeAutoRedShiftPixels();
-        const double blueShift = static_cast<double>(m_blueShiftPixels) + activeAutoBlueShiftPixels();
+        const double redShift = activeAutoRedShiftPixels();
+        const double blueShift = activeAutoBlueShiftPixels();
 
         applyColorShiftInPlace(&red, redShift);
         applyColorShiftInPlace(&blue, blueShift);
@@ -1826,11 +1841,11 @@ int SstvDecoder::levelFromFrequency(double frequencyHz) const
 // Image output
 // -----------------------------------------------------------------------------
 
-QVector<QRgb> SstvDecoder::applyHorizontalShift(const QVector<QRgb> &line) const
+QVector<QRgb> SstvDecoder::applyHorizontalShift(const QVector<QRgb> &line, int automaticShift) const
 {
     const int width = line.size();
 
-    const int totalShiftPixels = m_horizontalShiftPixels + m_autoHorizontalShiftPixels;
+    const int totalShiftPixels = m_horizontalShiftPixels + automaticShift;
 
     if (width <= 0 || totalShiftPixels == 0) {
         return line;
@@ -1855,6 +1870,33 @@ QVector<QRgb> SstvDecoder::applyHorizontalShift(const QVector<QRgb> &line) const
     return shifted;
 }
 
+// Re-render from canonical pixels, never from a previously shifted preview.
+// The automatic phase captured for each row stays fixed: operator adjustments
+// must not introduce changes caused by later sync/chroma tracker updates.
+void SstvDecoder::renderReceivedRow(int y)
+{
+    if (m_receivedImage.isNull() || y < 0 || y >= m_receivedImage.height()) return;
+    const int width=m_receivedImage.width();
+    const QRgb *source=reinterpret_cast<const QRgb *>(m_receivedImage.constScanLine(y));
+    QVector<QRgb> line(width);
+    for (int x=0; x<width; ++x) {
+        const int redX=qBound(0, x-m_redShiftPixels, width-1);
+        const int blueX=qBound(0, x-m_blueShiftPixels, width-1);
+        line[x]=qRgb(qRed(source[redX]), qGreen(source[x]), qBlue(source[blueX]));
+    }
+    const QVector<QRgb> shifted=applyHorizontalShift(line,m_receivedAutoPhase.value(y));
+    QRgb *destination=reinterpret_cast<QRgb *>(m_image.scanLine(y));
+    std::copy(shifted.cbegin(),shifted.cend(),destination);
+}
+
+void SstvDecoder::renderReceivedImage()
+{
+    for (int y=0; y<m_y; ++y) renderReceivedRow(y);
+    // Preview and worker snapshot change, while acquisition/timing and the
+    // one-shot imageCompleted notification remain untouched.
+    emit imageUpdated(m_image);
+}
+
 void SstvDecoder::writeLine(const QVector<QRgb> &line)
 {
     if (line.isEmpty() || m_image.isNull()) {
@@ -1875,12 +1917,11 @@ void SstvDecoder::writeLine(const QVector<QRgb> &line)
         return;
     }
 
-    const QVector<QRgb> shiftedLine = applyHorizontalShift(line);
-    QRgb *dst = reinterpret_cast<QRgb *>(m_image.scanLine(m_y));
-
-    for (int x = 0; x < m_image.width() && x < shiftedLine.size(); ++x) {
-        dst[x] = shiftedLine[x];
-    }
+    QRgb *received = reinterpret_cast<QRgb *>(m_receivedImage.scanLine(m_y));
+    for (int x = 0; x < m_receivedImage.width() && x < line.size(); ++x)
+        received[x] = line[x];
+    m_receivedAutoPhase[m_y] = m_autoHorizontalShiftPixels;
+    renderReceivedRow(m_y);
 
     ++m_y;
     ++m_statusCounter;
@@ -1955,4 +1996,16 @@ void SstvDecoder::emitConfigurationStatus()
                            .arg(activeAutoBlueShiftPixels(), 0, 'f', 1)
                            .arg(m_syncFrequencyCorrectionHz, 0, 'f', 1)
                            .arg(m_lastLocalSyncErrorSamples));
+}
+
+void SstvDecoder::setAutoVisEnabled(bool enabled)
+{
+    if(m_autoVisEnabled==enabled)return;
+    m_autoVisEnabled=enabled;m_vis.reset();
+}
+
+QSize SstvDecoder::imageSizeForMode(const QString &modeName)
+{
+    const Mode mode=modeByName(modeName);
+    return QSize(mode.width,mode.height);
 }
