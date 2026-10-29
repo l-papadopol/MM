@@ -1,3 +1,4 @@
+#include "../runtime/SessionDiagnostics.h"
 #include "AudioEngine.h"
 
 #include <QDateTime>
@@ -573,6 +574,7 @@ void AudioEngine::processPendingBytes()
 
         emitLevel(block.samples);
         block.enqueuedSteadyNs=AudioBlock::steadyNowNs();
+        SessionDiagnostics::instance().audio("capture",block);
         emit audioBlockReady(block);
         maybeEmitPeriodicDiagnostics();
     }

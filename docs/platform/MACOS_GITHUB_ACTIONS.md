@@ -8,7 +8,7 @@ PKG with GNU GPLv3 acceptance. The current build target is macOS 15 or later.
 For a local build on macOS:
 
 ```bash
-brew install cmake ninja pkg-config qt qtlocation hamlib
+brew install cmake ninja pkg-config qt qtlocation hamlib fftw
 export MACOSX_DEPLOYMENT_TARGET=15.0
 bash scripts/build_macos.sh
 bash scripts/package_macos.sh

@@ -1,3 +1,5 @@
+#include "runtime/SessionDiagnosticsUiTap.h"
+#include "runtime/SessionDiagnostics.h"
 // -----------------------------------------------------------------------------
 // MadModem
 #include "MadModemVersion.h"
@@ -288,6 +290,15 @@ int main(int argc, char *argv[])
 
     AppSettings bootSettings;
     bootSettings.load();
+    SessionDiagnostics::installQtCapture();
+    SessionDiagnosticsUiTap diagnosticUiTap;app.installEventFilter(&diagnosticUiTap);
+    struct DiagnosticShutdown { ~DiagnosticShutdown(){SessionDiagnostics::instance().stop();SessionDiagnostics::restoreQtCapture();} } diagnosticShutdown;
+    if(bootSettings.sessionDiagnosticsEnabled) {
+        auto &log=SessionDiagnostics::instance();log.start(bootSettings.sessionDiagnosticsFolder);log.settings(bootSettings);
+        log.record("build",{{"source",QStringLiteral(MADMODEM_SOURCE_REVISION)},{"build",QStringLiteral(MADMODEM_BUILD_NUMBER)},{"commit",QStringLiteral(MADMODEM_BUILD_COMMIT)}});
+    }
+
+    HamlibController::initializeDiagnosticTrace();
     const QString bootTheme = bootSettings.uiTheme.trimmed().toLower();
     MadModemUi::applyUiTheme(app, bootTheme);
 

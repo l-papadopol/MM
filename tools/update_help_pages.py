@@ -1587,6 +1587,11 @@ for _lang, (_heading, _body) in SSTV_ARCHIVE_HELP.items():
     _title, _original = PAGES[_lang]['text_modes.html']
     PAGES[_lang]['text_modes.html'] = (_title, _original + '\n<h2 id="sstv-auto-save">' + _heading + '</h2><p>' + _body + '</p>')
 
+from session_diagnostics_i18n import HELP as SESSION_DIAGNOSTICS_HELP
+for _lang, (_heading, _body) in SESSION_DIAGNOSTICS_HELP.items():
+    _title, _original = PAGES[_lang]['troubleshooting.html']
+    PAGES[_lang]['troubleshooting.html'] = (_title, _original + '\n<h2 id="session-diagnostics">' + _heading + '</h2><p>' + _body + '</p>')
+
 def main() -> int:
     for lang, pages in PAGES.items():
         for filename, (title, body) in pages.items():

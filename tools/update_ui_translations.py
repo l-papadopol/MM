@@ -2259,6 +2259,11 @@ for _key, _translations in SSTV_ARCHIVE_KEYS.items():
     for _lang, _value in _translations.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
+from session_diagnostics_i18n import SOURCES as SESSION_DIAGNOSTICS_SOURCES
+for _source, _translations in SESSION_DIAGNOSTICS_SOURCES.items():
+    for _lang, _value in _translations.items():
+        KEY_EXACT.setdefault(_lang, {})["text." + norm_key(_source)] = _value
+
 def main() -> int:
     canonical = harvest_keys()
     TRANS_DIR.mkdir(exist_ok=True)

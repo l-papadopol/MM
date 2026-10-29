@@ -1,0 +1,23 @@
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- MadModem package/app version: 0.6.4
+-- MadModem source revision: 0.6.4-source-r30-reference-ft-recovery
+-- MadModem distribution build: 0
+-- MadModem LTO/IPO disabled by default to avoid GCC/LTO private-slot link regressions
+-- MadModem portable CPU baseline: global AVX2/FMA disabled; runtime-dispatched kernels may still use AVX2 on capable CPUs.
+-- Performing Test HAVE_STDATOMIC
+-- Performing Test HAVE_STDATOMIC - Success
+-- Found OpenGL: /workspace/scratch/5c40146f5a02/toolchain/usr/lib/x86_64-linux-gnu/libOpenGL.so   
+-- Qt Location QSO map backend not available; using offline planet_map.jpg fallback
+-- Qt Help backend enabled for the MM online manual
+-- Found Threads: TRUE  
+-- Performing Test MADMODEM_FT_AUTO_INIT
+-- Performing Test MADMODEM_FT_AUTO_INIT - Success
+-- Hamlib support enabled via pkg-config: 4.5.5
+-- Configuring done (1.0s)
+-- Generating done (0.2s)
+-- Build files have been written to: /workspace/scratch/5c40146f5a02/delivery-build-qt6

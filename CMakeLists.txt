@@ -252,6 +252,10 @@ find_package(Threads REQUIRED)
 # Live CW architecture: exact-tone carrier discrimination, robust timing-family
 # estimation and bounded probabilistic Morse sequence decoding are independent
 # components. No legacy Bayesian/geometric-rescue implementation is linked.
+add_library(madmodem_diagnostics STATIC runtime/SessionDiagnostics.cpp)
+target_link_libraries(madmodem_diagnostics PUBLIC ${QT}::Core Threads::Threads)
+target_include_directories(madmodem_diagnostics PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+
 add_library(madmodem_cwskimmer STATIC
     modems/cw/skimmer/CwSkimmerTypes.h
     modems/cw/skimmer/CwSkimmerEngine.h
@@ -323,6 +327,28 @@ target_include_directories(madmodem_linear_resampler PUBLIC
 target_link_libraries(madmodem_linear_resampler PUBLIC ${QT}::Core)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(madmodem_linear_resampler PRIVATE -Wall -Wextra)
+endif()
+
+# Native FT8/FT4 recovery from pinned MSHV source, isolated from TX/CAT.
+find_library(MADMODEM_FFTW3_LIBRARY NAMES fftw3 fftw3-3 libfftw3.so.3)
+if(NOT MADMODEM_FFTW3_LIBRARY)
+    message(FATAL_ERROR "FT reference recovery requires FFTW3 double precision (libfftw3-dev / fftw / brew fftw)")
+endif()
+add_library(madmodem_ft_reference STATIC
+    modems/ft8/FtReferenceRecovery.h modems/ft8/FtReferenceRecovery.cpp
+    third_party/mshv_gpl/ft_reference/decoderft8.cpp
+    third_party/mshv_gpl/ft_reference/decoderft8var.cpp
+    third_party/mshv_gpl/ft_reference/decoderft4.cpp
+    third_party/mshv_gpl/ft_reference/decoderpom.cpp
+    third_party/mshv_gpl/ft_reference/fft.cpp)
+target_include_directories(madmodem_ft_reference PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(madmodem_ft_reference PUBLIC ${QT}::Core madmodem_weak_signal_codec madmodem_diagnostics Threads::Threads "${MADMODEM_FFTW3_LIBRARY}")
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-ftrivial-auto-var-init=zero" MADMODEM_FT_AUTO_INIT)
+if(MADMODEM_FT_AUTO_INIT)
+    target_compile_options(madmodem_ft_reference PRIVATE -ftrivial-auto-var-init=zero)
+else()
+    message(FATAL_ERROR "FT recovery requires a compiler supporting -ftrivial-auto-var-init=zero; select a current GCC or Clang toolchain")
 endif()
 
 # -------------------------------------------------------------------------
@@ -708,6 +734,8 @@ if(WIN32)
 endif()
 
 target_link_libraries(MadModem PRIVATE
+    madmodem_ft_reference
+    madmodem_diagnostics
     madmodem_cwskimmer
     madmodem_msk144
     madmodem_q65
@@ -1028,6 +1056,16 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(madmodem_session_diagnostics tests/SessionDiagnosticsRegression.cpp)
+    target_link_libraries(madmodem_session_diagnostics PRIVATE madmodem_diagnostics)
+    add_test(NAME madmodem_session_diagnostics COMMAND madmodem_session_diagnostics)
+    set_tests_properties(madmodem_session_diagnostics PROPERTIES TIMEOUT 30)
+    find_package(${QT} REQUIRED COMPONENTS Test)
+    add_executable(madmodem_decode_clipboard tests/DecodeTableClipboardRegression.cpp)
+    target_include_directories(madmodem_decode_clipboard PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(madmodem_decode_clipboard PRIVATE ${QT}::Widgets ${QT}::Test)
+    add_test(NAME madmodem_decode_clipboard COMMAND madmodem_decode_clipboard)
+    set_tests_properties(madmodem_decode_clipboard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 10)
     add_executable(madmodem_ft_cq_worklist tests/FtCqWorkListRegression.cpp)
     target_include_directories(madmodem_ft_cq_worklist PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(madmodem_ft_cq_worklist PRIVATE ${QT}::Core)
@@ -1116,6 +1154,13 @@ if(BUILD_TESTING)
     set_tests_properties(madmodem_msk144_native_regression PROPERTIES TIMEOUT 180)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND AND UNIX AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
+        add_test(NAME madmodem_ft_reference_native COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_ft_reference_regression.py" --build "${CMAKE_BINARY_DIR}")
+        set_tests_properties(madmodem_ft_reference_native PROPERTIES TIMEOUT 180)
+        add_test(NAME madmodem_ft_coherent_native COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_ft_coherent_regression.py" --build "${CMAKE_BINARY_DIR}")
+        set_tests_properties(madmodem_ft_coherent_native PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
+    endif()
+
     if(Python3_Interpreter_FOUND)
         set(MADMODEM_GUARD_UNIX_ARGS)
         if(UNIX)
@@ -1441,4 +1486,8 @@ if(BUILD_TESTING)
     target_link_libraries(madmodem_sstv_archive_regression PRIVATE ${QT}::Core ${QT}::Gui)
     add_test(NAME madmodem_sstv_archive_regression COMMAND madmodem_sstv_archive_regression)
     set_tests_properties(madmodem_sstv_archive_regression PROPERTIES TIMEOUT 30)
+endif()
+
+if(TARGET madmodem_audio_flow_accounting)
+    target_link_libraries(madmodem_audio_flow_accounting PRIVATE madmodem_diagnostics)
 endif()

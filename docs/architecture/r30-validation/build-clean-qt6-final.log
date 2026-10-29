@@ -1,0 +1,184 @@
+-- MadModem package/app version: 0.6.4
+-- MadModem source revision: 0.6.4-source-r30-reference-ft-recovery
+-- MadModem distribution build: 0
+-- MadModem LTO/IPO disabled by default to avoid GCC/LTO private-slot link regressions
+-- MadModem portable CPU baseline: global AVX2/FMA disabled; runtime-dispatched kernels may still use AVX2 on capable CPUs.
+-- Qt Location QSO map backend not available; using offline planet_map.jpg fallback
+-- Qt Help backend enabled for the MM online manual
+-- Hamlib support enabled via pkg-config: 4.5.5
+-- Configuring done (0.3s)
+-- Generating done (0.2s)
+-- Build files have been written to: /workspace/scratch/5c40146f5a02/delivery-build-qt6
+[  1%] Copying localized MM HTML help files
+[  3%] Built target madmodem_cwskimmer
+[  3%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[  3%] Built target MadModemHelpFiles
+[  3%] Built target madmodem_linear_resampler_autogen_timestamp_deps
+[  3%] Built target madmodem_weak_signal_codec_autogen_timestamp_deps
+[  3%] Built target madmodem_ft_incremental_producer_autogen_timestamp_deps
+[  3%] Built target madmodem_ft_cq_worklist
+[  3%] Built target madmodem_decode_clipboard_autogen_timestamp_deps
+[  3%] Built target madmodem_update_regression_autogen_timestamp_deps
+[  3%] Built target madmodem_tx_pull_regression_autogen_timestamp_deps
+[  3%] Built target madmodem_i18n_regression_autogen_timestamp_deps
+[  3%] Built target madmodem_capture_clock_autogen_timestamp_deps
+[  3%] Built target madmodem_antialias_regression
+[  4%] Built target madmodem_rotator_coordinates
+[  4%] Built target madmodem_resampler_streaming_autogen_timestamp_deps
+[  4%] Built target madmodem_logbook_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_wav_reader_test_autogen_timestamp_deps
+[  4%] Built target madmodem_all_contest_exports_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_receiver_filter_regression_autogen_timestamp_deps
+[  4%] Built target MadModemFtSequencerSelfTest_autogen_timestamp_deps
+[  4%] Built target madmodem_logbook_workflow_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_contest_export_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_cw_integration_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_cw_ctc_prefix_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_cw_engine_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_cw_route_probe_autogen_timestamp_deps
+[  4%] Built target madmodem_cw_native_probe_autogen_timestamp_deps
+[  4%] Built target madmodem_rtty_synthetic_bench_autogen_timestamp_deps
+[  4%] Built target madmodem_cw_neural_probe
+[  4%] Built target madmodem_text_assist_workers_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_installation_paths_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_installer_cpu_regression
+[  4%] Built target madmodem_gpu_sync_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_hell_image_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_weatherfax_image_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_vis_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_editor_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_image_adjustment_regression_autogen_timestamp_deps
+[  4%] Built target MadModemQtHelp
+[  4%] Built target madmodem_sstv_archive_regression_autogen_timestamp_deps
+[  5%] Automatic MOC and UIC for target madmodem_diagnostics
+[  5%] Automatic MOC and UIC for target madmodem_weak_signal_codec
+[  5%] Automatic MOC and UIC for target madmodem_linear_resampler
+[  5%] Built target madmodem_diagnostics_autogen
+[  5%] Built target madmodem_weak_signal_codec_autogen
+[  5%] Built target madmodem_linear_resampler_autogen
+[  5%] Automatic MOC and UIC for target madmodem_ft_incremental_producer
+[  5%] Automatic MOC and UIC for target madmodem_decode_clipboard
+[  6%] Automatic MOC and UIC for target madmodem_update_regression
+[  6%] Built target madmodem_ft_incremental_producer_autogen
+[  6%] Built target madmodem_decode_clipboard_autogen
+[  6%] Built target madmodem_update_regression_autogen
+[  7%] Automatic MOC and UIC for target madmodem_tx_pull_regression
+[  7%] Automatic MOC and UIC for target madmodem_capture_clock
+[  7%] Automatic MOC and UIC for target madmodem_i18n_regression
+[  7%] Built target madmodem_i18n_regression_autogen
+[  7%] Built target madmodem_capture_clock_autogen
+[  7%] Built target madmodem_tx_pull_regression_autogen
+[  8%] Automatic MOC and UIC for target madmodem_logbook_regression
+[  8%] Automatic MOC and UIC for target madmodem_resampler_streaming
+[  8%] Automatic MOC and UIC for target madmodem_wav_reader_test
+[  8%] Built target madmodem_resampler_streaming_autogen
+[  8%] Built target madmodem_logbook_regression_autogen
+[  8%] Built target madmodem_wav_reader_test_autogen
+[  8%] Automatic MOC and UIC for target MadModemFtSequencerSelfTest
+[  9%] Automatic MOC and UIC for target madmodem_receiver_filter_regression
+[ 10%] Automatic MOC and UIC for target madmodem_all_contest_exports_regression
+[ 10%] Built target MadModemFtSequencerSelfTest_autogen
+[ 10%] Built target madmodem_receiver_filter_regression_autogen
+[ 10%] Built target madmodem_all_contest_exports_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_contest_export_regression
+[ 10%] Automatic MOC and UIC for target madmodem_logbook_workflow_regression
+[ 10%] Automatic MOC and UIC for target madmodem_cw_integration_regression
+[ 10%] Built target madmodem_logbook_workflow_regression_autogen
+[ 10%] Built target madmodem_contest_export_regression_autogen
+[ 10%] Built target madmodem_cw_integration_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_cw_ctc_prefix_regression
+[ 10%] Automatic MOC and UIC for target madmodem_cw_route_probe
+[ 10%] Automatic MOC and UIC for target madmodem_cw_engine_regression
+[ 10%] Built target madmodem_cw_ctc_prefix_regression_autogen
+[ 10%] Built target madmodem_cw_route_probe_autogen
+[ 10%] Built target madmodem_cw_engine_regression_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_cw_native_probe
+[ 11%] Automatic MOC and UIC for target madmodem_rtty_synthetic_bench
+[ 11%] Built target madmodem_cw_native_probe_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_text_assist_workers_regression
+[ 11%] Built target madmodem_rtty_synthetic_bench_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_installation_paths_regression
+[ 12%] Built target madmodem_text_assist_workers_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_gpu_sync_regression
+[ 12%] Automatic MOC and UIC for target madmodem_hell_image_regression
+[ 12%] Built target madmodem_installation_paths_regression_autogen
+[ 12%] Built target madmodem_gpu_sync_regression_autogen
+[ 12%] Built target madmodem_hell_image_regression_autogen
+[ 13%] Automatic MOC and UIC for target madmodem_weatherfax_image_regression
+[ 13%] Automatic MOC and UIC for target madmodem_sstv_vis_regression
+[ 13%] Built target madmodem_weatherfax_image_regression_autogen
+[ 13%] Automatic MOC and UIC for target madmodem_sstv_editor_regression
+[ 13%] Built target madmodem_sstv_vis_regression_autogen
+[ 13%] Automatic MOC and UIC for target madmodem_sstv_image_adjustment_regression
+[ 13%] Built target madmodem_sstv_editor_regression_autogen
+[ 13%] Automatic MOC and UIC for target madmodem_sstv_archive_regression
+[ 13%] Built target madmodem_sstv_image_adjustment_regression_autogen
+[ 14%] Built target madmodem_diagnostics
+[ 14%] Built target madmodem_sstv_archive_regression_autogen
+[ 15%] Built target madmodem_linear_resampler
+[ 17%] Built target madmodem_weak_signal_codec
+[ 17%] Built target madmodem_session_diagnostics_autogen_timestamp_deps
+[ 19%] Built target madmodem_decode_clipboard
+[ 19%] Built target madmodem_ft_incremental_producer
+[ 21%] Built target madmodem_i18n_regression
+[ 22%] Built target madmodem_update_regression
+[ 23%] Built target madmodem_tx_pull_regression
+[ 24%] Built target madmodem_capture_clock
+[ 25%] Built target madmodem_resampler_streaming
+[ 26%] Built target madmodem_logbook_regression
+[ 27%] Built target madmodem_wav_reader_test
+[ 27%] Built target madmodem_audio_flow_accounting_autogen_timestamp_deps
+[ 28%] Built target madmodem_receiver_filter_regression
+[ 30%] Built target MadModemFtSequencerSelfTest
+[ 31%] Built target madmodem_all_contest_exports_regression
+[ 35%] Built target madmodem_logbook_workflow_regression
+[ 38%] Built target madmodem_contest_export_regression
+[ 40%] Built target madmodem_cw_integration_regression
+[ 41%] Built target madmodem_cw_ctc_prefix_regression
+[ 43%] Built target madmodem_cw_route_probe
+[ 45%] Built target madmodem_cw_engine_regression
+[ 45%] Built target madmodem_rtty_contest_regression_autogen_timestamp_deps
+[ 47%] Built target madmodem_cw_native_probe
+[ 49%] Built target madmodem_rtty_synthetic_bench
+[ 51%] Built target madmodem_installation_paths_regression
+[ 52%] Built target madmodem_text_assist_workers_regression
+[ 53%] Built target madmodem_gpu_sync_regression
+[ 54%] Built target madmodem_hell_image_regression
+[ 55%] Built target madmodem_weatherfax_image_regression
+[ 57%] Built target madmodem_sstv_vis_regression
+[ 59%] Built target madmodem_sstv_editor_regression
+[ 60%] Built target madmodem_ft_reference_autogen_timestamp_deps
+[ 61%] Built target madmodem_sstv_image_adjustment_regression
+[ 62%] Built target madmodem_sstv_archive_regression
+[ 62%] Built target madmodem_msk144_autogen_timestamp_deps
+[ 62%] Built target madmodem_q65_autogen_timestamp_deps
+[ 62%] Automatic MOC and UIC for target madmodem_session_diagnostics
+[ 62%] Automatic MOC and UIC for target madmodem_rtty_contest_regression
+[ 63%] Automatic MOC and UIC for target madmodem_audio_flow_accounting
+[ 63%] Built target madmodem_session_diagnostics_autogen
+[ 63%] Built target madmodem_rtty_contest_regression_autogen
+[ 63%] Built target madmodem_audio_flow_accounting_autogen
+[ 64%] Automatic MOC and UIC for target madmodem_ft_reference
+[ 64%] Automatic MOC and UIC for target madmodem_msk144
+[ 64%] Automatic MOC and UIC for target madmodem_q65
+[ 64%] Built target madmodem_ft_reference_autogen
+[ 64%] Built target madmodem_msk144_autogen
+[ 64%] Built target madmodem_q65_autogen
+[ 65%] Built target madmodem_session_diagnostics
+[ 66%] Built target madmodem_audio_flow_accounting
+[ 68%] Built target madmodem_rtty_contest_regression
+[ 70%] Built target madmodem_ft_reference
+[ 72%] Built target madmodem_q65
+[ 74%] Built target madmodem_msk144
+[ 74%] Built target MadModem_autogen_timestamp_deps
+[ 74%] Built target madmodem_q65_native_regression_autogen_timestamp_deps
+[ 74%] Built target madmodem_msk144_native_regression_autogen_timestamp_deps
+[ 74%] Automatic MOC and UIC for target madmodem_q65_native_regression
+[ 75%] Automatic MOC and UIC for target madmodem_msk144_native_regression
+[ 75%] Automatic MOC and UIC for target MadModem
+[ 75%] Built target madmodem_q65_native_regression_autogen
+[ 75%] Built target madmodem_msk144_native_regression_autogen
+[ 76%] Built target madmodem_msk144_native_regression
+[ 77%] Built target madmodem_q65_native_regression
+[ 77%] Built target MadModem_autogen
+[100%] Built target MadModem

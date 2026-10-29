@@ -1,3 +1,6 @@
+#include "runtime/SessionDiagnostics.h"
+#include "modems/ft8/FtDiagnostics.h"
+#include "widgets/DecodeTableClipboard.h"
 #include "callsign/QrzLookupPanel.h"
 #include "updates/UpdateController.h"
 #include "logbook/AsyncLogbook.h"
@@ -1374,6 +1377,28 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     m_settings.load();
+    m_rxUiAudioDispatcher->setObjectName("rx-ui");m_dspAudioDispatcher->setObjectName("rx-dsp");
+    if(m_settings.sessionDiagnosticsEnabled && !SessionDiagnostics::instance().enabled())SessionDiagnostics::instance().start(m_settings.sessionDiagnosticsFolder);
+    SessionDiagnostics::instance().settings(m_settings);
+    connect(m_ft8RxDecoder,&Ft8RxDecoder::statusChanged,m_ft8RxDecoder,[](const QString &text){SessionDiagnostics::instance().record("ft.status",{{"message",text}});},Qt::DirectConnection);
+    connect(m_ft8RxDecoder,&Ft8RxDecoder::runtimeDiagnostic,m_ft8RxDecoder,[](const QString &text){SessionDiagnostics::instance().record("ft.runtime",{{"message",text}});},Qt::DirectConnection);
+
+    connect(m_rttyDecoder,&RttyDecoder::characterReceived,m_rttyDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.text",{{"mode","RTTY"},{"text",text}});},Qt::DirectConnection);
+    connect(m_bpsk31Decoder,&Bpsk31Decoder::characterReceived,m_bpsk31Decoder,[](const QString &text){SessionDiagnostics::instance().record("rx.text",{{"mode","BPSK"},{"text",text}});},Qt::DirectConnection);
+    connect(m_mfskDecoder,&MfskDecoder::characterReceived,m_mfskDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.text",{{"mode","MFSK"},{"text",text}});},Qt::DirectConnection);
+    connect(m_cwDecoder,&CwDecoder::characterReceived,m_cwDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.text",{{"mode","CW"},{"text",text}});},Qt::DirectConnection);
+    connect(m_rttyDecoder,&RttyDecoder::statusChanged,m_rttyDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","RTTY"},{"message",text}});},Qt::DirectConnection);
+    connect(m_bpsk31Decoder,&Bpsk31Decoder::statusChanged,m_bpsk31Decoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","BPSK"},{"message",text}});},Qt::DirectConnection);
+    connect(m_mfskDecoder,&MfskDecoder::statusChanged,m_mfskDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","MFSK"},{"message",text}});},Qt::DirectConnection);
+    connect(m_cwDecoder,&CwDecoder::statusChanged,m_cwDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","CW"},{"message",text}});},Qt::DirectConnection);
+    connect(m_sstvDecoder,&SstvDecoder::statusChanged,m_sstvDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","SSTV"},{"message",text}});},Qt::DirectConnection);
+    connect(m_weatherFaxDecoder,&WeatherFaxDecoder::statusChanged,m_weatherFaxDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","WEFAX"},{"message",text}});},Qt::DirectConnection);
+    connect(m_hellDecoder,&HellschreiberDecoder::statusChanged,m_hellDecoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","HELL"},{"message",text}});},Qt::DirectConnection);
+    connect(m_msk144Decoder,&Msk144Decoder::statusChanged,m_msk144Decoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","MSK144"},{"message",text}});},Qt::DirectConnection);
+    connect(m_sstvDecoder,&SstvDecoder::imageUpdated,m_sstvDecoder,[](const QImage &image){SessionDiagnostics::instance().record("rx.image.progress",{{"mode","SSTV"},{"width",image.width()},{"height",image.height()}});},Qt::DirectConnection);
+    connect(m_weatherFaxDecoder,&WeatherFaxDecoder::imageUpdated,m_weatherFaxDecoder,[](const QImage &image){SessionDiagnostics::instance().record("rx.image.progress",{{"mode","WEFAX"},{"width",image.width()},{"height",image.height()}});},Qt::DirectConnection);
+    connect(m_hellDecoder,&HellschreiberDecoder::imageUpdated,m_hellDecoder,[](const QImage &image){SessionDiagnostics::instance().record("rx.image.progress",{{"mode","HELL"},{"width",image.width()},{"height",image.height()}});},Qt::DirectConnection);
+    connect(m_cwDecoder,&CwDecoder::priorityTextReceived,m_cwDecoder,[](int receiver,const QString &text){SessionDiagnostics::instance().record("rx.text",{{"mode","CW"},{"receiver",receiver},{"text",text}});},Qt::DirectConnection);
     const QString configuredLogbookPath = m_settings.logbookFilePath.trimmed();
     m_logbook.setFileName(configuredLogbookPath.isEmpty()
                               ? AdifLogbook::defaultPath()
@@ -1515,6 +1540,13 @@ MainWindow::MainWindow(QWidget *parent)
             !(m_logbookStore && (m_logbookStore->busy() || m_logbookStore->hasUnsaved()));
     });
 
+    auto *diagnosticHealthTimer=new QTimer(this);
+    connect(diagnosticHealthTimer,&QTimer::timeout,this,[this,last=QString()]() mutable {
+        auto &log=SessionDiagnostics::instance();QString state=log.error();
+        if(log.lost())state+=QString(" Diagnostic events lost: %1; log is incomplete.").arg(log.lost());
+        if(!state.isEmpty()&&state!=last){appendLog(state);statusBar()->showMessage(state);}
+        last=state;
+    });diagnosticHealthTimer->start(1000);
     appendLog("MM started.");
     appendLog(QStringLiteral("MadModem %1 | build %2 | source %3 | commit %4").arg(QStringLiteral(MADMODEM_VERSION_STRING), QStringLiteral(MADMODEM_BUILD_NUMBER), QStringLiteral(MADMODEM_SOURCE_REVISION), QStringLiteral(MADMODEM_BUILD_COMMIT)));
     appendLog("Settings file: " + AppSettings::settingsFilePath());
@@ -8518,6 +8550,8 @@ void MainWindow::setupQ65Page()
 
     if (m_q65Decoder == nullptr) {
         m_q65Decoder = new Q65Decoder();
+        connect(m_q65Decoder,&Q65Decoder::statusChanged,m_q65Decoder,[](const QString &text){SessionDiagnostics::instance().record("rx.status",{{"mode","Q65"},{"message",text}});},Qt::DirectConnection);
+
         m_q65Thread = new QThread(this);
         m_q65Decoder->moveToThread(m_q65Thread);
         auto *queue = new BoundedAudioDispatcher(64);
@@ -8600,6 +8634,7 @@ void MainWindow::setupFt8Page()
         << uiText("country", "Country"));
     m_tableFt8Rx->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tableFt8Rx->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    MadModemUi::installDecodeTableCopy(m_tableFt8Rx);
     m_tableFt8Rx->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_tableFt8Rx->verticalHeader()->setVisible(false);
     m_tableFt8Rx->horizontalHeader()->setStretchLastSection(true);
@@ -12712,6 +12747,7 @@ void MainWindow::savePersistentSettings()
     if (!m_settings.save()) {
         appendLog("Settings save failed: " + AppSettings::settingsFilePath());
     }
+    SessionDiagnostics::instance().settings(m_settings);
 }
 
 QString MainWindow::defaultWeatherFaxOutputFolder() const
@@ -13948,6 +13984,7 @@ void MainWindow::stopMsk144Shell()
 
 void MainWindow::handleMsk144DecodeReady(const Msk144Decode &decode)
 {
+    SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","MSK144"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
     if (m_tableMsk144Rx != nullptr) {
         const int row = m_tableMsk144Rx->rowCount();
         m_tableMsk144Rx->insertRow(row);
@@ -14346,6 +14383,7 @@ void MainWindow::handleNativeWeakSignalPeriodTxDue()
 
 void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
 {
+    SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","Q65"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
     if (m_tableQ65Rx != nullptr) {
         const int row = m_tableQ65Rx->rowCount();
         m_tableQ65Rx->insertRow(row);
@@ -16330,6 +16368,7 @@ void MainWindow::updateFt8SignalReportUi()
 
 void MainWindow::handleFt8DecodePerformance(const Ft8RxDecoder::PerfStats &stats)
 {
+    recordFtPerformance(stats,"gui.delivery");
     if (!stats.gpuSyncDiagnostic.isEmpty()) {
         appendLog(QStringLiteral("%1 GPU sync: %2; GPU total %3 ms, CPU grid %4 ms; used %5")
             .arg(stats.modeName).arg(stats.gpuSyncDiagnostic).arg(stats.gpuSyncMs,0,'f',2)
@@ -19161,6 +19200,7 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
 
 void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 {
+    SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","FT"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
     if (m_ft8DecodeBatchActive && !m_ft8UiBatchApplying) {
         m_ft8PendingDisplayBatch.append(decode);
         return;
@@ -22620,6 +22660,11 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
     const AppSettings oldSettings = m_settings;
     const QString oldLogbookPath = currentPath;
     m_settings = dialog.settings();
+    if(m_settings.sessionDiagnosticsEnabled && (!SessionDiagnostics::instance().enabled() || QDir(oldSettings.sessionDiagnosticsFolder.isEmpty()?SessionDiagnostics::defaultFolder():oldSettings.sessionDiagnosticsFolder).absolutePath()!=QDir(m_settings.sessionDiagnosticsFolder.isEmpty()?SessionDiagnostics::defaultFolder():m_settings.sessionDiagnosticsFolder).absolutePath())) {
+        if(!SessionDiagnostics::instance().start(m_settings.sessionDiagnosticsFolder))appendLog(SessionDiagnostics::instance().error());
+    } else if(!m_settings.sessionDiagnosticsEnabled)SessionDiagnostics::instance().stop();
+    SessionDiagnostics::instance().settings(m_settings);
+    SessionDiagnostics::instance().record("resources",{{"cpu",MadModemCpu::summary()},{"policy",MadModemRuntime::SystemResourceManager::instance().startupSummary()}});
     if (m_qrzLookupPanel) m_qrzLookupPanel->setAccountCredentials(m_settings.qrzUsername, m_settings.qrzPassword);
     m_settings.schedulerQsyPlanJson = BandSchedulerDialog::serializeEntries(dialog.schedulerEntries());
     savePersistentSettings();
@@ -22998,6 +23043,7 @@ void MainWindow::showRuntimeLogDialog()
 
 void MainWindow::appendRuntimeLogLine(const QString &line)
 {
+    SessionDiagnostics::instance().record("runtime.log",{{"message",line}});
     m_runtimeLogBuffer.append(line);
     constexpr int kMaximumRuntimeLogLines = 5000;
     constexpr int kRuntimeLogRetainedAfterTrim = 4500;
@@ -23761,6 +23807,7 @@ void MainWindow::handleWeatherFaxToneRangeUpdated(double blackHz, double whiteHz
 
 void MainWindow::handleWeatherFaxImageCompleted(const QImage &image, const QString &reason)
 {
+    SessionDiagnostics::instance().record("rx.image.completed",{{"mode","WEFAX"},{"width",image.width()},{"height",image.height()},{"reason",reason}});
     appendLog("MeteoFax image complete: " + reason);
 
     if (!ui->chkFaxAutoSave->isChecked()) {
@@ -23784,6 +23831,7 @@ void MainWindow::handleWeatherFaxImageCompleted(const QImage &image, const QStri
 
 void MainWindow::handleSstvImageCompleted(const QImage &image, const QString &reason)
 {
+    SessionDiagnostics::instance().record("rx.image.completed",{{"mode","SSTV"},{"width",image.width()},{"height",image.height()},{"reason",reason}});
     if(m_shutdownInProgress || m_runtimeShutdownComplete)return;
     Q_UNUSED(image)
 
@@ -25292,6 +25340,7 @@ void MainWindow::handleTxStarted()
             editor = m_txtCwTx;
         } else if (mode == HellschreiberDecoder::modeName()) {
             editor = m_txtHellTx;
+            SessionDiagnostics::instance().record("tx.text",{{"mode",mode},{"text",text}});
             appendLog(mode + " TX> " + text.left(96));
             if (m_hellDecoder) {
                 const auto variant = m_cmbHellVariant ? HellschreiberDecoder::variantFromKey(m_cmbHellVariant->currentData().toString()) : HellschreiberDecoder::Variant::FeldHell;

@@ -17,6 +17,8 @@
 class AppSettings
 {
 public:
+    bool sessionDiagnosticsEnabled = false;
+    QString sessionDiagnosticsFolder;
     QString qrzUsername;
     QString qrzPassword; // Local profile; never included in diagnostics or URLs.
     /**

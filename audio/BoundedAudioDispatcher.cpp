@@ -1,7 +1,16 @@
+#include "../runtime/SessionDiagnostics.h"
 #include "BoundedAudioDispatcher.h"
 
 #include <QMutexLocker>
 #include <QtGlobal>
+
+namespace {
+void traceDispatcherBlock(const QObject *dispatcher,const QString &operation,const AudioBlock &block) {
+    auto &log=SessionDiagnostics::instance();if(!log.enabled())return;
+    const QString route=dispatcher->objectName().isEmpty()?QString::number(quintptr(dispatcher),16):dispatcher->objectName();
+    log.audio("dispatcher."+operation+"."+route,block);
+}
+}
 
 BoundedAudioDispatcher::BoundedAudioDispatcher(int maxBlocks, QObject *parent)
     : QObject(parent),
@@ -11,10 +20,12 @@ BoundedAudioDispatcher::BoundedAudioDispatcher(int maxBlocks, QObject *parent)
 
 void BoundedAudioDispatcher::enqueue(const AudioBlock &block)
 {
+    traceDispatcherBlock(this,"enqueue",block);
     bool notify = false;
     {
         QMutexLocker lock(&m_mutex);
         while (m_queue.size() >= m_maxBlocks) {
+            traceDispatcherBlock(this,"drop",m_queue.head());
             m_queue.dequeue();
             ++m_droppedSinceTake;
             ++m_statistics.dropped;
@@ -57,12 +68,14 @@ QVector<AudioBlock> BoundedAudioDispatcher::takePending(int maximumBlocks, int *
     if (notifyAgain) {
         emit blocksAvailable();
     }
+    for(const auto &block:result)traceDispatcherBlock(this,"take",block);
     return result;
 }
 
 void BoundedAudioDispatcher::clear()
 {
     QMutexLocker lock(&m_mutex);
+    for(const auto &block:m_queue)traceDispatcherBlock(this,"clear",block);
     m_statistics.cleared+=m_queue.size();
     m_queue.clear();
     m_droppedSinceTake = 0;

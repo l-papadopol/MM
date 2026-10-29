@@ -1,0 +1,362 @@
+{
+  "revision": "0.6.4-source-r26-ft8-nearby-sic-clipboard",
+  "reference_input": {
+    "xlsx_rows_by_slot": {
+      "153830": 49,
+      "153845": 66
+    },
+    "wav_channels": 1,
+    "wav_sample_rate": 16000,
+    "wav_seconds": 21.75,
+    "wav_pcm_bits": 16,
+    "offset_seconds": 5.5,
+    "clipped_samples": 0,
+    "wav_sha256": "bcd2ed90410a2af3c70bd52e1d0b43c18f0f86c6de2c493a98e97aa320fd5a91",
+    "log_lines": 27,
+    "log_has_decode_results": false,
+    "madmodem_tester_decode_rows_provided": false
+  },
+  "settings": {
+    "workers": 8,
+    "radio_hz": 14074000,
+    "rx_marker_hz": 1802,
+    "search_hz": [
+      100,
+      3000
+    ],
+    "prepared_incremental_input": true,
+    "phase": "boundary"
+  },
+  "paired": {
+    "baseline": {
+      "runs": 3,
+      "files_per_run": 8,
+      "total_messages": 529,
+      "median_ms": 698.4354935,
+      "max_ms": 834.340195,
+      "tester_wav_messages": [
+        39,
+        38,
+        38
+      ],
+      "all_published_retained": true
+    },
+    "nearby": {
+      "runs": 3,
+      "files_per_run": 8,
+      "total_messages": 543,
+      "median_ms": 752.093519,
+      "max_ms": 902.818059,
+      "tester_wav_messages": [
+        41,
+        41,
+        41
+      ],
+      "all_published_retained": true
+    }
+  },
+  "within_job_all_published_messages_retained": true,
+  "limitations": [
+    "One tester WAV; remaining seven are existing developer recordings",
+    "Linux Qt5 developer CAT stub; not live Windows capture or physical RF/GPU",
+    "Counts fluctuate with concurrent OSD admission; per-file individual losses exist",
+    "Does not establish JTDX parity or matched capture chains",
+    "All speculative SIC/timing/maxima/additive-tail changes rejected"
+  ],
+  "validation": {
+    "linux_qt5_app_build": "PASS (developer CAT stub)",
+    "selected_ctest_count": 14,
+    "registered_ctests": 50,
+    "selected_ctest_result": "PASS after relinking two zero-byte environmental build outputs; 12 initially passed, remaining 2 passed targeted reruns",
+    "clipboard_actual_keyboard": "PASS Ctrl+A/Ctrl+C, noncontiguous, Unicode, hidden rows/columns, visual column order, empty selection",
+    "public_native_wav_replay": {
+      "arm_margin_ms": 369,
+      "baseline_rows": 41,
+      "budget_hit": false,
+      "candidates": 802,
+      "decodes": [
+        {
+          "dt": -0.0050000000000000044,
+          "freq": 130,
+          "message": "CQ F4HBU JN18",
+          "snr": -7
+        },
+        {
+          "dt": 0.040000000000000036,
+          "freq": 256,
+          "message": "CQ SP2EOE JO92",
+          "snr": -4
+        },
+        {
+          "dt": 0.03749999999999998,
+          "freq": 386,
+          "message": "CQ IK4LZH JN54",
+          "snr": -14
+        },
+        {
+          "dt": 0.020000000000000018,
+          "freq": 443,
+          "message": "EW4DX F4IFQ JN19",
+          "snr": -13
+        },
+        {
+          "dt": 0.15500000000000003,
+          "freq": 445,
+          "message": "CQ USA US1VS KN68",
+          "snr": -15
+        },
+        {
+          "dt": -0.030000000000000027,
+          "freq": 750,
+          "message": "CQ M9NRS JO01",
+          "snr": -15
+        },
+        {
+          "dt": -0.25,
+          "freq": 821,
+          "message": "VK3LV DH1PS -18",
+          "snr": -13
+        },
+        {
+          "dt": 0.0050000000000000044,
+          "freq": 841,
+          "message": "CQ ON1AJ JO20",
+          "snr": -6
+        },
+        {
+          "dt": 0.03749999999999998,
+          "freq": 901,
+          "message": "N7PMS EA1KP 73",
+          "snr": -20
+        },
+        {
+          "dt": -0.027500000000000024,
+          "freq": 971,
+          "message": "YB5WIR G8OO JO02",
+          "snr": -14
+        },
+        {
+          "dt": 0.022499999999999964,
+          "freq": 1089,
+          "message": "EA3DHR G6OIA 73",
+          "snr": -16
+        },
+        {
+          "dt": 0,
+          "freq": 1114,
+          "message": "3W9A PD1FL JO22",
+          "snr": -11
+        },
+        {
+          "dt": 0.1925,
+          "freq": 1206,
+          "message": "RL1B DL1EHR R-04",
+          "snr": -15
+        },
+        {
+          "dt": -0.0050000000000000044,
+          "freq": 1208,
+          "message": "DL9EVO G0FHT RR73",
+          "snr": -10
+        },
+        {
+          "dt": 0.08250000000000002,
+          "freq": 1268,
+          "message": "N1NRA WY0V EN12",
+          "snr": -16
+        },
+        {
+          "dt": 0.10499999999999998,
+          "freq": 1278,
+          "message": "EA3HXW PD3JW R+27",
+          "snr": -18
+        },
+        {
+          "dt": 0.125,
+          "freq": 1346,
+          "message": "<...> PD4RJ R-11",
+          "snr": -11
+        },
+        {
+          "dt": 0.010000000000000009,
+          "freq": 1406,
+          "message": "3W9A DL6MRM JO52",
+          "snr": 1
+        },
+        {
+          "dt": -0.010000000000000009,
+          "freq": 1455,
+          "message": "CQ NA G4XEX IO92",
+          "snr": -8
+        },
+        {
+          "dt": 0.35,
+          "freq": 1501,
+          "message": "VU2XZ DB7BH JO33",
+          "snr": -13
+        },
+        {
+          "dt": 0.07499999999999996,
+          "freq": 1570,
+          "message": "OE5MON F8ADF R-03",
+          "snr": -12
+        },
+        {
+          "dt": 0.14249999999999996,
+          "freq": 1594,
+          "message": "N1MRG F1IQH JN27",
+          "snr": -14
+        },
+        {
+          "dt": 0.12,
+          "freq": 1603,
+          "message": "TC4TR F4NKT R-13",
+          "snr": -9
+        },
+        {
+          "dt": 0.38,
+          "freq": 1689,
+          "message": "NK7Z LZ2II -12",
+          "snr": -13
+        },
+        {
+          "dt": 0.575,
+          "freq": 1797,
+          "message": "CQ F1ODM JN08",
+          "snr": -1
+        },
+        {
+          "dt": -0.012500000000000011,
+          "freq": 1961,
+          "message": "PD0AAZ RL2F RR73",
+          "snr": -9
+        },
+        {
+          "dt": 0.21499999999999997,
+          "freq": 2009,
+          "message": "CQ F4DIA JN36",
+          "snr": -17
+        },
+        {
+          "dt": 0.050000000000000044,
+          "freq": 2039,
+          "message": "AA9JC ES6DO -13",
+          "snr": -12
+        },
+        {
+          "dt": 0.38,
+          "freq": 2066,
+          "message": "VE9BRZ ON8WR JO11",
+          "snr": -6
+        },
+        {
+          "dt": -0.025000000000000022,
+          "freq": 2117,
+          "message": "3W9A DL9KB R+00",
+          "snr": -7
+        },
+        {
+          "dt": -0.03249999999999997,
+          "freq": 2120,
+          "message": "G0FCA/P F4BJN JN25",
+          "snr": -13
+        },
+        {
+          "dt": 0.007499999999999951,
+          "freq": 2193,
+          "message": "SM7CIL WL7E 73",
+          "snr": -16
+        },
+        {
+          "dt": 0.27,
+          "freq": 2203,
+          "message": "HA7TM LB7ZK -09",
+          "snr": -18
+        },
+        {
+          "dt": -0.32999999999999996,
+          "freq": 2267,
+          "message": "K2AK SP7EOY KO01",
+          "snr": -11
+        },
+        {
+          "dt": -0.020000000000000018,
+          "freq": 2317,
+          "message": "CQ RA9LL MO27",
+          "snr": -21
+        },
+        {
+          "dt": -0.1225,
+          "freq": 2446,
+          "message": "VE9BRZ UA3ZQN KO90",
+          "snr": -7
+        },
+        {
+          "dt": 0.08250000000000002,
+          "freq": 2468,
+          "message": "CQ IOTA DL7WBM JO34",
+          "snr": -14
+        },
+        {
+          "dt": 0.057499999999999996,
+          "freq": 2500,
+          "message": "N1MRG PD0WL JO21",
+          "snr": -12
+        },
+        {
+          "dt": -0.21750000000000003,
+          "freq": 2602,
+          "message": "CQ SQ9DJQ KO00",
+          "snr": -15
+        },
+        {
+          "dt": -0.020000000000000018,
+          "freq": 2834,
+          "message": "N1AH F4BYA JN19",
+          "snr": -1
+        },
+        {
+          "dt": -0.44,
+          "freq": 2925,
+          "message": "CQ PD7RF JO22",
+          "snr": -13
+        }
+      ],
+      "fft_hits": 1239,
+      "file": "active/input/r26/20261028_153839_14074000_14074000.wav",
+      "first_publish_ms": 72.463028,
+      "ldpc_tried": 195,
+      "osd_tried": 23,
+      "passes": 3,
+      "preparation_ms": 110.960686,
+      "published_retained": true,
+      "search_ms": 237.43629800000002,
+      "stop": "live boundary deep: full-slot wideband pass",
+      "sync_rejects": 529,
+      "tail_ms": 71.398663,
+      "tail_new": 0,
+      "tail_tried": 32,
+      "tone_hits": 0,
+      "total_ms": 971.583059,
+      "workers": 8
+    },
+    "developer_replay_helper": {
+      "messages": 41,
+      "total_ms": 830.458067,
+      "result": "PASS"
+    },
+    "late_2000_ms": {
+      "tail_tried": 0,
+      "published_retained": true,
+      "result": "PASS"
+    },
+    "silence_and_seeded_noise": {
+      "messages": [
+        0,
+        0
+      ],
+      "result": "PASS"
+    },
+    "windows_live_or_physical_rf": "NOT TESTED"
+  }
+}

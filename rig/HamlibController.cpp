@@ -1,3 +1,5 @@
+#include "../runtime/SessionDiagnostics.h"
+#include <QScopeGuard>
 #include "HamlibController.h"
 
 #include "../settings/AppSettings.h"
@@ -14,6 +16,24 @@
 #include <cstring>
 #endif
 
+
+#ifdef MADMODEM_WITH_HAMLIB
+namespace {
+int diagnosticHamlibMessage(rig_debug_level_e level,rig_ptr_t,const char *format,va_list args) {
+    if(!SessionDiagnostics::instance().enabled())return 0;
+    const QString text=QString::vasprintf(format,args);
+    SessionDiagnostics::instance().record("hamlib.trace",{{"level",int(level)},{"message",text}});
+    return text.toUtf8().size();
+}
+void updateHamlibDiagnostics() {
+    static std::once_flag install;std::call_once(install,[]{rig_set_debug_callback(diagnosticHamlibMessage,nullptr);});
+    static std::atomic<int> current{-1};const int enabled=SessionDiagnostics::instance().enabled()?1:0;
+    if(current.exchange(enabled)!=enabled)rig_set_debug(enabled?RIG_DEBUG_CACHE:RIG_DEBUG_NONE);
+}
+}
+#else
+namespace { void updateHamlibDiagnostics() {} }
+#endif
 
 namespace {
 constexpr int kHamRadioDeluxeModelId = 900001;
@@ -122,6 +142,8 @@ HamlibController::~HamlibController()
 {
     disconnectRig();
 }
+
+void HamlibController::initializeDiagnosticTrace() {updateHamlibDiagnostics();}
 
 bool HamlibController::isCompiledWithHamlib()
 {
@@ -394,6 +416,8 @@ bool HamlibController::resumeSerialPortAfterCw()
 
 bool HamlibController::connectRig()
 {
+    updateHamlibDiagnostics();
+    SessionDiagnostics::instance().record("cat.connectRig",{});
     if (m_cwPortSuspended) return false;
     if (isHamRadioDeluxeModel(m_config.rigModel)) {
         return connectHrd();
@@ -409,7 +433,7 @@ bool HamlibController::connectRig()
         return true;
     }
 
-    rig_set_debug(RIG_DEBUG_NONE);
+    updateHamlibDiagnostics();
 
     RIG *rig = rig_init(static_cast<rig_model_t>(m_config.rigModel));
     if (rig == nullptr) {
@@ -546,6 +570,7 @@ bool HamlibController::connectRig()
 
 bool HamlibController::disconnectRig()
 {
+    SessionDiagnostics::instance().record("cat.disconnectRig",{});
     if (m_pollTimer != nullptr) {
         m_pollTimer->stop();
     }
@@ -609,6 +634,8 @@ bool HamlibController::disconnectRig()
 
 void HamlibController::pollNow()
 {
+    updateHamlibDiagnostics();
+    const auto tracePoll=qScopeGuard([this]{if(SessionDiagnostics::instance().enabled())SessionDiagnostics::instance().record("cat.poll",{{"frequency_hz",m_lastFrequencyHz},{"mode",m_lastModeName},{"ptt",m_lastPtt},{"connected",isConnected()}});});
     if (m_cwPortSuspended) return;
     if (!m_config.catEnabled) {
         return;
@@ -735,6 +762,8 @@ void HamlibController::pollNow()
 
 bool HamlibController::setFrequencyHz(double frequencyHz)
 {
+    updateHamlibDiagnostics();
+    SessionDiagnostics::instance().record("cat.setFrequencyHz",{{"frequency_hz",frequencyHz}});
     if (frequencyHz <= 0.0) {
         return false;
     }
@@ -812,6 +841,7 @@ bool HamlibController::setFrequencyHz(double frequencyHz)
 
 bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
 {
+    SessionDiagnostics::instance().record("cat.beginFtSplitTx",{{"operation",operation},{"shift_hz",rfShiftHz}});
     const QString op = operation.trimmed().toLower();
     if (op != QStringLiteral("rig") && op != QStringLiteral("fake_it")) {
         emitError(QStringLiteral("FT split TX requested with an invalid operation mode: %1").arg(operation));
@@ -1013,6 +1043,7 @@ bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
 
 bool HamlibController::endFtSplitTx()
 {
+    SessionDiagnostics::instance().record("cat.endFtSplitTx",{});
     if (!m_ftSplitTxActive) return true;
 
     const QString op = m_ftSplitTxOperation;
@@ -1129,6 +1160,8 @@ bool HamlibController::endFtSplitTx()
 
 bool HamlibController::setPtt(bool enabled)
 {
+    updateHamlibDiagnostics();
+    SessionDiagnostics::instance().record("cat.setPtt",{{"enabled",enabled}});
     if (isHamRadioDeluxeModel(m_config.rigModel)) {
         return setHrdPtt(enabled);
     }
@@ -1480,6 +1513,7 @@ bool HamlibController::forceDataUsbMode(bool required)
 
 bool HamlibController::sendRawCatCommand(const QByteArray &command)
 {
+    SessionDiagnostics::instance().record("cat.sendRawCatCommand",{{"hex",QString::fromLatin1(command.toHex())}});
 #ifndef MADMODEM_WITH_HAMLIB
     Q_UNUSED(command);
     return false;
@@ -1864,6 +1898,7 @@ int HamlibController::hrdFindButton(const QStringList &patterns) const
 
 void HamlibController::setStatus(const QString &status)
 {
+    SessionDiagnostics::instance().record("cat.setStatus",{{"message",status}});
     if (m_lastStatus == status) {
         return;
     }
@@ -1873,5 +1908,6 @@ void HamlibController::setStatus(const QString &status)
 
 void HamlibController::emitError(const QString &message)
 {
+    SessionDiagnostics::instance().record("cat.emitError",{{"message",message}});
     emit errorOccurred(message);
 }

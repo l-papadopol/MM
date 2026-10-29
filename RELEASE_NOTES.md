@@ -1,3 +1,37 @@
+## 0.6.4 source R30 — integrated native FT8/FT4 recovery
+
+- Complete the headless MSHV 2.76.7 FT8/FT4 recovery path alongside the existing receiver. Preserve ordinary decode, incremental publication, GPU options, TX/CAT and Doppler recovery.
+- Isolate decoder configuration/history and FFTW plans per instance; share the TX-priority message-codec lock. Cancel native candidate/OSD work and stop admission at the live UTC deadlines.
+- Correct an upstream FT8 sync-quality array overrun; retain protocol/CRC checks and reject uncertain `?` recovery rows. Keep early recoveries through the final slot callback and invalidate stale generation/QSO/band context.
+- Tester WAV, three paired runs: gate plus final 41 -> 52 messages, offline 36 -> 60, no baseline messages lost. Of the 60 offline messages, 55 match the tester's 66-row JTDX list; five extra rows remain unverified. A boundary-only job retained 41 with no reliable extra recovery time.
+- Linux Qt5 and clean Qt6 full builds: 53/53 tests passed in each; independent Doppler and native sanitizer results are in the R30 validation report. Native Windows/macOS, physical GPU/radio/PTT and crowded real FT4 sensitivity remain unverified here.
+- Add FFTW3 to Linux/Windows/macOS workflow dependencies. Public version remains 0.6.4; source revision is `0.6.4-source-r30-reference-ft-recovery`.
+- Details: [R30 release and verification](docs/architecture/RELEASE_0_6_4_R30.md), [three-source audit](docs/architecture/FT_DECODER_COMPARISON_R30.md).
+
+## 0.6.4 source R29 — FT8/FT4 coherent recovery and CRC-aware FEC
+
+- Replace degenerate FT8 amplitude-group retries with complex 1/2/3-symbol recovery, including complete tail groups extending into Costas symbols.
+- Enable FT4 complex 1/2/4-symbol recovery in normal deep reception; retain the cheap early gate. Add CRC-checked order-1 OSD fallback under the shared resource permit.
+- Both LDPC implementations now require parity AND CRC for success; parity-only vectors continue iterating and reach recovery on failure.
+- Extra recovery admission is limited by cancellation, 24 ms per candidate and the UTC slot/reply deadline. FT4 OSD statistics are included in session diagnostics.
+- Actual-decoder regression checks valid/invalid-CRC codewords, FT4 recovery witnesses, noise/silence and gate/expired slots. GitHub's manual Qt5/Qt6 regression workflow runs this test using Unix Makefiles.
+- Public version stays 0.6.4; source revision is R29 (R28 was an investigation, not a source release). Windows and real RF/GPU still require field validation. This is not a JTDX engine replacement or parity claim.
+- Measurements and limitations: docs/architecture/RELEASE_0_6_4_R29.md and FT_R29_RESULTS.json.
+
+## 0.6.4 source R27 — Session diagnostics and JTDX source audit
+
+- New Settings → Diagnostics: opt-in persistent full session JSONL logging, folder picker/status/open-folder. Starts immediately with OK and on future launches; normal exit drains accepted events.
+- Dedicated writer formats/redacts/flushes events. Records runtime/Qt/Hamlib CAT protocol, audio-block identities and timing, all FT8/FT4 candidate attempts/rejects, full decoder/GUI performance, UI, other-mode outputs and TX events. Overflow/error is explicit; WAV samples remain separate.
+- Native concurrency, privacy, crash-flush and actual settings/FT8/FT4 workflow checks; measured full-trace CPU overhead documented. No decoder-algorithm/parity claim.
+- Complete public JTDX repository downloaded and pinned; source-based FT8/FT4 pipeline audit and 48-file inventory included. Identifies coherent-metric gates, BP/OSD/AP/history/cancellation/time-window differences requiring controlled follow-up.
+
+## 0.6.4 source R26 — FT8 nearby SIC and decode-table copy
+
+- FT8: reduce post-subtraction candidate exclusion from25Hz to3.125Hz so nearby distinct signals can be tried; existing timing/FEC/CRC/OSD limits retained.
+- FT8/FT4 RX table: Ctrl+C copies selected visible rows/columns as plain tab-separated text; Ctrl+A, noncontiguous selection and Unicode supported.
+- Tester WAV: three matched Linux replays38–39 ->41 messages versus66JTDX reference rows. Broader8-file/3-run total529 ->543; individual results vary with concurrent OSD admission. No JTDX parity claim.
+- Detailed comparison CSV, measured JSON, developer WAV replay probe and limitations in docs/architecture/RELEASE_0_6_4_R26.md.
+
 # MadModem 0.6.4
 
 ### R25 — salvataggio automatico SSTV ricevute

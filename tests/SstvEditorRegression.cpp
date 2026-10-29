@@ -1,3 +1,4 @@
+#include <QIODevice>
 #include "dialogs/SstvImageEditorDialog.h"
 #include <QApplication>
 #include <QDataStream>

@@ -1,0 +1,1201 @@
+[  2%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[  2%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwSkimmerEngine.cpp.o
+[  2%] Copying localized MM HTML help files
+[  2%] Built target madmodem_weak_signal_codec_autogen_timestamp_deps
+[  2%] Built target MadModemHelpFiles
+[  2%] Built target madmodem_decode_clipboard_autogen_timestamp_deps
+[  2%] Built target madmodem_linear_resampler_autogen_timestamp_deps
+[  2%] Building CXX object CMakeFiles/madmodem_ft_cq_worklist.dir/tests/FtCqWorkListRegression.cpp.o
+[  2%] Built target madmodem_ft_incremental_producer_autogen_timestamp_deps
+[  2%] Built target madmodem_update_regression_autogen_timestamp_deps
+[  2%] Built target madmodem_tx_pull_regression_autogen_timestamp_deps
+[  2%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwCarrierDiscriminator.cpp.o
+[  2%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwMorseBeamDecoder.cpp.o
+[  2%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwRelativeTimingDecoder.cpp.o
+[  2%] Linking CXX executable madmodem_ft_cq_worklist
+[  2%] Built target madmodem_ft_cq_worklist
+[  2%] Built target madmodem_i18n_regression_autogen_timestamp_deps
+[  2%] Building CXX object CMakeFiles/madmodem_rotator_coordinates.dir/tests/RotatorCoordinatesRegression.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingDecoder.cpp: In member function ‘void madmodem::cwskimmer::CwRelativeTimingDecoder::replayEpochProbe()’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingDecoder.cpp:190:29: warning: ‘*(madmodem::cwskimmer::CwLogicRun*)((char*)&pendingSpace + offsetof(std::optional<madmodem::cwskimmer::CwLogicRun>,std::optional<madmodem::cwskimmer::CwLogicRun>::<unnamed>.std::_Optional_base<madmodem::cwskimmer::CwLogicRun, true, true>::<unnamed>)).madmodem::cwskimmer::CwLogicRun::confidence’ is used uninitialized [-Wuninitialized]
+  190 |   std::optional<CwLogicRun> pendingSpace;
+      |                             ^~~~~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingDecoder.cpp:190:29: warning: ‘*(madmodem::cwskimmer::CwLogicRun*)((char*)&pendingSpace + offsetof(std::optional<madmodem::cwskimmer::CwLogicRun>,std::optional<madmodem::cwskimmer::CwLogicRun>::<unnamed>.std::_Optional_base<madmodem::cwskimmer::CwLogicRun, true, true>::<unnamed>)).madmodem::cwskimmer::CwLogicRun::coherence’ is used uninitialized [-Wuninitialized]
+[  3%] Linking CXX executable madmodem_rotator_coordinates
+[  3%] Built target madmodem_rotator_coordinates
+[  3%] Building CXX object CMakeFiles/madmodem_antialias_regression.dir/tests/AntiAliasRegression.cpp.o
+[  3%] Linking CXX executable madmodem_antialias_regression
+[  3%] Built target madmodem_antialias_regression
+[  3%] Built target madmodem_capture_clock_autogen_timestamp_deps
+[  4%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwRelativeTimingTask.cpp.o
+[  4%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/SelectedToneCwTracker.cpp.o
+[  4%] Built target madmodem_resampler_streaming_autogen_timestamp_deps
+[  4%] Built target madmodem_logbook_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_wav_reader_test_autogen_timestamp_deps
+[  4%] Built target madmodem_receiver_filter_regression_autogen_timestamp_deps
+[  4%] Built target MadModemFtSequencerSelfTest_autogen_timestamp_deps
+[  4%] Built target madmodem_all_contest_exports_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_logbook_workflow_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_contest_export_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_cw_ctc_prefix_regression_autogen_timestamp_deps
+[  4%] Building CXX object CMakeFiles/madmodem_cw_neural_probe.dir/tests/CwNeuralProbe.cpp.o
+[  4%] Building CXX object CMakeFiles/madmodem_cw_neural_probe.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[  4%] Built target madmodem_rtty_synthetic_bench_autogen_timestamp_deps
+[  4%] Built target madmodem_text_assist_workers_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_installation_paths_regression_autogen_timestamp_deps
+[  4%] Building CXX object CMakeFiles/madmodem_installer_cpu_regression.dir/tests/InstallerCpuRegression.cpp.o
+[  4%] Linking CXX executable madmodem_installer_cpu_regression
+[  4%] Built target madmodem_installer_cpu_regression
+[  4%] Built target madmodem_gpu_sync_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_hell_image_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_weatherfax_image_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_vis_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_editor_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_image_adjustment_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_archive_regression_autogen_timestamp_deps
+[  4%] Generating localized MM Qt Help manuals (.qch, optional)
+CMake Warning at /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/5c40146f5a02/delivery-build-qt6/docs/help/qhelpgenerator.log
+
+
+[  4%] Built target MadModemQtHelp
+[  5%] Automatic MOC and UIC for target madmodem_diagnostics
+[  5%] Built target madmodem_diagnostics_autogen
+[  5%] Automatic MOC and UIC for target madmodem_weak_signal_codec
+[  5%] Built target madmodem_weak_signal_codec_autogen
+[  5%] Automatic MOC and UIC for target madmodem_linear_resampler
+[  5%] Built target madmodem_linear_resampler_autogen
+[  5%] Automatic MOC and UIC for target madmodem_decode_clipboard
+[  5%] Built target madmodem_decode_clipboard_autogen
+[  5%] Automatic MOC and UIC for target madmodem_ft_incremental_producer
+[  5%] Built target madmodem_ft_incremental_producer_autogen
+[  6%] Automatic MOC and UIC for target madmodem_update_regression
+[  6%] Built target madmodem_update_regression_autogen
+[  7%] Automatic MOC and UIC for target madmodem_tx_pull_regression
+[  7%] Built target madmodem_tx_pull_regression_autogen
+[  7%] Automatic MOC and UIC for target madmodem_i18n_regression
+[  7%] Built target madmodem_i18n_regression_autogen
+[  7%] Automatic MOC and UIC for target madmodem_capture_clock
+[  7%] Built target madmodem_capture_clock_autogen
+[  7%] Automatic MOC and UIC for target madmodem_resampler_streaming
+[  7%] Built target madmodem_resampler_streaming_autogen
+[  8%] Automatic MOC and UIC for target madmodem_logbook_regression
+[  8%] Built target madmodem_logbook_regression_autogen
+[  8%] Automatic MOC and UIC for target madmodem_wav_reader_test
+[  8%] Built target madmodem_wav_reader_test_autogen
+[  9%] Automatic MOC and UIC for target madmodem_receiver_filter_regression
+[  9%] Linking CXX executable madmodem_cw_neural_probe
+[  9%] Built target madmodem_receiver_filter_regression_autogen
+[  9%] Built target madmodem_cw_neural_probe
+[  9%] Automatic MOC and UIC for target MadModemFtSequencerSelfTest
+[ 10%] Automatic MOC and UIC for target madmodem_all_contest_exports_regression
+[ 10%] Built target MadModemFtSequencerSelfTest_autogen
+[ 10%] Built target madmodem_all_contest_exports_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_logbook_workflow_regression
+[ 10%] Automatic MOC and UIC for target madmodem_contest_export_regression
+[ 10%] Built target madmodem_contest_export_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_cw_ctc_prefix_regression
+[ 10%] Built target madmodem_cw_ctc_prefix_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_rtty_synthetic_bench
+[ 10%] Built target madmodem_logbook_workflow_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_text_assist_workers_regression
+[ 10%] Built target madmodem_rtty_synthetic_bench_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_installation_paths_regression
+[ 11%] Built target madmodem_installation_paths_regression_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_gpu_sync_regression
+[ 11%] Built target madmodem_gpu_sync_regression_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_hell_image_regression
+[ 11%] Built target madmodem_text_assist_workers_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_weatherfax_image_regression
+[ 12%] Built target madmodem_hell_image_regression_autogen
+[ 12%] Built target madmodem_weatherfax_image_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_vis_regression
+[ 12%] Linking CXX static library libmadmodem_cwskimmer.a
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_editor_regression
+[ 12%] Built target madmodem_cwskimmer
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_image_adjustment_regression
+[ 12%] Built target madmodem_sstv_vis_regression_autogen
+[ 12%] Built target madmodem_sstv_editor_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_archive_regression
+[ 12%] Building CXX object CMakeFiles/madmodem_diagnostics.dir/madmodem_diagnostics_autogen/mocs_compilation.cpp.o
+[ 12%] Building CXX object CMakeFiles/madmodem_diagnostics.dir/runtime/SessionDiagnostics.cpp.o
+[ 12%] Built target madmodem_sstv_image_adjustment_regression_autogen
+[ 13%] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/madmodem_weak_signal_codec_autogen/mocs_compilation.cpp.o
+[ 13%] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/modems/weak_signal/WeakSignalCodecLock.cpp.o
+[ 13%] Built target madmodem_sstv_archive_regression_autogen
+[ 14%] Building CXX object CMakeFiles/madmodem_linear_resampler.dir/madmodem_linear_resampler_autogen/mocs_compilation.cpp.o
+[ 14%] Building CXX object CMakeFiles/madmodem_linear_resampler.dir/dsp/text/LinearResampler.cpp.o
+[ 14%] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/third_party/mshv_gpl/nhash.cpp.o
+[ 14%] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp.o
+[ 14%] Linking CXX static library libmadmodem_linear_resampler.a
+[ 14%] Built target madmodem_linear_resampler
+[ 15%] Building CXX object CMakeFiles/madmodem_decode_clipboard.dir/madmodem_decode_clipboard_autogen/mocs_compilation.cpp.o
+[ 15%] Building CXX object CMakeFiles/madmodem_decode_clipboard.dir/tests/DecodeTableClipboardRegression.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp: In member function ‘void PackUnpackMsg77::unpacktext77(bool*, QString&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:300:38: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  300 |     int c_77_txt_cou = c_77_txt.count();
+      |                        ~~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QString:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.h:19,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:16:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp: In member function ‘QString PackUnpackMsg77::unpack77(bool*, bool&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:681:31: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  681 |             int i=call_1.count();//2.21 A4A count=3  i=index(call_1,' ')
+      |                   ~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:695:31: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  695 |             int i=call_2.count();//2.21 A4A count=3  i=index(call_2,' ')
+      |                   ~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp: In member function ‘QString PackUnpackMsg77::RemWSpacesInside(QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:967:30: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  967 |     for (int i = 0; i<s.count(); i++)
+      |                       ~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp: In member function ‘void PackUnpackMsg77::split77(QString&, int&, QString*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:1040:34: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1040 |         for (int j = 0; j<s.count(); ++j)
+      |                           ~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp: In member function ‘int PackUnpackMsg77::ihashcall(QString, int)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:1070:51: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1070 |     if (c1.at(0)==(QChar)'<') c1=c1.mid(1,c1.count()-1)+"             "; //if(c1(1:1).eq.'<') c1=c1(2:)
+      |                                           ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:1074:35: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1074 |         for (int j = i; j<c1.count(); ++j) c1[j]=(QChar)' ';
+      |                           ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp: In member function ‘bool PackUnpackMsg77::is_grid6(QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:1484:16: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1484 |     if (s.count()==6)
+      |         ~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp: In member function ‘bool PackUnpackMsg77::is_grid4(QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp:1627:16: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1627 |     if (s.count()==4)
+      |         ~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+[ 15%] Linking CXX static library libmadmodem_diagnostics.a
+[ 16%] Built target madmodem_diagnostics
+[ 17%] Building CXX object CMakeFiles/madmodem_ft_incremental_producer.dir/madmodem_ft_incremental_producer_autogen/mocs_compilation.cpp.o
+[ 17%] Building CXX object CMakeFiles/madmodem_ft_incremental_producer.dir/tests/FtIncrementalProducerRegression.cpp.o
+[ 18%] Linking CXX static library libmadmodem_weak_signal_codec.a
+[ 18%] Built target madmodem_weak_signal_codec
+[ 18%] Building CXX object CMakeFiles/madmodem_update_regression.dir/madmodem_update_regression_autogen/mocs_compilation.cpp.o
+[ 18%] Building CXX object CMakeFiles/madmodem_update_regression.dir/tests/UpdateReleaseRegression.cpp.o
+[ 18%] Linking CXX executable madmodem_decode_clipboard
+[ 18%] Built target madmodem_decode_clipboard
+[ 18%] Building CXX object CMakeFiles/madmodem_tx_pull_regression.dir/madmodem_tx_pull_regression_autogen/mocs_compilation.cpp.o
+[ 18%] Linking CXX executable madmodem_ft_incremental_producer
+[ 18%] Built target madmodem_ft_incremental_producer
+[ 18%] Automatic RCC for tests/i18n.qrc
+[ 18%] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/madmodem_i18n_regression_autogen/mocs_compilation.cpp.o
+[ 18%] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/tests/RuntimeI18nRegression.cpp.o
+[ 19%] Building CXX object CMakeFiles/madmodem_update_regression.dir/updates/UpdateController.cpp.o
+[ 19%] Building CXX object CMakeFiles/madmodem_tx_pull_regression.dir/tests/TxPullRegression.cpp.o
+[ 20%] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/utils/RuntimeI18n.cpp.o
+[ 20%] Linking CXX executable madmodem_tx_pull_regression
+[ 21%] Built target madmodem_tx_pull_regression
+[ 21%] Building CXX object CMakeFiles/madmodem_capture_clock.dir/madmodem_capture_clock_autogen/mocs_compilation.cpp.o
+[ 21%] Building CXX object CMakeFiles/madmodem_capture_clock.dir/tests/CaptureClockRegression.cpp.o
+[ 21%] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/madmodem_i18n_regression_autogen/KRHXW7JQHD/qrc_i18n.cpp.o
+[ 21%] Linking CXX executable madmodem_i18n_regression
+[ 22%] Built target madmodem_i18n_regression
+[ 22%] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/madmodem_resampler_streaming_autogen/mocs_compilation.cpp.o
+[ 22%] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/tests/ResamplerStreamingRegression.cpp.o
+[ 22%] Building CXX object CMakeFiles/madmodem_update_regression.dir/utils/RuntimeI18n.cpp.o
+[ 23%] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/dsp/text/LinearResampler.cpp.o
+[ 24%] Linking CXX executable madmodem_capture_clock
+[ 24%] Built target madmodem_capture_clock
+[ 24%] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/madmodem_logbook_regression_autogen/mocs_compilation.cpp.o
+[ 24%] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/tests/LogbookRegression.cpp.o
+[ 24%] Linking CXX executable madmodem_resampler_streaming
+[ 24%] Building CXX object CMakeFiles/madmodem_update_regression.dir/settings/AppSettings.cpp.o
+[ 24%] Built target madmodem_resampler_streaming
+[ 24%] Building CXX object CMakeFiles/madmodem_update_regression.dir/rotator/RotatorPeakSearch.cpp.o
+[ 24%] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/logbook/AdifLogbook.cpp.o
+[ 24%] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/madmodem_wav_reader_test_autogen/mocs_compilation.cpp.o
+[ 24%] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/tests/WavFileReaderTest.cpp.o
+[ 25%] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/audio/WavFileReader.cpp.o
+[ 25%] Linking CXX executable madmodem_logbook_regression
+[ 26%] Built target madmodem_logbook_regression
+[ 26%] Built target madmodem_audio_flow_accounting_autogen_timestamp_deps
+[ 26%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/madmodem_receiver_filter_regression_autogen/mocs_compilation.cpp.o
+[ 26%] Linking CXX executable madmodem_wav_reader_test
+[ 26%] Built target madmodem_wav_reader_test
+[ 26%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/MadModemFtSequencerSelfTest_autogen/mocs_compilation.cpp.o
+[ 26%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/tests/FtSequencerSelfTest.cpp.o
+[ 27%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/tests/ReceiverFilterRegression.cpp.o
+[ 27%] Linking CXX executable madmodem_update_regression
+[ 27%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtDecodedText.cpp.o
+[ 27%] Built target madmodem_update_regression
+[ 28%] Building CXX object CMakeFiles/madmodem_all_contest_exports_regression.dir/madmodem_all_contest_exports_regression_autogen/mocs_compilation.cpp.o
+[ 28%] Building CXX object CMakeFiles/madmodem_all_contest_exports_regression.dir/tests/AllContestExportsRegression.cpp.o
+[ 28%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/dsp/WaterfallLeveler.cpp.o
+[ 29%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtQsoSequencer.cpp.o
+[ 29%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/dsp/DspEngine.cpp.o
+[ 29%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtQsoSession.cpp.o
+[ 29%] Linking CXX executable madmodem_receiver_filter_regression
+[ 29%] Built target madmodem_receiver_filter_regression
+[ 29%] Automatic RCC for tests/i18n.qrc
+[ 29%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/madmodem_logbook_workflow_regression_autogen/mocs_compilation.cpp.o
+[ 29%] Linking CXX executable MadModemFtSequencerSelfTest
+[ 30%] Built target MadModemFtSequencerSelfTest
+[ 30%] Automatic RCC for tests/i18n.qrc
+[ 31%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/madmodem_contest_export_regression_autogen/mocs_compilation.cpp.o
+[ 31%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/tests/ContestExportRegression.cpp.o
+[ 32%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/tests/LogbookWorkflowRegression.cpp.o
+[ 32%] Building CXX object CMakeFiles/madmodem_all_contest_exports_regression.dir/logbook/ContestExchange.cpp.o
+[ 32%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/dialogs/LogbookDialog.cpp.o
+[ 32%] Building CXX object CMakeFiles/madmodem_all_contest_exports_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 32%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/dialogs/ContestExportWizard.cpp.o
+[ 32%] Linking CXX executable madmodem_all_contest_exports_regression
+[ 32%] Built target madmodem_all_contest_exports_regression
+[ 32%] Built target madmodem_cw_integration_regression_autogen_timestamp_deps
+[ 32%] Building CXX object CMakeFiles/madmodem_cw_ctc_prefix_regression.dir/madmodem_cw_ctc_prefix_regression_autogen/mocs_compilation.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_cw_ctc_prefix_regression.dir/tests/CwCtcPrefixRegression.cpp.o
+[ 33%] Linking CXX executable madmodem_cw_ctc_prefix_regression
+[ 33%] Built target madmodem_cw_ctc_prefix_regression
+[ 33%] Built target madmodem_cw_route_probe_autogen_timestamp_deps
+[ 33%] Built target madmodem_cw_engine_regression_autogen_timestamp_deps
+[ 33%] Built target madmodem_cw_native_probe_autogen_timestamp_deps
+[ 33%] Built target madmodem_rtty_contest_regression_autogen_timestamp_deps
+[ 33%] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/madmodem_rtty_synthetic_bench_autogen/mocs_compilation.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/dialogs/ContestExportWizard.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/tests/RttySyntheticBench.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/logbook/ContestExchange.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/modems/rtty/RttyDecoder.cpp.o
+[ 34%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 35%] Linking CXX executable madmodem_rtty_synthetic_bench
+[ 36%] Built target madmodem_rtty_synthetic_bench
+[ 36%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/utils/RuntimeI18n.cpp.o
+[ 36%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/utils/CockpitTheme.cpp.o
+[ 36%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/utils/WindowResize.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp: In member function ‘virtual void {anonymous}::CockpitTitleBar::mousePressEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:366:44: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  366 |             m_dragOffset = event->globalPos() - m_owner->frameGeometry().topLeft();
+      |                            ~~~~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/QMouseEvent:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:20:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp: In member function ‘virtual void {anonymous}::CockpitTitleBar::mouseMoveEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:385:43: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  385 |             m_owner->move(event->globalPos() - m_dragOffset);
+      |                           ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp: In member function ‘virtual void {anonymous}::ResizeHandle::mousePressEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:37:36: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+   37 |         m_origin = event->globalPos();
+      |                    ~~~~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/QMouseEvent:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:5:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp: In member function ‘virtual void {anonymous}::ResizeHandle::mouseMoveEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:47:46: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+   47 |         const QPoint delta = event->globalPos() - m_origin;
+      |                              ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+[ 36%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/logbook/ContestExchange.cpp.o
+[ 36%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/madmodem_contest_export_regression_autogen/KRHXW7JQHD/qrc_i18n.cpp.o
+[ 37%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/logbook/AdifLogbook.cpp.o
+[ 38%] Linking CXX executable madmodem_contest_export_regression
+[ 38%] Built target madmodem_contest_export_regression
+[ 39%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/madmodem_text_assist_workers_regression_autogen/mocs_compilation.cpp.o
+[ 39%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/widgets/QsoMapWidget.cpp.o
+[ 39%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/tests/TextAssistWorkersRegression.cpp.o
+[ 39%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/settings/AppSettings.cpp.o
+[ 39%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/runtime/LogbookIndexWorker.cpp.o
+[ 39%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/runtime/TextAssistWorker.cpp.o
+[ 39%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/rotator/RotatorPeakSearch.cpp.o
+[ 40%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 41%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/logbook/AdifLogbook.cpp.o
+[ 41%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/utils/RuntimeI18n.cpp.o
+[ 41%] Building CXX object CMakeFiles/madmodem_installation_paths_regression.dir/madmodem_installation_paths_regression_autogen/mocs_compilation.cpp.o
+[ 41%] Building CXX object CMakeFiles/madmodem_installation_paths_regression.dir/tests/InstallationPathsRegression.cpp.o
+[ 41%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/utils/CockpitTheme.cpp.o
+[ 41%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 41%] Linking CXX executable madmodem_installation_paths_regression
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp: In member function ‘virtual void {anonymous}::CockpitTitleBar::mousePressEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:366:44: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  366 |             m_dragOffset = event->globalPos() - m_owner->frameGeometry().topLeft();
+      |                            ~~~~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/QMouseEvent:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:20:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp: In member function ‘virtual void {anonymous}::CockpitTitleBar::mouseMoveEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:385:43: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  385 |             m_owner->move(event->globalPos() - m_dragOffset);
+      |                           ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+[ 42%] Built target madmodem_installation_paths_regression
+[ 42%] Building CXX object CMakeFiles/madmodem_gpu_sync_regression.dir/madmodem_gpu_sync_regression_autogen/mocs_compilation.cpp.o
+[ 42%] Building CXX object CMakeFiles/madmodem_gpu_sync_regression.dir/tests/FtGpuSyncRegression.cpp.o
+[ 42%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/utils/WindowResize.cpp.o
+[ 42%] Linking CXX executable madmodem_text_assist_workers_regression
+[ 43%] Building CXX object CMakeFiles/madmodem_gpu_sync_regression.dir/dsp/gpu/FtSyncCompute.cpp.o
+[ 43%] Built target madmodem_text_assist_workers_regression
+[ 44%] Building CXX object CMakeFiles/madmodem_hell_image_regression.dir/madmodem_hell_image_regression_autogen/mocs_compilation.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp: In member function ‘virtual void {anonymous}::ResizeHandle::mousePressEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:37:36: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+   37 |         m_origin = event->globalPos();
+      |                    ~~~~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/QMouseEvent:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:5:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp: In member function ‘virtual void {anonymous}::ResizeHandle::mouseMoveEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:47:46: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+   47 |         const QPoint delta = event->globalPos() - m_origin;
+      |                              ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+[ 45%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/madmodem_logbook_workflow_regression_autogen/KRHXW7JQHD/qrc_i18n.cpp.o
+[ 45%] Linking CXX executable madmodem_logbook_workflow_regression
+[ 45%] Built target madmodem_logbook_workflow_regression
+[ 45%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/madmodem_weatherfax_image_regression_autogen/mocs_compilation.cpp.o
+[ 45%] Building CXX object CMakeFiles/madmodem_hell_image_regression.dir/tests/HellschreiberImageRegression.cpp.o
+[ 45%] Linking CXX executable madmodem_gpu_sync_regression
+[ 45%] Built target madmodem_gpu_sync_regression
+[ 45%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/madmodem_sstv_vis_regression_autogen/mocs_compilation.cpp.o
+[ 45%] Building CXX object CMakeFiles/madmodem_hell_image_regression.dir/modems/hell/HellschreiberDecoder.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/tests/WeatherFaxImageRegression.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/tests/SstvVisRegression.cpp.o
+[ 46%] Linking CXX executable madmodem_hell_image_regression
+[ 46%] Built target madmodem_hell_image_regression
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/madmodem_sstv_editor_regression_autogen/mocs_compilation.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/modems/weatherfax/WeatherFaxDecoder.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/modems/sstv/SstvDecoder.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/tests/SstvEditorRegression.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/dsp/FrequencyTracker.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/dialogs/SstvImageEditorDialog.cpp.o
+[ 46%] Linking CXX executable madmodem_weatherfax_image_regression
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 46%] Built target madmodem_weatherfax_image_regression
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/madmodem_sstv_image_adjustment_regression_autogen/mocs_compilation.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/tests/SstvImageAdjustmentRegression.cpp.o
+[ 47%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/third_party/mmsstv_lgpl/MmsstvRxCore.cpp.o
+[ 47%] Linking CXX executable madmodem_sstv_vis_regression
+[ 48%] Built target madmodem_sstv_vis_regression
+[ 48%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/modems/sstv/SstvDecoder.cpp.o
+[ 49%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/utils/RuntimeI18n.cpp.o
+[ 49%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 50%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 50%] Linking CXX executable madmodem_sstv_editor_regression
+[ 50%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/third_party/mmsstv_lgpl/MmsstvRxCore.cpp.o
+[ 51%] Building CXX object CMakeFiles/madmodem_sstv_archive_regression.dir/madmodem_sstv_archive_regression_autogen/mocs_compilation.cpp.o
+[ 52%] Built target madmodem_sstv_editor_regression
+[ 52%] Building CXX object CMakeFiles/madmodem_sstv_archive_regression.dir/tests/SstvArchiveRegression.cpp.o
+[ 52%] Linking CXX executable madmodem_sstv_image_adjustment_regression
+[ 53%] Built target madmodem_sstv_image_adjustment_regression
+[ 53%] Built target madmodem_ft_reference_autogen_timestamp_deps
+[ 53%] Built target madmodem_msk144_autogen_timestamp_deps
+[ 53%] Built target madmodem_q65_autogen_timestamp_deps
+[ 53%] Built target madmodem_session_diagnostics_autogen_timestamp_deps
+[ 54%] Automatic MOC and UIC for target madmodem_audio_flow_accounting
+[ 54%] Built target madmodem_audio_flow_accounting_autogen
+[ 54%] Building CXX object CMakeFiles/madmodem_sstv_archive_regression.dir/runtime/SstvImageArchive.cpp.o
+[ 54%] Automatic MOC and UIC for target madmodem_cw_integration_regression
+[ 54%] Built target madmodem_cw_integration_regression_autogen
+[ 54%] Automatic MOC and UIC for target madmodem_cw_route_probe
+[ 54%] Built target madmodem_cw_route_probe_autogen
+[ 54%] Automatic MOC and UIC for target madmodem_cw_engine_regression
+[ 54%] Built target madmodem_cw_engine_regression_autogen
+[ 55%] Automatic MOC and UIC for target madmodem_cw_native_probe
+[ 55%] Automatic MOC and UIC for target madmodem_rtty_contest_regression
+[ 55%] Built target madmodem_cw_native_probe_autogen
+[ 56%] Automatic MOC and UIC for target madmodem_ft_reference
+[ 56%] Built target madmodem_ft_reference_autogen
+[ 56%] Automatic MOC and UIC for target madmodem_msk144
+[ 56%] Built target madmodem_rtty_contest_regression_autogen
+[ 56%] Automatic MOC and UIC for target madmodem_q65
+[ 56%] Built target madmodem_msk144_autogen
+[ 56%] Automatic MOC and UIC for target madmodem_session_diagnostics
+[ 56%] Built target madmodem_q65_autogen
+[ 56%] Built target madmodem_session_diagnostics_autogen
+[ 57%] Building CXX object CMakeFiles/madmodem_audio_flow_accounting.dir/madmodem_audio_flow_accounting_autogen/mocs_compilation.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/madmodem_cw_integration_regression_autogen/mocs_compilation.cpp.o
+[ 57%] Linking CXX executable madmodem_sstv_archive_regression
+[ 57%] Built target madmodem_sstv_archive_regression
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/madmodem_cw_route_probe_autogen/mocs_compilation.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_audio_flow_accounting.dir/tests/AudioFlowAccountingRegression.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_audio_flow_accounting.dir/audio/BoundedAudioDispatcher.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/tests/CwIntegrationRegression.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/tests/CwRouteProbe.cpp.o
+[ 57%] Linking CXX executable madmodem_audio_flow_accounting
+[ 57%] Built target madmodem_audio_flow_accounting
+[ 58%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/madmodem_cw_engine_regression_autogen/mocs_compilation.cpp.o
+[ 58%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/modems/cw/CwDecoder.cpp.o
+[ 58%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/modems/cw/CwDecoder.cpp.o
+[ 58%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/tests/CwEngineIntegrationRegression.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/modems/cw/CwDecoder.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/dsp/text/LinearResampler.cpp.o
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/dsp/text/LinearResampler.cpp.o
+[ 60%] Linking CXX executable madmodem_cw_route_probe
+[ 61%] Built target madmodem_cw_route_probe
+[ 61%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/madmodem_cw_native_probe_autogen/mocs_compilation.cpp.o
+[ 61%] Linking CXX executable madmodem_cw_integration_regression
+[ 62%] Built target madmodem_cw_integration_regression
+[ 62%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/madmodem_rtty_contest_regression_autogen/mocs_compilation.cpp.o
+[ 63%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 63%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/tests/RttyContestRegression.cpp.o
+[ 63%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/tests/CwNativeProbe.cpp.o
+[ 63%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/dsp/text/LinearResampler.cpp.o
+[ 63%] Linking CXX executable madmodem_cw_engine_regression
+[ 63%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/modems/cw/CwDecoder.cpp.o
+[ 63%] Built target madmodem_cw_engine_regression
+[ 63%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/RttyDecoder.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/RttyMultiDecoder.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/tx/RttyTransmitter.cpp.o
+[ 65%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 65%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/dsp/common/DspConditioner.cpp.o
+[ 65%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 65%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/logbook/AdifLogbook.cpp.o
+[ 66%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 66%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/dsp/text/LinearResampler.cpp.o
+[ 66%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/network/QsoUdpBroadcaster.cpp.o
+[ 67%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/madmodem_ft_reference_autogen/mocs_compilation.cpp.o
+[ 67%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/modems/ft8/FtReferenceRecovery.cpp.o
+[ 67%] Linking CXX executable madmodem_cw_native_probe
+[ 68%] Built target madmodem_cw_native_probe
+[ 68%] Building CXX object CMakeFiles/madmodem_msk144.dir/madmodem_msk144_autogen/mocs_compilation.cpp.o
+[ 68%] Linking CXX executable madmodem_rtty_contest_regression
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/modems/msk144/Msk144Decoder.cpp.o
+[ 69%] Built target madmodem_rtty_contest_regression
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/modems/msk144/tx/Msk144Transmitter.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderft8.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/HvTxW/hvqthloc.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp: In member function ‘int MshvReference::DecoderFt8::ft8_even_odd(QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:1866:16: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1866 |     if (s.count()<6) return 0; //2.70 protection
+      |         ~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qobject.h:11,
+                 from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QObject:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderms.h:2,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:14:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp: In member function ‘void MshvReference::DecoderFt8::ft8_a7_save(QString, double, double, QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:1900:40: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1900 |     if (w[0].mid(0,3)=="CQ " && s.count()<=2)
+      |                                 ~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp: In member function ‘void MshvReference::DecoderFt8::PrintMsg(QString, int, double, double, QString, int, float, float, bool&, bool, bool, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:2405:29: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2405 |         if (s_HisCall8.count()>2 && message.indexOf(s_HisCall8)>-1) s_ltry_a8=false;//ws300rc1 if(index(msg37,trim(hiscall12)).gt.0) la8=.false.
+      |             ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:2407:35: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2407 |     if (!s_fopen8 && message.count()>2) ft8_a7_save(tmm,xdt,f1,message);//2.70 for ap7 s_fopen8 and no empty msg
+      |                      ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp: In member function ‘void MshvReference::DecoderFt8::TryAp8(double*, bool, int, int, double, bool&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:2412:54: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2412 |         if (!fl_lapon || s_fopen8 || s_HisCall8.count()<3 || s_HisGrid8.count()<4) return;
+      |                                      ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:2412:78: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2412 |         if (!fl_lapon || s_fopen8 || s_HisCall8.count()<3 || s_HisGrid8.count()<4) return;
+      |                                                              ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp: In member function ‘void MshvReference::DecoderFt8::ft8_decode(double*, int, double, double, double, bool&, int, double, double)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8.cpp:2818:60: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2818 |                         if (!lqsomsgdcd && s_HisCall8.count()>2 && rem_msg37.startsWith(msgroot+" "))
+      |                                            ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp.o
+[ 70%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp: In member function ‘void PackUnpackMsg::copy_qstr(QString&, QString, int, int)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:29:45: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+   29 |     for (int i = e_from-b_from; i < to.count(); i++)
+      |                                     ~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QString:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg.h:4,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:14:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp: In member function ‘int PackUnpackMsg::index(QString, char)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:50:33: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+   50 |     for (int i = 0; i < in.count(); i++)
+      |                         ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp: In member function ‘void PackUnpackMsg::packcall(QString, int&, bool&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:130:48: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  130 |         copy_qstr(tmp,callsign,0,callsign.count());//tmp=callsign;
+      |                                  ~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp: In member function ‘void PackUnpackMsg::getpfx1(QString&, int&, int&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:250:60: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  250 |         rof=qstr_beg_end(callsign0,islash+1,callsign0.count());//rof=callsign0(islash+1:)
+      |                                             ~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:255:22: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  255 |         if (lof.count()>0 && lof.count()<=4) ispfx=true;//ispfx=(llof.gt.0 .and. llof.le.4)
+      |             ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:255:39: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  255 |         if (lof.count()>0 && lof.count()<=4) ispfx=true;//ispfx=(llof.gt.0 .and. llof.le.4)
+      |                              ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:256:22: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  256 |         if (rof.count()>0 && rof.count()<=3) issfx=true;////issfx=(lrof.gt.0 .and. lrof.le.3)
+      |             ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:256:39: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  256 |         if (rof.count()>0 && rof.count()<=3) issfx=true;////issfx=(lrof.gt.0 .and. lrof.le.3)
+      |                              ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:261:26: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  261 |             if (lof.count()<3) issfx=false;//if(llof.lt.3) issfx=.false.
+      |                 ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:262:26: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  262 |             if (rof.count()<3) ispfx=false;//if(lrof.lt.3) ispfx=.false.
+      |                 ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:288:65: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  288 |                 copy_qstr(callsign,callsign0,i+1,callsign0.count());//callsign=callsign0(i+1:);
+      |                                                  ~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp: In member function ‘void PackUnpackMsg::packmsg(char*, int*, int&, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:644:162: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  644 |     if(qstr_beg_end(msg,0,3) =="CQ " && mm_qchar_latin1(msg[3]) >= '0' && mm_qchar_latin1(msg[3]) <= '9' && msg[4]==' ') msg="CQ 00"+qstr_beg_end(msg,3,msg.count());
+      |                                                                                                                                                         ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp:657:63: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  657 |             msg[5]==' ') msg="E9"+qstr_beg_end(msg,3,msg.count());
+      |                                                      ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp: In member function ‘QString GenMsk::RemWSpacesInside(QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp:61:30: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+   61 |     for (int i = 0; i<s.count(); i++)
+      |                       ~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qobject.h:11,
+                 from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QObject:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.h:3,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp:14:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp: In member function ‘int GenMsk::hash(QString, int, int)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp:78:37: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+   78 |     for (int i = 0; i < string.count(); i++)
+      |                         ~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+[ 70%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderft8var.cpp.o
+[ 70%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp.o
+[ 71%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderft4.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::tone8(bool, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:327:32: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  327 |     if (lhound && mybcall.count()>2 && hisbcall.count()>2)
+      |                   ~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qobject.h:11,
+                 from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QObject:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderms.h:2,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:13:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:327:54: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  327 |     if (lhound && mybcall.count()>2 && hisbcall.count()>2)
+      |                                        ~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:344:38: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  344 |     if (!lhiscallstd && hiscall.count()>2)
+      |                         ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8apsetvar(bool, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:501:27: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  501 |         if (hisgrid4.count()>3) hisgrid4=hisgrid4.mid(0,4);
+      |             ~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:547:30: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  547 |             if (hiscall.count()>2)
+      |                 ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:549:50: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  549 |                 if (lhiscallstd && hisgrid4.count()==4) msg="CQ "+hiscall+" "+hisgrid4;
+      |                                    ~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:566:57: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  566 |             if (!lhound && !lhiscallstd && hiscall.count()>2)
+      |                                            ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:576:51: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  576 |         if (!lhound && !lmycallstd && mycall.count()>2)
+      |                                       ~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:601:25: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  601 |         if (mycall.count()<3) return;
+      |             ~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:620:31: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  620 |             if (hisbcall.count()>2 && mybcall.count()>2)
+      |                 ~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:620:52: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  620 |             if (hisbcall.count()>2 && mybcall.count()>2)
+      |                                       ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:631:67: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  631 |         if (!lhound && lmycallstd && !lhiscallstd && hiscall.count()>2)
+      |                                                      ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::tonesdvar(QString, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:1558:27: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1558 |             if (grid.count()!=4) grid="AA00";
+      |                 ~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8sd1var(double (*)[8], int*, QString, QString&, bool&, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:1937:21: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1937 |         if (c1.count()<3 || c2.count()<3 || c2==s_MyCall8) return;
+      |             ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:1937:37: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1937 |         if (c1.count()<3 || c2.count()<3 || c2==s_MyCall8) return;
+      |                             ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8mf1var(double (*)[8], int*, QString, QString&, bool&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:2133:17: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2133 |     if (c1.count()<3 || c2.count()<3 || c2==s_MyCall8) return;
+      |         ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:2133:33: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2133 |     if (c1.count()<3 || c2.count()<3 || c2==s_MyCall8) return;
+      |                         ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8mfcqvar(double (*)[8], int*, QString, QString&, bool&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:2266:19: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2266 |     if (msgd.count()<6) return;
+      |         ~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8svar(double (*)[8], double, int*, QString&, bool&, int, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:2368:25: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 2368 |     if (s_HisCall8.count()<3) return;
+      |         ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8sdvar(double (*)[8], double, int*, QString, QString&, bool&, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:3211:21: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 3211 |         if (c1.count()<3 || c2.count()<3 || c2==s_MyCall8) return;//if(len_trim(c1).lt.3 .or. len_trim(c2).lt.3 .or. c2.eq.trim(mycall)) return
+      |             ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:3211:37: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 3211 |         if (c1.count()<3 || c2.count()<3 || c2==s_MyCall8) return;//if(len_trim(c1).lt.3 .or. len_trim(c2).lt.3 .or. c2.eq.trim(mycall)) return
+      |                             ~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8bvar(bool&, int, double, double, bool, bool, double&, double&, int&, QString&, double&, bool, bool&, int, bool, bool&, bool, int, bool, bool, bool, bool&, int&, int, bool&, bool, bool, bool, bool, bool, bool, double&, int&, int, double)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:3600:25: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 3600 |     if (s_HisCall8.count()>2)
+      |         ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:3705:29: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 3705 |         if (s_HisCall8.count()>2) //then s_MyCall8 s_HisCall8
+      |             ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:4661:95: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 4661 |         if (!lqsomsgdcd && (dfqso<napwid || fabs(nftx-f1)<napwid) && lapmyc && s_MyCall8.count()>2)
+      |                                                                                ~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:4724:45: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 4724 |         if (!lhiscallstd && s_HisCall8.count()>2)// then ! nonstandard DXCall
+      |                             ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:5699:80: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 5699 |                         else if (lmycallstd && !lhiscallstd && s_HisCall8.count()>2) //then
+      |                                                                ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:5981:81: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 5981 |                         else if (!lmycallstd && !lhiscallstd && s_HisCall8.count()>2) //then ! empty mycall or compound/nonstandard both calls
+      |                                                                 ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:6538:58: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 6538 |                         if (!stophint && s_HisCall8.count()>2) ndeep=3;// ! unload CPU, let ft8svar pick up QSO message
+      |                                          ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:6880:32: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 6880 |             if (s_MyCall8.count()>2 && rem_msg37.indexOf(" "+s_MyCall8+" ")>-1)
+      |                 ~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7308:29: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7308 |         if (s_HisCall8.count()>2 && !lqsomsgdcd)//if(msg37(1:msgrootlen+1).eq.trim(msgroot)//' ') then
+      |             ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7315:39: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7315 |             int hcc = s_HisCall8.count();//nlength=len_trim(hiscall) CQ LZ2HV KN23
+      |                       ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::extract_callvar(QString, QString&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7481:30: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7481 |     int npart2len=part2.count();//c++   ==.EQ. !=.NE. >.GT. <.LT. >=.GE. <=.LE.
+      |                   ~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp: In member function ‘void MshvReference::DecoderFt8::ft8_decodevar(double*, int, double, double, double, bool&, double, double, bool, bool, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7737:31: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7737 |     mycalllen1=s_MyCall8.count();//len_trim(mycall)+1
+      |                ~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7741:25: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7741 |     if (s_HisCall8.count()<3) lnohiscall=true;
+      |         ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7743:24: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7743 |     if (s_MyCall8.count()<3) lnomycall=true;
+      |         ~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7745:25: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7745 |     if (s_HisGrid8.count()<4) lnohisgrid=true;
+      |         ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft8var.cpp:7928:36: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 7928 |                     if (msg37.count()<1       ) ldupe=true;//2.76.6 SD error
+      |                         ~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp: In member function ‘void PackUnpackMsg::unpackcall(int, QString&, int&, QString&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp:141:40: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  141 |     word=qstr_beg_end(word,i,word.count());
+      |                              ~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QString:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg.h:4,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp:14:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp:257:82: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  257 |     if (qstr_beg_end(word,0,3)=="3D0") word="3DA0"+qstr_beg_end(word,3,word.count());//word(4:)
+      |                                                                        ~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp:258:78: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  258 |     if (qstr_beg_end(word,0,1)=="Q") word="3X"+qstr_beg_end(word,1,word.count());
+      |                                                                    ~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp: In member function ‘QString PackUnpackMsg::unpackmsg144(int*, char&, QString&, QString&, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp:556:64: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  556 |             msg[4]==' ') msg="CQ "+qstr_beg_end(msg,2,msg.count());
+      |                                                       ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp: In member function ‘QString PackUnpackMsg::unpackmsg(int*, char&, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp:708:64: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  708 |             msg[4]==' ') msg="CQ "+qstr_beg_end(msg,2,msg.count());
+      |                                                       ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp:714:147: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  714 |     if(qstr_beg_end(msg,0,5)=="CQ 00" && mm_qchar_latin1(msg[5]) >= '0' &&  mm_qchar_latin1(msg[5]) <= '9') msg="CQ "+qstr_beg_end(msg,5,msg.count());
+      |                                                                                                                                          ~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp: In member function ‘int MshvReference::DecoderFt4::ft4_even_odd(QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp:878:16: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  878 |     if (s.count()<6) return 0; //2.70 protection
+      |         ~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qobject.h:11,
+                 from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QObject:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderms.h:2,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp:14:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp: In member function ‘void MshvReference::DecoderFt4::ft4_a7_save(QString, double, double, QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp:997:40: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  997 |     if (w[0].mid(0,3)=="CQ " && s.count()<=2)
+      |                                 ~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp: In member function ‘void MshvReference::DecoderFt4::PrintMsg(QString, int, double, double, QString, int, float, bool&, bool&, bool)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp:1256:35: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1256 |     if (!s_fopen4 && message.count()>2) ft4_a7_save(s_time4,xdt,f1,message);
+      |                      ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp: In member function ‘void MshvReference::DecoderFt4::ft4_decode(double*, double, double, double, double, double, bool&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp:1480:25: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1480 |         if (mycall.count()<3) goto c10;//if(len(trim(mycall)) .lt. 3) go to 10
+      |             ~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp:1484:31: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1484 |         if (hiscall0_ft4.count()<3)//if(len(trim(hiscall0)).lt.3) then
+      |             ~~~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderft4.cpp:1815:42: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+ 1815 |                         if (message.count()<1) ldupe=true;//2.76.6
+      |                             ~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+[ 71%] Linking CXX static library libmadmodem_msk144.a
+[ 71%] Built target madmodem_msk144
+[ 71%] Building CXX object CMakeFiles/madmodem_q65.dir/madmodem_q65_autogen/mocs_compilation.cpp.o
+[ 71%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderpom.cpp.o
+[ 71%] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/Q65Decoder.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderpom.cpp: In member function ‘bool MshvReference::PomFt::isgrid4(QString)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderpom.cpp:676:16: warning: ‘qsizetype QString::count() const’ is deprecated: Use size() or length() instead. [-Wdeprecated-declarations]
+  676 |     if (s.count()>3)
+      |         ~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QString:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderpom.h:3,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/third_party/mshv_gpl/ft_reference/decoderpom.cpp:1:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:464:22: note: declared here
+  464 |     inline qsizetype count() const { return d.size; }
+      |                      ^~~~~
+[ 71%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/fft.cpp.o
+[ 72%] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/Q65NativeEngine.cpp.o
+[ 72%] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/tx/Q65Transmitter.cpp.o
+[ 72%] Building CXX object CMakeFiles/madmodem_q65.dir/third_party/mshv_gpl/port/HvGenQ65/gen_q65.cpp.o
+[ 72%] Building CXX object CMakeFiles/madmodem_q65.dir/third_party/mshv_gpl/port/HvGenQ65/q65_subs.cpp.o
+[ 72%] Building CXX object CMakeFiles/madmodem_session_diagnostics.dir/madmodem_session_diagnostics_autogen/mocs_compilation.cpp.o
+[ 73%] Building CXX object CMakeFiles/madmodem_session_diagnostics.dir/tests/SessionDiagnosticsRegression.cpp.o
+[ 73%] Linking CXX static library libmadmodem_ft_reference.a
+[ 73%] Built target madmodem_ft_reference
+[ 73%] Built target madmodem_msk144_native_regression_autogen_timestamp_deps
+[ 74%] Automatic MOC and UIC for target madmodem_msk144_native_regression
+[ 74%] Built target madmodem_msk144_native_regression_autogen
+[ 75%] Linking CXX static library libmadmodem_q65.a
+[ 75%] Building CXX object CMakeFiles/madmodem_msk144_native_regression.dir/madmodem_msk144_native_regression_autogen/mocs_compilation.cpp.o
+[ 75%] Building CXX object CMakeFiles/madmodem_msk144_native_regression.dir/tests/Msk144NativeRegression.cpp.o
+[ 75%] Built target madmodem_q65
+[ 75%] Built target MadModem_autogen_timestamp_deps
+[ 75%] Built target madmodem_q65_native_regression_autogen_timestamp_deps
+[ 75%] Automatic MOC and UIC for target MadModem
+[ 75%] Linking CXX executable madmodem_session_diagnostics
+[ 75%] Built target madmodem_session_diagnostics
+[ 75%] Automatic MOC and UIC for target madmodem_q65_native_regression
+[ 75%] Built target madmodem_q65_native_regression_autogen
+[ 75%] Building CXX object CMakeFiles/madmodem_q65_native_regression.dir/madmodem_q65_native_regression_autogen/mocs_compilation.cpp.o
+[ 75%] Building CXX object CMakeFiles/madmodem_q65_native_regression.dir/tests/Q65NativeRegression.cpp.o
+[ 75%] Linking CXX executable madmodem_msk144_native_regression
+[ 75%] Built target MadModem_autogen
+[ 75%] Automatic RCC for resources.qrc
+[ 76%] Built target madmodem_msk144_native_regression
+[ 76%] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[ 76%] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/mocs_compilation.cpp.o
+[ 77%] Linking CXX executable madmodem_q65_native_regression
+[ 77%] Built target madmodem_q65_native_regression
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/FtCqWorkListUi.cpp.o
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/updates/UpdateController.cpp.o
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/callsign/QrzLookupPanel.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/AudioEngine.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/BoundedAudioDispatcher.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/RxAudioRecorder.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/WavFileReader.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/audio/TxAudioEngine.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/audio/FtTxWorker.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/widgets/SkimmerOverlay.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/widgets/WaterfallWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/RttyScopeWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/QsoMapWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/RadioTelescopeHeatmapWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/CwDiagnosticWidget.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/RuntimeI18n.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/CockpitTheme.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/WindowResize.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp: In member function ‘virtual void {anonymous}::CockpitTitleBar::mousePressEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:366:44: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  366 |             m_dragOffset = event->globalPos() - m_owner->frameGeometry().topLeft();
+      |                            ~~~~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/QMouseEvent:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:20:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp: In member function ‘virtual void {anonymous}::CockpitTitleBar::mouseMoveEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/CockpitTheme.cpp:385:43: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+  385 |             m_owner->move(event->globalPos() - m_dragOffset);
+      |                           ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp: In member function ‘virtual void {anonymous}::ResizeHandle::mousePressEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:37:36: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+   37 |         m_origin = event->globalPos();
+      |                    ~~~~~~~~~~~~~~~~^~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/QMouseEvent:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:5:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp: In member function ‘virtual void {anonymous}::ResizeHandle::mouseMoveEvent(QMouseEvent*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/utils/WindowResize.cpp:47:46: warning: ‘QPoint QMouseEvent::globalPos() const’ is deprecated: Use globalPosition() [-Wdeprecated-declarations]
+   47 |         const QPoint delta = event->globalPos() - m_origin;
+      |                              ~~~~~~~~~~~~~~~~^~
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtGui/qevent.h:216:19: note: declared here
+  216 |     inline QPoint globalPos() const { return globalPosition().toPoint(); }
+      |                   ^~~~~~~~~
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/SystemResourceManager.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/dsp/DspEngine.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/WaterfallLeveler.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/common/DspConditioner.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/cpu/CpuFeatures.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/Nco.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/BaudAwareFilter.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/AtcDetector.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/SymbolClockDpll.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/SoftSquelch.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/GoertzelToneBank.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/widgets/FaxImageWidget.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/modems/weatherfax/WeatherFaxDecoder.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/modems/weatherfax/tx/WeatherFaxTransmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/tx/RttyTransmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/bpsk31/tx/Bpsk31Transmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/tx/CwMorseSequence.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/tx/CwSerialTransmitter.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/dialogs/CwTxSettingsDialog.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/tx/CwTransmitter.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/tx/MfskTransmitter.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/hell/tx/HellschreiberTransmitter.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/tx/Ft8Transmitter.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvModeDefinition.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvDecoder.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/third_party/mmsstv_lgpl/MmsstvRxCore.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyDecoder.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyMultiDecoder.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/runtime/SstvImageArchive.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/runtime/RxDecoderWorker.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/runtime/LogbookIndexWorker.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/runtime/TextAssistWorker.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/runtime/CwSerialTxSession.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/contest/RttyContestRules.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/bpsk31/Bpsk31Decoder.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/MfskDecoder.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/CwDecoder.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/hell/HellschreiberDecoder.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8Mode.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8RxDecoder.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/dsp/gpu/FtSyncCompute.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtDecodedText.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtStandardMessageSet.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtQsoSession.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtQsoSequencer.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtSlotScheduler.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/third_party/decodium_gpl/port/NtpClient.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/genpom.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/HvGenFt8/gen_ft8.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/HvGenFt4/gen_ft4.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/dsp/FrequencyTracker.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/settings/AppSettings.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/dialogs/HelpDialog.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/dialogs/HelpDialog.cpp: In member function ‘bool HelpDialog::setupQtHelpBackend(const QUrl&)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/dialogs/HelpDialog.cpp:229:51: warning: ‘void QHelpIndexWidget::linkActivated(const QUrl&, const QString&)’ is deprecated: Use documentActivated() instead [-Wdeprecated-declarations]
+  229 |         connect(m_indexWidget, &QHelpIndexWidget::linkActivated,
+      |                                                   ^~~~~~~~~~~~~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtHelp/QHelpIndexWidget:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/dialogs/HelpDialog.cpp:29:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtHelp/qhelpindexwidget.h:56:10: note: declared here
+   56 |     void linkActivated(const QUrl &link, const QString &keyword);
+      |          ^~~~~~~~~~~~~
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/BandSchedulerDialog.cpp.o
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/AppSettingsDialog.cpp.o
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/AudioSettingsDialog.cpp.o
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/SoundCardCalibrationDialog.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/dialogs/TextMacroSettingsDialog.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookDialog.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/dialogs/ContestExportWizard.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/logbook/ContestExchange.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookSettingsDialog.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/dialogs/RigControlSettingsDialog.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/rig/HamlibController.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/rotator/CatRotatorController.cpp.o
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/rig/HamlibController.cpp: In member function ‘bool HamlibController::hrdReadResponse(const QString&, QString*, QString*)’:
+/workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/rig/HamlibController.cpp:1869:50: warning: ‘static QString QString::fromUtf16(const ushort*, qsizetype)’ is deprecated: Use char16_t* overload. [-Wdeprecated-declarations]
+ 1869 |                 QString text = QString::fromUtf16(reinterpret_cast<const ushort *>(payloadBytes.constData()),
+      |                                ~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1870 |                                                   payloadBytes.size() / static_cast<int>(sizeof(ushort)));
+      |                                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qjsonvalue.h:8,
+                 from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qjsonobject.h:7,
+                 from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/QJsonObject:1,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/rig/../runtime/SessionDiagnostics.h:4,
+                 from /workspace/scratch/5c40146f5a02/delivery/MadModem_0_6_4_FULL_SOURCE/rig/HamlibController.cpp:1:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt6/QtCore/qstring.h:831:20: note: declared here
+  831 |     static QString fromUtf16(const ushort *str, qsizetype size = -1)
+      |                    ^~~~~~~~~
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/rotator/RotatorPeakSearch.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/rotator/CatRotatorPanel.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/rotator/NavballWidget.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/dialogs/SstvImageEditorDialog.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/logbook/AdifLogbook.cpp.o
+[100%] Building CXX object CMakeFiles/MadModem.dir/network/QsoUdpBroadcaster.cpp.o
+[100%] Building CXX object CMakeFiles/MadModem.dir/dxcc/CtyCountryFile.cpp.o
+[100%] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/EWIEGA46WW/qrc_resources.cpp.o
+[100%] Linking CXX executable MadModem
+Copying external rtty_rules next to MadModem
+Copying external cw_rules next to MadModem
+[100%] Built target MadModem

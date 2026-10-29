@@ -1,3 +1,4 @@
+#include "../runtime/SessionDiagnostics.h"
 #include "RigControlSettingsDialog.h"
 #include "../utils/CockpitTheme.h"
 #include "../utils/UiScale.h"
@@ -321,7 +322,7 @@ QList<RadioPreset> buildRadioPresets()
     QSet<int> seenIds;
 
 #ifdef MADMODEM_WITH_HAMLIB
-    rig_set_debug(RIG_DEBUG_NONE);
+    rig_set_debug(SessionDiagnostics::instance().enabled()?RIG_DEBUG_CACHE:RIG_DEBUG_NONE);
     rig_load_all_backends();
 
     HamlibPresetBuildContext ctx;

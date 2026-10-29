@@ -1,3 +1,4 @@
+#include "../runtime/SessionDiagnostics.h"
 #include "TxAudioEngine.h"
 
 #include <QByteArray>
@@ -53,6 +54,7 @@ TxAudioEngine::~TxAudioEngine()
 bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxModulator> modulator,
                                 qint64 latestStartUtcMs, std::function<bool()> authorized)
 {
+    SessionDiagnostics::instance().record("tx.output.request",{{"device",deviceName},{"latest_start_utc_ms",QString::number(latestStartUtcMs)}});
     stopOutput();
 
     if (!modulator) {
@@ -60,6 +62,7 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
         return false;
     }
 
+    SessionDiagnostics::instance().record("tx.output.modulator",{{"description",modulator->description()},{"sample_rate",modulator->sampleRate()}});
     m_sampleRate = modulator->sampleRate();
     m_modulator = std::move(modulator);
     m_totalSamples = 0;
@@ -211,6 +214,7 @@ bool TxAudioEngine::startOutput(const QString &deviceName, std::unique_ptr<TxMod
 
 void TxAudioEngine::stopOutput()
 {
+    SessionDiagnostics::instance().record("tx.output.stop");
     if (!m_running && m_audioOutput == nullptr && m_outputDevice == nullptr) {
         return;
     }

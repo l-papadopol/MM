@@ -1,3 +1,5 @@
+> Updated source: **0.6.4 R30** — integrated FT8/FT4 native recovery, bounded live work, existing Doppler retained. See [verification and measured limits](docs/architecture/RELEASE_0_6_4_R30.md). Build identity remains 0.6.4; source revision is recorded separately.
+
 # MadModem
 
 **0.6.4 R15:** demodulazione MeteoFax con filtro I/Q più selettivo e migliore conservazione dei dettagli. Confronto R14/R15 su audio noto, rumore, fading e quattro velocità di scansione. [Risultati e limiti](docs/architecture/RELEASE_0_6_4_R15.md).

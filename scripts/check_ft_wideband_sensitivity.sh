@@ -15,7 +15,8 @@ need() {
 need 'std::array<int, 103> *decodedTonesOut' "$HDR" 'FT4 decoded tones are not returned by the decoder'
 need 'makeFt4ReferenceWaveformRx(decodedTones' "$CPP" 'FT4 exact GFSK SIC is missing'
 need 'const bool sumProductAllowed = m_offlineAnalysisActive.load();' "$CPP" 'live SPA safety gate is missing'
-need 'm_offlineAnalysisActive.load() &&' "$CPP" 'offline coherent A/B safety gate is missing'
+need 'recoveryTimeAvailable() &&' "$CPP" 'coherent recovery deadline is missing'
+need 'syndromeOk(hardBits) && crc14Ok(hardBits)' "$CPP" 'BP CRC acceptance is missing'
 need 'bucket rescue decoded/candidates' "$ROOT/mainwindow.cpp" 'wideband recovery telemetry is missing'
 
 if grep -Fq 'rescuedCandidate.bucketRescue = true' "$CPP"; then

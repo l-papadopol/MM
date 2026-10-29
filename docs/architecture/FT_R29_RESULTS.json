@@ -1,0 +1,334 @@
+{
+  "revision": "0.6.4-source-r29-ft-coherent-crc-osd",
+  "build": "PASS Linux Qt5 Release",
+  "ctest_selected": "17 PASS aggregate:16 initial+FT runtime guard after replacing obsolete offline-coherent requirement with bounded live/CRC guards; frozen finder hashes unchanged",
+  "registered_tests": 52,
+  "native_regression": "PASS min-sum/SPA valid and parity-only bad-CRC words; FT4 known-candidate signals/noise/silence/gate/expired slot",
+  "ft4_known_candidate": {
+    "conditions": 36,
+    "r27_normal_correct": 7,
+    "r29_normal_correct": 10,
+    "r29_normal_coherent_recovered": 2,
+    "r29_normal_osd_recovered": 1,
+    "noise_only_conditions": 6,
+    "wrong_messages": 0
+  },
+  "paired_replays": [
+    {
+      "rep": 0,
+      "file": "linear-5.5.f64",
+      "old_rows": 41,
+      "new_rows": 41,
+      "old_ms": 817.622765,
+      "new_ms": 843.323966,
+      "reply_margin_ms": 496,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 0,
+      "file": "191111_110615.f64",
+      "old_rows": 24,
+      "new_rows": 26,
+      "old_ms": 736.274449,
+      "new_ms": 723.722707,
+      "reply_margin_ms": 616,
+      "added_messages": [
+        "OT4B <...> -19",
+        "SP7XIF JA2GQT -15"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 0,
+      "file": "191111_110630.f64",
+      "old_rows": 16,
+      "new_rows": 18,
+      "old_ms": 770.076905,
+      "new_ms": 754.84944,
+      "reply_margin_ms": 585,
+      "added_messages": [
+        "CQ JR5MJS PM74",
+        "JA2GQT F8NHF -10"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 0,
+      "file": "191111_110645.f64",
+      "old_rows": 20,
+      "new_rows": 22,
+      "old_ms": 904.137218,
+      "new_ms": 721.370042,
+      "reply_margin_ms": 619,
+      "added_messages": [
+        "PC2J EA1FAK IN72",
+        "RK6AH JH1AJT RR73"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 0,
+      "file": "191111_110700.f64",
+      "old_rows": 21,
+      "new_rows": 21,
+      "old_ms": 794.573097,
+      "new_ms": 715.135518,
+      "reply_margin_ms": 624,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 0,
+      "file": "websdr_test7.f64",
+      "old_rows": 25,
+      "new_rows": 25,
+      "old_ms": 806.51766,
+      "new_ms": 810.80509,
+      "reply_margin_ms": 529,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 0,
+      "file": "websdr_test8.f64",
+      "old_rows": 20,
+      "new_rows": 22,
+      "old_ms": 727.218706,
+      "new_ms": 871.86144,
+      "reply_margin_ms": 468,
+      "added_messages": [
+        "CQ E74BYZ JN84",
+        "PE0TS LZ2KV -25"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 0,
+      "file": "websdr_test9.f64",
+      "old_rows": 12,
+      "new_rows": 11,
+      "old_ms": 618.906166,
+      "new_ms": 574.61756,
+      "reply_margin_ms": 765,
+      "added_messages": [],
+      "lost_messages": [
+        "F4DFQ F5LOW IN95"
+      ]
+    },
+    {
+      "rep": 1,
+      "file": "linear-5.5.f64",
+      "old_rows": 41,
+      "new_rows": 41,
+      "old_ms": 814.809523,
+      "new_ms": 884.765564,
+      "reply_margin_ms": 455,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 1,
+      "file": "191111_110615.f64",
+      "old_rows": 25,
+      "new_rows": 25,
+      "old_ms": 683.495769,
+      "new_ms": 704.941035,
+      "reply_margin_ms": 635,
+      "added_messages": [
+        "SP7XIF JA2GQT -15"
+      ],
+      "lost_messages": [
+        "OT4B <...> -19"
+      ]
+    },
+    {
+      "rep": 1,
+      "file": "191111_110630.f64",
+      "old_rows": 17,
+      "new_rows": 18,
+      "old_ms": 650.216755,
+      "new_ms": 698.105847,
+      "reply_margin_ms": 642,
+      "added_messages": [
+        "CQ JR5MJS PM74"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 1,
+      "file": "191111_110645.f64",
+      "old_rows": 21,
+      "new_rows": 23,
+      "old_ms": 742.662468,
+      "new_ms": 704.269639,
+      "reply_margin_ms": 635,
+      "added_messages": [
+        "PC2J EA1FAK IN72",
+        "RK6AH JH1AJT RR73"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 1,
+      "file": "191111_110700.f64",
+      "old_rows": 21,
+      "new_rows": 21,
+      "old_ms": 662.934839,
+      "new_ms": 728.115264,
+      "reply_margin_ms": 610,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 1,
+      "file": "websdr_test7.f64",
+      "old_rows": 25,
+      "new_rows": 26,
+      "old_ms": 834.872446,
+      "new_ms": 878.898771,
+      "reply_margin_ms": 461,
+      "added_messages": [
+        "DK7LE DO5HOK JO42"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 1,
+      "file": "websdr_test8.f64",
+      "old_rows": 20,
+      "new_rows": 23,
+      "old_ms": 775.556418,
+      "new_ms": 741.219513,
+      "reply_margin_ms": 598,
+      "added_messages": [
+        "<...> <...> R 580474 NO57KI",
+        "CQ E74BYZ JN84",
+        "PE0TS LZ2KV -25"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 1,
+      "file": "websdr_test9.f64",
+      "old_rows": 11,
+      "new_rows": 12,
+      "old_ms": 605.69513,
+      "new_ms": 593.039849,
+      "reply_margin_ms": 747,
+      "added_messages": [
+        "F4DFQ F5LOW IN95"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "linear-5.5.f64",
+      "old_rows": 41,
+      "new_rows": 41,
+      "old_ms": 893.304423,
+      "new_ms": 797.204158,
+      "reply_margin_ms": 542,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "191111_110615.f64",
+      "old_rows": 25,
+      "new_rows": 26,
+      "old_ms": 735.600289,
+      "new_ms": 670.110137,
+      "reply_margin_ms": 669,
+      "added_messages": [
+        "SP7XIF JA2GQT -15"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "191111_110630.f64",
+      "old_rows": 17,
+      "new_rows": 18,
+      "old_ms": 681.988254,
+      "new_ms": 682.443041,
+      "reply_margin_ms": 658,
+      "added_messages": [
+        "JA2GQT F8NHF -10"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "191111_110645.f64",
+      "old_rows": 23,
+      "new_rows": 23,
+      "old_ms": 762.8171,
+      "new_ms": 679.766216,
+      "reply_margin_ms": 660,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "191111_110700.f64",
+      "old_rows": 21,
+      "new_rows": 21,
+      "old_ms": 755.84279,
+      "new_ms": 681.838605,
+      "reply_margin_ms": 657,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "websdr_test7.f64",
+      "old_rows": 25,
+      "new_rows": 25,
+      "old_ms": 753.729765,
+      "new_ms": 797.530394,
+      "reply_margin_ms": 542,
+      "added_messages": [],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "websdr_test8.f64",
+      "old_rows": 20,
+      "new_rows": 22,
+      "old_ms": 707.153435,
+      "new_ms": 675.676846,
+      "reply_margin_ms": 664,
+      "added_messages": [
+        "CQ E74BYZ JN84",
+        "PE0TS LZ2KV -25"
+      ],
+      "lost_messages": []
+    },
+    {
+      "rep": 2,
+      "file": "websdr_test9.f64",
+      "old_rows": 11,
+      "new_rows": 12,
+      "old_ms": 585.741149,
+      "new_ms": 599.514284,
+      "reply_margin_ms": 740,
+      "added_messages": [
+        "S57NCP PY2GIG RR73"
+      ],
+      "lost_messages": []
+    }
+  ],
+  "total_old": 543,
+  "total_new": 563,
+  "min_new_reply_margin_ms": 455,
+  "median_old_ms": 748.1961165,
+  "median_new_ms": 718.25278,
+  "limitations": [
+    "No native JTDX execution or parity claim",
+    "No physical RF/CAT/GPU or Windows/macOS/Qt6 execution; workflow prepared",
+    "Counts vary with concurrent OSD permits; individual lost messages listed",
+    "FT4 synthetic candidate supplied from clean reference, not blind sensitivity",
+    "Architectural AP/history/SIC differences remain separate from four fixed defects"
+  ]
+}

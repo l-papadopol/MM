@@ -157,3 +157,9 @@ not linked into or required by the MadModem application.
 ## Khronos OpenCL C headers
 
 Location: `third_party/opencl_headers/`. Unmodified cl.h, cl_platform.h and cl_version.h from Khronos OpenCL-Headers, packaged as Ubuntu opencl-c-headers 3.0~2023.12.14-1. Copyright The Khronos Group Inc.; Apache License 2.0. Full LICENSE and package COPYRIGHT are included there. These declarations are compiled locally; the optional OpenCL runtime is loaded dynamically and is not bundled. Upstream: https://github.com/KhronosGroup/OpenCL-Headers
+
+## MSHV 2.76.7 FT8/FT4 recovery (R30)
+
+Location: `third_party/mshv_gpl/ft_reference/`. GPLv3, original WSJT Development Group algorithms and MSHV C++ rewrite/modifications by Hrisimir Hristov LZ2HV. Exact upstream archive, source hashes and modifications are recorded in `ft_reference/PORT_NOTES.md` and `docs/architecture/FT_R30_SOURCE_INVENTORY.json`. This separate headless FT target compiles its own adapted decoderpom/FFT implementation and links FFTW3 double precision. The Q65 target remains independent of FFTW.
+
+FFTW3 (Matteo Frigo and Steven G. Johnson): external GPL-2.0-or-later library, compatible with this GPLv3 application; upstream https://www.fftw.org/. Distributors must preserve its license and meet the corresponding-source obligations for the version they redistribute. JTDX and WSJT-Z are source comparison references; their applications and Fortran runtimes are not linked into this recovery target.

@@ -182,6 +182,8 @@ QString AppSettings::settingsFilePath()
 void AppSettings::load()
 {
     QSettings settings(settingsFilePath(), QSettings::IniFormat);
+    sessionDiagnosticsEnabled = settings.value("Diagnostics/sessionEnabled", false).toBool();
+    sessionDiagnosticsFolder = settings.value("Diagnostics/folder").toString();
 
     audioInputName = settings.value("Audio/inputDevice", audioInputName).toString();
     audioOutputName = settings.value("Audio/outputDevice", audioOutputName).toString();
@@ -767,6 +769,8 @@ void AppSettings::load()
 bool AppSettings::save() const
 {
     QSettings settings(settingsFilePath(), QSettings::IniFormat);
+    settings.setValue("Diagnostics/sessionEnabled", sessionDiagnosticsEnabled);
+    settings.setValue("Diagnostics/folder", sessionDiagnosticsFolder);
 
     settings.setValue("Audio/inputDevice", audioInputName);
     settings.setValue("Audio/outputDevice", audioOutputName);

@@ -1,0 +1,173 @@
+FT8 subtraction mean_ms=4.50701
+FT4 subtraction mean_ms=3.51086
+CANCEL_SHA256 f62cae7818a7ed26c129f9fe87a79a6a02177050bf706e02919176de0bea430b
+ASYNC FT8 six unique results and one final boundary batch PASS; context updates 0.003425 ms
+FT8 QSO_ms=429.975 total_ms=911.359 decodes=6 subtraction_ms=48.5593 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73
+ASYNC FT4 six unique results and one final boundary batch PASS; context updates 0.003636 ms
+FT4 QSO_ms=358.196 total_ms=615.412 decodes=6 subtraction_ms=52.6024 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73
+FT8 progress at 199.156 ms: [CQ G0JEI IO93] [CQ DL2LAU JO31] [CQ F4JXL IN94] [CQ EA5GVJ IM97] [CQ LA8ENA JO48]
+FT8 progress at 430.575 ms: [CQ G0JEI IO93] [CQ DL2LAU JO31] [CQ F4JXL IN94] [CQ EA5GVJ IM97] [CQ LA8ENA JO48] [IZ6NNH LZ2KSQ RR73]
+FT8 progress at 662.735 ms: [CQ G0JEI IO93] [CQ DL2LAU JO31] [CQ F4JXL IN94] [CQ EA5GVJ IM97] [CQ LA8ENA JO48] [IZ6NNH LZ2KSQ RR73]
+FT8 QSO_ms=430.612 total_ms=984.556 decodes=6 subtraction_ms=65.3473 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73
+FT4 progress at 151.309 ms: [CQ G0JEI IO93] [CQ DL2LAU JO31] [CQ F4JXL IN94] [CQ LA8ENA JO48] [CQ EA5GVJ IM97]
+FT4 progress at 324.517 ms: [CQ G0JEI IO93] [CQ DL2LAU JO31] [CQ F4JXL IN94] [CQ LA8ENA JO48] [CQ EA5GVJ IM97] [IZ6NNH LZ2KSQ RR73]
+FT4 progress at 508.656 ms: [CQ G0JEI IO93] [CQ DL2LAU JO31] [CQ F4JXL IN94] [CQ LA8ENA JO48] [CQ EA5GVJ IM97] [IZ6NNH LZ2KSQ RR73]
+FT4 QSO_ms=324.553 total_ms=508.7 decodes=6 subtraction_ms=28.8518 messages=CQ DL2LAU JO31;CQ EA5GVJ IM97;CQ F4JXL IN94;CQ G0JEI IO93;CQ LA8ENA JO48;IZ6NNH LZ2KSQ RR73
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[shutdown] begin (destructor)
+[shutdown] disconnecting queued UI callbacks
+[shutdown] detaching CatRotator backend for process exit
+[shutdown] stopping RX audio
+[shutdown] stopping TX audio
+[shutdown] requesting thread stop: Live RX decoders
+[shutdown] requesting thread stop: RX audio recorder
+[shutdown] requesting thread stop: FT TX
+[shutdown] requesting thread stop: FT slot scheduler
+[shutdown] requesting thread stop: FT RX decoder
+[shutdown] requesting thread stop: Q65 RX decoder
+[shutdown] requesting thread stop: Text assistance
+[shutdown] requesting thread stop: Logbook index
+[shutdown] requesting thread stop: DSP
+[shutdown] done in 14 ms
+[shutdown] deleting UI
+[shutdown] MainWindow destructor done
+FT8 GUI: last-reply/final-73/stale-timeout/no-response/QRZ PASS
+FT4 GUI: last-reply/final-73/stale-timeout/no-response/QRZ PASS
+QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-root'
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+Could not create AF_NETLINK socket (Operation not permitted)
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+[QSO map] OSM diagnostics (startup)
+Qt SSL support: YES
+OpenSSL build: OpenSSL 3.0.13 30 Jan 2024
+OpenSSL runtime: OpenSSL 3.0.13 30 Jan 2024
+HTTP fallback: OFF
+Tile providers: https://tile.openstreetmap.org
+QNativeSocketEngine::writeDatagram() was called not in QAbstractSocket::BoundState or QAbstractSocket::ConnectedState
+[shutdown] begin (destructor)
+[shutdown] disconnecting queued UI callbacks
+[shutdown] detaching CatRotator backend for process exit
+[shutdown] stopping RX audio
+[shutdown] stopping TX audio
+[shutdown] requesting thread stop: Live RX decoders
+[shutdown] requesting thread stop: RX audio recorder
+[shutdown] requesting thread stop: FT TX
+[shutdown] requesting thread stop: FT slot scheduler
+[shutdown] requesting thread stop: FT RX decoder
+[shutdown] requesting thread stop: Q65 RX decoder
+[shutdown] requesting thread stop: Text assistance
+[shutdown] requesting thread stop: Logbook index
+[shutdown] requesting thread stop: DSP
+[shutdown] done in 17 ms
+[shutdown] deleting UI
+[shutdown] MainWindow destructor done
+QRZ settings/persistence/restart/Cancel/deferred-page/account-change; FT drift UI PASS

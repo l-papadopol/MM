@@ -3,6 +3,7 @@
 
 from pathlib import Path
 import sys
+import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,7 +36,7 @@ checks = {
         and "modems/weak_signal/WeakSignalCodecLock.cpp" in cmake
         and "MADMODEM_ENABLE_Q65" not in cmake
         and "decoderq65.cpp" not in cmake
-        and "fftw" not in cmake.lower()
+        and "MADMODEM_FFTW3_LIBRARY" not in re.search(r"target_link_libraries\(madmodem_q65\b(.*?)\)", cmake, re.S).group(1)
     ),
     "Q65 wrapper owns only the native engine": (
         "engine.decode(job.samples,job.periodId,job.config)" in q65_decoder

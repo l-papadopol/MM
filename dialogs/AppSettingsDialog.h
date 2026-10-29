@@ -60,7 +60,8 @@ public:
         Appearance,
         QrzAccount,
         FtDecoder,
-        SoundCardCalibration
+        SoundCardCalibration,
+        Diagnostics
     };
 
     explicit AppSettingsDialog(const AppSettings &settings,
@@ -108,6 +109,7 @@ private:
     QWidget *makeAudioCatPage();
     QWidget *makeLogbookPage();
     QWidget *makeAppearancePage();
+    QWidget *makeDiagnosticsPage();
     QWidget *makeFtColourEditor();
     QWidget *makeRotatorPage();
     QWidget *makeQrzAccountPage();
@@ -184,6 +186,8 @@ private:
     QSpinBox *m_spinLogbookUdpPort = nullptr;
     QComboBox *m_comboLogbookUdpFormat = nullptr;
     QComboBox *m_comboUiTheme = nullptr;
+    QCheckBox *m_chkSessionDiagnostics = nullptr;
+    QLineEdit *m_editDiagnosticsFolder = nullptr;
     QCheckBox *m_chkUiUseThemeFont = nullptr;
     QComboBox *m_comboUiFontFamily = nullptr;
     QSpinBox *m_spinUiFontSize = nullptr;

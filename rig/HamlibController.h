@@ -59,6 +59,7 @@ public:
     explicit HamlibController(QObject *parent = nullptr);
     ~HamlibController() override;
 
+    static void initializeDiagnosticTrace(); // Global logging only; no CAT I/O.
     static bool isCompiledWithHamlib();
     static int hamRadioDeluxeModelId();
     static bool isHamRadioDeluxeModel(int rigModel);

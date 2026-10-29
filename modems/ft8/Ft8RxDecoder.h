@@ -35,6 +35,7 @@ class FtDecodeCoordinator;
  * MadModem while still reusing MSHV protocol tables, CRC polynomial and message
  * unpacking code under third_party/mshv_gpl/port.
  */
+class FtReferenceRecovery;
 class Ft8RxDecoder : public QObject
 {
     Q_OBJECT
@@ -56,6 +57,11 @@ public:
 
     struct PerfStats
     {
+        int referenceDecodes = 0;
+        int referenceWorkers = 0;
+        int referenceRejected = 0;
+        double referenceMs = 0.0;
+        bool referenceCutoff = false;
         QString modeName;       // FT8/FT4 owner of these stats; keeps live rolling averages mode-local
         QString slotUtc;
         int candidateCount = 0;
@@ -254,6 +260,9 @@ signals:
     void offlineAnalysisFinished(const QString &filePath, bool ok, int decodeCount, const QString &message);
 
 private:
+    std::unique_ptr<FtReferenceRecovery> m_referenceRecovery;
+    void appendReferenceRecovery(const QVector<double>&,const QDateTime&,QVector<Decode>&,PerfStats*,const std::function<void(const QVector<Decode>&)>&);
+
     // Capture/profile access must not wait for the coordinator's whole-decode lock.
     std::atomic<int> m_captureSlotMs{15000};
     bool m_liveInputEnabled = false;

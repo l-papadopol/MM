@@ -1,3 +1,7 @@
+#include "FtDiagnostics.h"
+#include "FtReferenceRecovery.h"
+#include <QScopeGuard>
+#include "../../runtime/SessionDiagnostics.h"
 #include "Ft8RxDecoder.h"
 #include <QElapsedTimer>
 #include "../../dsp/gpu/FtSyncCompute.h"
@@ -1868,6 +1872,7 @@ void Ft8RxDecoder::analyzeAudioFile(const QString &filePath)
             ++zeroDecodeSlots;
         }
         stats.decodeCount = emitted;
+        recordFtPerformance(stats,"decoder.publish");
         emit performanceUpdated(stats);
         emit statusChanged(QStringLiteral("%1 offline live slot %2/%3: %4 candidate(s), %5 decode(s), %6 ms")
                                .arg(currentShortLabel())
@@ -1933,6 +1938,7 @@ bool Ft8RxDecoder::decodeCancellationRequested() const noexcept
 
 void Ft8RxDecoder::emitTimelineDiagnosticThrottled(const QString &message)
 {
+    SessionDiagnostics::instance().record("ft.timeline",{{"message",message}});
     const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
     if (m_lastTimelineDiagnosticUtcMs > 0 && nowMs - m_lastTimelineDiagnosticUtcMs < 1000) {
         return;
@@ -2170,6 +2176,7 @@ void Ft8RxDecoder::appendTimedResampled(const QVector<double> &samples, qint64 f
 
 void Ft8RxDecoder::processAudioBlock(const AudioBlock &block)
 {
+    SessionDiagnostics::instance().audio(m_liveInputEnabled?"ft.ingest":"ft.ingest.ignored",block);
     if (!m_liveInputEnabled) {
         return;
     }
@@ -2586,7 +2593,8 @@ void Ft8RxDecoder::startAsyncDecodeSlot(const QVector<double> &samples,
                     stats.incrementalPreparedRows=prepared?int(prepared->rows.size()):0;
                     stats.incrementalPreparationMs=prepared?prepared->preparationMs:0.0;
                     stats.decodeCount = emittedCount;
-                    emit performanceUpdated(stats);
+                    recordFtPerformance(stats,"decoder.publish");
+        emit performanceUpdated(stats);
                     if (phase.startsWith(QStringLiteral("wsjtx-gate"))) {
                         emit statusChanged(QStringLiteral("%1 live decode gate: slot %2, %3 candidate(s), %4 decode(s), %5 ms")
                                                .arg(jobModeName)
@@ -2659,6 +2667,7 @@ bool Ft8RxDecoder::markDecodeEmitted(const Decode &decode, const QDateTime &slot
                         decode.message.trimmed().toUpper();
     std::lock_guard<std::mutex> lock(m_emittedDecodeMutex);
     if (m_emittedDecodeKeys.contains(key)) {
+        SessionDiagnostics::instance().record("ft.emission",{{"message",decode.message},{"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},{"frequency",decode.frequencyHz},{"published",false},{"reason","duplicate"}});
         return false;
     }
     if (m_emittedDecodeKeys.size() > 512) {
@@ -2696,6 +2705,7 @@ bool Ft8RxDecoder::markDecodeEmitted(const Decode &decode, const QDateTime &slot
         }
     }
     m_emittedDecodeKeys.insert(key);
+    SessionDiagnostics::instance().record("ft.emission",{{"message",decode.message},{"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},{"frequency",decode.frequencyHz},{"published",true}});
     return true;
 }
 
@@ -3003,6 +3013,18 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                                                        const std::function<void(const QVector<Decode> &)> &publish)
 {
     std::lock_guard<std::recursive_mutex> configLock(m_decodeConfigMutex);
+    const bool traceJob=SessionDiagnostics::instance().enabled();
+    static std::atomic<quint64> jobCounter{0};const auto job=traceJob?++jobCounter:0;
+    const auto diagnosticJobStart=std::chrono::steady_clock::now();
+    if(traceJob)SessionDiagnostics::instance().record("ft.job.begin",{{"job",QString::number(job)},{"mode",m_modeName},{"phase",stats?stats->phase:QString()},
+        {"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},{"input_id",QString::number(quintptr(samples.constData()),16)},
+        {"samples",samples.size()},{"radio_hz",m_radioFrequencyHz.load()},{"low_hz",m_searchLowHz},{"high_hz",m_searchHighHz},{"marker_hz",m_rxMarkerHz},
+        {"deep",m_deepDecodeEnabled},{"dsp_plus",m_dspPlusDecodeEnabled},{"offline",m_offlineAnalysisActive.load()}});
+    const auto diagnosticJobGuard=qScopeGuard([&]{if(traceJob){
+        if(stats)recordFtPerformance(*stats,"decoder.finished");
+        SessionDiagnostics::instance().record("ft.job.end",{{"job",QString::number(job)},{"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},
+            {"decodes",stats?stats->decodeCount:-1},{"elapsed_ms",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-diagnosticJobStart).count()}});
+    }});
     if (decodeCancellationRequested()) {
         if (candidateCount != nullptr) *candidateCount = 0;
         if (stats != nullptr) stats->earlyStopReason = QStringLiteral("shutdown or capture-generation change requested");
@@ -3297,7 +3319,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                     localRejects.append(rejectReason);
                     if (failedForCoherent && (rejectReason == DecodeRejectReason::Ldpc ||
                                               rejectReason == DecodeRejectReason::Crc)) {
-                        coherentFailed[static_cast<size_t>(i)] = 1;
+                        coherentFailed[static_cast<size_t>(i)] = quality.coherentMetricAttempts == 0;
                     }
                     if (rejectReason == DecodeRejectReason::Ldpc) {
                         localLdpcFailureQualities.append(quality);
@@ -3383,7 +3405,10 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
     auto alreadyDecoded = [](const QVector<CandidateDecode> &decoded, const Candidate &c) {
         for (const CandidateDecode &d : decoded) {
-            if (std::abs(d.candidate.baseHz - c.baseHz) < 25.0 &&
+            // A cancelled signal must not exclude a whole 25 Hz neighbourhood:
+            // distinct FT8 callers can share that region. Match only within one
+            // 3.125 Hz search step, retaining the established time tolerance.
+            if (std::abs(d.candidate.baseHz - c.baseHz) < 3.125 &&
                 std::abs(d.candidate.startSec - c.startSec) < 0.35) {
                 return true;
             }
@@ -3547,6 +3572,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         decodesBeforePass = decodedSoFar.size();
         const auto searchStart = Clock::now();
         QVector<Candidate> passCandidates = findCandidates(working, passes[pass].threshold);
+        if(SessionDiagnostics::instance().enabled())SessionDiagnostics::instance().record("ft.search",{{"mode","FT8"},{"input_id",QString::number(quintptr(working.constData()),16)},
+            {"low_hz",qMax(100,m_searchLowHz)},{"high_hz",qMin(3000,m_searchHighHz)},{"threshold",passes[pass].threshold},{"kept",passCandidates.size()},
+            {"time_first_s",0.0},{"time_last_s",double(qMin<int>(working.size()-kSymbols*kSamplesPerSymbol-1,3*kDecodeSampleRate))/kDecodeSampleRate},
+            {"step_s",(m_deepDecodeEnabled||m_dspPlusDecodeEnabled)?0.04:0.06},{"step_hz",(m_deepDecodeEnabled||m_dspPlusDecodeEnabled)?3.125:6.25}});
+
         QVector<Candidate> filtered;
         filtered.reserve(passCandidates.size());
         int normalFilteredCount = 0;
@@ -3565,6 +3595,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                 break;
             }
         }
+        if(SessionDiagnostics::instance().enabled())SessionDiagnostics::instance().record("ft.pass",{{"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},
+            {"pass",pass},{"raw",passCandidates.size()},{"admitted",filtered.size()},{"threshold",passes[pass].threshold},
+            {"input_id",QString::number(quintptr(working.constData()),16)}});
         const auto searchEnd = Clock::now();
         searchMs += std::chrono::duration<double, std::milli>(searchEnd - searchStart).count();
 
@@ -4051,6 +4084,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
     }
 
 
+    appendReferenceRecovery(samples, slotStartUtc, out, stats, publish);
+
     m_lastCandidateCount.store(totalCandidates);
     if (candidateCount != nullptr) {
         *candidateCount = totalCandidates;
@@ -4503,6 +4538,27 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                                    bool allowGf2Osd,
                                     bool coherentRecoveryOnly)
 {
+    const bool traceEnabled=SessionDiagnostics::instance().enabled();
+    const auto traceStart=std::chrono::steady_clock::now();
+    const auto recoveryStart = std::chrono::steady_clock::now();
+    auto recoveryTimeAvailable = [&] {
+        return !decodeCancellationRequested() &&
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now()-recoveryStart).count() < 24.0 &&
+            (m_offlineAnalysisActive.load() || QDateTime::currentMSecsSinceEpoch() <
+                slotStartUtc.toMSecsSinceEpoch() + 15000 + 1100);
+    };
+    bool traceAccepted=false;
+    const auto traceGuard=qScopeGuard([&]{
+        if(!traceEnabled)return;
+        QJsonObject data{{"gf2_allowed",allowGf2Osd},{"metric_recovery_allowed",allowMetricRecovery},{"mode","FT8"},{"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},
+            {"freq",candidate.baseHz},{"start",candidate.startSec},{"score",candidate.score},
+            {"input_id",QString::number(quintptr(samples.constData()),16)},{"accepted",traceAccepted},{"reason",rejectReasonOut?int(*rejectReasonOut):-1},
+            {"message",traceAccepted?decodeOut.message:QString()},
+            {"elapsed_ms",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-traceStart).count()}};
+        if(qualityOut){data.insert("hard_sync",qualityOut->hardSyncCount);data.insert("llr",qualityOut->meanAbsLlr);data.insert("osd_tries",qualityOut->osdGf2Tried);data.insert("osd_ms",qualityOut->osdGf2TotalMs);}
+        SessionDiagnostics::instance().record("ft.candidate",data);
+    });
+
     /*
      * v3.27: first real recovery step: keep the fast v3.25 candidate matrix,
      * but stop feeding the LDPC stage with the raw 40 ms / 3.125 Hz grid hit.
@@ -4805,6 +4861,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     };
 
     auto tryDecodeMetric = [&](const std::array<double, 174> &candidateLlr, bool allowOsdLite) {
+        if (decodeCancellationRequested()) return false;
         std::array<int, 174> candidateBits{};
         std::array<double, 174> posterior{};
         int candidateIterations = 0;
@@ -4820,7 +4877,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         // the proven min-sum/OSD/residual pipeline. Keep it available for
         // controlled offline A/B only until same-WAV evidence justifies live use.
         const bool sumProductAllowed = m_offlineAnalysisActive.load();
-        if (!ldpcSuccess && sumProductAllowed) {
+        if (!ldpcSuccess && sumProductAllowed && recoveryTimeAvailable()) {
             if (qualityOut != nullptr) {
                 ++qualityOut->sumProductAttempts;
             }
@@ -4857,7 +4914,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
             if (tryGf2Osd && decodeCancellationRequested()) {
                 return reject(DecodeRejectReason::Boundary);
             }
-            if (tryGf2Osd) {
+            if (tryGf2Osd && recoveryTimeAvailable()) {
                 if (qualityOut != nullptr) {
                     ++qualityOut->osdGf2Tried;
                 }
@@ -4988,144 +5045,14 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     const bool allowFt8bMetricRecovery = allowMetricRecovery &&
                                          (m_deepDecodeEnabled || m_dspPlusDecodeEnabled) &&
                                          promisingForMetricRecovery;
-    if (!metricDecoded && allowFt8bMetricRecovery && !coherentRecoveryOnly) {
-        auto normalizeBmet = [](std::array<double, 174> &bmet) {
-            double mean = 0.0;
-            double mean2 = 0.0;
-            for (double v : bmet) {
-                mean += v;
-                mean2 += v * v;
-            }
-            mean /= 174.0;
-            mean2 /= 174.0;
-            const double var = mean2 - mean * mean;
-            double sigma = (var > 0.0) ? std::sqrt(var) : std::sqrt(qMax(mean2, 0.0));
-            if (!(sigma > 1.0e-5) || !std::isfinite(sigma)) {
-                sigma = 1.0e-5;
-            }
-            for (double &v : bmet) {
-                v /= sigma;
-            }
-        };
-
-        auto computeGroupedMetric = [&dataMagnitudes](int groupSize) {
-            std::array<double, 174> out{};
-            out.fill(0.0);
-            if (groupSize < 1 || groupSize > 3) {
-                return out;
-            }
-
-            const int bitsPerGroup = 3 * groupSize;
-            const int comboCount = 1 << bitsPerGroup;
-            for (int half = 0; half < 2; ++half) {
-                const int dataBase = half * 29;
-                const int bitBase = half * 87;
-                for (int groupStart = 0; groupStart + groupSize <= 29; groupStart += groupSize) {
-                    double score[512];
-                    for (int combo = 0; combo < comboCount; ++combo) {
-                        double s = 0.0;
-                        for (int g = 0; g < groupSize; ++g) {
-                            const int shift = 3 * (groupSize - 1 - g);
-                            const int idx = (combo >> shift) & 0x7;
-                            s += dataMagnitudes[dataBase + groupStart + g][idx];
-                        }
-                        score[combo] = s;
-                    }
-
-                    for (int bit = 0; bit < bitsPerGroup; ++bit) {
-                        const int globalBit = bitBase + groupStart * 3 + bit;
-                        if (globalBit < 0 || globalBit >= 174) {
-                            continue;
-                        }
-                        double best0 = -1.0e99;
-                        double best1 = -1.0e99;
-                        const int mask = 1 << (bitsPerGroup - 1 - bit);
-                        for (int combo = 0; combo < comboCount; ++combo) {
-                            if ((combo & mask) != 0) {
-                                best1 = std::max(best1, score[combo]);
-                            } else {
-                                best0 = std::max(best0, score[combo]);
-                            }
-                        }
-                        // MadModem LDPC convention: positive LLR means bit 0,
-                        // negative means bit 1.  This is the sign opposite of
-                        // the boolean helper arrays used inside the MSHV source.
-                        out[globalBit] = best0 - best1;
-                    }
-                }
-            }
-            return out;
-        };
-
-        auto scaledMetric = [](const std::array<double, 174> &metric, double scale) {
-            std::array<double, 174> out{};
-            for (int i = 0; i < 174; ++i) {
-                out[i] = qBound(-18.0, metric[i] * scale, 18.0);
-            }
-            return out;
-        };
-
-        std::array<double, 174> bmeta = computeGroupedMetric(1);
-        std::array<double, 174> bmetb = computeGroupedMetric(2);
-        std::array<double, 174> bmetc = computeGroupedMetric(3);
-        std::array<double, 174> bmetd{};
-        bmetd.fill(0.0);
-
-        for (int i = 0; i < 174; ++i) {
-            const int dataSym = i / 3;
-            const int bit = i % 3;
-            if (dataSym < 0 || dataSym >= 58) {
-                continue;
-            }
-            double den = 0.0;
-            double best0 = -1.0e99;
-            double best1 = -1.0e99;
-            for (int idx = 0; idx < 8; ++idx) {
-                const double v = dataMagnitudes[dataSym][idx];
-                den = std::max(den, v);
-                const bool one = ((idx >> (2 - bit)) & 1) != 0;
-                if (one) {
-                    best1 = std::max(best1, v);
-                } else {
-                    best0 = std::max(best0, v);
-                }
-            }
-            bmetd[i] = (den > 0.0) ? ((best0 - best1) / den) : 0.0;
-        }
-
-        std::array<double, 174> bmete{};
-        for (int i = 0; i < 174; ++i) {
-            bmete[i] = bmeta[i];
-            if (std::abs(bmetb[i]) > std::abs(bmete[i])) {
-                bmete[i] = bmetb[i];
-            }
-            if (std::abs(bmetc[i]) > std::abs(bmete[i])) {
-                bmete[i] = bmetc[i];
-            }
-        }
-
-        normalizeBmet(bmeta);
-        normalizeBmet(bmetb);
-        normalizeBmet(bmetc);
-        normalizeBmet(bmetd);
-        normalizeBmet(bmete);
-
-        // MSHV/WSJT-X typically feed normalized bit metrics with a scale around
-        // 2.8 into the BP decoder.  Keep the legacy LLR first to avoid
-        // regressions, then try the ft8b families in the same spirit.
-        constexpr double kFt8bMetricScale = 2.83;
-        if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmete, kFt8bMetricScale), true);
-        if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmeta, kFt8bMetricScale), false);
-        if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmetb, kFt8bMetricScale), false);
-        if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmetc, kFt8bMetricScale), false);
-        if (!metricDecoded) metricDecoded = tryDecodeMetric(scaledMetric(bmetd, kFt8bMetricScale), false);
-    }
+    // R29: independent amplitude sums collapse to the one-symbol metric.
+    // Use the complex path below, including groups extending into Costas.
     // Deep boundary-only coherent path.  The candidate is mixed and
     // decimated to 200 Hz (32 complex samples/symbol), preserving phase before
     // the 1/2/3-symbol metrics are formed.  This is never run by the early gate
     // and does not alter the ghost-candidate policy above.
     if (!metricDecoded && allowFt8bMetricRecovery &&
-        (m_offlineAnalysisActive.load() || coherentRecoveryOnly) &&
+        recoveryTimeAvailable() &&
         t_currentFtWorkClass != MadModemRuntime::WorkClass::FtGate) {
         if (qualityOut != nullptr) {
             ++qualityOut->coherentMetricAttempts;
@@ -5329,6 +5256,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     Q_UNUSED(candidate)
     Q_UNUSED(reconstructedSymbolCount)
     decodeOut.snrDb = wsjtxFt8ReportDb(codewordSignalPower, oppositeToneNoisePower, hardSyncCount);
+    traceAccepted=true;
     return true;
 }
 
@@ -5457,6 +5385,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
         return a.syncScore > b.syncScore;
     };
 
+    CandidateAttemptQuality osdTotals;
     int diagAttemptedCandidates = 0;
     int diagLdpcTried = 0;
     int diagSyncGateRejects = 0;
@@ -5470,7 +5399,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
     const bool gateCandidateSet = stats != nullptr &&
                                   stats->phase.startsWith(QStringLiteral("wsjtx-gate"));
 
-    auto decodeCandidateSet = [this, &slotStartUtc,
+    auto decodeCandidateSet = [this, &osdTotals, &slotStartUtc,
                                &diagAttemptedCandidates, &diagLdpcTried,
                                &diagSyncGateRejects, &diagLdpcFailures,
                                &diagCrcFailures, &diagMessageRejects,
@@ -5499,7 +5428,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
         // the same atomic work stealing as FT8 so one hard LDPC cluster cannot
         // leave the other persistent workers idle.
         FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount,
-            [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs,
+            [this, &osdTotals, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs,
              &rawMutex, &diagMutex, &nextCandidate,
              &diagAttemptedCandidates, &diagLdpcTried,
              &diagSyncGateRejects, &diagLdpcFailures,
@@ -5541,6 +5470,16 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
                                                         &quality,
                                                         &rejectReason,
                                                         &decodedTones);
+                { std::lock_guard<std::mutex> lock(diagMutex);
+                    osdTotals.osdGf2Tried += quality.osdGf2Tried;
+                    osdTotals.osdGf2Recovered += quality.osdGf2Recovered;
+                    osdTotals.osdGf2RankFails += quality.osdGf2RankFails;
+                    osdTotals.osdGf2PivotSkips += quality.osdGf2PivotSkips;
+                    osdTotals.osdGf2Order0Hits += quality.osdGf2Order0Hits;
+                    osdTotals.osdGf2Order1Hits += quality.osdGf2Order1Hits;
+                    osdTotals.osdGf2BudgetSkips += quality.osdGf2BudgetSkips;
+                    osdTotals.osdGf2TotalMs += quality.osdGf2TotalMs;
+                }
                 localSumProductAttempts += quality.sumProductAttempts;
                 localSumProductRecovered += quality.sumProductRecovered;
                 localCoherentMetricAttempts += quality.coherentMetricAttempts;
@@ -5838,6 +5777,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
 
     if (!gateCandidateSet) recoverDriftingSignal(samples, slotStartUtc, out, stats, publish);
 
+    appendReferenceRecovery(samples, slotStartUtc, out, stats, publish);
+
     const auto totalEnd = Clock::now();
     const double finalTotalMs = std::chrono::duration<double, std::milli>(totalEnd - totalStart).count();
     const MadModemRuntime::WorkClass workClass = t_currentFtWorkClass;
@@ -5864,6 +5805,14 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
         stats->dedupDropped = dropped;
         stats->totalMs = finalTotalMs;
         stats->attemptedCandidates = diagAttemptedCandidates;
+        stats->osdGf2Tried = osdTotals.osdGf2Tried;
+        stats->osdGf2Recovered = osdTotals.osdGf2Recovered;
+        stats->osdGf2RankFails = osdTotals.osdGf2RankFails;
+        stats->osdGf2PivotSkips = osdTotals.osdGf2PivotSkips;
+        stats->osdGf2Order0Hits = osdTotals.osdGf2Order0Hits;
+        stats->osdGf2Order1Hits = osdTotals.osdGf2Order1Hits;
+        stats->osdGf2BudgetSkips = osdTotals.osdGf2BudgetSkips;
+        stats->osdGf2TotalMs = osdTotals.osdGf2TotalMs;
         stats->ldpcTried = diagLdpcTried;
         stats->ldpcFailures = diagLdpcFailures;
         stats->crcFailures = diagCrcFailures;
@@ -6135,6 +6084,27 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
                                       DecodeRejectReason *rejectReasonOut,
                                       std::array<int, 103> *decodedTonesOut)
 {
+    const bool traceEnabled=SessionDiagnostics::instance().enabled();
+    const auto traceStart=std::chrono::steady_clock::now();
+    const auto recoveryStart = std::chrono::steady_clock::now();
+    auto recoveryTimeAvailable = [&] {
+        return !decodeCancellationRequested() &&
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now()-recoveryStart).count() < 24.0 &&
+            (m_offlineAnalysisActive.load() || QDateTime::currentMSecsSinceEpoch() <
+                slotStartUtc.toMSecsSinceEpoch() + 7500 + 1100);
+    };
+    bool traceAccepted=false;
+    const auto traceGuard=qScopeGuard([&]{
+        if(!traceEnabled)return;
+        QJsonObject data{{"mode","FT4"},{"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},
+            {"freq",candidate.baseHz},{"start",candidate.startSec},{"score",candidate.score},
+            {"input_id",QString::number(quintptr(samples.constData()),16)},{"accepted",traceAccepted},{"reason",rejectReasonOut?int(*rejectReasonOut):-1},
+            {"message",traceAccepted?decodeOut.message:QString()},
+            {"elapsed_ms",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-traceStart).count()}};
+        if(qualityOut){data.insert("hard_sync",qualityOut->hardSyncCount);data.insert("llr",qualityOut->meanAbsLlr);data.insert("osd_tries",qualityOut->osdGf2Tried);data.insert("osd_ms",qualityOut->osdGf2TotalMs);}
+        SessionDiagnostics::instance().record("ft.candidate",data);
+    });
+
     constexpr int kFt4Symbols = 103;
     constexpr int kFt4DataSymbols = 87;
     constexpr int kFt4SamplesPerSymbol = 576;
@@ -6364,7 +6334,7 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
     // Boundary/offline deep path: isolate the candidate as a complex 666.67 Hz
     // baseband (32 complex samples/symbol) and form coherent 1/2/4-symbol
     // metrics.  The early gate keeps the proven inexpensive metric only.
-    if (!fecDecoded && m_offlineAnalysisActive.load() &&
+    if (!fecDecoded && (m_deepDecodeEnabled || m_dspPlusDecodeEnabled) && recoveryTimeAvailable() &&
         t_currentFtWorkClass != MadModemRuntime::WorkClass::FtGate) {
         if (qualityOut != nullptr) {
             ++qualityOut->coherentMetricAttempts;
@@ -6559,6 +6529,30 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
         }
     }
 
+    if (!fecDecoded && m_dspPlusDecodeEnabled && bestHardSync >= 10 &&
+        t_currentFtWorkClass != MadModemRuntime::WorkClass::FtGate && recoveryTimeAvailable()) {
+        auto permit = MadModemRuntime::SystemResourceManager::instance().tryAcquireOsdPermit();
+        if (permit) {
+            std::array<int,174> trial{};
+            int order=-1, skips=0; bool rankFail=false;
+            const auto begin=std::chrono::steady_clock::now();
+            if (qualityOut) ++qualityOut->osdGf2Tried;
+            // Use channel LLRs, not FT8 scrambling or its packing rules.
+            if (osdGf2Repair174_91(llr,trial,order,rankFail,skips,91,0) && crc14Ok(trial)) {
+                bits=trial; fecDecoded=true;
+                if (qualityOut) { ++qualityOut->osdGf2Recovered;
+                    if(order==0) ++qualityOut->osdGf2Order0Hits;
+                    if(order==1) ++qualityOut->osdGf2Order1Hits; }
+            }
+            if (qualityOut) {
+                qualityOut->osdGf2RankFails += rankFail;
+                qualityOut->osdGf2PivotSkips += skips;
+                qualityOut->osdGf2TotalMs += std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-begin).count();
+            }
+            MadModemRuntime::SystemResourceManager::instance().releaseOsdPermit();
+        } else if (qualityOut) ++qualityOut->osdGf2BudgetSkips;
+    }
+
     if (!fecDecoded) {
         return reject(sawCrcFailure ? DecodeRejectReason::Crc : DecodeRejectReason::Ldpc);
     }
@@ -6666,6 +6660,7 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
                                                    offTonePower,
                                                    reconstructedSymbolCount,
                                                    offToneCount);
+    traceAccepted=true;
     return true;
 }
 
@@ -7102,7 +7097,7 @@ bool Ft8RxDecoder::ldpcDecode174_91(const std::array<double, 174> &llr,
             hardBits[v] = (post < 0.0) ? 1 : 0;
         }
 
-        if (syndromeOk(hardBits)) {
+        if (syndromeOk(hardBits) && crc14Ok(hardBits)) {
             iterationsUsed = iter + 1;
             return true;
         }
@@ -7125,7 +7120,7 @@ bool Ft8RxDecoder::ldpcDecode174_91(const std::array<double, 174> &llr,
     }
 
     iterationsUsed = 35;
-    return syndromeOk(hardBits);
+    return syndromeOk(hardBits) && crc14Ok(hardBits);
 }
 
 bool Ft8RxDecoder::ldpcDecode174_91SumProduct(const std::array<double, 174> &llr,
@@ -7198,7 +7193,7 @@ bool Ft8RxDecoder::ldpcDecode174_91SumProduct(const std::array<double, 174> &llr
             }
             hardBits[static_cast<size_t>(v)] = posterior < 0.0 ? 1 : 0;
         }
-        if (syndromeOk(hardBits)) {
+        if (syndromeOk(hardBits) && crc14Ok(hardBits)) {
             iterationsUsed = iter + 1;
             return true;
         }
@@ -7221,7 +7216,7 @@ bool Ft8RxDecoder::ldpcDecode174_91SumProduct(const std::array<double, 174> &llr
         }
     }
     iterationsUsed = 35;
-    return syndromeOk(hardBits);
+    return syndromeOk(hardBits) && crc14Ok(hardBits);
 }
 
 
@@ -7563,4 +7558,36 @@ int Ft8RxDecoder::grayInverse(int tone)
         }
     }
     return 0;
+}
+
+void Ft8RxDecoder::appendReferenceRecovery(const QVector<double>&samples,const QDateTime&slot,QVector<Decode>&out,PerfStats*stats,const std::function<void(const QVector<Decode>&)>&publish)
+{
+    if ((!m_deepDecodeEnabled && !m_dspPlusDecodeEnabled) || decodeCancellationRequested()) return;
+    if (!m_referenceRecovery) m_referenceRecovery.reset(new FtReferenceRecovery);
+    FtReferenceRecovery::Request request;
+    request.mode=m_modeName;request.myCall=m_myCall;request.dxCall=m_dxCall;
+    request.radioHz=m_radioFrequencyHz.load();request.lowHz=m_searchLowHz;request.highHz=m_searchHighHz;request.markerHz=m_rxMarkerHz;
+    request.epoch=m_decodeGeneration.load();request.slotUtcMs=slot.toMSecsSinceEpoch();request.phase=stats?stats->phase:QStringLiteral("boundary");
+    request.offline=m_offlineAnalysisActive.load()||(stats&&stats->offline);
+    const auto profile=Ft8Mode::profileForMode(m_modeName);
+    const bool gate=request.phase.startsWith(QStringLiteral("wsjtx-gate"));
+    request.deadlineUtcMs=request.slotUtcMs+profile.slotMs+(gate?-50:1100);
+    request.workers=FtDecodeWorkerPool::instance().recommendedWorkerCount(request.offline?MadModemRuntime::WorkClass::FtOffline:MadModemRuntime::WorkClass::FtBoundary,4);
+    request.cancelled=[this]{return decodeCancellationRequested();};
+    auto append=[&](const FtReferenceRecovery::Row&r) {
+        if (decodeCancellationRequested())return;
+        const bool known=std::any_of(out.cbegin(),out.cend(),[&](const Decode&d){return d.message.trimmed().compare(r.message,Qt::CaseInsensitive)==0;});
+        if(known)return;
+        Decode d;d.message=r.message;d.frequencyHz=r.frequency;d.snrDb=r.snr;d.dt=r.dt;d.syncScore=r.quality;d.utc=slot.time().toString(QStringLiteral("HHmmss"));d.slotStartUtcMs=request.slotUtcMs;d.slotPeriodMs=profile.slotMs;
+        out.append(d);if(stats)++stats->referenceDecodes;if(publish)publish(QVector<Decode>{d});
+    };
+    try {
+        const auto recovered=m_referenceRecovery->decode(samples,request,append);
+        // Retain earlier published gate recoveries even when a final job has
+        // no time left. No stale/cancelled generation is republished.
+        for(const auto&r:recovered.rows)append(r);
+        if(stats){stats->referenceMs=recovered.elapsedMs;stats->referenceWorkers=recovered.workers;stats->referenceRejected=recovered.rejected;stats->referenceCutoff=recovered.timedOut;}
+    } catch(const std::exception&e) {
+        SessionDiagnostics::instance().record("ft.reference.error",{{"mode",m_modeName},{"error",QString::fromUtf8(e.what())}});
+    }
 }

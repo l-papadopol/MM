@@ -1,3 +1,8 @@
+#include "../runtime/SessionDiagnostics.h"
+#include <QFileDialog>
+#include <QDir>
+#include <QDesktopServices>
+#include <QUrl>
 #include "AppSettingsDialog.h"
 #include <QFormLayout>
 #include "../utils/RuntimeI18n.h"
@@ -182,7 +187,7 @@ QList<RotatorModelPreset> buildRotatorPresets()
     QSet<int> seen;
 
 #ifdef MADMODEM_WITH_HAMLIB
-    rig_set_debug(RIG_DEBUG_NONE);
+    rig_set_debug(SessionDiagnostics::instance().enabled()?RIG_DEBUG_CACHE:RIG_DEBUG_NONE);
     rot_load_all_backends();
     HamlibRotatorPresetBuildContext ctx;
     ctx.presets = &presets;
@@ -649,6 +654,7 @@ AppSettingsDialog::AppSettingsDialog(const AppSettings &settings,
     addSettingsTab(InitialPage::Rotator, L(QStringLiteral("Rotator")), shouldBuildNow(InitialPage::Rotator));
     addSettingsTab(InitialPage::Scheduler, L(QStringLiteral("Scheduler")), shouldBuildNow(InitialPage::Scheduler));
     addSettingsTab(InitialPage::SoundCardCalibration, L(QStringLiteral("Soundcard calibration")), shouldBuildNow(InitialPage::SoundCardCalibration));
+    addSettingsTab(InitialPage::Diagnostics, L(QStringLiteral("Diagnostics")), shouldBuildNow(InitialPage::Diagnostics));
 
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int index) {
         ensureSettingsTabBuilt(index);
@@ -801,6 +807,8 @@ QWidget *AppSettingsDialog::buildSettingsPage(InitialPage page)
         return m_rotatorPage;
     case InitialPage::QrzAccount:
         return makeQrzAccountPage();
+    case InitialPage::Diagnostics:
+        return makeDiagnosticsPage();
     case InitialPage::FtDecoder:
         return makeFtDecoderPage();
     case InitialPage::Scheduler:
@@ -1406,6 +1414,52 @@ QWidget *AppSettingsDialog::makeLogbookPage()
     return scroll;
 }
 
+QWidget *AppSettingsDialog::makeDiagnosticsPage()
+{
+    auto *holder=new QWidget(this);auto *layout=new QVBoxLayout(holder);
+    layout->setContentsMargins(10,10,10,10);
+    auto *diagnostics = new QGroupBox(L(QStringLiteral("Session diagnostics")), holder);
+    auto *diagnosticLayout = new QVBoxLayout(diagnostics);
+    m_chkSessionDiagnostics = new QCheckBox(L(QStringLiteral("Record complete session diagnostics to a file")), diagnostics);
+    m_chkSessionDiagnostics->setObjectName("sessionDiagnosticsEnabled");
+    m_chkSessionDiagnostics->setChecked(m_initialSettings.sessionDiagnosticsEnabled);
+    diagnosticLayout->addWidget(m_chkSessionDiagnostics);
+    auto *folderRow = new QHBoxLayout;
+    m_editDiagnosticsFolder = new QLineEdit(diagnostics);
+    m_editDiagnosticsFolder->setObjectName("sessionDiagnosticsFolder");
+    m_editDiagnosticsFolder->setReadOnly(true);
+    m_editDiagnosticsFolder->setText(m_initialSettings.sessionDiagnosticsFolder.isEmpty()?SessionDiagnostics::defaultFolder():m_initialSettings.sessionDiagnosticsFolder);
+    auto *browse = new QPushButton("...", diagnostics);
+    auto *open = new QPushButton(L(QStringLiteral("Open log folder")), diagnostics);
+    folderRow->addWidget(m_editDiagnosticsFolder,1);folderRow->addWidget(browse);folderRow->addWidget(open);
+    diagnosticLayout->addLayout(folderRow);
+    connect(browse,&QPushButton::clicked,this,[this]{
+        const QString folder=QFileDialog::getExistingDirectory(this,L(QStringLiteral("Session diagnostics")),m_editDiagnosticsFolder->text());
+        if(!folder.isEmpty())m_editDiagnosticsFolder->setText(folder);
+    });
+    auto *diagnosticHint = new QLabel(L(QStringLiteral("Records audio timing, decoder attempts, messages, CAT, TX and UI events. Audio samples use the separate WAV recorder. Files can grow large. Changes apply with OK.")), diagnostics);
+    diagnosticHint->setWordWrap(true);diagnosticLayout->addWidget(diagnosticHint);
+    auto *diagnosticStatus = new QLabel(diagnostics);diagnosticStatus->setObjectName("sessionDiagnosticsStatus");diagnosticStatus->setWordWrap(true);diagnosticLayout->addWidget(diagnosticStatus);
+    diagnosticStatus->setTextFormat(Qt::PlainText);
+    diagnosticStatus->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);
+    connect(open,&QPushButton::clicked,this,[this,diagnosticStatus]{
+        const QString folder=m_editDiagnosticsFolder->text();
+        if(!QDir(folder).exists())diagnosticStatus->setText(L(QStringLiteral("Folder does not exist yet.")));
+        else if(!QDesktopServices::openUrl(QUrl::fromLocalFile(folder)))diagnosticStatus->setText(L(QStringLiteral("Unable to open log folder.")));
+    });
+    auto updateDiagnosticStatus=[this,diagnosticStatus]{
+        auto &log=SessionDiagnostics::instance();
+        QString text=log.enabled()?L(QStringLiteral("Recording: %1")).arg(log.path()):L(QStringLiteral("Logging is disabled."));
+        if(!log.enabled()&&!log.path().isEmpty())text+="\n"+L(QStringLiteral("Last file: %1")).arg(log.path());
+        if(!log.error().isEmpty())text+="\n"+log.error();
+        if(log.lost()>0)text+="\n"+L(QStringLiteral("Events lost: %1. Log is incomplete.")).arg(log.lost());
+        diagnosticStatus->setText(text);
+    };
+    auto *statusTimer=new QTimer(diagnostics);connect(statusTimer,&QTimer::timeout,diagnostics,updateDiagnosticStatus);statusTimer->start(500);updateDiagnosticStatus();
+    layout->addWidget(diagnostics);
+    layout->addStretch(1);return holder;
+}
+
 QWidget *AppSettingsDialog::makeAppearancePage()
 {
     QWidget *holder = new QWidget(this);
@@ -1493,6 +1547,7 @@ QWidget *AppSettingsDialog::makeAppearancePage()
     QLabel *hint = new QLabel(L(QStringLiteral("Theme changes are applied after closing Settings with OK. Some window chrome details may require restarting MadModem.")), holder);
     hint->setWordWrap(true);
     hint->setStyleSheet(QStringLiteral("font-style: italic;"));
+
 
     layout->addWidget(themeGroup);
     layout->addWidget(hint);
@@ -2151,6 +2206,7 @@ void AppSettingsDialog::setInitialPage(InitialPage page)
     case InitialPage::Rotator: index = 5; break;
     case InitialPage::Scheduler: index = 6; break;
     case InitialPage::SoundCardCalibration: index = 7; break;
+    case InitialPage::Diagnostics: index = 8; break;
     }
     if (index >= 0 && index < m_tabs->count()) {
         ensureSettingsTabBuilt(index);
@@ -2332,6 +2388,8 @@ void AppSettingsDialog::setRotatorConnectionStatus(int profileIndex, bool connec
 void AppSettingsDialog::collectSettings()
 {
     AppSettings merged = m_initialSettings;
+    if(m_chkSessionDiagnostics)merged.sessionDiagnosticsEnabled=m_chkSessionDiagnostics->isChecked();
+    if(m_editDiagnosticsFolder)merged.sessionDiagnosticsFolder=m_editDiagnosticsFolder->text();
     if (m_editQrzUsername) merged.qrzUsername = m_editQrzUsername->text().trimmed();
     if (m_editQrzPassword) merged.qrzPassword = m_editQrzPassword->text();
     if (m_chkFtDriftRx) merged.ftDriftRxEnabled = m_chkFtDriftRx->isChecked();

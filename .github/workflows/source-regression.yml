@@ -28,7 +28,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config python3 \
-            libgl1-mesa-dev libhamlib-dev
+            libgl1-mesa-dev libhamlib-dev libfftw3-dev
           if [ "${{ matrix.qt }}" = "5" ]; then
             sudo apt-get install -y --no-install-recommends \
               qtbase5-dev qttools5-dev qttools5-dev-tools \
@@ -44,7 +44,7 @@ jobs:
 
       - name: Configure portable release build
         run: |
-          cmake -S . -B build-ci -G Ninja \
+          cmake -S . -B build-ci -G "Unix Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_DISABLE_FIND_PACKAGE_Qt6=${{ matrix.qt == 5 && 'ON' || 'OFF' }} \
             -DMADMODEM_REQUIRE_QT_LOCATION=${{ matrix.qt == 5 && 'ON' || 'OFF' }} \

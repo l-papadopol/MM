@@ -316,8 +316,8 @@ def test_source_invariants() -> None:
 
     require(CPP.count("const bool sumProductAllowed = m_offlineAnalysisActive.load();") == 2,
             "FT8/FT4 sum-product is not restricted to controlled offline A/B")
-    require("if (!metricDecoded && allowFt8bMetricRecovery &&\n        (m_offlineAnalysisActive.load() || coherentRecoveryOnly)" in CPP,
-            "FT8 coherent path must require offline analysis or an explicit final retry")
+    require("if (!metricDecoded && allowFt8bMetricRecovery &&\n        recoveryTimeAvailable() &&" in CPP,
+            "FT8 live coherent path must respect the recovery deadline")
     require("liveBoundaryDecode && pass == 0 ? &coherentRetries : nullptr" in CPP and
             "failedForCoherent->size() < 32" in CPP,
             "tail failures must be bounded and collected in search order only at boundary")
@@ -334,8 +334,8 @@ def test_source_invariants() -> None:
     require("std::any_of(out.cbegin()" in tail and "out.append(decode)" in tail and
             "++coherentTailDecodes" in tail,
             "tail must append new messages while retaining all baseline results")
-    require("if (!fecDecoded && m_offlineAnalysisActive.load()" in CPP,
-            "FT4 coherent path is not restricted to offline A/B")
+    require("if (!fecDecoded && (m_deepDecodeEnabled || m_dspPlusDecodeEnabled) && recoveryTimeAvailable() &&" in CPP,
+            "FT4 coherent path is missing its live depth/deadline admission")
     require("for (int offset : {-120, -60, 0, 60, 120})" in CPP,
             "FT8 offline cancellation timing experiment missing")
     require("for (int offset : {-72, -36, 0, 36, 72})" in CPP,
@@ -348,6 +348,12 @@ def test_source_invariants() -> None:
     require("kDecimation = 60" in CPP and "kBasebandSamplesPerSymbol = 32" in CPP,
             "FT8 200 Hz complex A/B path missing")
     require("coherentMetricRaw(3" in CPP, "FT8 3-symbol coherent metric missing")
+    require("computeGroupedMetric" not in CPP, "degenerate amplitude group retry returned")
+    require(CPP.count("syndromeOk(hardBits) && crc14Ok(hardBits)") == 4,
+            "BP accepts parity without CRC")
+    ft4 = CPP[CPP.index("bool Ft8RxDecoder::decodeFt4Candidate("):]
+    require("osdGf2Repair174_91(llr,trial" in ft4 and "releaseOsdPermit()" in ft4,
+            "FT4 OSD fallback/permit release missing")
     ft8_start = CPP.index("// Deep boundary-only coherent path.")
     ft8_end = CPP.index("if (!metricDecoded) {", ft8_start)
     ft8_section = CPP[ft8_start:ft8_end]
