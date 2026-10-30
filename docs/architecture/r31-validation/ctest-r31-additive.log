@@ -1,0 +1,231 @@
+Internal ctest changing into directory: /workspace/scratch/5c40146f5a02/build
+Test project /workspace/scratch/5c40146f5a02/build
+      Start  1: madmodem_ft_ldpc_check
+ 1/58 Test  #1: madmodem_ft_ldpc_check ......................   Passed    0.01 sec
+      Start  2: madmodem_ft_native_spectrum
+ 2/58 Test  #2: madmodem_ft_native_spectrum .................   Passed    0.18 sec
+      Start  3: madmodem_ft_coherent_alignment
+ 3/58 Test  #3: madmodem_ft_coherent_alignment ..............   Passed    0.01 sec
+      Start  4: madmodem_ft_signal_envelope
+ 4/58 Test  #4: madmodem_ft_signal_envelope .................   Passed    2.43 sec
+      Start  5: madmodem_session_diagnostics
+ 5/58 Test  #5: madmodem_session_diagnostics ................   Passed    0.12 sec
+      Start  6: madmodem_decode_clipboard
+ 6/58 Test  #6: madmodem_decode_clipboard ...................   Passed    0.09 sec
+      Start  7: madmodem_ft_cq_worklist
+ 7/58 Test  #7: madmodem_ft_cq_worklist .....................   Passed    0.01 sec
+      Start  8: madmodem_ft_incremental_producer
+ 8/58 Test  #8: madmodem_ft_incremental_producer ............   Passed    0.01 sec
+      Start  9: madmodem_update_regression
+ 9/58 Test  #9: madmodem_update_regression ..................   Passed    0.06 sec
+      Start 10: madmodem_async_architecture_regression
+10/58 Test #10: madmodem_async_architecture_regression ......   Passed    0.30 sec
+      Start 11: madmodem_window_rotator_regression
+11/58 Test #11: madmodem_window_rotator_regression ..........   Passed    0.74 sec
+      Start 12: madmodem_runtime_workers_regression
+12/58 Test #12: madmodem_runtime_workers_regression .........   Passed    0.96 sec
+      Start 13: madmodem_settings_ui_regression
+13/58 Test #13: madmodem_settings_ui_regression .............   Passed    5.59 sec
+      Start 14: madmodem_tx_pull_regression
+14/58 Test #14: madmodem_tx_pull_regression .................   Passed    0.02 sec
+      Start 15: madmodem_i18n_regression
+15/58 Test #15: madmodem_i18n_regression ....................   Passed    0.01 sec
+      Start 16: madmodem_rotator_coordinates
+16/58 Test #16: madmodem_rotator_coordinates ................   Passed    0.00 sec
+      Start 17: madmodem_antialias_regression
+17/58 Test #17: madmodem_antialias_regression ...............   Passed    0.04 sec
+      Start 18: madmodem_capture_clock
+18/58 Test #18: madmodem_capture_clock ......................   Passed    2.99 sec
+      Start 19: madmodem_resampler_streaming
+19/58 Test #19: madmodem_resampler_streaming ................   Passed    0.13 sec
+      Start 20: madmodem_logbook_regression
+20/58 Test #20: madmodem_logbook_regression .................   Passed    0.03 sec
+      Start 21: madmodem_wav_reader_test
+21/58 Test #21: madmodem_wav_reader_test ....................   Passed    0.01 sec
+      Start 22: madmodem_audio_flow_accounting
+22/58 Test #22: madmodem_audio_flow_accounting ..............   Passed    0.01 sec
+      Start 23: madmodem_q65_native_regression
+23/58 Test #23: madmodem_q65_native_regression ..............   Passed    2.30 sec
+      Start 24: madmodem_msk144_native_regression
+24/58 Test #24: madmodem_msk144_native_regression ...........   Passed    0.47 sec
+      Start 25: madmodem_ft_reference_native
+25/58 Test #25: madmodem_ft_reference_native ................   Passed   18.06 sec
+      Start 26: madmodem_ft_native_frontend
+26/58 Test #26: madmodem_ft_native_frontend .................   Passed    3.79 sec
+      Start 27: madmodem_ft_coherent_native
+27/58 Test #27: madmodem_ft_coherent_native .................   Passed    5.33 sec
+      Start 28: madmodem_linux_update_helpers
+28/58 Test #28: madmodem_linux_update_helpers ...............   Passed    1.40 sec
+      Start 29: madmodem_linux_installer_preflight
+29/58 Test #29: madmodem_linux_installer_preflight ..........   Passed    0.19 sec
+      Start 30: madmodem_architecture_guard
+30/58 Test #30: madmodem_architecture_guard .................   Passed    0.49 sec
+      Start 31: madmodem_ui_contest_guard
+31/58 Test #31: madmodem_ui_contest_guard ...................   Passed    0.34 sec
+      Start 32: madmodem_ft_runtime_guard
+32/58 Test #32: madmodem_ft_runtime_guard ...................***Failed    0.43 sec
+MadModem consolidated guard suite: ft
+
+--- RUN scripts/check_ft_atomic_tx_lifecycle.py ---
+PASS: atomic decode-batch decision retained
+PASS: 1181 ms late operator request starts an intact FT8 frame now
+PASS: mode-specific current-slot window guarantees full-frame fit
+PASS: automatic too-late requests defer intact frames
+PASS: manual +6.2 s request emits a bounded current-period visual burst
+PASS: manual late burst preserves frame prefix and stops before slot flip
+PASS: CAT/PTT pre-arms before the UTC boundary
+PASS: TX start never blocks behind the FT decoder thread
+PASS: one immutable boundary drives delay, token and watchdog
+PASS: TX arm token has a monotonic generation
+PASS: stale boundary-only recovery removed
+PASS: expired slot is rejected before local TX row and PTT
+
+--- RUN scripts/check_ft_caller_queue_waterfall_restore.py ---
+PASS: caller queue setting exists
+PASS: caller queue setting loads
+PASS: caller queue setting saves
+PASS: caller queue checkbox exists
+PASS: session QSO counter exists
+PASS: FIFO uses first queued caller
+PASS: queue feeds normal sequencer
+PASS: queue uses shared opposite-period selector
+PASS: terminal acks do not resurrect queued QSO
+PASS: queued direct callers outrank Auto QSO CQ
+PASS: legacy parked late-reply fallback removed
+PASS: waterfall detects minimized top-level
+PASS: waterfall drops hidden/minimized display rows
+PASS: waterfall preserves GL history on restore
+PASS: waterfall resize does not recreate GL history
+PASS: waterfall drains queued FFT rows with fixed time geometry
+PASS: translations ui_cs.ini include queue/session keys without duplicates
+PASS: translations ui_de.ini include queue/session keys without duplicates
+PASS: translations ui_en.ini include queue/session keys without duplicates
+PASS: translations ui_fr.ini include queue/session keys without duplicates
+PASS: translations ui_it.ini include queue/session keys without duplicates
+PASS: translations ui_no.ini include queue/session keys without duplicates
+PASS: translation key parity ui_cs.ini
+PASS: translation key parity ui_de.ini
+PASS: translation key parity ui_en.ini
+PASS: translation key parity ui_fr.ini
+PASS: translation key parity ui_it.ini
+PASS: translation key parity ui_no.ini
+FT caller queue + stable waterfall source audit: PASS
+
+--- RUN scripts/check_ft_linear_sequencer.py ---
+PASS: AutoQSO reclaim/fallback path removed
+PASS: QSO activity/history selection cannot arm TX
+PASS: QSO activity/history selection explicitly requires TX
+PASS: terminal decode can interrupt an obsolete active FT frame
+PASS: final 73 cannot create another 73 retry
+PASS: sequencer regression covers late RR73 during TX
+PASS: sequencer regression covers repeated terminal decode
+PASS: FT decoder owns an explicit live-input gate
+PASS: AudioEngine routes FT blocks through a bounded decoder-thread queue
+PASS: MainWindow no longer duplicates FT audio transport
+PASS: generated FT TX audio is not injected into the RX waterfall
+PASS: generic TX monitor also freezes for FT family modes
+PASS: adaptive live-worker controller and mutable target removed
+PASS: live worker budget uses the proven topology while telemetry continues
+PASS: default CAT TX route does not query/restore rig mode
+PASS: rig mode is restored only when MadModem actually changed it
+PASS: FT8/FT4 periods are at the bottom of Mode outside the scroll area
+PASS: FT period clock is no longer placed in the Status tab
+PASS: redundant I/II range and UTC caption labels removed from the FT clock
+PASS: TX/SEQ/RETRY tag is metadata, not pending-plan identity
+FT linear sequencer source audit: PASS
+
+--- RUN scripts/check_ft_qso_deadline_priority.py ---
+PASS: candidate carries an explicit QSO-priority classification
+PASS: priority admission is restricted to the live gate
+PASS: priority admission requires an active QSO
+PASS: QSO search is bounded around the tracked correspondent
+PASS: QSO candidate work has a hard upper bound
+PASS: only the reserved QSO quota receives the lower sync floor
+PASS: reserved candidates do not consume the normal wideband quota
+PASS: QSO candidates enter LDPC before the general wideband candidates
+PASS: the bounded QSO set receives metric recovery
+PASS: the ordinary live gate keeps its established fast policy
+PASS: early completion validates both correspondent and local calls
+PASS: a recovered QSO reply returns without waiting for wideband LDPC
+PASS: no competing decoder path was introduced
+PASS: MainWindow propagates QSO lifecycle and callsign context
+PASS: the decoder receives the tracked correspondent frequency
+FT8 QSO deadline priority source audit: PASS
+
+--- RUN scripts/check_ft4_adaptive_runtime.sh ---
+FT4 active-QSO-first deadline runtime source audit: PASS
+
+--- RUN scripts/check_ft_wideband_sensitivity.sh ---
+Traceback (most recent call last):
+  File "/workspace/scratch/5c40146f5a02/work/tests/ft8/check_wideband_algorithms.py", line 376, in <module>
+    main()
+  File "/workspace/scratch/5c40146f5a02/work/tests/ft8/check_wideband_algorithms.py", line 365, in main
+    test_source_invariants()
+  File "/workspace/scratch/5c40146f5a02/work/tests/ft8/check_wideband_algorithms.py", line 301, in test_source_invariants
+    require(hashlib.sha256(without_incremental_reuse(ft8_finder).encode()).hexdigest() ==
+  File "/workspace/scratch/5c40146f5a02/work/tests/ft8/check_wideband_algorithms.py", line 23, in require
+    raise AssertionError(message)
+AssertionError: FT8 live candidate finder differs from the validated QSO-deadline checkpoint
+
+Consolidated ft suite FAILED in scripts/check_ft_wideband_sensitivity.sh (exit 1).
+
+      Start 33: madmodem_release_audit
+33/58 Test #33: madmodem_release_audit ......................   Passed    3.03 sec
+      Start 34: madmodem_receiver_filter_regression
+34/58 Test #34: madmodem_receiver_filter_regression .........   Passed    0.08 sec
+      Start 35: madmodem_cw_native_regression
+35/58 Test #35: madmodem_cw_native_regression ...............   Passed   28.03 sec
+      Start 36: madmodem_waterfall_native_regression
+36/58 Test #36: madmodem_waterfall_native_regression ........   Passed    2.18 sec
+      Start 37: madmodem_waterfall_integrity_guard
+37/58 Test #37: madmodem_waterfall_integrity_guard ..........   Passed    0.11 sec
+      Start 38: madmodem_ft_sequencer
+38/58 Test #38: madmodem_ft_sequencer .......................   Passed    0.01 sec
+      Start 39: madmodem_all_contest_exports_regression
+39/58 Test #39: madmodem_all_contest_exports_regression .....   Passed    1.75 sec
+      Start 40: madmodem_logbook_workflow_regression
+40/58 Test #40: madmodem_logbook_workflow_regression ........   Passed    0.32 sec
+      Start 41: madmodem_contest_export_regression
+41/58 Test #41: madmodem_contest_export_regression ..........   Passed    2.41 sec
+      Start 42: madmodem_cw_integration_regression
+42/58 Test #42: madmodem_cw_integration_regression ..........   Passed   18.26 sec
+      Start 43: madmodem_cw_ctc_prefix_regression
+43/58 Test #43: madmodem_cw_ctc_prefix_regression ...........   Passed    0.01 sec
+      Start 44: madmodem_cw_engine_regression
+44/58 Test #44: madmodem_cw_engine_regression ...............   Passed   11.22 sec
+      Start 45: madmodem_rtty_contest_regression
+45/58 Test #45: madmodem_rtty_contest_regression ............   Passed   10.25 sec
+      Start 46: madmodem_rtty_synthetic_bench
+46/58 Test #46: madmodem_rtty_synthetic_bench ...............   Passed    1.80 sec
+      Start 47: madmodem_text_assist_workers_regression
+47/58 Test #47: madmodem_text_assist_workers_regression .....   Passed    0.01 sec
+      Start 48: madmodem_installation_paths_regression
+48/58 Test #48: madmodem_installation_paths_regression ......   Passed    0.01 sec
+      Start 49: madmodem_installer_cpu_regression
+49/58 Test #49: madmodem_installer_cpu_regression ...........   Passed    0.01 sec
+      Start 50: madmodem_gpu_sync_fallback
+50/58 Test #50: madmodem_gpu_sync_fallback ..................   Passed    0.22 sec
+      Start 51: madmodem_hell_image_regression
+51/58 Test #51: madmodem_hell_image_regression ..............   Passed   13.91 sec
+      Start 52: madmodem_hell_image_extended
+52/58 Test #52: madmodem_hell_image_extended ................   Passed   54.45 sec
+      Start 53: madmodem_weatherfax_image_regression
+53/58 Test #53: madmodem_weatherfax_image_regression ........   Passed    6.97 sec
+      Start 54: madmodem_weatherfax_image_extended
+54/58 Test #54: madmodem_weatherfax_image_extended ..........   Passed   22.82 sec
+      Start 55: madmodem_sstv_vis_regression
+55/58 Test #55: madmodem_sstv_vis_regression ................   Passed   11.78 sec
+      Start 56: madmodem_sstv_editor_regression
+56/58 Test #56: madmodem_sstv_editor_regression .............   Passed    0.81 sec
+      Start 57: madmodem_sstv_image_adjustment_regression
+57/58 Test #57: madmodem_sstv_image_adjustment_regression ...   Passed   28.69 sec
+      Start 58: madmodem_sstv_archive_regression
+58/58 Test #58: madmodem_sstv_archive_regression ............   Passed    0.47 sec
+
+98% tests passed, 1 tests failed out of 58
+
+Total Test time (real) = 266.22 sec
+
+The following tests FAILED:
+	 32 - madmodem_ft_runtime_guard (Failed)
+Errors while running CTest

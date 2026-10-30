@@ -1,3 +1,18 @@
+## 0.6.4 source R31 clean — completed residual integration
+
+- Split native FT8 recovery into consecutive native-model and supplementary-model residuals under one deadline; preserved previously published rows.
+- Added separate native recovery diagnostics and safe cancellation on FFT preparation failure; listed native helper headers in CMake and excluded build/ from Git.
+- Clean Linux Qt5 application build and 14 targeted checks passed; tester offline result repeated at 62 rows and 57/66 exact JTDX matches in three runs. Live parity remains open.
+- See [R31 clean verification](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md).
+
+## 0.6.4 source R31 — additional native FT8 DSP recovery
+
+- Added native spectral downconversion, coherent DF/DT refinement and separate FIR residual recovery after existing results; no additional decoder engine or Fortran runtime.
+- Replaced the min-sum row calculation with a numerically equivalent linear implementation and shared the FFTW planner lock.
+- Preserved the Doppler method and FT4 search/decode/SIC. The R30 supplementary recovery remains available.
+- Linux Qt5 full build and aggregate 58 CTest checks passed. Tester offline: 61–62 rows, 56–57 exact JTDX matches versus R30 60/55; live parity remains open. Remaining validation is explicitly recorded.
+- Details: [R31 status and handoff](docs/architecture/RELEASE_0_6_4_R31.md).
+
 ## 0.6.4 source R30 — integrated native FT8/FT4 recovery
 
 - Complete the headless MSHV 2.76.7 FT8/FT4 recovery path alongside the existing receiver. Preserve ordinary decode, incremental publication, GPU options, TX/CAT and Doppler recovery.

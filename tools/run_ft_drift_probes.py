@@ -6,6 +6,7 @@ waveform; these are synthetic fixtures and do not establish QO-100 RF sensitivit
 """
 import argparse
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -25,7 +26,10 @@ def main():
     entry = next(x for x in commands if x['file'].endswith('/main.cpp'))
     command = shlex.split(entry['command'])
     command.insert(1, '-fno-access-control')
-    obj, exe = output / 'probe.o', output / 'probe'
+    # Distinct executables prevent concurrent invocations from relinking a
+    # probe that is already running. Keep result/fixture paths stable.
+    obj = output / f'probe-{os.getpid()}.o'
+    exe = output / f'probe-{os.getpid()}'
     command[command.index('-o') + 1] = str(obj)
     command[command.index('-c') + 1] = str(source / 'tests/FtDriftRxProbe.cpp')
     subprocess.run(command, cwd=build, check=True)
@@ -33,6 +37,7 @@ def main():
     link = [str(obj) if x == 'CMakeFiles/MadModem.dir/main.cpp.o' else x for x in link]
     link[link.index('-o') + 1] = str(exe)
     subprocess.run(link, cwd=build, check=True)
+    exe.chmod(0o755)
     results = []
     for mode in ('FT8', 'FT4'):
         clean = output / (mode + '-clean.f64')

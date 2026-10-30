@@ -1,0 +1,620 @@
+{
+  "status": "Development source handoff, not a parity certification",
+  "public_version": "0.6.4",
+  "source_revision": "0.6.4-source-r31-native-ft-front-end",
+  "source_base_archive_sha256": "84ac1bac8a407634511620e470dce850902d9f97aee4d53f5ac998e49d26f965",
+  "expected_jtdx_rows": 66,
+  "tester_runs": [
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "revision": "r30",
+      "tester_rows": 60,
+      "tester_unique": 60,
+      "jtdx_exact_matches": 55,
+      "unconfirmed": [
+        "2F6701FBA6508E4F5E",
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31",
+        "W6DAX N8LGP R-01"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ M0TBQ IO82",
+        "HF40BLP IZ0GRR JN61",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "TT1GD OE2CAL -06",
+        "TT1GD RA6OB KN98",
+        "VU2XZ PD9DY JO22",
+        "W1BTB NL7D RR73",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 7543.183299,
+      "tail_added": 0,
+      "tail_ms": 0.002505,
+      "all_published_retained_by_return": true
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "revision": "r31",
+      "tester_rows": 61,
+      "tester_unique": 61,
+      "jtdx_exact_matches": 56,
+      "unconfirmed": [
+        "2F6701FBA6508E4F5E",
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31",
+        "W6DAX N8LGP R-01"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ M0TBQ IO82",
+        "HF40BLP IZ0GRR JN61",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "TT1GD OE2CAL -06",
+        "TT1GD RA6OB KN98",
+        "W1BTB NL7D RR73",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 5942.145506,
+      "tail_added": 1,
+      "tail_ms": 835.69026,
+      "all_published_retained_by_return": true
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "revision": "r30",
+      "tester_rows": 60,
+      "tester_unique": 60,
+      "jtdx_exact_matches": 55,
+      "unconfirmed": [
+        "2F6701FBA6508E4F5E",
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31",
+        "W6DAX N8LGP R-01"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ M0TBQ IO82",
+        "HF40BLP IZ0GRR JN61",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "TT1GD OE2CAL -06",
+        "TT1GD RA6OB KN98",
+        "VU2XZ PD9DY JO22",
+        "W1BTB NL7D RR73",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 4471.855091,
+      "tail_added": 0,
+      "tail_ms": 0.002488,
+      "all_published_retained_by_return": true
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "revision": "r31",
+      "tester_rows": 62,
+      "tester_unique": 62,
+      "jtdx_exact_matches": 57,
+      "unconfirmed": [
+        "2F6701FBA6508E4F5E",
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31",
+        "W6DAX N8LGP R-01"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ M0TBQ IO82",
+        "HF40BLP IZ0GRR JN61",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "TT1GD OE2CAL -06",
+        "W1BTB NL7D RR73",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 6604.743838,
+      "tail_added": 2,
+      "tail_ms": 1023.350234,
+      "all_published_retained_by_return": true
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "revision": "r30",
+      "tester_rows": 52,
+      "tester_unique": 52,
+      "jtdx_exact_matches": 48,
+      "unconfirmed": [
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31",
+        "W6DAX N8LGP R-01"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ ED7HLW",
+        "CQ KJ2AM FN30",
+        "CQ M0TBQ IO82",
+        "HF40BLP IZ0GRR JN61",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "SM7CIL F5RRS JN36",
+        "TC4TR RW9WC LO74",
+        "TT1GD OE2CAL -06",
+        "TT1GD RA6OB KN98",
+        "VU2XZ PD9DY JO22",
+        "W1BTB NL7D RR73",
+        "W6DAX OK2TS JN89",
+        "W9ML K2IY RRR",
+        "W9SHO K2PS -10",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 1288.497563,
+      "tail_added": 0,
+      "tail_ms": 0.004578,
+      "all_published_retained_by_return": true
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "revision": "r31",
+      "tester_rows": 51,
+      "tester_unique": 51,
+      "jtdx_exact_matches": 47,
+      "unconfirmed": [
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31",
+        "W6DAX N8LGP R-01"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ ED7HLW",
+        "CQ KJ2AM FN30",
+        "CQ M0TBQ IO82",
+        "F4FSY EI3JCB R-05",
+        "HF40BLP IZ0GRR JN61",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "SM7CIL F5RRS JN36",
+        "TC4TR RW9WC LO74",
+        "TT1GD OE2CAL -06",
+        "TT1GD RA6OB KN98",
+        "VU2XZ PD9DY JO22",
+        "W1BTB NL7D RR73",
+        "W6DAX OK2TS JN89",
+        "W9ML K2IY RRR",
+        "W9SHO K2PS -10",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 1348.649684,
+      "tail_added": 0,
+      "tail_ms": 0.005581,
+      "all_published_retained_by_return": true
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "revision": "r30",
+      "tester_rows": 51,
+      "tester_unique": 51,
+      "jtdx_exact_matches": 47,
+      "unconfirmed": [
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31",
+        "W6DAX N8LGP R-01"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ ED7HLW",
+        "CQ KJ2AM FN30",
+        "CQ M0TBQ IO82",
+        "F4FSY EI3JCB R-05",
+        "HF40BLP IZ0GRR JN61",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "SM7CIL F5RRS JN36",
+        "TC4TR RW9WC LO74",
+        "TT1GD OE2CAL -06",
+        "TT1GD RA6OB KN98",
+        "VU2XZ PD9DY JO22",
+        "W1BTB NL7D RR73",
+        "W6DAX OK2TS JN89",
+        "W9ML K2IY RRR",
+        "W9SHO K2PS -10",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 1167.085984,
+      "tail_added": 0,
+      "tail_ms": 0.004291,
+      "all_published_retained_by_return": true
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "revision": "r31",
+      "tester_rows": 49,
+      "tester_unique": 49,
+      "jtdx_exact_matches": 46,
+      "unconfirmed": [
+        "<...> IZ0GRR JN61",
+        "RA3PGR PD1PSR JO33",
+        "RX7O DA2JO JO31"
+      ],
+      "missing_jtdx": [
+        "3W9A R2BQM -10",
+        "3W9A UR5ZAQ KN57",
+        "CQ ED7HLW",
+        "CQ KJ2AM FN30",
+        "CQ M0TBQ IO82",
+        "F4FSY EI3JCB R-05",
+        "HF40BLP IZ0GRR JN61",
+        "MI0PLC W2S -18",
+        "PD0PWH SP8WB -12",
+        "R2BQM KS1WK R-24",
+        "SM7CIL F5RRS JN36",
+        "TC4TR RW9WC LO74",
+        "TT1GD OE2CAL -06",
+        "TT1GD RA6OB KN98",
+        "VU2XZ PD9DY JO22",
+        "W1BTB NL7D RR73",
+        "W6DAX OK2TS JN89",
+        "W9ML K2IY RRR",
+        "W9SHO K2PS -10",
+        "WA1JBO OH1FA R-08"
+      ],
+      "total_ms": 1150.304444,
+      "tail_added": 0,
+      "tail_ms": 0.004772,
+      "all_published_retained_by_return": true
+    }
+  ],
+  "paired_files": [
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "20261028_153839_14074000_14074000.f64",
+      "r30_unique": 60,
+      "r31_unique": 61,
+      "added": [
+        "VU2XZ PD9DY JO22"
+      ],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "191111_110615.f64",
+      "r30_unique": 22,
+      "r31_unique": 22,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "191111_110630.f64",
+      "r30_unique": 19,
+      "r31_unique": 19,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "191111_110645.f64",
+      "r30_unique": 20,
+      "r31_unique": 22,
+      "added": [
+        "PC2J EA1FAK IN72",
+        "RK6AH JH1AJT RR73"
+      ],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "191111_110700.f64",
+      "r30_unique": 17,
+      "r31_unique": 18,
+      "added": [
+        "<...> <...> 561428 II81WA"
+      ],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "websdr_test7.f64",
+      "r30_unique": 33,
+      "r31_unique": 33,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "websdr_test8.f64",
+      "r30_unique": 25,
+      "r31_unique": 25,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 0,
+      "file": "websdr_test9.f64",
+      "r30_unique": 20,
+      "r31_unique": 20,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "20261028_153839_14074000_14074000.f64",
+      "r30_unique": 60,
+      "r31_unique": 62,
+      "added": [
+        "TT1GD RA6OB KN98",
+        "VU2XZ PD9DY JO22"
+      ],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "191111_110615.f64",
+      "r30_unique": 22,
+      "r31_unique": 22,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "191111_110630.f64",
+      "r30_unique": 19,
+      "r31_unique": 19,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "191111_110645.f64",
+      "r30_unique": 22,
+      "r31_unique": 22,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "191111_110700.f64",
+      "r30_unique": 17,
+      "r31_unique": 18,
+      "added": [
+        "<...> <...> 561428 II81WA"
+      ],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "websdr_test7.f64",
+      "r30_unique": 33,
+      "r31_unique": 33,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "websdr_test8.f64",
+      "r30_unique": 25,
+      "r31_unique": 25,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "offline",
+      "repeat": 1,
+      "file": "websdr_test9.f64",
+      "r30_unique": 20,
+      "r31_unique": 20,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "20261028_153839_14074000_14074000.f64",
+      "r30_unique": 52,
+      "r31_unique": 51,
+      "added": [],
+      "lost": [
+        "F4FSY EI3JCB R-05"
+      ]
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "191111_110615.f64",
+      "r30_unique": 22,
+      "r31_unique": 22,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "191111_110630.f64",
+      "r30_unique": 16,
+      "r31_unique": 16,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "191111_110645.f64",
+      "r30_unique": 22,
+      "r31_unique": 22,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "191111_110700.f64",
+      "r30_unique": 19,
+      "r31_unique": 18,
+      "added": [],
+      "lost": [
+        "<OR18TRA> DF1XG JO53"
+      ]
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "websdr_test7.f64",
+      "r30_unique": 31,
+      "r31_unique": 31,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "websdr_test8.f64",
+      "r30_unique": 26,
+      "r31_unique": 26,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 0,
+      "file": "websdr_test9.f64",
+      "r30_unique": 20,
+      "r31_unique": 20,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "20261028_153839_14074000_14074000.f64",
+      "r30_unique": 51,
+      "r31_unique": 49,
+      "added": [],
+      "lost": [
+        "MI0PLC W2S -18",
+        "W6DAX N8LGP R-01"
+      ]
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "191111_110615.f64",
+      "r30_unique": 22,
+      "r31_unique": 22,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "191111_110630.f64",
+      "r30_unique": 16,
+      "r31_unique": 17,
+      "added": [
+        "U04IOL 617DFN 579 2572"
+      ],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "191111_110645.f64",
+      "r30_unique": 20,
+      "r31_unique": 20,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "191111_110700.f64",
+      "r30_unique": 19,
+      "r31_unique": 18,
+      "added": [],
+      "lost": [
+        "CQ M0NPT IO92"
+      ]
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "websdr_test7.f64",
+      "r30_unique": 31,
+      "r31_unique": 31,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "websdr_test8.f64",
+      "r30_unique": 26,
+      "r31_unique": 26,
+      "added": [],
+      "lost": []
+    },
+    {
+      "phase": "gatefinal",
+      "repeat": 1,
+      "file": "websdr_test9.f64",
+      "r30_unique": 19,
+      "r31_unique": 20,
+      "added": [
+        "F4DFQ F5LOW IN95"
+      ],
+      "lost": []
+    }
+  ],
+  "stopped_at_user_request": true,
+  "not_run_on_final_r31": [
+    "Full receiver ASan/UBSan",
+    "Dedicated 46-case Doppler replay",
+    "Dedicated UI/runtime response probes",
+    "Complete final FT4 matrix",
+    "Qt6 full build",
+    "Native Windows/macOS builds",
+    "Physical radio/PTT/GPU"
+  ],
+  "notes": [
+    "58 CTest aggregate passed: initial57/58 plus corrected static guard retry. All three targeted retries passed.",
+    "Doppler and FT4 finder/candidate/SIC bodies identical to frozen R30; shared min-sum is numerically equivalent.",
+    "New recovery appends after existing results. Time-bounded paired live jobs vary and have recorded losses as well as additions.",
+    "Unbuilt two-residual experiment is saved in the separate checkpoint, excluded from delivered production source."
+  ]
+}

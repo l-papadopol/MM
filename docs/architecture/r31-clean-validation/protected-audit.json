@@ -1,0 +1,43 @@
+{
+  "protected_functions": {
+    "recoverDriftingSignal": {
+      "identical": true,
+      "sha256": "fc103a83f12647e2fd737e39d291be99ceaca908cc08ba8ff8fcb0aaf91de045"
+    },
+    "findFt4Candidates": {
+      "identical": true,
+      "sha256": "f906b42f957349e063bef006f073887aaf1d88117829cca6705845b86f97b059"
+    },
+    "decodeFt4Candidate": {
+      "identical": true,
+      "sha256": "5c648cacb40e9776906d6a987ec592a58130f79f0a888f87fab07d5f9a0e0b56"
+    },
+    "subtractFt4DecodedSignal": {
+      "identical": true,
+      "sha256": "f2e5d46263eb11710ccfdd36ee343d4b3369310136855436add1986613ad2214"
+    }
+  },
+  "missing_r30_files": [],
+  "modified_r30_files": [
+    "SOURCE_MANIFEST_SHA256.txt",
+    "CMakeLists.txt",
+    "README.md",
+    ".gitignore",
+    "MADMODEM_SOURCE_REVISION.txt",
+    "THIRD_PARTY_NOTICES.md",
+    "RELEASE_NOTES.md",
+    "CHANGELOG.md",
+    "tools/run_ft_replay_probe.py",
+    "tools/run_ft_drift_probes.py",
+    "tools/run_ft_coherent_regression.py",
+    "tests/FtReplayProbe.cpp",
+    ".github/workflows/source-regression.yml",
+    "modems/ft8/Ft8RxDecoder.h",
+    "modems/ft8/Ft8RxDecoder.cpp",
+    "modems/ft8/FtDiagnostics.h",
+    "third_party/mshv_gpl/ft_reference/fft.cpp",
+    "tests/ft8/check_wideband_algorithms.py"
+  ],
+  "public_version": "0.6.4",
+  "source_revision": "0.6.4-source-r31-native-ft-clean"
+}

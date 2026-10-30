@@ -193,6 +193,11 @@ public:
         int coherentTailCandidates = 0;
         int coherentTailDecodes = 0; // New messages, excluding coherent duplicates.
         double coherentTailMs = 0.0;
+        int nativeRecoveryCandidates = 0;
+        int nativeRecoveryDecodes = 0;
+        int nativeRecoveryPasses = 0;
+        double nativeRecoveryMs = 0.0;
+        bool nativeRecoveryCutoff = false;
         qint64 replyArmDeadlineUtcMs = 0;
         int incrementalFftHits = 0, incrementalToneHits = 0, incrementalPreparedRows = 0;
         double incrementalPreparationMs = 0.0;

@@ -42,3 +42,20 @@ Il controllo Q65 è stato corretto per verificare il collegamento del target Q65
 ## Verifiche sul campo ancora necessarie
 
 Compilazione nativa Windows e macOS attraverso i workflow, pacchetti su sistemi reali, GPU fisica, radio/CAT/PTT e commutazione RX/TX effettiva. Per FT4 serve inoltre un corpus reale affollato con risultati di riferimento: le prove sintetiche dimostrano l'integrazione e specifiche regressioni, non la sensibilità assoluta o la parità generale. Il ramo aggiuntivo non applica automaticamente il Doppler al proprio segnale: il recupero Doppler dedicato MadModem continua a operare nel ricevitore esistente.
+
+
+## Verifica aggiuntiva Work
+
+Il confronto esteso in `FT_R30_WORK_VALIDATION.json` conserva due ulteriori
+ripetizioni su otto WAV, includendo il tester. Sommando i messaggi distinti
+per testo in ciascun file, la sola chiusura passa da 339 a 369 e il ciclo
+gate+chiusura da 336 a 418. Sono riportate anche le singole righe perse tra
+esecuzioni, soggette ai budget FEC/OSD; la tabella precedente riguarda il
+confronto separato di tre ripetizioni sul solo WAV del tester.
+
+Su 36 condizioni FT4 deboli sintetiche il risultato passa da 12 a 14 messaggi
+corretti, con zero risultati nei sei controlli di solo rumore. È presente anche
+un falso positivo identico nel percorso precedente e in R30: `QQ4PYT/P BT1FPH
+CM88`, 2304 Hz, ampiezza 0.013, seme 0. Il nuovo stadio non aggiunge falsi in
+questa matrice. Il caso resta un limite aperto del ricevitore; non è stata
+ritoccata una soglia sulla base di un singolo esempio sintetico.

@@ -1,0 +1,146 @@
+Start testing: Oct 30 08:40 CET
+----------------------------------------------------------
+2/58 Testing: madmodem_ft_native_spectrum
+2/58 Test: madmodem_ft_native_spectrum
+Command: "/workspace/scratch/5c40146f5a02/build/madmodem_ft_native_spectrum"
+Directory: /workspace/scratch/5c40146f5a02/build
+"madmodem_ft_native_spectrum" start time: Oct 30 08:40 CET
+Output:
+----------------------------------------------------------
+8 real-tone translations, concurrent inverse workspaces PASS; max error=5.03771e-11
+<end of output>
+Test time =   0.09 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ft_native_spectrum" end time: Oct 30 08:40 CET
+"madmodem_ft_native_spectrum" time elapsed: 00:00:00
+----------------------------------------------------------
+
+26/58 Testing: madmodem_ft_native_frontend
+26/58 Test: madmodem_ft_native_frontend
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/5c40146f5a02/work/tools/run_ft_coherent_regression.py" "--build" "/workspace/scratch/5c40146f5a02/build" "--probe" "FtNativeFrontendRegression.cpp"
+Directory: /workspace/scratch/5c40146f5a02/build
+"madmodem_ft_native_frontend" start time: Oct 30 08:40 CET
+Output:
+----------------------------------------------------------
+9 generated FT8 frames, 12 noise controls, full two-signal recovery and published result retention PASS
+<end of output>
+Test time =   5.86 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ft_native_frontend" end time: Oct 30 08:40 CET
+"madmodem_ft_native_frontend" time elapsed: 00:00:05
+----------------------------------------------------------
+
+32/58 Testing: madmodem_ft_runtime_guard
+32/58 Test: madmodem_ft_runtime_guard
+Command: "/opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3" "/workspace/scratch/5c40146f5a02/work/scripts/run_guard_suite.py" "ft" "--with-unix-checks"
+Directory: /workspace/scratch/5c40146f5a02/build
+"madmodem_ft_runtime_guard" start time: Oct 30 08:40 CET
+Output:
+----------------------------------------------------------
+MadModem consolidated guard suite: ft
+
+--- RUN scripts/check_ft_atomic_tx_lifecycle.py ---
+PASS: atomic decode-batch decision retained
+PASS: 1181 ms late operator request starts an intact FT8 frame now
+PASS: mode-specific current-slot window guarantees full-frame fit
+PASS: automatic too-late requests defer intact frames
+PASS: manual +6.2 s request emits a bounded current-period visual burst
+PASS: manual late burst preserves frame prefix and stops before slot flip
+PASS: CAT/PTT pre-arms before the UTC boundary
+PASS: TX start never blocks behind the FT decoder thread
+PASS: one immutable boundary drives delay, token and watchdog
+PASS: TX arm token has a monotonic generation
+PASS: stale boundary-only recovery removed
+PASS: expired slot is rejected before local TX row and PTT
+
+--- RUN scripts/check_ft_caller_queue_waterfall_restore.py ---
+PASS: caller queue setting exists
+PASS: caller queue setting loads
+PASS: caller queue setting saves
+PASS: caller queue checkbox exists
+PASS: session QSO counter exists
+PASS: FIFO uses first queued caller
+PASS: queue feeds normal sequencer
+PASS: queue uses shared opposite-period selector
+PASS: terminal acks do not resurrect queued QSO
+PASS: queued direct callers outrank Auto QSO CQ
+PASS: legacy parked late-reply fallback removed
+PASS: waterfall detects minimized top-level
+PASS: waterfall drops hidden/minimized display rows
+PASS: waterfall preserves GL history on restore
+PASS: waterfall resize does not recreate GL history
+PASS: waterfall drains queued FFT rows with fixed time geometry
+PASS: translations ui_cs.ini include queue/session keys without duplicates
+PASS: translations ui_de.ini include queue/session keys without duplicates
+PASS: translations ui_en.ini include queue/session keys without duplicates
+PASS: translations ui_fr.ini include queue/session keys without duplicates
+PASS: translations ui_it.ini include queue/session keys without duplicates
+PASS: translations ui_no.ini include queue/session keys without duplicates
+PASS: translation key parity ui_cs.ini
+PASS: translation key parity ui_de.ini
+PASS: translation key parity ui_en.ini
+PASS: translation key parity ui_fr.ini
+PASS: translation key parity ui_it.ini
+PASS: translation key parity ui_no.ini
+FT caller queue + stable waterfall source audit: PASS
+
+--- RUN scripts/check_ft_linear_sequencer.py ---
+PASS: AutoQSO reclaim/fallback path removed
+PASS: QSO activity/history selection cannot arm TX
+PASS: QSO activity/history selection explicitly requires TX
+PASS: terminal decode can interrupt an obsolete active FT frame
+PASS: final 73 cannot create another 73 retry
+PASS: sequencer regression covers late RR73 during TX
+PASS: sequencer regression covers repeated terminal decode
+PASS: FT decoder owns an explicit live-input gate
+PASS: AudioEngine routes FT blocks through a bounded decoder-thread queue
+PASS: MainWindow no longer duplicates FT audio transport
+PASS: generated FT TX audio is not injected into the RX waterfall
+PASS: generic TX monitor also freezes for FT family modes
+PASS: adaptive live-worker controller and mutable target removed
+PASS: live worker budget uses the proven topology while telemetry continues
+PASS: default CAT TX route does not query/restore rig mode
+PASS: rig mode is restored only when MadModem actually changed it
+PASS: FT8/FT4 periods are at the bottom of Mode outside the scroll area
+PASS: FT period clock is no longer placed in the Status tab
+PASS: redundant I/II range and UTC caption labels removed from the FT clock
+PASS: TX/SEQ/RETRY tag is metadata, not pending-plan identity
+FT linear sequencer source audit: PASS
+
+--- RUN scripts/check_ft_qso_deadline_priority.py ---
+PASS: candidate carries an explicit QSO-priority classification
+PASS: priority admission is restricted to the live gate
+PASS: priority admission requires an active QSO
+PASS: QSO search is bounded around the tracked correspondent
+PASS: QSO candidate work has a hard upper bound
+PASS: only the reserved QSO quota receives the lower sync floor
+PASS: reserved candidates do not consume the normal wideband quota
+PASS: QSO candidates enter LDPC before the general wideband candidates
+PASS: the bounded QSO set receives metric recovery
+PASS: the ordinary live gate keeps its established fast policy
+PASS: early completion validates both correspondent and local calls
+PASS: a recovered QSO reply returns without waiting for wideband LDPC
+PASS: no competing decoder path was introduced
+PASS: MainWindow propagates QSO lifecycle and callsign context
+PASS: the decoder receives the tracked correspondent frequency
+FT8 QSO deadline priority source audit: PASS
+
+--- RUN scripts/check_ft4_adaptive_runtime.sh ---
+FT4 active-QSO-first deadline runtime source audit: PASS
+
+--- RUN scripts/check_ft_wideband_sensitivity.sh ---
+FT8/FT4 wideband algorithm audit: PASS
+FT sensitivity regression source audit: PASS
+
+Consolidated ft suite PASSED: 6 check(s) run, 0 platform check(s) skipped.
+<end of output>
+Test time =   0.46 sec
+----------------------------------------------------------
+Test Passed.
+"madmodem_ft_runtime_guard" end time: Oct 30 08:40 CET
+"madmodem_ft_runtime_guard" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 30 08:40 CET

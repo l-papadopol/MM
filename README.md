@@ -1,4 +1,4 @@
-> Updated source: **0.6.4 R30** — integrated FT8/FT4 native recovery, bounded live work, existing Doppler retained. See [verification and measured limits](docs/architecture/RELEASE_0_6_4_R30.md). Build identity remains 0.6.4; source revision is recorded separately.
+> Updated source: **0.6.4 R31 clean** — completed two-stage native FT8 residual recovery, existing FT4 and Doppler retained. [Current status and verification](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md). Public version remains 0.6.4; general JTDX parity is still open.
 
 # MadModem
 

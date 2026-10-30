@@ -1,0 +1,4 @@
+120 FIR/direct cases PASS; max error=1.71136e-14
+18 independent complex FT8 timing/frequency cases PASS
+8 real-tone translations, concurrent inverse workspaces PASS; max error=5.03771e-11
+60000 min-sum rows identical bit-for-bit to independent quadratic reference PASS

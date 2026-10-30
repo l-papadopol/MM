@@ -1,3 +1,11 @@
+## Source R31 clean
+
+The pending two-stage native FT8 residual recovery is integrated. [Current verification and limits](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md) supersede the first R31 handoff below. Existing FT4/Doppler functionality and GitHub workflows are retained; general JTDX parity is not claimed.
+
+## Source R31 development handoff
+
+The complete 0.6.4 source now includes additional native FT8 DSP recovery. See [R31 status](docs/architecture/RELEASE_0_6_4_R31.md) for measured gains, live limitations and incomplete checks. Existing FT4 and Doppler remain available. This source handoff does not claim general JTDX parity.
+
 ## 0.6.4 source R30 — integrated native FT8/FT4 recovery
 
 - Complete the headless MSHV 2.76.7 FT8/FT4 recovery path alongside the existing receiver. Preserve ordinary decode, incremental publication, GPU options, TX/CAT and Doppler recovery.

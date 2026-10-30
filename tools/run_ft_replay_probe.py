@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Replay WAV/12 kHz float64 inputs through the real FT receiver.
 
-Use --baseline to retain the existing R29 receiver and disable only the new
-R30 additive hook. PROBE_OFFLINE=1 removes live UTC deadlines; PROBE_GATE=1
+Use --native-only to disable the supplementary R30 recovery. --baseline is
+retained as a compatibility alias for this same native-core comparison.
+A comparison with an earlier revision needs its frozen source/binary. PROBE_OFFLINE=1 removes live UTC deadlines; PROBE_GATE=1
 uses the early gate. PROBE_WORKERS chooses a fixed topology for paired runs.
 PROBE_OFFSET_SEC selects the start of a WAV excerpt. JSONL contains complete
 messages and timing, so comparisons can report lost rows as well as additions.
@@ -15,6 +16,7 @@ import subprocess
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--build', type=Path, required=True)
 p.add_argument('--baseline', action='store_true')
+p.add_argument('--native-only', action='store_true', help='Disable the existing R30 supplementary recovery for native-core comparisons')
 p.add_argument('--compile-only', action='store_true')
 p.add_argument('fixtures', nargs='*', type=Path)
 a = p.parse_args()
@@ -26,7 +28,7 @@ for line in (b / 'CMakeFiles/MadModem.dir/flags.make').read_text().splitlines():
         k, v = line.split(' = ', 1)
         flags[k] = shlex.split(v)
 link = shlex.split((b / 'CMakeFiles/MadModem.dir/link.txt').read_text())
-out = b / ('ft-replay-baseline' if a.baseline else 'ft-replay-r30')
+out = b / ('ft-replay-native' if a.native_only else ('ft-replay-baseline' if a.baseline else 'ft-replay-r30'))
 out.mkdir(exist_ok=True)
 def compile_file(source, target):
     subprocess.run([link[0], *flags['CXX_DEFINES'], *flags['CXX_INCLUDES'],
@@ -35,7 +37,7 @@ def compile_file(source, target):
 obj = out / 'main.o'
 compile_file(s / 'tests/FtReplayProbe.cpp', obj)
 link[link.index('CMakeFiles/MadModem.dir/main.cpp.o')] = str(obj)
-if a.baseline:
+if a.baseline or a.native_only:
     code = (s / 'modems/ft8/Ft8RxDecoder.cpp').read_text()
     hook = '    appendReferenceRecovery(samples, slotStartUtc, out, stats, publish);'
     if code.count(hook) != 2:

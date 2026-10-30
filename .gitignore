@@ -1,4 +1,5 @@
 # Build trees
+build/
 build-*/
 cmake-build-*/
 CMakeCache.txt

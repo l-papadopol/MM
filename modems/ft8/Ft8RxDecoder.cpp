@@ -1,3 +1,7 @@
+#include "FtLdpcCheck.h"
+#include "FtNativeSpectrum.h"
+#include "FtCoherentAlignment.h"
+#include "FtSignalEnvelope.h"
 #include "FtDiagnostics.h"
 #include "FtReferenceRecovery.h"
 #include <QScopeGuard>
@@ -403,6 +407,8 @@ void inverseFftRadix2(std::vector<std::complex<double>> &a)
     fftRadix2Transform(a, true);
 }
 
+thread_local bool t_nativeResidualEnvelope = false;
+thread_local qint64 t_nativeSearchStopUtcMs = 0;
 constexpr int kFt8SubNFrame = 1920 * 79;
 constexpr int kFt8SubNfft = 262144; // power-of-two replacement for MSHV's 180000-point FFT
 constexpr int kFt8SubNfilt = 4000;
@@ -3203,7 +3209,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                                                                                                                const QVector<Candidate> &candidateSet,
                                                                                                                int *workerCountOut,
                                                                                                                bool qsoDeadlineSet,
-                                                                                                               QVector<Candidate> *failedForCoherent = nullptr) {
+                                                                                                               QVector<Candidate> *failedForCoherent = nullptr,
+                                                                                                               bool nativeRecoveryPass = false,
+                                                                                                               qint64 nativeStopUtcMs = 0) {
         QVector<CandidateDecode> rawPairs;
         if (candidateSet.isEmpty()) {
             if (workerCountOut != nullptr) {
@@ -3218,6 +3226,18 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             }
         }
 
+        std::shared_ptr<const MadModemFt::FtNativeSpectrum> nativeSpectrum;
+        if (nativeRecoveryPass && (m_deepDecodeEnabled || m_dspPlusDecodeEnabled) && !m_gpuDecodeEnabled.load()) {
+            try {
+                nativeSpectrum = std::make_shared<MadModemFt::FtNativeSpectrum>(slotSamples.constData(), int(slotSamples.size()));
+            } catch (const std::exception &e) {
+                SessionDiagnostics::instance().record("ft.native.spectrum.error", {{"error", QString::fromUtf8(e.what())}});
+                // Existing output is already published. Skip this optional pass
+                // instead of switching to an unbudgeted demodulator on failure.
+                if (workerCountOut) *workerCountOut = 0;
+                return rawPairs;
+            }
+        }
         const bool offline = m_offlineAnalysisActive.load();
         const int workerCount = FtDecodeWorkerPool::instance().recommendedWorkerCount(t_currentFtWorkClass, candidateSet.size());
         if (workerCountOut != nullptr) {
@@ -3245,7 +3265,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         // LDPC and metric retries have variable cost. Dynamic candidate
         // stealing keeps every permitted worker useful without creating threads
         // or statically pinning one expensive cluster to one worker.
-        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, &coherentFailed, failedForCoherent, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet, qsoDeadlineSet](int, int) {
+        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, nativeSpectrum, nativeStopUtcMs, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, &coherentFailed, failedForCoherent, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet, qsoDeadlineSet](int, int) {
+            MadModemFt::FtNativeSpectrumScope spectrumScope(nativeSpectrum.get(), nativeStopUtcMs);
             QVector<CandidateDecode> localPairs;
             localPairs.reserve(8);
             int localAttempted = 0;
@@ -3256,7 +3277,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             QVector<CandidateAttemptQuality> localOsdQualities;
             localRejects.reserve(64);
             for (;;) {
-                if (decodeCancellationRequested()) {
+                if (decodeCancellationRequested() ||
+                    (nativeStopUtcMs>0 && QDateTime::currentMSecsSinceEpoch()>=nativeStopUtcMs-25)) {
                     break;
                 }
                 const int i = nextCandidate.fetch_add(1);
@@ -4086,6 +4108,121 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
     appendReferenceRecovery(samples, slotStartUtc, out, stats, publish);
 
+    // Additional recovery uses separate residuals after the established output
+    // is published. Native and supplementary models are cancelled in two steps:
+    // a weak supplementary model must not spoil the first native residual.
+    const qint64 nativeStop = offlineAnalysis
+        ? QDateTime::currentMSecsSinceEpoch() + 3000
+        : slotStartUtc.toMSecsSinceEpoch() + 15000 + 1050;
+    if (m_dspPlusDecodeEnabled && !gateCandidateSet && !m_gpuDecodeEnabled.load() &&
+        !decodedSoFar.isEmpty() && !decodeCancellationRequested() &&
+        QDateTime::currentMSecsSinceEpoch() < nativeStop - 50) {
+        const auto nativeStart = Clock::now();
+        QVector<double> nativeResidual = samples;
+        QVector<CandidateDecode> nativeModels = strongestList(decodedSoFar, 64);
+        const int nativeModelCount = nativeModels.size();
+        for (const Decode &d : out) {
+            const bool known = std::any_of(nativeModels.cbegin(), nativeModels.cend(), [&](const CandidateDecode &p) {
+                return p.decode.message.compare(d.message, Qt::CaseInsensitive) == 0;
+            });
+            if (!known) {
+                CandidateDecode model;
+                model.decode = d;
+                model.candidate.startSec = d.dt + .5;
+                model.candidate.baseHz = d.frequencyHz;
+                nativeModels.append(model);
+            }
+        }
+        int nativeWorkers = 0;
+        int added = 0;
+        int searched = 0;
+        int residualPasses = 0;
+        try {
+            MadModemFt::FtNativeSpectrum originalSpectrum(samples.constData(), int(samples.size()));
+            auto measureModels = [&](int begin, int end) {
+                MadModemFt::FtNativeSpectrumScope originalScope(&originalSpectrum, nativeStop - 50);
+                for (int i = begin; i < end; ++i) {
+                    if (decodeCancellationRequested() || QDateTime::currentMSecsSinceEpoch() >= nativeStop - 100) break;
+                    CandidateDecode &pair = nativeModels[i];
+                    Decode measured;
+                    Candidate measuredCandidate;
+                    if (decodeCandidate(samples, slotStartUtc, pair.candidate, measured, &measuredCandidate,
+                                        nullptr, nullptr, true, false) &&
+                        measured.message.compare(pair.decode.message, Qt::CaseInsensitive) == 0) {
+                        pair.candidate = measuredCandidate;
+                        pair.decode = measured;
+                    }
+                }
+            };
+            auto subtractModels = [&](int begin, int end) {
+                const bool previousEnvelope = t_nativeResidualEnvelope;
+                t_nativeResidualEnvelope = true;
+                const auto restore = qScopeGuard([&] { t_nativeResidualEnvelope = previousEnvelope; });
+                for (int i = begin; i < end; ++i) {
+                    if (decodeCancellationRequested() || QDateTime::currentMSecsSinceEpoch() >= nativeStop - 35) break;
+                    subtractDecodedSignal(nativeResidual, nativeModels[i].candidate, nativeModels[i].decode);
+                }
+            };
+            auto recoverResidual = [&] {
+                if (decodeCancellationRequested() || QDateTime::currentMSecsSinceEpoch() >= nativeStop - 35) return;
+                QVector<Candidate> nativeCandidates;
+                {
+                    const qint64 oldSearchStop = t_nativeSearchStopUtcMs;
+                    t_nativeSearchStopUtcMs = nativeStop - 30;
+                    const auto restore = qScopeGuard([&] { t_nativeSearchStopUtcMs = oldSearchStop; });
+                    const auto found = findCandidates(nativeResidual, .95);
+                    for (const Candidate &candidate : found) {
+                        const bool known = std::any_of(out.cbegin(), out.cend(), [&](const Decode &d) {
+                            return std::abs(candidate.baseHz - d.frequencyHz) < 3.125 &&
+                                   std::abs(candidate.startSec - (d.dt + .5)) < .06;
+                        });
+                        if (!known) nativeCandidates.append(candidate);
+                        if (nativeCandidates.size() >= 384) break;
+                    }
+                }
+                ++residualPasses;
+                searched += nativeCandidates.size();
+                if (nativeCandidates.isEmpty() || QDateTime::currentMSecsSinceEpoch() >= nativeStop - 30) return;
+                int workers = 0;
+                const auto pairs = decodeCandidateSet(nativeResidual, nativeCandidates, &workers,
+                                                       false, nullptr, true, nativeStop);
+                nativeWorkers = qMax(nativeWorkers, workers);
+                totalCandidates += nativeCandidates.size();
+                for (const CandidateDecode &pair : pairs) {
+                    const bool known = std::any_of(out.cbegin(), out.cend(), [&](const Decode &d) {
+                        return d.message.compare(pair.decode.message, Qt::CaseInsensitive) == 0;
+                    });
+                    if (!known) {
+                        out.append(pair.decode);
+                        ++added;
+                        if (publish) publish(QVector<Decode>{pair.decode});
+                    }
+                }
+            };
+            measureModels(0, nativeModelCount);
+            subtractModels(0, nativeModelCount);
+            recoverResidual();
+            if (nativeModels.size() > nativeModelCount) {
+                measureModels(nativeModelCount, nativeModels.size());
+                subtractModels(nativeModelCount, nativeModels.size());
+                recoverResidual();
+            }
+        } catch (const std::exception &e) {
+            SessionDiagnostics::instance().record("ft.native.recovery.error", {{"error", QString::fromUtf8(e.what())}});
+        }
+        const double elapsed = std::chrono::duration<double, std::milli>(Clock::now() - nativeStart).count();
+        if (stats) {
+            stats->nativeRecoveryCandidates = searched;
+            stats->nativeRecoveryDecodes = added;
+            stats->nativeRecoveryPasses = residualPasses;
+            stats->nativeRecoveryMs = elapsed;
+            stats->nativeRecoveryCutoff = QDateTime::currentMSecsSinceEpoch() >= nativeStop - 25;
+        }
+        SessionDiagnostics::instance().record("ft.native.recovery", {
+            {"candidates", searched}, {"added", added}, {"workers", nativeWorkers}, {"passes", residualPasses},
+            {"elapsed_ms", elapsed}, {"cutoff", QDateTime::currentMSecsSinceEpoch() >= nativeStop - 25}});
+    }
+
     m_lastCandidateCount.store(totalCandidates);
     if (candidateCount != nullptr) {
         *candidateCount = totalCandidates;
@@ -4179,6 +4316,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
 QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<double> &samples, double threshold) const
 {
+    const qint64 searchStopUtcMs=t_nativeSearchStopUtcMs;
     /*
      * v2.27: MSHV-style candidate search must also be MSHV-style in cost.
      *
@@ -4389,6 +4527,8 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
         CostasSpectrumCache cache;
         std::vector<std::complex<double>> fft(static_cast<size_t>(kFftSize));
         for (int startIndex = begin; startIndex < end; ++startIndex) {
+            if(searchStopUtcMs>0 && (decodeCancellationRequested() ||
+               QDateTime::currentMSecsSinceEpoch()>=searchStopUtcMs)) break;
             const int startSample = firstStart + startIndex * timeStepSamples;
             const double startSec = static_cast<double>(startSample) / static_cast<double>(kDecodeSampleRate);
             buildCacheForStart(startSample, cache, fft);
@@ -4542,8 +4682,10 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     const auto traceStart=std::chrono::steady_clock::now();
     const auto recoveryStart = std::chrono::steady_clock::now();
     auto recoveryTimeAvailable = [&] {
+        const bool nativeOffline = MadModemFt::nativeFt8Spectrum && m_offlineAnalysisActive.load();
         return !decodeCancellationRequested() &&
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now()-recoveryStart).count() < 24.0 &&
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now()-recoveryStart).count() < (nativeOffline ? 96.0 : 24.0) &&
+            (MadModemFt::nativeFt8StopUtcMs==0 || QDateTime::currentMSecsSinceEpoch()<MadModemFt::nativeFt8StopUtcMs) &&
             (m_offlineAnalysisActive.load() || QDateTime::currentMSecsSinceEpoch() <
                 slotStartUtc.toMSecsSinceEpoch() + 15000 + 1100);
     };
@@ -4647,7 +4789,10 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         return reject(DecodeRejectReason::Boundary);
     }
 
-    double refinedSync = costasSyncScore(startSample, baseHz, nullptr);
+    const bool nativeFront = MadModemFt::nativeFt8Spectrum != nullptr && allowMetricRecovery;
+    std::vector<std::complex<double>> nativeBaseband;
+    int nativeBegin=0;
+    double refinedSync = nativeFront ? 0.0 : costasSyncScore(startSample, baseHz, nullptr);
 
     auto tryRefine = [&](const std::initializer_list<int> sampleOffsets,
                          const std::initializer_list<double> freqOffsets) {
@@ -4674,12 +4819,31 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
         refinedSync = bestScore;
     };
 
+    if (nativeFront) {
+        std::vector<std::complex<double>> full;
+        MadModemFt::nativeFt8Spectrum->extract(baseHz,full);
+        constexpr int margin=10;
+        const int initial=int(std::lround(double(startSample)/60.));
+        nativeBaseband.resize(kSymbols*32+2*margin);
+        for(int k=0;k<int(nativeBaseband.size());++k) {
+            int index=initial-margin+k;
+            nativeBaseband[k]=(index>=0&&index<int(full.size()))?full[index]:std::complex<double>{};
+        }
+        const auto alignment=MadModemFt::alignFt8Coherent(nativeBaseband,margin,
+            qMax(-margin,-initial),qMin(margin,(int(samples.size())-kSymbols*kSamplesPerSymbol)/60-initial));
+        nativeBegin=margin+alignment.shift;
+        startSample=(initial+alignment.shift)*60;
+        baseHz+=alignment.frequencyHz;
+        refinedSync=alignment.score;
+    } else {
     // Stage 1: recover the half-grid timing error from the 40 ms candidate grid.
     tryRefine({-240, -120, 0, 120, 240}, {0.0});
     // Stage 2: WSJT-X/MSHV-like fine frequency nudge around the 3.125 Hz bin.
     tryRefine({0}, {-2.50, -1.25, 0.0, 1.25, 2.50});
     // Stage 3: final small DT clean-up after frequency correction.
     tryRefine({-60, -30, 0, 30, 60}, {0.0});
+
+    }
 
     if (startSample < 0 || startSample + kSymbols * kSamplesPerSymbol + kSamplesPerSymbol >= samples.size()) {
         return reject(DecodeRejectReason::Boundary);
@@ -4707,11 +4871,14 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     int llrAbsCount = 0;
 
     std::vector<double> gpuEnergies;
-    const bool hasGpuEnergies=gpuToneEnergies(samples,startSample,baseHz,kSymbols,kSamplesPerSymbol,8,gpuEnergies);
+    const bool hasGpuEnergies=!nativeFront && gpuToneEnergies(samples,startSample,baseHz,kSymbols,kSamplesPerSymbol,8,gpuEnergies);
     for (int sym = 0; sym < kSymbols; ++sym) {
         const int symStart = startSample + sym * kSamplesPerSymbol;
         std::array<double, 8> energies;
-        if(hasGpuEnergies)std::copy_n(gpuEnergies.data()+size_t(sym)*8,8,energies.begin());
+        if(nativeFront) {
+            for(int tone=0;tone<8;++tone)
+                energies[tone]=std::norm(MadModemFt::coherentCorrelation32<8>(nativeBaseband,nativeBegin+sym*32,tone));
+        } else if(hasGpuEnergies)std::copy_n(gpuEnergies.data()+size_t(sym)*8,8,energies.begin());
         else energies=symbolToneEnergies8(samples, symStart, baseHz);
         double maxEnergy = 0.0;
         double sumEnergy = 0.0;
@@ -4862,6 +5029,7 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
 
     auto tryDecodeMetric = [&](const std::array<double, 174> &candidateLlr, bool allowOsdLite) {
         if (decodeCancellationRequested()) return false;
+        if(nativeFront && !recoveryTimeAvailable())return false;
         std::array<int, 174> candidateBits{};
         std::array<double, 174> posterior{};
         int candidateIterations = 0;
@@ -4972,6 +5140,11 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                  }
             }
         }
+        if(nativeFront) {
+            int hardErrors=0;
+            for(int bit=0;bit<174;++bit)hardErrors+=int((candidateLlr[bit]<0.)!=(candidateBits[bit]!=0));
+            if(hardErrors>36){rememberFailure(DecodeRejectReason::Ldpc);return false;}
+        }
         if (!crc14Ok(candidateBits)) {
             if (decodedViaGf2Osd && qualityOut != nullptr) {
                 ++qualityOut->osdGf2PostCrcRejects;
@@ -5075,7 +5248,15 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                 return MadModemFt::coherentCorrelation32<8>(baseband, begin, tone);
             };
 
-            int coherentShift = 0;
+            MadModemFt::Ft8CoherentAlignment alignment;
+            int coherentShift=0;
+            if(nativeFront) {
+                alignment=MadModemFt::alignFt8Coherent(baseband,kMargin,
+                    qMax(-kMargin,-startSample/kDecimation),
+                    qMin(kMargin,(int(samples.size())-kSymbols*kSamplesPerSymbol-startSample-1)/kDecimation));
+                coherentShift=alignment.shift;
+            } else {
+
             double coherentSync = -1.0;
             for (int shift = -4; shift <= 4; ++shift) {
                 double score = 0.0;
@@ -5092,6 +5273,9 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                     coherentSync = score;
                     coherentShift = shift;
                 }
+            }
+
+
             }
 
             // Preserve the complete 79-symbol correlation grid.  The WSJT-X
@@ -5188,9 +5372,18 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
             if (!metricDecoded) metricDecoded = tryDecodeMetric(metric2, false);
             if (!metricDecoded) metricDecoded = tryDecodeMetric(metric3, false);
             if (!metricDecoded) metricDecoded = tryDecodeMetric(ratioMetric, false);
-            if (metricDecoded && qualityOut != nullptr) {
-                ++qualityOut->coherentMetricRecovered;
+            if (metricDecoded && nativeFront) {
+                // Keep SIC and reported DT/DF on the same refined trajectory
+                // as the successful complex-symbol metric.
+                startSample += coherentShift*kDecimation;
+                baseHz += alignment.frequencyHz;
+                refinedCandidate.startSec = double(startSample)/kDecodeSampleRate;
+                refinedCandidate.baseHz = baseHz;
+                if (refinedCandidateOut) *refinedCandidateOut = refinedCandidate;
+                for (int sym=0;sym<kSymbols;++sym)
+                    symbolEnergies[sym]=symbolToneEnergies8(samples,startSample+sym*kSamplesPerSymbol,baseHz);
             }
+            if(metricDecoded && qualityOut) ++qualityOut->coherentMetricRecovered;
         }
     }
 
@@ -5292,7 +5485,8 @@ void Ft8RxDecoder::subtractDecodedSignal(QVector<double> &samples, const Candida
      *
      * We still rebuild a continuous GFSK reference waveform, multiply the RX
      * samples by conj(cref), low-pass the complex amplitude/phase envelope, and
-     * subtract cfilt*cref.  The low-pass is now O(N) forward/backward smoothing
+     * subtract cfilt*cref. The established path uses O(N) forward/backward
+     * smoothing; the additional native residual uses the centered cos-squared FIR,
      * instead of a 262144-point FFT per decoded signal.  This is the part that
      * must be cheap enough for live 2-pass FT8.
      */
@@ -5349,7 +5543,8 @@ void Ft8RxDecoder::subtractDecodedSignal(QVector<double> &samples, const Candida
         cfilt[static_cast<size_t>(i)] = audio[startSample + i] * std::conj(cref[static_cast<size_t>(i)]);
     }
 
-    smoothComplexEnvelopeZeroPhase(cfilt);
+    if(t_nativeResidualEnvelope) MadModemFt::raisedCosineEnvelope(cfilt,4000,true,first,last);
+    else smoothComplexEnvelopeZeroPhase(cfilt);
 
     for (int i = first; i < last; ++i) {
         const std::complex<double> reconstructed = cfilt[static_cast<size_t>(i)] * cref[static_cast<size_t>(i)];
@@ -7059,28 +7254,10 @@ bool Ft8RxDecoder::ldpcDecode174_91(const std::array<double, 174> &llr,
     }
 
     for (int iter = 0; iter < 35; ++iter) {
-        // Check-node update: normalized min-sum.
+        // Same normalized min-sum messages; two minima avoid the quadratic
+        // neighbour scan without changing scale, clipping, ties or zero signs.
         for (int c = 0; c < M; ++c) {
-            const int deg = nrw_ft8_174_91[c];
-            for (int e = 0; e < deg; ++e) {
-                double minAbs = 1.0e9;
-                int sign = 1;
-                for (int k = 0; k < deg; ++k) {
-                    if (k == e) {
-                        continue;
-                    }
-                    const double val = q[c][k];
-                    if (val < 0.0) {
-                        sign = -sign;
-                    }
-                    minAbs = std::min(minAbs, std::abs(val));
-                }
-                // Normalized min-sum.  Keep the proven v4.12 scale as
-                // the default; v4.13 attacks wasted LDPC attempts first rather
-                // than changing decoder sensitivity and risking regressions.
-                constexpr double kFt8NmsScale = 0.78;
-                r[c][e] = qBound(-20.0, kFt8NmsScale * static_cast<double>(sign) * minAbs, 20.0);
-            }
+            MadModemFt::normalizedMinSumCheck(q[c], nrw_ft8_174_91[c], r[c]);
         }
 
         // Variable-node update and hard decisions.

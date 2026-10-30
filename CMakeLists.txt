@@ -539,6 +539,11 @@ add_executable(MadModem
     modems/ft8/Ft8Mode.cpp
     modems/ft8/Ft8RxDecoder.h
     modems/ft8/Ft8RxDecoder.cpp
+    modems/ft8/FtNativeSpectrum.h
+    modems/ft8/FtCoherentAlignment.h
+    modems/ft8/FtSignalEnvelope.h
+    modems/ft8/FtLdpcCheck.h
+    dsp/FftwPlannerLock.h
     dsp/gpu/FtSyncCompute.cpp
     modems/ft8/FtDecodedText.h
     modems/ft8/FtDecodedText.cpp
@@ -1056,6 +1061,23 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(madmodem_ft_ldpc_check tests/FtLdpcCheckRegression.cpp)
+    target_include_directories(madmodem_ft_ldpc_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME madmodem_ft_ldpc_check COMMAND madmodem_ft_ldpc_check)
+    set_tests_properties(madmodem_ft_ldpc_check PROPERTIES TIMEOUT 30)
+    add_executable(madmodem_ft_native_spectrum tests/FtNativeSpectrumRegression.cpp)
+    target_include_directories(madmodem_ft_native_spectrum PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_ft_native_spectrum PRIVATE Threads::Threads "${MADMODEM_FFTW3_LIBRARY}")
+    add_test(NAME madmodem_ft_native_spectrum COMMAND madmodem_ft_native_spectrum)
+    set_tests_properties(madmodem_ft_native_spectrum PROPERTIES TIMEOUT 30)
+    add_executable(madmodem_ft_coherent_alignment tests/FtCoherentAlignmentRegression.cpp)
+    target_include_directories(madmodem_ft_coherent_alignment PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME madmodem_ft_coherent_alignment COMMAND madmodem_ft_coherent_alignment)
+    set_tests_properties(madmodem_ft_coherent_alignment PROPERTIES TIMEOUT 30)
+    add_executable(madmodem_ft_signal_envelope tests/FtSignalEnvelopeRegression.cpp)
+    target_include_directories(madmodem_ft_signal_envelope PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME madmodem_ft_signal_envelope COMMAND madmodem_ft_signal_envelope)
+    set_tests_properties(madmodem_ft_signal_envelope PROPERTIES TIMEOUT 30)
     add_executable(madmodem_session_diagnostics tests/SessionDiagnosticsRegression.cpp)
     target_link_libraries(madmodem_session_diagnostics PRIVATE madmodem_diagnostics)
     add_test(NAME madmodem_session_diagnostics COMMAND madmodem_session_diagnostics)
@@ -1157,6 +1179,8 @@ if(BUILD_TESTING)
     if(Python3_Interpreter_FOUND AND UNIX AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
         add_test(NAME madmodem_ft_reference_native COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_ft_reference_regression.py" --build "${CMAKE_BINARY_DIR}")
         set_tests_properties(madmodem_ft_reference_native PROPERTIES TIMEOUT 180)
+        add_test(NAME madmodem_ft_native_frontend COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_ft_coherent_regression.py" --build "${CMAKE_BINARY_DIR}" --probe FtNativeFrontendRegression.cpp)
+        set_tests_properties(madmodem_ft_native_frontend PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
         add_test(NAME madmodem_ft_coherent_native COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tools/run_ft_coherent_regression.py" --build "${CMAKE_BINARY_DIR}")
         set_tests_properties(madmodem_ft_coherent_native PROPERTIES TIMEOUT 120 RUN_SERIAL TRUE)
     endif()

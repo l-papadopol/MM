@@ -119,6 +119,11 @@ inline void recordFtPerformance(const Ft8RxDecoder::PerfStats &s,const QString &
     data.insert("coherentTailCandidates",s.coherentTailCandidates);
     data.insert("coherentTailDecodes",s.coherentTailDecodes);
     data.insert("coherentTailMs",s.coherentTailMs);
+    data.insert("nativeRecoveryCandidates",s.nativeRecoveryCandidates);
+    data.insert("nativeRecoveryDecodes",s.nativeRecoveryDecodes);
+    data.insert("nativeRecoveryPasses",s.nativeRecoveryPasses);
+    data.insert("nativeRecoveryMs",s.nativeRecoveryMs);
+    data.insert("nativeRecoveryCutoff",s.nativeRecoveryCutoff);
     data.insert("replyArmDeadlineUtcMs",QString::number(s.replyArmDeadlineUtcMs));
     data.insert("incrementalFftHits",s.incrementalFftHits);
     data.insert("incrementalToneHits",s.incrementalToneHits);

@@ -1,0 +1,3 @@
+FT8 blind signal, cache, expired boundary, generation, cancel, silence/noise PASS
+FT4 blind signal, cache, expired boundary, generation, cancel, silence/noise PASS
+FFT and concurrent FT4 instance isolation PASS

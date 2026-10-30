@@ -256,11 +256,15 @@ def test_ft8_coherent_metric_sign_and_crossing() -> None:
 
 
 def without_incremental_reuse(function: str) -> str:
-    """Remove only the exact cache read wrappers; pin all original search maths.
+    """Remove exact cache wrappers and optional native-tail cancellation only.
 
     FtIncrementalRegression separately compares cached/uncached candidate values
     and order exactly, including the selected-QSO FT4 finder and SIC fallback.
     """
+    function = function.replace("    const qint64 searchStopUtcMs=t_nativeSearchStopUtcMs;\n", "")
+    function = function.replace("""            if(searchStopUtcMs>0 && (decodeCancellationRequested() ||
+               QDateTime::currentMSecsSinceEpoch()>=searchStopUtcMs)) break;
+""", "")
     function = function.replace("    auto *incremental=MadModemFt::currentAnalysis;\n    if(incremental && !incremental->originalInput(samples))incremental=nullptr;\n", "")
     function = function.replace("[&samples, maxEnergyBin, incremental]", "[&samples, maxEnergyBin]")
     function = function.replace("""                if(incremental){

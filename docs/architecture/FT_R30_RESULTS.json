@@ -650,5 +650,18 @@
     "qt6_asan_ubsan_with_tx_overlap": "PASS",
     "native_windows_macos": "not executed",
     "physical_gpu_radio_ptt": "not executed"
+  },
+  "additional_work_validation": "FT_R30_WORK_VALIDATION.json",
+  "known_legacy_ft4_false_positive": {
+    "fixture": "amp-0.013-seed-0.f64",
+    "message": "QQ4PYT/P BT1FPH CM88",
+    "frequency_hz": 2304,
+    "observed_in": "baseline and R30",
+    "reference_stage_added_this_false_positive": false
+  },
+  "additional_local_validation": {
+    "Qt5": "all53 pass:52 full run+one local binary relink and targeted retry",
+    "Qt6": "native test including shared-codec TX overlap PASS",
+    "production_source_identity": "1282 canonical source/header hashes verified with no differences"
   }
 }

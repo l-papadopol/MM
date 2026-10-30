@@ -1,0 +1,529 @@
+-- MadModem package/app version: 0.6.4
+-- MadModem source revision: 0.6.4-source-r30-reference-ft-recovery
+-- MadModem distribution build: 0
+-- MadModem LTO/IPO disabled by default to avoid GCC/LTO private-slot link regressions
+-- MadModem portable CPU baseline: global AVX2/FMA disabled; runtime-dispatched kernels may still use AVX2 on capable CPUs.
+-- Qt Location QSO map backend not available; using offline planet_map.jpg fallback
+-- Qt Help backend enabled for the MM online manual
+-- Hamlib support enabled via pkg-config: 4.5.5
+-- Configuring done (0.1s)
+-- Generating done (0.1s)
+-- Build files have been written to: /workspace/scratch/5c40146f5a02/build
+[  0%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[  1%] Copying localized MM HTML help files
+[  2%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwSkimmerEngine.cpp.o
+[  2%] Built target MadModemHelpFiles
+[  2%] Built target madmodem_weak_signal_codec_autogen_timestamp_deps
+[  2%] Built target madmodem_linear_resampler_autogen_timestamp_deps
+[  2%] Built target madmodem_decode_clipboard_autogen_timestamp_deps
+[  2%] Built target madmodem_ft_incremental_producer_autogen_timestamp_deps
+[  2%] Building CXX object CMakeFiles/madmodem_ft_cq_worklist.dir/tests/FtCqWorkListRegression.cpp.o
+[  2%] Built target madmodem_update_regression_autogen_timestamp_deps
+[  2%] Built target madmodem_tx_pull_regression_autogen_timestamp_deps
+[  2%] Built target madmodem_i18n_regression_autogen_timestamp_deps
+[  2%] Building CXX object CMakeFiles/madmodem_rotator_coordinates.dir/tests/RotatorCoordinatesRegression.cpp.o
+[  3%] Linking CXX executable madmodem_rotator_coordinates
+[  3%] Built target madmodem_rotator_coordinates
+[  3%] Building CXX object CMakeFiles/madmodem_antialias_regression.dir/tests/AntiAliasRegression.cpp.o
+[  3%] Linking CXX executable madmodem_antialias_regression
+[  3%] Built target madmodem_antialias_regression
+[  3%] Built target madmodem_capture_clock_autogen_timestamp_deps
+[  3%] Built target madmodem_resampler_streaming_autogen_timestamp_deps
+[  3%] Built target madmodem_logbook_regression_autogen_timestamp_deps
+[  3%] Built target madmodem_wav_reader_test_autogen_timestamp_deps
+[  3%] Built target madmodem_receiver_filter_regression_autogen_timestamp_deps
+[  3%] Built target MadModemFtSequencerSelfTest_autogen_timestamp_deps
+[  3%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwCarrierDiscriminator.cpp.o
+[  3%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwMorseBeamDecoder.cpp.o
+[  3%] Linking CXX executable madmodem_ft_cq_worklist
+[  3%] Built target madmodem_ft_cq_worklist
+[  3%] Built target madmodem_all_contest_exports_regression_autogen_timestamp_deps
+[  3%] Built target madmodem_logbook_workflow_regression_autogen_timestamp_deps
+[  3%] Built target madmodem_contest_export_regression_autogen_timestamp_deps
+[  3%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwRelativeTimingDecoder.cpp.o
+/workspace/scratch/5c40146f5a02/source/MadModem_0_6_4_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingDecoder.cpp: In member function ‘void madmodem::cwskimmer::CwRelativeTimingDecoder::replayEpochProbe()’:
+/workspace/scratch/5c40146f5a02/source/MadModem_0_6_4_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingDecoder.cpp:190:29: warning: ‘*(madmodem::cwskimmer::CwLogicRun*)((char*)&pendingSpace + offsetof(std::optional<madmodem::cwskimmer::CwLogicRun>,std::optional<madmodem::cwskimmer::CwLogicRun>::<unnamed>.std::_Optional_base<madmodem::cwskimmer::CwLogicRun, true, true>::<unnamed>)).madmodem::cwskimmer::CwLogicRun::confidence’ is used uninitialized [-Wuninitialized]
+  190 |   std::optional<CwLogicRun> pendingSpace;
+      |                             ^~~~~~~~~~~~
+/workspace/scratch/5c40146f5a02/source/MadModem_0_6_4_FULL_SOURCE/modems/cw/skimmer/CwRelativeTimingDecoder.cpp:190:29: warning: ‘*(madmodem::cwskimmer::CwLogicRun*)((char*)&pendingSpace + offsetof(std::optional<madmodem::cwskimmer::CwLogicRun>,std::optional<madmodem::cwskimmer::CwLogicRun>::<unnamed>.std::_Optional_base<madmodem::cwskimmer::CwLogicRun, true, true>::<unnamed>)).madmodem::cwskimmer::CwLogicRun::coherence’ is used uninitialized [-Wuninitialized]
+[  4%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/CwRelativeTimingTask.cpp.o
+[  4%] Building CXX object CMakeFiles/madmodem_cwskimmer.dir/modems/cw/skimmer/SelectedToneCwTracker.cpp.o
+[  4%] Built target madmodem_cw_ctc_prefix_regression_autogen_timestamp_deps
+[  4%] Building CXX object CMakeFiles/madmodem_cw_neural_probe.dir/tests/CwNeuralProbe.cpp.o
+[  4%] Building CXX object CMakeFiles/madmodem_cw_neural_probe.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[  4%] Built target madmodem_rtty_synthetic_bench_autogen_timestamp_deps
+[  4%] Built target madmodem_text_assist_workers_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_installation_paths_regression_autogen_timestamp_deps
+[  4%] Building CXX object CMakeFiles/madmodem_installer_cpu_regression.dir/tests/InstallerCpuRegression.cpp.o
+[  4%] Linking CXX executable madmodem_installer_cpu_regression
+[  4%] Built target madmodem_installer_cpu_regression
+[  4%] Built target madmodem_gpu_sync_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_hell_image_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_weatherfax_image_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_vis_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_editor_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_image_adjustment_regression_autogen_timestamp_deps
+[  4%] Built target madmodem_sstv_archive_regression_autogen_timestamp_deps
+[  4%] Generating localized MM Qt Help manuals (.qch, optional)
+CMake Warning at /workspace/scratch/5c40146f5a02/source/MadModem_0_6_4_FULL_SOURCE/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/5c40146f5a02/build/docs/help/qhelpgenerator.log
+
+
+[  4%] Built target MadModemQtHelp
+[  5%] Automatic MOC and UIC for target madmodem_diagnostics
+[  5%] Built target madmodem_diagnostics_autogen
+[  5%] Automatic MOC and UIC for target madmodem_weak_signal_codec
+[  5%] Built target madmodem_weak_signal_codec_autogen
+[  5%] Automatic MOC and UIC for target madmodem_linear_resampler
+[  5%] Built target madmodem_linear_resampler_autogen
+[  5%] Automatic MOC and UIC for target madmodem_decode_clipboard
+[  5%] Built target madmodem_decode_clipboard_autogen
+[  5%] Automatic MOC and UIC for target madmodem_ft_incremental_producer
+[  5%] Built target madmodem_ft_incremental_producer_autogen
+[  6%] Automatic MOC and UIC for target madmodem_update_regression
+[  6%] Built target madmodem_update_regression_autogen
+[  7%] Automatic MOC and UIC for target madmodem_tx_pull_regression
+[  7%] Built target madmodem_tx_pull_regression_autogen
+[  7%] Automatic MOC and UIC for target madmodem_i18n_regression
+[  7%] Built target madmodem_i18n_regression_autogen
+[  7%] Automatic MOC and UIC for target madmodem_capture_clock
+[  7%] Built target madmodem_capture_clock_autogen
+[  7%] Automatic MOC and UIC for target madmodem_resampler_streaming
+[  7%] Built target madmodem_resampler_streaming_autogen
+[  8%] Automatic MOC and UIC for target madmodem_logbook_regression
+[  8%] Built target madmodem_logbook_regression_autogen
+[  8%] Automatic MOC and UIC for target madmodem_wav_reader_test
+[  8%] Built target madmodem_wav_reader_test_autogen
+[  9%] Automatic MOC and UIC for target madmodem_receiver_filter_regression
+[  9%] Linking CXX executable madmodem_cw_neural_probe
+[  9%] Built target madmodem_cw_neural_probe
+[  9%] Automatic MOC and UIC for target MadModemFtSequencerSelfTest
+[  9%] Built target madmodem_receiver_filter_regression_autogen
+[  9%] Built target MadModemFtSequencerSelfTest_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_all_contest_exports_regression
+[ 10%] Automatic MOC and UIC for target madmodem_logbook_workflow_regression
+[ 10%] Built target madmodem_all_contest_exports_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_contest_export_regression
+[ 10%] Built target madmodem_contest_export_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_cw_ctc_prefix_regression
+[ 10%] Built target madmodem_cw_ctc_prefix_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_rtty_synthetic_bench
+[ 10%] Built target madmodem_logbook_workflow_regression_autogen
+[ 10%] Automatic MOC and UIC for target madmodem_text_assist_workers_regression
+[ 10%] Built target madmodem_rtty_synthetic_bench_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_installation_paths_regression
+[ 11%] Built target madmodem_installation_paths_regression_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_gpu_sync_regression
+[ 11%] Built target madmodem_text_assist_workers_regression_autogen
+[ 11%] Built target madmodem_gpu_sync_regression_autogen
+[ 11%] Automatic MOC and UIC for target madmodem_hell_image_regression
+[ 12%] Automatic MOC and UIC for target madmodem_weatherfax_image_regression
+[ 12%] Built target madmodem_hell_image_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_vis_regression
+[ 12%] Built target madmodem_weatherfax_image_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_editor_regression
+[ 12%] Built target madmodem_sstv_vis_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_image_adjustment_regression
+[ 12%] Built target madmodem_sstv_editor_regression_autogen
+[ 12%] Automatic MOC and UIC for target madmodem_sstv_archive_regression
+[ 12%] Built target madmodem_sstv_image_adjustment_regression_autogen
+[ 12%] Building CXX object CMakeFiles/madmodem_diagnostics.dir/runtime/SessionDiagnostics.cpp.o
+[ 12%] Built target madmodem_sstv_archive_regression_autogen
+[ 12%] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/modems/weak_signal/WeakSignalCodecLock.cpp.o
+[ 12%] Linking CXX static library libmadmodem_cwskimmer.a
+[ 12%] Built target madmodem_cwskimmer
+[ 12%] Building CXX object CMakeFiles/madmodem_linear_resampler.dir/dsp/text/LinearResampler.cpp.o
+[ 12%] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/third_party/mshv_gpl/nhash.cpp.o
+[ 12%] Building CXX object CMakeFiles/madmodem_weak_signal_codec.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_unpack_msg77.cpp.o
+[ 12%] Linking CXX static library libmadmodem_linear_resampler.a
+[ 13%] Built target madmodem_linear_resampler
+[ 13%] Building CXX object CMakeFiles/madmodem_decode_clipboard.dir/tests/DecodeTableClipboardRegression.cpp.o
+[ 13%] Linking CXX static library libmadmodem_diagnostics.a
+[ 14%] Built target madmodem_diagnostics
+[ 14%] Building CXX object CMakeFiles/madmodem_ft_incremental_producer.dir/tests/FtIncrementalProducerRegression.cpp.o
+[ 14%] Linking CXX executable madmodem_decode_clipboard
+[ 15%] Linking CXX static library libmadmodem_weak_signal_codec.a
+[ 16%] Built target madmodem_weak_signal_codec
+[ 16%] Building CXX object CMakeFiles/madmodem_update_regression.dir/tests/UpdateReleaseRegression.cpp.o
+[ 17%] Built target madmodem_decode_clipboard
+[ 17%] Building CXX object CMakeFiles/madmodem_tx_pull_regression.dir/madmodem_tx_pull_regression_autogen/mocs_compilation.cpp.o
+[ 17%] Linking CXX executable madmodem_ft_incremental_producer
+[ 18%] Built target madmodem_ft_incremental_producer
+[ 18%] Automatic RCC for tests/i18n.qrc
+[ 18%] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/tests/RuntimeI18nRegression.cpp.o
+[ 18%] Building CXX object CMakeFiles/madmodem_tx_pull_regression.dir/tests/TxPullRegression.cpp.o
+[ 19%] Building CXX object CMakeFiles/madmodem_update_regression.dir/updates/UpdateController.cpp.o
+[ 20%] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/utils/RuntimeI18n.cpp.o
+[ 20%] Linking CXX executable madmodem_tx_pull_regression
+[ 21%] Built target madmodem_tx_pull_regression
+[ 21%] Building CXX object CMakeFiles/madmodem_capture_clock.dir/tests/CaptureClockRegression.cpp.o
+[ 21%] Building CXX object CMakeFiles/madmodem_i18n_regression.dir/madmodem_i18n_regression_autogen/KRHXW7JQHD/qrc_i18n.cpp.o
+[ 21%] Linking CXX executable madmodem_i18n_regression
+[ 22%] Built target madmodem_i18n_regression
+[ 22%] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/tests/ResamplerStreamingRegression.cpp.o
+[ 22%] Building CXX object CMakeFiles/madmodem_update_regression.dir/utils/RuntimeI18n.cpp.o
+[ 23%] Linking CXX executable madmodem_capture_clock
+[ 24%] Building CXX object CMakeFiles/madmodem_resampler_streaming.dir/dsp/text/LinearResampler.cpp.o
+[ 24%] Built target madmodem_capture_clock
+[ 24%] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/tests/LogbookRegression.cpp.o
+[ 24%] Linking CXX executable madmodem_resampler_streaming
+[ 24%] Building CXX object CMakeFiles/madmodem_update_regression.dir/settings/AppSettings.cpp.o
+[ 24%] Built target madmodem_resampler_streaming
+[ 24%] Building CXX object CMakeFiles/madmodem_update_regression.dir/rotator/RotatorPeakSearch.cpp.o
+[ 24%] Building CXX object CMakeFiles/madmodem_logbook_regression.dir/logbook/AdifLogbook.cpp.o
+[ 24%] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/tests/WavFileReaderTest.cpp.o
+[ 25%] Building CXX object CMakeFiles/madmodem_wav_reader_test.dir/audio/WavFileReader.cpp.o
+[ 25%] Linking CXX executable madmodem_logbook_regression
+[ 26%] Built target madmodem_logbook_regression
+[ 26%] Built target madmodem_audio_flow_accounting_autogen_timestamp_deps
+[ 26%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/madmodem_receiver_filter_regression_autogen/mocs_compilation.cpp.o
+[ 26%] Linking CXX executable madmodem_wav_reader_test
+[ 26%] Built target madmodem_wav_reader_test
+[ 26%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/tests/FtSequencerSelfTest.cpp.o
+[ 27%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/tests/ReceiverFilterRegression.cpp.o
+[ 27%] Linking CXX executable madmodem_update_regression
+[ 27%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtDecodedText.cpp.o
+[ 27%] Built target madmodem_update_regression
+[ 27%] Building CXX object CMakeFiles/madmodem_all_contest_exports_regression.dir/tests/AllContestExportsRegression.cpp.o
+[ 27%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/dsp/WaterfallLeveler.cpp.o
+[ 27%] Building CXX object CMakeFiles/madmodem_receiver_filter_regression.dir/dsp/DspEngine.cpp.o
+[ 28%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtQsoSequencer.cpp.o
+[ 28%] Linking CXX executable madmodem_receiver_filter_regression
+[ 28%] Built target madmodem_receiver_filter_regression
+[ 28%] Automatic RCC for tests/i18n.qrc
+[ 28%] Building CXX object CMakeFiles/MadModemFtSequencerSelfTest.dir/modems/ft8/FtQsoSession.cpp.o
+[ 28%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/madmodem_logbook_workflow_regression_autogen/mocs_compilation.cpp.o
+[ 28%] Linking CXX executable MadModemFtSequencerSelfTest
+[ 29%] Built target MadModemFtSequencerSelfTest
+[ 29%] Automatic RCC for tests/i18n.qrc
+[ 29%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/tests/ContestExportRegression.cpp.o
+[ 30%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/tests/LogbookWorkflowRegression.cpp.o
+[ 30%] Building CXX object CMakeFiles/madmodem_all_contest_exports_regression.dir/logbook/ContestExchange.cpp.o
+[ 30%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/dialogs/LogbookDialog.cpp.o
+[ 30%] Building CXX object CMakeFiles/madmodem_all_contest_exports_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 30%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/dialogs/ContestExportWizard.cpp.o
+[ 30%] Linking CXX executable madmodem_all_contest_exports_regression
+[ 31%] Built target madmodem_all_contest_exports_regression
+[ 31%] Built target madmodem_cw_integration_regression_autogen_timestamp_deps
+[ 32%] Building CXX object CMakeFiles/madmodem_cw_ctc_prefix_regression.dir/tests/CwCtcPrefixRegression.cpp.o
+[ 32%] Linking CXX executable madmodem_cw_ctc_prefix_regression
+[ 32%] Built target madmodem_cw_ctc_prefix_regression
+[ 32%] Built target madmodem_cw_route_probe_autogen_timestamp_deps
+[ 32%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/logbook/ContestExchange.cpp.o
+[ 32%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/dialogs/ContestExportWizard.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/utils/RuntimeI18n.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/utils/CockpitTheme.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/utils/WindowResize.cpp.o
+[ 33%] Building CXX object CMakeFiles/madmodem_contest_export_regression.dir/madmodem_contest_export_regression_autogen/KRHXW7JQHD/qrc_i18n.cpp.o
+[ 33%] Built target madmodem_cw_engine_regression_autogen_timestamp_deps
+[ 33%] Built target madmodem_cw_native_probe_autogen_timestamp_deps
+[ 33%] Built target madmodem_rtty_contest_regression_autogen_timestamp_deps
+[ 33%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/logbook/ContestExchange.cpp.o
+[ 34%] Linking CXX executable madmodem_contest_export_regression
+[ 35%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/logbook/AdifLogbook.cpp.o
+[ 36%] Built target madmodem_contest_export_regression
+[ 36%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/widgets/QsoMapWidget.cpp.o
+[ 36%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/settings/AppSettings.cpp.o
+[ 36%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/rotator/RotatorPeakSearch.cpp.o
+[ 37%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 37%] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/madmodem_rtty_synthetic_bench_autogen/mocs_compilation.cpp.o
+[ 37%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/utils/RuntimeI18n.cpp.o
+[ 38%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/madmodem_text_assist_workers_regression_autogen/mocs_compilation.cpp.o
+[ 38%] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/tests/RttySyntheticBench.cpp.o
+[ 38%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/utils/CockpitTheme.cpp.o
+[ 38%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/tests/TextAssistWorkersRegression.cpp.o
+[ 38%] Building CXX object CMakeFiles/madmodem_rtty_synthetic_bench.dir/modems/rtty/RttyDecoder.cpp.o
+[ 38%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/utils/WindowResize.cpp.o
+[ 39%] Linking CXX executable madmodem_rtty_synthetic_bench
+[ 40%] Built target madmodem_rtty_synthetic_bench
+[ 40%] Building CXX object CMakeFiles/madmodem_installation_paths_regression.dir/tests/InstallationPathsRegression.cpp.o
+[ 40%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/runtime/LogbookIndexWorker.cpp.o
+[ 41%] Building CXX object CMakeFiles/madmodem_logbook_workflow_regression.dir/madmodem_logbook_workflow_regression_autogen/KRHXW7JQHD/qrc_i18n.cpp.o
+[ 41%] Linking CXX executable madmodem_logbook_workflow_regression
+[ 41%] Built target madmodem_logbook_workflow_regression
+[ 41%] Building CXX object CMakeFiles/madmodem_gpu_sync_regression.dir/tests/FtGpuSyncRegression.cpp.o
+[ 41%] Linking CXX executable madmodem_installation_paths_regression
+[ 42%] Built target madmodem_installation_paths_regression
+[ 43%] Building CXX object CMakeFiles/madmodem_hell_image_regression.dir/madmodem_hell_image_regression_autogen/mocs_compilation.cpp.o
+[ 43%] Building CXX object CMakeFiles/madmodem_hell_image_regression.dir/tests/HellschreiberImageRegression.cpp.o
+[ 43%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/runtime/TextAssistWorker.cpp.o
+[ 44%] Building CXX object CMakeFiles/madmodem_gpu_sync_regression.dir/dsp/gpu/FtSyncCompute.cpp.o
+[ 44%] Building CXX object CMakeFiles/madmodem_hell_image_regression.dir/modems/hell/HellschreiberDecoder.cpp.o
+[ 45%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/logbook/AdifLogbook.cpp.o
+[ 45%] Linking CXX executable madmodem_gpu_sync_regression
+[ 45%] Linking CXX executable madmodem_hell_image_regression
+[ 45%] Built target madmodem_gpu_sync_regression
+[ 45%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/madmodem_weatherfax_image_regression_autogen/mocs_compilation.cpp.o
+[ 45%] Built target madmodem_hell_image_regression
+[ 45%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/madmodem_sstv_vis_regression_autogen/mocs_compilation.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/tests/WeatherFaxImageRegression.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/tests/SstvVisRegression.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_text_assist_workers_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/modems/sstv/SstvDecoder.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/modems/weatherfax/WeatherFaxDecoder.cpp.o
+[ 46%] Linking CXX executable madmodem_text_assist_workers_regression
+[ 46%] Built target madmodem_text_assist_workers_regression
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/madmodem_sstv_editor_regression_autogen/mocs_compilation.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/tests/SstvEditorRegression.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_weatherfax_image_regression.dir/dsp/FrequencyTracker.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 46%] Linking CXX executable madmodem_weatherfax_image_regression
+[ 46%] Built target madmodem_weatherfax_image_regression
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/madmodem_sstv_image_adjustment_regression_autogen/mocs_compilation.cpp.o
+[ 46%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/dialogs/SstvImageEditorDialog.cpp.o
+[ 47%] Building CXX object CMakeFiles/madmodem_sstv_vis_regression.dir/third_party/mmsstv_lgpl/MmsstvRxCore.cpp.o
+[ 47%] Linking CXX executable madmodem_sstv_vis_regression
+[ 47%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/tests/SstvImageAdjustmentRegression.cpp.o
+[ 48%] Built target madmodem_sstv_vis_regression
+[ 49%] Building CXX object CMakeFiles/madmodem_sstv_archive_regression.dir/madmodem_sstv_archive_regression_autogen/mocs_compilation.cpp.o
+[ 49%] Building CXX object CMakeFiles/madmodem_sstv_archive_regression.dir/tests/SstvArchiveRegression.cpp.o
+[ 49%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/modems/sstv/SstvDecoder.cpp.o
+[ 49%] Building CXX object CMakeFiles/madmodem_sstv_archive_regression.dir/runtime/SstvImageArchive.cpp.o
+[ 50%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/utils/RuntimeI18n.cpp.o
+[ 50%] Building CXX object CMakeFiles/madmodem_sstv_editor_regression.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 50%] Linking CXX executable madmodem_sstv_archive_regression
+[ 51%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 51%] Built target madmodem_sstv_archive_regression
+[ 51%] Building CXX object CMakeFiles/madmodem_sstv_image_adjustment_regression.dir/third_party/mmsstv_lgpl/MmsstvRxCore.cpp.o
+[ 51%] Built target madmodem_ft_reference_autogen_timestamp_deps
+[ 51%] Built target madmodem_msk144_autogen_timestamp_deps
+[ 51%] Built target madmodem_q65_autogen_timestamp_deps
+[ 51%] Built target madmodem_session_diagnostics_autogen_timestamp_deps
+[ 52%] Automatic MOC and UIC for target madmodem_audio_flow_accounting
+[ 52%] Built target madmodem_audio_flow_accounting_autogen
+[ 52%] Automatic MOC and UIC for target madmodem_cw_integration_regression
+[ 52%] Built target madmodem_cw_integration_regression_autogen
+[ 52%] Automatic MOC and UIC for target madmodem_cw_route_probe
+[ 52%] Built target madmodem_cw_route_probe_autogen
+[ 52%] Linking CXX executable madmodem_sstv_editor_regression
+[ 52%] Automatic MOC and UIC for target madmodem_cw_engine_regression
+[ 52%] Built target madmodem_cw_engine_regression_autogen
+[ 53%] Automatic MOC and UIC for target madmodem_cw_native_probe
+[ 53%] Built target madmodem_cw_native_probe_autogen
+[ 53%] Linking CXX executable madmodem_sstv_image_adjustment_regression
+[ 53%] Automatic MOC and UIC for target madmodem_rtty_contest_regression
+[ 54%] Built target madmodem_sstv_editor_regression
+[ 55%] Automatic MOC and UIC for target madmodem_ft_reference
+[ 55%] Built target madmodem_ft_reference_autogen
+[ 55%] Built target madmodem_rtty_contest_regression_autogen
+[ 55%] Automatic MOC and UIC for target madmodem_msk144
+[ 55%] Automatic MOC and UIC for target madmodem_q65
+[ 56%] Built target madmodem_sstv_image_adjustment_regression
+[ 56%] Built target madmodem_msk144_autogen
+[ 56%] Automatic MOC and UIC for target madmodem_session_diagnostics
+[ 57%] Building CXX object CMakeFiles/madmodem_audio_flow_accounting.dir/madmodem_audio_flow_accounting_autogen/mocs_compilation.cpp.o
+[ 57%] Built target madmodem_session_diagnostics_autogen
+[ 57%] Built target madmodem_q65_autogen
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/madmodem_cw_integration_regression_autogen/mocs_compilation.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/madmodem_cw_route_probe_autogen/mocs_compilation.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_audio_flow_accounting.dir/tests/AudioFlowAccountingRegression.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/tests/CwRouteProbe.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/tests/CwIntegrationRegression.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_audio_flow_accounting.dir/audio/BoundedAudioDispatcher.cpp.o
+[ 57%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/modems/cw/CwDecoder.cpp.o
+[ 57%] Linking CXX executable madmodem_audio_flow_accounting
+[ 57%] Built target madmodem_audio_flow_accounting
+[ 58%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/madmodem_cw_engine_regression_autogen/mocs_compilation.cpp.o
+[ 58%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/modems/cw/CwDecoder.cpp.o
+[ 58%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/tests/CwEngineIntegrationRegression.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/modems/cw/CwDecoder.cpp.o
+[ 59%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_route_probe.dir/dsp/text/LinearResampler.cpp.o
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 60%] Linking CXX executable madmodem_cw_route_probe
+[ 60%] Building CXX object CMakeFiles/madmodem_cw_integration_regression.dir/dsp/text/LinearResampler.cpp.o
+[ 61%] Built target madmodem_cw_route_probe
+[ 61%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/madmodem_cw_native_probe_autogen/mocs_compilation.cpp.o
+[ 61%] Linking CXX executable madmodem_cw_integration_regression
+[ 62%] Built target madmodem_cw_integration_regression
+[ 62%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/tests/CwNativeProbe.cpp.o
+[ 63%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 63%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/modems/cw/CwDecoder.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_cw_engine_regression.dir/dsp/text/LinearResampler.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 64%] Linking CXX executable madmodem_cw_engine_regression
+[ 64%] Built target madmodem_cw_engine_regression
+[ 64%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/madmodem_rtty_contest_regression_autogen/mocs_compilation.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_cw_native_probe.dir/dsp/text/LinearResampler.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/tests/RttyContestRegression.cpp.o
+[ 64%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/RttyDecoder.cpp.o
+[ 64%] Linking CXX executable madmodem_cw_native_probe
+[ 65%] Built target madmodem_cw_native_probe
+[ 66%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/RttyMultiDecoder.cpp.o
+[ 66%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/modems/rtty/tx/RttyTransmitter.cpp.o
+[ 66%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/dsp/common/DspConditioner.cpp.o
+[ 66%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/logbook/AdifLogbook.cpp.o
+[ 66%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/modems/ft8/FtReferenceRecovery.cpp.o
+[ 67%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/dxcc/CtyCountryFile.cpp.o
+[ 67%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderft8.cpp.o
+[ 67%] Building CXX object CMakeFiles/madmodem_rtty_contest_regression.dir/network/QsoUdpBroadcaster.cpp.o
+[ 67%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderft8var.cpp.o
+[ 67%] Linking CXX executable madmodem_rtty_contest_regression
+[ 67%] Built target madmodem_rtty_contest_regression
+[ 67%] Building CXX object CMakeFiles/madmodem_msk144.dir/madmodem_msk144_autogen/mocs_compilation.cpp.o
+[ 68%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderft4.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/modems/msk144/Msk144Decoder.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/decoderpom.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/modems/msk144/tx/Msk144Transmitter.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_ft_reference.dir/third_party/mshv_gpl/ft_reference/fft.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/HvTxW/hvqthloc.cpp.o
+[ 69%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvGenMsk/genmesage_msk.cpp.o
+[ 70%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/pack_msg.cpp.o
+[ 70%] Linking CXX static library libmadmodem_ft_reference.a
+[ 71%] Built target madmodem_ft_reference
+[ 71%] Building CXX object CMakeFiles/madmodem_q65.dir/madmodem_q65_autogen/mocs_compilation.cpp.o
+[ 71%] Building CXX object CMakeFiles/madmodem_msk144.dir/third_party/mshv_gpl/port/HvPackUnpackMsg/unpack_msg.cpp.o
+[ 72%] Building CXX object CMakeFiles/madmodem_session_diagnostics.dir/tests/SessionDiagnosticsRegression.cpp.o
+[ 72%] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/Q65Decoder.cpp.o
+[ 72%] Linking CXX static library libmadmodem_msk144.a
+[ 72%] Built target madmodem_msk144
+[ 73%] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/Q65NativeEngine.cpp.o
+[ 73%] Linking CXX executable madmodem_session_diagnostics
+[ 73%] Building CXX object CMakeFiles/madmodem_q65.dir/modems/q65/tx/Q65Transmitter.cpp.o
+[ 73%] Built target madmodem_session_diagnostics
+[ 73%] Built target madmodem_msk144_native_regression_autogen_timestamp_deps
+[ 73%] Building CXX object CMakeFiles/madmodem_q65.dir/third_party/mshv_gpl/port/HvGenQ65/gen_q65.cpp.o
+[ 73%] Building CXX object CMakeFiles/madmodem_q65.dir/third_party/mshv_gpl/port/HvGenQ65/q65_subs.cpp.o
+[ 74%] Automatic MOC and UIC for target madmodem_msk144_native_regression
+[ 74%] Built target madmodem_msk144_native_regression_autogen
+[ 74%] Building CXX object CMakeFiles/madmodem_msk144_native_regression.dir/tests/Msk144NativeRegression.cpp.o
+[ 75%] Linking CXX static library libmadmodem_q65.a
+[ 75%] Built target madmodem_q65
+[ 75%] Built target madmodem_q65_native_regression_autogen_timestamp_deps
+[ 75%] Built target MadModem_autogen_timestamp_deps
+[ 75%] Automatic MOC and UIC for target madmodem_q65_native_regression
+[ 75%] Built target madmodem_q65_native_regression_autogen
+[ 75%] Automatic MOC and UIC for target MadModem
+[ 75%] Building CXX object CMakeFiles/madmodem_q65_native_regression.dir/tests/Q65NativeRegression.cpp.o
+[ 75%] Linking CXX executable madmodem_msk144_native_regression
+[ 76%] Built target madmodem_msk144_native_regression
+[ 76%] Built target MadModem_autogen
+[ 76%] Automatic RCC for resources.qrc
+[ 77%] Linking CXX executable madmodem_q65_native_regression
+[ 77%] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[ 77%] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/mocs_compilation.cpp.o
+[ 77%] Built target madmodem_q65_native_regression
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/FtCqWorkListUi.cpp.o
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/updates/UpdateController.cpp.o
+[ 78%] Building CXX object CMakeFiles/MadModem.dir/callsign/QrzLookupPanel.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/AudioEngine.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/BoundedAudioDispatcher.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/RxAudioRecorder.cpp.o
+[ 79%] Building CXX object CMakeFiles/MadModem.dir/audio/WavFileReader.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/audio/TxAudioEngine.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/audio/FtTxWorker.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/widgets/SkimmerOverlay.cpp.o
+[ 80%] Building CXX object CMakeFiles/MadModem.dir/widgets/WaterfallWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/RttyScopeWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/QsoMapWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/RadioTelescopeHeatmapWidget.cpp.o
+[ 81%] Building CXX object CMakeFiles/MadModem.dir/widgets/CwDiagnosticWidget.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/RuntimeI18n.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/CockpitTheme.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/WindowResize.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/utils/SystemResourceManager.cpp.o
+[ 82%] Building CXX object CMakeFiles/MadModem.dir/dsp/DspEngine.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/WaterfallLeveler.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/common/DspConditioner.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/cpu/CpuFeatures.cpp.o
+[ 83%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/Nco.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/BaudAwareFilter.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/AtcDetector.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/SymbolClockDpll.cpp.o
+[ 84%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/SoftSquelch.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/dsp/text/GoertzelToneBank.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/widgets/FaxImageWidget.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/modems/weatherfax/WeatherFaxDecoder.cpp.o
+[ 85%] Building CXX object CMakeFiles/MadModem.dir/modems/weatherfax/tx/WeatherFaxTransmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/tx/SstvTransmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/tx/RttyTransmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/bpsk31/tx/Bpsk31Transmitter.cpp.o
+[ 86%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/tx/CwMorseSequence.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/tx/CwSerialTransmitter.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/dialogs/CwTxSettingsDialog.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/tx/CwTransmitter.cpp.o
+[ 87%] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/tx/MfskTransmitter.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/hell/tx/HellschreiberTransmitter.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/tx/Ft8Transmitter.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvModeDefinition.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/modems/sstv/SstvDecoder.cpp.o
+[ 88%] Building CXX object CMakeFiles/MadModem.dir/third_party/mmsstv_lgpl/MmsstvRxCore.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyDecoder.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/RttyMultiDecoder.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/runtime/SstvImageArchive.cpp.o
+[ 89%] Building CXX object CMakeFiles/MadModem.dir/runtime/RxDecoderWorker.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/runtime/LogbookIndexWorker.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/runtime/TextAssistWorker.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/runtime/CwSerialTxSession.cpp.o
+[ 90%] Building CXX object CMakeFiles/MadModem.dir/modems/rtty/contest/RttyContestRules.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/bpsk31/Bpsk31Decoder.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/mfsk/MfskDecoder.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/CwDecoder.cpp.o
+[ 91%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/neural/CwNeuralDecoder.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/cw/CwBandSkimmer.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/hell/HellschreiberDecoder.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8Mode.cpp.o
+[ 92%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/Ft8RxDecoder.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/dsp/gpu/FtSyncCompute.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtDecodedText.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtStandardMessageSet.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtQsoSession.cpp.o
+[ 93%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtQsoSequencer.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/FtSlotScheduler.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/third_party/decodium_gpl/port/NtpClient.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/genpom.cpp.o
+[ 94%] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/HvGenFt8/gen_ft8.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/third_party/mshv_gpl/port/HvGenFt4/gen_ft4.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/dsp/FrequencyTracker.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/settings/AppSettings.cpp.o
+[ 95%] Building CXX object CMakeFiles/MadModem.dir/dialogs/HelpDialog.cpp.o
+/workspace/scratch/5c40146f5a02/source/MadModem_0_6_4_FULL_SOURCE/dialogs/HelpDialog.cpp: In member function ‘bool HelpDialog::setupQtHelpBackend(const QUrl&)’:
+/workspace/scratch/5c40146f5a02/source/MadModem_0_6_4_FULL_SOURCE/dialogs/HelpDialog.cpp:229:51: warning: ‘void QHelpIndexWidget::linkActivated(const QUrl&, const QString&)’ is deprecated: Use documentActivated() instead [-Wdeprecated-declarations]
+  229 |         connect(m_indexWidget, &QHelpIndexWidget::linkActivated,
+      |                                                   ^~~~~~~~~~~~~
+In file included from /workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt5/QtHelp/QHelpIndexWidget:1,
+                 from /workspace/scratch/5c40146f5a02/source/MadModem_0_6_4_FULL_SOURCE/dialogs/HelpDialog.cpp:29:
+/workspace/scratch/5c40146f5a02/toolchain/usr/include/x86_64-linux-gnu/qt5/QtHelp/qhelpindexwidget.h:95:10: note: declared here
+   95 |     void linkActivated(const QUrl &link, const QString &keyword);
+      |          ^~~~~~~~~~~~~
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/BandSchedulerDialog.cpp.o
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/AppSettingsDialog.cpp.o
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/AudioSettingsDialog.cpp.o
+[ 96%] Building CXX object CMakeFiles/MadModem.dir/dialogs/SoundCardCalibrationDialog.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/dialogs/TextMacroSettingsDialog.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookDialog.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/dialogs/ContestExportWizard.cpp.o
+[ 97%] Building CXX object CMakeFiles/MadModem.dir/logbook/ContestExchange.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/dialogs/LogbookSettingsDialog.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/dialogs/RigControlSettingsDialog.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/rig/HamlibController.cpp.o
+[ 98%] Building CXX object CMakeFiles/MadModem.dir/rotator/CatRotatorController.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/rotator/RotatorPeakSearch.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/rotator/CatRotatorPanel.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/rotator/NavballWidget.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/dialogs/SstvImageEditorDialog.cpp.o
+[ 99%] Building CXX object CMakeFiles/MadModem.dir/logbook/AdifLogbook.cpp.o
+[100%] Building CXX object CMakeFiles/MadModem.dir/network/QsoUdpBroadcaster.cpp.o
+[100%] Building CXX object CMakeFiles/MadModem.dir/dxcc/CtyCountryFile.cpp.o
+[100%] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/EWIEGA46WW/qrc_resources.cpp.o
+[100%] Linking CXX executable MadModem
+Copying external rtty_rules next to MadModem
+Copying external cw_rules next to MadModem
+[100%] Built target MadModem

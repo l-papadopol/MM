@@ -1,0 +1,26 @@
+lab/r31-clean/verify.sh: line 9: ldpc_check: command not found
+Copying external rtty_rules next to MadModem
+Copying external cw_rules next to MadModem
+Built target MadModem
+[  0%] Built target madmodem_ft_ldpc_check_autogen_timestamp_deps
+[  0%] Built target madmodem_ft_ldpc_check_autogen
+[100%] Built target madmodem_ft_ldpc_check
+[  0%] Built target madmodem_ft_native_spectrum_autogen_timestamp_deps
+[  0%] Built target madmodem_ft_native_spectrum_autogen
+[100%] Built target madmodem_ft_native_spectrum
+[  0%] Built target madmodem_ft_coherent_alignment_autogen_timestamp_deps
+[  0%] Built target madmodem_ft_coherent_alignment_autogen
+[100%] Built target madmodem_ft_coherent_alignment
+[  0%] Built target madmodem_ft_signal_envelope_autogen_timestamp_deps
+[  0%] Built target madmodem_ft_signal_envelope_autogen
+[100%] Built target madmodem_ft_signal_envelope
+[100%] Built target madmodem_ft_cq_worklist
+[  0%] Built target madmodem_ft_incremental_producer_autogen_timestamp_deps
+[  0%] Built target madmodem_ft_incremental_producer_autogen
+[100%] Built target madmodem_ft_incremental_producer
+[  0%] Built target MadModemFtSequencerSelfTest_autogen_timestamp_deps
+[  0%] Built target MadModemFtSequencerSelfTest_autogen
+[100%] Built target MadModemFtSequencerSelfTest
+[  0%] Built target madmodem_gpu_sync_regression_autogen_timestamp_deps
+[  0%] Built target madmodem_gpu_sync_regression_autogen
+[100%] Built target madmodem_gpu_sync_regression
