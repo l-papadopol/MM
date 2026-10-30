@@ -1,4 +1,4 @@
-> Updated source: **0.6.4 R31 clean** — completed two-stage native FT8 residual recovery, existing FT4 and Doppler retained. [Current status and verification](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md). Public version remains 0.6.4; general JTDX parity is still open.
+> Updated source: **0.6.4 R31 clean** — completed two-stage native FT8 residual recovery, existing FT4 and Doppler retained. [Current status and verification](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md). Public version remains 0.6.4; general JTDX parity is still open. Includes [Windows TLS link fix 1](docs/platform/WINDOWS_R31_TLS_FIX.md).
 
 # MadModem
 

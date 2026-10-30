@@ -336,6 +336,7 @@ if(NOT MADMODEM_FFTW3_LIBRARY)
 endif()
 add_library(madmodem_ft_reference STATIC
     modems/ft8/FtReferenceRecovery.h modems/ft8/FtReferenceRecovery.cpp
+    third_party/mshv_gpl/ft_reference/budget.cpp
     third_party/mshv_gpl/ft_reference/decoderft8.cpp
     third_party/mshv_gpl/ft_reference/decoderft8var.cpp
     third_party/mshv_gpl/ft_reference/decoderft4.cpp
@@ -1061,6 +1062,15 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(madmodem_ft_reference_budget
+        tests/FtReferenceBudgetRegression.cpp
+        tests/FtReferenceBudgetPeer.cpp
+        third_party/mshv_gpl/ft_reference/budget.cpp)
+    target_include_directories(madmodem_ft_reference_budget PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(madmodem_ft_reference_budget PRIVATE Threads::Threads)
+    set_target_properties(madmodem_ft_reference_budget PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME madmodem_ft_reference_budget COMMAND madmodem_ft_reference_budget)
+    set_tests_properties(madmodem_ft_reference_budget PROPERTIES TIMEOUT 10)
     add_executable(madmodem_ft_ldpc_check tests/FtLdpcCheckRegression.cpp)
     target_include_directories(madmodem_ft_ldpc_check PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME madmodem_ft_ldpc_check COMMAND madmodem_ft_ldpc_check)

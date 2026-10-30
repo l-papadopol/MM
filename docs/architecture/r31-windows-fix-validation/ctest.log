@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /workspace/scratch/5c40146f5a02/build-r31-clean
+Test project /workspace/scratch/5c40146f5a02/build-r31-clean
+    Start  1: madmodem_ft_reference_budget
+1/2 Test  #1: madmodem_ft_reference_budget .....   Passed    0.00 sec
+    Start 26: madmodem_ft_reference_native
+2/2 Test #26: madmodem_ft_reference_native .....   Passed    9.55 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   9.56 sec

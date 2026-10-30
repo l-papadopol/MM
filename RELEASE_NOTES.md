@@ -1,3 +1,7 @@
+## R31 clean Windows link fix 1
+
+Fixes the duplicate MshvReference::stopRequested TLS initialization symbol reported by the Windows MinGW linker. Decoder algorithms and Doppler are unchanged. [Fix and validation](docs/platform/WINDOWS_R31_TLS_FIX.md).
+
 ## Source R31 clean
 
 The pending two-stage native FT8 residual recovery is integrated. [Current verification and limits](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md) supersede the first R31 handoff below. Existing FT4/Doppler functionality and GitHub workflows are retained; general JTDX parity is not claimed.

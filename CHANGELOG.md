@@ -1,3 +1,9 @@
+## 0.6.4 source R31 clean — Windows link fix 1
+
+- Fixed duplicate TLS initialization symbols for the FT cancellation callback reported by MSYS2 UCRT64 MinGW GCC 16.2.0. One definition in budget.cpp replaces the inline object definition in the shared header.
+- Preserved per-thread cancellation and all decoder algorithms. Added a cross-file/thread isolation check; Linux full application build and both targeted checks passed. Native Windows confirmation remains with CI.
+- Details: [Windows link correction](docs/platform/WINDOWS_R31_TLS_FIX.md).
+
 ## 0.6.4 source R31 clean — completed residual integration
 
 - Split native FT8 recovery into consecutive native-model and supplementary-model residuals under one deadline; preserved previously published rows.
