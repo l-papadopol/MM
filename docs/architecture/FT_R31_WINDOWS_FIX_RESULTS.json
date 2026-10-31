@@ -1,9 +1,0 @@
-{
-  "base_sha256": "73e4a6bc88c65b16d2402ed1c825c8b9b3388eb49df32119510451951efb77eb",
-  "fix": "Single external TLS definition of MshvReference::stopRequested",
-  "linux_full_application_build": "passed",
-  "targeted_tests": "2/2 passed",
-  "tls_initialization_definitions": 1,
-  "windows_full_build": "not run here; rerun existing CI",
-  "decoder_and_doppler_algorithm_changes": false
-}

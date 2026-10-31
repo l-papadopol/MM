@@ -1,7 +1,0 @@
-MadModem CI version guard
-  MADMODEM_VERSION.txt : 0.6.4
-  SOURCE_REVISION      : 0.6.4-source-r30-reference-ft-recovery
-  GITHUB_REF_TYPE      : manual
-  GITHUB_REF_NAME      : manual
-  GITHUB_SHA           : manual
-  status               : OK (header, CMake, Windows resources, UI, six Qt Help projects)

@@ -1,8 +1,0 @@
-Internal ctest changing into directory: /workspace/scratch/5c40146f5a02/build
-Test project /workspace/scratch/5c40146f5a02/build
-    Start 3: madmodem_ft_cq_worklist
-1/1 Test #3: madmodem_ft_cq_worklist ..........   Passed    0.00 sec
-
-100% tests passed, 0 tests failed out of 1
-
-Total Test time (real) =   0.01 sec
