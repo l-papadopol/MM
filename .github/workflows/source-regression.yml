@@ -28,18 +28,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build pkg-config python3 \
-            libgl1-mesa-dev libhamlib-dev libfftw3-dev
+            zlib1g-dev libgl1-mesa-dev libhamlib-dev libfftw3-dev
           if [ "${{ matrix.qt }}" = "5" ]; then
             sudo apt-get install -y --no-install-recommends \
               qtbase5-dev qttools5-dev qttools5-dev-tools \
               qtdeclarative5-dev qtlocation5-dev qtpositioning5-dev qtmultimedia5-dev \
-              libqt5serialport5-dev libqt5opengl5-dev \
+              libqt5serialport5-dev libqt5opengl5-dev libqt5sql5-sqlite \
               qml-module-qtquick2 qml-module-qtquick-window2 \
               qml-module-qtlocation qml-module-qtpositioning
           else
             sudo apt-get install -y --no-install-recommends \
               qt6-base-dev qt6-tools-dev qt6-multimedia-dev \
-              qt6-serialport-dev libqt6opengl6-dev
+              qt6-serialport-dev libqt6opengl6-dev libqt6sql6-sqlite
           fi
 
       - name: Configure portable release build
@@ -61,6 +61,11 @@ jobs:
       - name: Run complete regression suite
         run: |
           ctest --test-dir build-ci --output-on-failure
+
+      - name: Check FT sequencer and normal Evil TX recovery
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python3 tools/run_ft_response_probes.py build-ci
 
       - name: Check native FT memory with ASan UBSan and LeakSanitizer
         if: matrix.qt == 5

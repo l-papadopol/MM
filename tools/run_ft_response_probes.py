@@ -11,6 +11,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('build', type=Path)
     parser.add_argument('--baseline', action='store_true')
+    parser.add_argument('--probe', choices=['FtRuntimeLatencyProbe', 'FtResponseUiProbe', 'FtTxRecoveryUiProbe', 'FtOperatorQueueUiProbe', 'FtDriftSettingsUiProbe'])
     parser.add_argument('--repeat', type=int, default=1)
     args = parser.parse_args()
     build = args.build.resolve()
@@ -25,7 +26,13 @@ def main():
         probes = [('FtRuntimeLatencyProbe', ['cancel', ''])]
     else:
         probes.append(('FtResponseUiProbe', ['']))
+        probes.append(('FtTxRecoveryUiProbe', ['']))
+        probes.append(('FtOperatorQueueUiProbe', ['']))
         probes.append(('FtDriftSettingsUiProbe', ['']))
+    if args.probe:
+        probes = [(name, runs) for name, runs in probes if name == args.probe]
+        if not probes:
+            parser.error('The selected probe is unavailable with --baseline')
     for name, runs in probes:
         command = shlex.split(entry['command'])
         if Path(command[0]).name in ('cl', 'cl.exe'):

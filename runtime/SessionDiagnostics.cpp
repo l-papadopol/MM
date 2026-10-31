@@ -2,12 +2,14 @@
 #include "MadModemBuildInfo.h"
 // SPDX-License-Identifier: GPL-3.0-or-later
 #include "SessionDiagnostics.h"
+#include "GzipLogWriter.h"
 #include "../audio/AudioBlock.h"
 #include "../settings/AppSettings.h"
 #include "../utils/InstallationPaths.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -86,7 +88,7 @@ bool SessionDiagnostics::start(const QString &folder) {
         std::lock_guard<std::mutex> l(m_mutex);
         m_queue.clear();m_bytes=0;m_sequence=0;m_lost=0;m_flushRequest=0;m_flushDone=0;m_stopping=false;m_ready=false;m_error.clear();
         const QString destination=folder.trimmed().isEmpty()?defaultFolder():QDir(folder).absolutePath();
-        m_path=QDir(destination).filePath("MadModem_"+QDateTime::currentDateTimeUtc().toString("yyyyMMdd_HHmmss_zzz")+"_"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".jsonl");
+        m_path=QDir(destination).filePath("MadModem_"+QDateTime::currentDateTimeUtc().toString("yyyyMMdd_HHmmss_zzz")+"_"+QUuid::createUuid().toString(QUuid::WithoutBraces)+".jsonl.gz");
     }
     m_thread=std::thread([this]{run();});
     {std::unique_lock<std::mutex> l(m_mutex);m_cv.wait(l,[this]{return m_ready;});if(!m_error.isEmpty())return false;m_active.store(true);}
@@ -119,10 +121,10 @@ void SessionDiagnostics::record(const QString &category,QJsonObject fields) {
     m_bytes+=budget;m_queue.push_back(std::move(fields));m_cv.notify_one();
 }
 void SessionDiagnostics::run() {
-    const QString filePath=path();QFile file(filePath);
-    auto write=[&](const QByteArray &bytes){qint64 pos=0;while(pos<bytes.size()){const auto n=file.write(bytes.constData()+pos,bytes.size()-pos);if(n<=0)return false;pos+=n;}return true;};
-    bool opened=QDir().mkpath(QFileInfo(filePath).absolutePath())&&file.open(QIODevice::WriteOnly|QIODevice::NewOnly);
-    if(opened)opened=write(line({{"event","session.start"},{"seq","1"},{"schema",1},
+    const QString filePath=path();GzipLogWriter file(filePath);
+    auto write=[&](const QByteArray &bytes){return file.write(bytes);};
+    bool opened=QDir().mkpath(QFileInfo(filePath).absolutePath())&&file.open();
+    if(opened)opened=write(line({{"event","session.start"},{"seq","1"},{"schema",1},{"compression","gzip"},
         {"utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{"steady_ns",QString::number(AudioBlock::steadyNowNs())},
         {"pid",double(QCoreApplication::applicationPid())},{"application",QCoreApplication::applicationName()},
         {"version",QStringLiteral(MADMODEM_VERSION_STRING)},{"source_revision",QStringLiteral(MADMODEM_SOURCE_REVISION)},
@@ -131,18 +133,28 @@ void SessionDiagnostics::run() {
         {"logical_processors",QThread::idealThreadCount()},{"queue_limit_bytes",double(m_limit)}}))&&file.flush();
     {std::lock_guard<std::mutex> l(m_mutex);if(!opened)m_error="Cannot create diagnostic log: "+filePath+" ("+file.errorString()+")";else m_sequence=1;m_ready=true;}
     m_cv.notify_all();if(!opened)return;
-    quint64 written=1,reportedLoss=0;
+    quint64 written=1,reportedLoss=0,flushedRequest=0;
+    QElapsedTimer flushClock;flushClock.start();
     auto fail=[&]{std::lock_guard<std::mutex> l(m_mutex);m_error="Diagnostic log write/flush failed: "+file.errorString();m_lost+=m_queue.size();m_queue.clear();m_bytes=0;m_active.store(false);m_cv.notify_all();};
     for (;;) {
         std::deque<QJsonObject> batch;quint64 losses,request;bool stopping;
         {std::unique_lock<std::mutex> l(m_mutex);m_cv.wait_for(l,std::chrono::milliseconds(250),[this,&reportedLoss]{return m_stopping||!m_queue.empty()||m_flushRequest>m_flushDone||m_lost>reportedLoss;});batch.swap(m_queue);m_bytes=0;losses=m_lost;request=m_flushRequest;stopping=m_stopping;}
         bool ok=true;
-        for(const auto &event:batch){if(!write(line(safeValue(event).toObject()))){ok=false;break;}++written;}
+        for(const auto &event:batch){
+            if(!write(line(safeValue(event).toObject()))){ok=false;break;}++written;
+            if(flushClock.elapsed()>=250){if(!file.flush()){ok=false;break;}flushClock.restart();}
+        }
         if(ok&&losses>reportedLoss){ok=write(line({{"event","diagnostic.loss"},{"utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{"lost_total",QString::number(losses)}}));reportedLoss=losses;}
         if(ok&&stopping)ok=write(line({{"event","session.end"},{"utc",QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs)},{"written",QString::number(written)},{"lost_total",QString::number(losses)},{"complete",losses==0}}));
-        if(!ok||!file.flush()){fail();return;}
-        {std::lock_guard<std::mutex> l(m_mutex);m_flushDone=request;}
-        m_cv.notify_all();if(stopping)break;
+        // Batch disk/compressor flushes; explicit barriers and shutdown still
+        // make every preceding event visible before acknowledging completion.
+        const bool flushNow=stopping || request>flushedRequest || flushClock.elapsed()>=250;
+        if(!ok || (flushNow && !(stopping?file.finish():file.flush()))){fail();return;}
+        if(flushNow){
+            {std::lock_guard<std::mutex> l(m_mutex);m_flushDone=request;}
+            flushedRequest=request;flushClock.restart();m_cv.notify_all();
+        }
+        if(stopping)break;
     }
 }
 void SessionDiagnostics::audio(const QString &stage,const AudioBlock &block) {

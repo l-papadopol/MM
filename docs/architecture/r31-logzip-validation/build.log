@@ -1,0 +1,42 @@
+[  0%] Copying localized MM HTML help files
+[  0%] Built target madmodem_linear_resampler_autogen_timestamp_deps
+[  0%] Built target madmodem_weak_signal_codec_autogen_timestamp_deps
+[  0%] Built target MadModemHelpFiles
+[  0%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[  2%] Built target madmodem_cwskimmer
+[  5%] Built target madmodem_linear_resampler_autogen
+[  5%] Built target madmodem_weak_signal_codec_autogen
+[  5%] Built target MadModemQtHelp
+[  8%] Built target madmodem_diagnostics_autogen
+[  8%] Built target madmodem_linear_resampler
+[ 14%] Built target madmodem_weak_signal_codec
+[ 14%] Built target madmodem_msk144_autogen_timestamp_deps
+[ 17%] Built target madmodem_diagnostics
+[ 17%] Built target madmodem_q65_autogen_timestamp_deps
+[ 17%] Built target madmodem_ft_reference_autogen_timestamp_deps
+[ 17%] Built target madmodem_msk144_autogen
+[ 17%] Built target madmodem_q65_autogen
+[ 17%] Built target madmodem_ft_reference_autogen
+[ 23%] Built target madmodem_msk144
+[ 29%] Built target madmodem_q65
+[ 35%] Built target madmodem_ft_reference
+[ 35%] Built target MadModem_autogen_timestamp_deps
+[ 35%] Built target MadModem_autogen
+[ 35%] Automatic RCC for resources.qrc
+[ 35%] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/EWIEGA46WW/qrc_resources.cpp.o
+[ 35%] Linking CXX executable MadModem
+Copying external rtty_rules next to MadModem
+Copying external cw_rules next to MadModem
+[100%] Built target MadModem
+[  0%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[ 33%] Built target madmodem_diagnostics_autogen
+[ 66%] Built target madmodem_diagnostics
+[ 66%] Built target madmodem_session_diagnostics_autogen_timestamp_deps
+[ 66%] Built target madmodem_session_diagnostics_autogen
+[100%] Built target madmodem_session_diagnostics
+[  0%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[ 25%] Built target madmodem_diagnostics_autogen
+[ 50%] Built target madmodem_diagnostics
+[ 50%] Built target madmodem_audio_flow_accounting_autogen_timestamp_deps
+[ 50%] Built target madmodem_audio_flow_accounting_autogen
+[100%] Built target madmodem_audio_flow_accounting

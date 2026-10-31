@@ -1,0 +1,1 @@
+{"gzip_fixture_compressed_bytes": 47856, "uncompressed_bytes": 464128, "records": 3004, "concurrent_records": 3000, "reader_plain_gzip_live_recovery_concat_no_overwrite": "passed"}

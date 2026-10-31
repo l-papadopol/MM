@@ -1,3 +1,23 @@
+## 0.6.4 source R31 — LOGZIP1: compressed complete session diagnostics
+
+- Write full session events directly to standard .jsonl.gz with fast, lossless gzip on the diagnostics worker. No event filtering or plain temporary log.
+- Batch file/compressor flushes at 250 ms, retaining explicit barriers, shutdown drain, error/loss reporting and gzip CRC finalization. Include a reader for legacy logs and incomplete-stream recovery.
+- Declare zlib in CMake and platform CI; update six-language settings/help and inherited TXFIX2 runtime log translations.
+- Linux Qt5 application build, four targeted CTests, native compression/fatal-prefix checks, Python reader and translation audit passed. RX, Doppler and TXFIX2 control/queue sources unchanged.
+- [Format, compression measurement and recovery](docs/architecture/SESSION_LOG_GZIP_R31.md).
+
+## 0.6.4 source R31 — TXFIX2: operator takeover and Auto QSO queue
+
+- Double-click takes control even with Manage CQ queue enabled; stops the previous FT waveform before arming the selected correspondent and preserves explicit late-start permission.
+- Studied official WSJT-X sequencing at commit 967c85a6: late operator TX seeks the buffered waveform to its UTC sample position instead of restarting its prefix. Automatic replies retain the existing complete-frame policy.
+- Evil Auto QSO retains a bounded priority CQ queue while busy, including asynchronous logbook lookups. Rechecks fresh CQ, directed traffic, blacklist, duplicate and cooldown policies; direct callers and explicit operator lists retain precedence. Queue entries are visible/removable in the CQ list.
+- Linux Qt5 full build, 5 targeted CTests and FT8/FT4 response, recovery and operator/queue UI checks passed. RX, Doppler and previous Windows TLS correction preserved. Physical Windows/radio confirmation remains pending.
+- [Behavior, WSJT-X comparison and validation](docs/architecture/FT_R31_TXFIX2.md).
+
+## R31 sequencer/audio TX fix 1
+
+Fixes failed-start recovery and overly strict audio startup timing reported in a real Windows FT session, including Evil Auto QSO. Preserves complete automatic frames, operator STOP, decoder/Doppler behavior and WINFIX1. [Details](docs/architecture/FT_R31_SEQUENCER_FIX.md).
+
 ## R31 clean Windows link fix 1
 
 Fixes the duplicate MshvReference::stopRequested TLS initialization symbol reported by the Windows MinGW linker. Decoder algorithms and Doppler are unchanged. [Fix and validation](docs/platform/WINDOWS_R31_TLS_FIX.md).

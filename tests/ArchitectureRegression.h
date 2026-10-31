@@ -11,6 +11,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <algorithm>
 #include "../audio/AudioEngine.h"
 #include "../runtime/FtDecodeWorkerPool.h"
 #include <stdexcept>
@@ -198,7 +199,7 @@ inline int runArchitectureRegression(QApplication &app)
     }
     {
         Ft8Transmitter tone("FT8", 48000, 1500, 1.0, true);
-        tone.setPlaybackWindow(10000, 10100);
+        tone.setPlaybackWindow(10000, 10100, true);
         check(tone.prepareForPlayback(9975), "playback window accepts first pull before target");
         QVector<float> samples(1200);
         const int silence = tone.generate(samples.data(), samples.size());
@@ -207,6 +208,26 @@ inline int runArchitectureRegression(QApplication &app)
         int produced = silence;
         while (!tone.isFinished()) produced += tone.generate(samples.data(), samples.size());
         check(zero && produced == 6000, "first pull computes 25 ms lead and 100 ms waveform cutoff without stale GUI silence");
+        Ft8Transmitter delayed("FT8", 48000, 1500, 1.0, true);
+        delayed.setPlaybackWindow(10000, 12000);
+        check(delayed.prepareForPlayback(10700), "backend may miss nominal tone time while full frame fits");
+        int fullSamples = 0;
+        while (!delayed.isFinished()) fullSamples += delayed.generate(samples.data(), samples.size());
+        check(fullSamples == 48000, "delayed complete frame keeps every sample");
+        Ft8Transmitter noCut("FT8", 48000, 1500, 1.0, true);
+        noCut.setPlaybackWindow(10000, 12000);
+        check(!noCut.prepareForPlayback(11001), "automatic frame is rejected rather than truncated past the slot end");
+        for (const QString mode : {QStringLiteral("FT8"), QStringLiteral("FT4")}) {
+            Ft8Transmitter reference(mode, 48000, 1234, 1.0, true);
+            QVector<float> full(48000);
+            check(reference.generate(full.data(), full.size()) == full.size(), "reference TX waveform available");
+            Ft8Transmitter aligned(mode, 48000, 1234, 1.0, true);
+            aligned.setPlaybackWindow(10000, 12000, true, true);
+            check(aligned.prepareForPlayback(10250), "operator late start aligns to UTC waveform position");
+            QVector<float> suffix(36000);
+            check(aligned.generate(suffix.data(), suffix.size()) == suffix.size() && aligned.isFinished(), "late operator start sends the remaining waveform");
+            check(std::equal(suffix.begin(), suffix.end(), full.begin()+12000), "late operator PCM equals the original waveform suffix, without symbol reordering");
+        }
         Ft8Transmitter late("FT8", 48000, 1500, 1.0, true);
         late.setPlaybackWindow(10000);
         check(!late.prepareForPlayback(10021), "late first pull rejects the entire FT waveform");

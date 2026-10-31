@@ -248,12 +248,13 @@ endif()
 # Native MadModem CW receiver and carrier scanner
 # -------------------------------------------------------------------------
 find_package(Threads REQUIRED)
+find_package(ZLIB REQUIRED)
 
 # Live CW architecture: exact-tone carrier discrimination, robust timing-family
 # estimation and bounded probabilistic Morse sequence decoding are independent
 # components. No legacy Bayesian/geometric-rescue implementation is linked.
-add_library(madmodem_diagnostics STATIC runtime/SessionDiagnostics.cpp)
-target_link_libraries(madmodem_diagnostics PUBLIC ${QT}::Core Threads::Threads)
+add_library(madmodem_diagnostics STATIC runtime/SessionDiagnostics.cpp runtime/GzipLogWriter.h)
+target_link_libraries(madmodem_diagnostics PUBLIC ${QT}::Core Threads::Threads ZLIB::ZLIB)
 target_include_directories(madmodem_diagnostics PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 
 add_library(madmodem_cwskimmer STATIC
@@ -1062,6 +1063,10 @@ install(TARGETS MadModem
 # timing-sensitive production components instead of only producing packages.
 include(CTest)
 if(BUILD_TESTING)
+    add_executable(madmodem_ft_timing_policy tests/FtTimingPolicyRegression.cpp)
+    set_target_properties(madmodem_ft_timing_policy PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME madmodem_ft_timing_policy COMMAND madmodem_ft_timing_policy)
+    set_tests_properties(madmodem_ft_timing_policy PROPERTIES TIMEOUT 10)
     add_executable(madmodem_ft_reference_budget
         tests/FtReferenceBudgetRegression.cpp
         tests/FtReferenceBudgetPeer.cpp

@@ -1,0 +1,34 @@
+[  0%] Built target madmodem_weak_signal_codec_autogen_timestamp_deps
+[  0%] Copying localized MM HTML help files
+[  0%] Built target madmodem_linear_resampler_autogen_timestamp_deps
+[  0%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[  0%] Built target MadModemHelpFiles
+[  0%] Built target madmodem_weak_signal_codec_autogen
+[  2%] Built target madmodem_linear_resampler_autogen
+[  5%] Built target madmodem_cwskimmer
+[  5%] Built target MadModemQtHelp
+[ 11%] Built target madmodem_weak_signal_codec
+[ 11%] Built target madmodem_linear_resampler
+[ 14%] Built target madmodem_diagnostics_autogen
+[ 14%] Built target madmodem_q65_autogen_timestamp_deps
+[ 14%] Built target madmodem_msk144_autogen_timestamp_deps
+[ 17%] Built target madmodem_diagnostics
+[ 17%] Built target madmodem_q65_autogen
+[ 17%] Built target madmodem_ft_reference_autogen_timestamp_deps
+[ 17%] Built target madmodem_msk144_autogen
+[ 17%] Built target madmodem_ft_reference_autogen
+[ 23%] Built target madmodem_q65
+[ 29%] Built target madmodem_msk144
+[ 35%] Built target madmodem_ft_reference
+[ 35%] Built target MadModem_autogen_timestamp_deps
+[ 35%] Automatic MOC and UIC for target MadModem
+[ 35%] Built target MadModem_autogen
+[ 35%] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[ 35%] Linking CXX executable MadModem
+Copying external rtty_rules next to MadModem
+Copying external cw_rules next to MadModem
+[100%] Built target MadModem
+[  0%] Built target MadModemFtSequencerSelfTest_autogen_timestamp_deps
+[  0%] Built target MadModemFtSequencerSelfTest_autogen
+[100%] Built target MadModemFtSequencerSelfTest
+Built target madmodem_ft_timing_policy

@@ -97,21 +97,35 @@ int Ft8Transmitter::sampleRate() const
     return m_sampleRate;
 }
 
-void Ft8Transmitter::setPlaybackWindow(qint64 firstToneUtcMs, qint64 stopUtcMs)
+void Ft8Transmitter::setPlaybackWindow(qint64 firstToneUtcMs, qint64 stopUtcMs, bool allowPartial, bool alignLateToSlot)
 {
     m_firstToneUtcMs = firstToneUtcMs;
     m_stopUtcMs = stopUtcMs;
+    m_allowPartialPlayback = allowPartial;
+    m_alignLateToSlot = alignLateToSlot;
 }
 
 bool Ft8Transmitter::prepareForPlayback(qint64 utcMs)
 {
     if (m_firstToneUtcMs <= 0) return true;
-    if (utcMs > m_firstToneUtcMs + 20 || (m_stopUtcMs > 0 && utcMs >= m_stopUtcMs)) return false;
+    if (m_stopUtcMs <= 0 && utcMs > m_firstToneUtcMs + 20) return false;
+    if (m_stopUtcMs > 0 && utcMs >= m_stopUtcMs) return false;
     m_leadingSamples = static_cast<int>(qBound<qint64>(qint64{0}, m_firstToneUtcMs - utcMs, qint64{2000}) * m_sampleRate / qint64{1000});
+    if (m_alignLateToSlot && utcMs > m_firstToneUtcMs) {
+        // Explicit operator starts retain UTC symbol position, as in the
+        // WSJT-X modulator. Seek the existing waveform; do not regenerate it.
+        m_position = int(qMin<qint64>(m_samples.size(), (utcMs-m_firstToneUtcMs)*m_sampleRate/1000));
+        if (m_position >= m_samples.size()) return false;
+    }
     if (m_stopUtcMs > 0) {
         const qint64 capacity = (m_stopUtcMs - utcMs) * m_sampleRate / 1000 - m_leadingSamples;
         if (capacity <= 0) return false;
-        if (capacity < m_samples.size()) m_samples.resize(int(capacity));
+        if (capacity < m_samples.size() - m_position) {
+            // Automatic/QSO frames must remain complete. Only an explicit
+            // operator partial burst can shorten the waveform at the slot end.
+            if (!m_allowPartialPlayback) return false;
+            m_samples.resize(m_position + int(capacity));
+        }
     }
     return true;
 }

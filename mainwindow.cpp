@@ -259,10 +259,9 @@ private:
 namespace {
 
 // FT TX timing ownership. CAT/PTT is deliberately armed during the quiet tail
-// of the preceding RX slot, while a manual request made just after a selected
-// boundary gets a fresh backend-preparation interval. Automatic plans require
+// of the preceding RX slot. Automatic plans require
 // the full waveform plus the final guard to fit; an explicit operator action
-// may instead emit a bounded frame prefix that ends before the slot changes.
+// may instead resume at the sample position of the current UTC period.
 constexpr int kFtPttPrearmLeadMs = MadModemFtTiming::pttPrearmLeadMs;
 constexpr int kFtLateStartPreparationMs = MadModemFtTiming::lateStartPreparationMs;
 constexpr int kFtGeneratedSignalAllowanceMs = MadModemFtTiming::generatedSignalAllowanceMs;
@@ -279,11 +278,16 @@ int latestFtFullFrameArmMs(const Ft8Mode::Profile &profile)
     return MadModemFtTiming::latestFullFrameArmMs(profile.slotMs, profile.signalMs);
 }
 
+int latestFtManualPartialStartMs(const Ft8Mode::Profile &profile)
+{
+    const int nominalDelay = profile.shortLabel == QStringLiteral("FT4") ? 300 : 500;
+    return qMax(0, qMin(profile.slotMs-kFtSlotEndGuardMs,
+                        nominalDelay+profile.signalMs)-kFtMinimumLatePartialToneMs);
+}
+
 int latestFtManualPartialArmMs(const Ft8Mode::Profile &profile)
 {
-    return qMax(0,
-                profile.slotMs - kFtLateStartPreparationMs
-                    - kFtSlotEndGuardMs - kFtMinimumLatePartialToneMs);
+    return qMax(0, latestFtManualPartialStartMs(profile)-kFtLateStartPreparationMs);
 }
 
 void hardenPopupMenuForFullscreen(QMenu *menu)
@@ -3820,7 +3824,7 @@ void MainWindow::handleFtLogbookLookupReady(quint64 requestId,
 
         const QVector<Ft8RxDecoder::Decode> waiting = m_ftPendingAutoQsoByKey.take(key);
         for (const Ft8RxDecoder::Decode &decode : waiting) {
-            if (canStartFt8FullAutoQsoNow()) tryStartFt8FullAutoQso(decode, status);
+            if (canCollectFt8FullAutoCqs()) tryStartFt8FullAutoQso(decode, status);
         }
     }
     if (!m_ftHighlightRefreshPending) {
@@ -8819,7 +8823,7 @@ void MainWindow::setupFt8Page()
     m_btnFtCqList->setObjectName(QStringLiteral("ftCqWorkListOpen"));
     m_chkFtCqQueue = new QCheckBox(uiText("ft_cq_queue_enable", "Manage CQ queue"), controlGroup);
     m_chkFtCqQueue->setObjectName(QStringLiteral("ftCqQueueEnable"));
-    m_chkFtCqQueue->setToolTip(uiText("ft_cq_queue_tooltip", "When enabled, double-clicks add stations to the CQ list without interrupting the current QSO. Press Start list to begin."));
+    m_chkFtCqQueue->setToolTip(uiText("ft_cq_queue_tooltip", "Opens the CQ work queue. Use Add selected CQs to queue stations. A double-click always selects a station for immediate TX."));
     controlGrid->addWidget(m_chkFtCqQueue, 3, 0, 1, 2);
     controlGrid->addWidget(m_btnFtCqAdd, 3, 2, 1, 2);
     controlGrid->addWidget(m_btnFtCqList, 3, 4, 1, 2);
@@ -8831,7 +8835,9 @@ void MainWindow::setupFt8Page()
     connect(m_btnFtCqList, &QPushButton::clicked, this, &MainWindow::showFtCqWorkList);
     m_ftCqWorkListTimer.setInterval(1000);
     connect(&m_ftCqWorkListTimer, &QTimer::timeout, this, [this]{
+        activateNextFt8QueuedCaller();
         processFtCqWorkList();
+        processFt8FullAutoCqCandidates();
         if(m_ftCqDialog && m_ftCqDialog->isVisible()) refreshFtCqWorkListUi();
     });
     m_ftCqWorkListTimer.start();
@@ -9602,8 +9608,9 @@ void MainWindow::setupProcessingConnections()
                 Qt::QueuedConnection);
         connect(m_ftTxWorker, &FtTxWorker::stopped,
                 this, [this](quint64 requestId) {
-                    if(requestId!=m_ftTxActiveRequest)return;
+                    if(requestId==0 || requestId!=m_ftTxActiveRequest)return;
                     m_ftTxWorkerRunning = false;
+                    m_ftTxActiveRequest = 0;
                     handleTxStopped();
                 },
                 Qt::QueuedConnection);
@@ -11217,7 +11224,7 @@ void MainWindow::setupUiConnections()
     if (m_cmbFt8Band != nullptr) {
         connect(m_cmbFt8Band, QOverload<int>::of(&QComboBox::currentIndexChanged),
                 this, [this](int) {
-                    m_ftCqWorkList.clear(); refreshFtCqWorkListUi();
+                    m_ftCqWorkList.clear(); m_ft8FullAutoCqCandidates.clear(); m_ft8AutoCqBusySlots.clear(); refreshFtCqWorkListUi();
                     clearFt8DecodeList();
                     applyFt8Settings();
                     qsyRigToSelectedFtBand();
@@ -13246,7 +13253,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
     if (Ft8Mode::isFamilyMode(modeName)) {
         if (!m_ftCallerQueueMode.isEmpty() && m_ftCallerQueueMode != ftPerfModeName) {
             clearFt8CallerQueue(QStringLiteral("FT mode changed"));
-            m_ftCqWorkList.clear(); refreshFtCqWorkListUi();
+            m_ftCqWorkList.clear(); m_ft8FullAutoCqCandidates.clear(); m_ft8AutoCqBusySlots.clear(); refreshFtCqWorkListUi();
         }
         m_ftCallerQueueMode = ftPerfModeName;
     } else {
@@ -13254,7 +13261,7 @@ void MainWindow::handleModeChanged(const QString &modeName)
             clearFt8CallerQueue(QStringLiteral("left FT mode"));
         }
         m_ftCallerQueueMode.clear();
-        m_ftCqWorkList.clear(); refreshFtCqWorkListUi();
+        m_ftCqWorkList.clear(); m_ft8FullAutoCqCandidates.clear(); m_ft8AutoCqBusySlots.clear(); refreshFtCqWorkListUi();
     }
     if (Ft8Mode::isFamilyMode(modeName) && m_ft8RecentLiveDecodeModeName != ftPerfModeName) {
         m_ft8RecentLiveDecodeMs.clear();
@@ -16764,6 +16771,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
 {
     if (m_ft8OperatorStopLatched || m_shutdownInProgress || m_runtimeShutdownComplete ||
         !Ft8Mode::isFamilyMode(ui->cmbMode->currentText())) return;
+    if (allowManualLatePartial) m_ft8TxStartFailureCount = 0;
     const QString txMessage = message.trimmed().toUpper();
     const QString txTag = tag.trimmed().isEmpty() ? QStringLiteral("TX") : tag.trimmed().toUpper();
     if (txMessage.isEmpty()) {
@@ -16792,16 +16800,25 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
         // already in progress; the current audio cannot be replaced safely, but
         // the next slot must not be lost.  Keep a deferred TX plan and arm it as
         // soon as the active FT worker stops, before any old retry logic runs.
+        if (allowManualLatePartial && m_pendingFt8TxPlan.message == txMessage &&
+            m_pendingFt8TxPlan.audioFrequencyHz == m_settings.ft8TxFrequencyHz) return;
+        const bool operatorReplacement = allowManualLatePartial ||
+            (m_hasDeferredFt8TxPlan && m_deferredFt8TxPlan.operatorRequested);
         m_hasDeferredFt8TxPlan = true;
         m_deferredFt8TxPlan.message = txMessage;
         m_deferredFt8TxPlan.tag = txTag;
         m_deferredFt8TxPlan = m_ftStandardMessages.makePlanForMessage(txMessage, m_deferredFt8TxPlan.tag);
+        m_deferredFt8TxPlan.operatorRequested = operatorReplacement;
         if (m_deferredFt8TxPlan.audioFrequencyHz <= 0) {
             m_deferredFt8TxPlan.audioFrequencyHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz;
         }
         m_ftSession.deferredState = m_ftSession.state;
         appendLog("FT sequencer: TX is active; queued next-slot message: " + txMessage);
         updateFt8TxBannerUi();
+        if (allowManualLatePartial) {
+            appendLog(QStringLiteral("FT operator TX: stopping the previous waveform before switching to the selected message."));
+            stopImageTx();
+        }
         return;
     }
 
@@ -16810,15 +16827,15 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
         ? m_spinFt8TxFreq->value()
         : m_settings.ft8TxFrequencyHz;
     const bool sameValidArm = m_ft8PendingTxArmed &&
+                              (!allowManualLatePartial || m_pendingFt8TxPlan.operatorRequested) &&
                               m_pendingFt8TxPlan.message.trimmed().toUpper() == txMessage &&
-                              m_pendingFt8TxPlan.slotBoundaryUtcMs > armCheckNowMs + 25 &&
+                              pendingFt8AudioStartDeadlineUtcMs() > armCheckNowMs &&
                               m_pendingFt8TxPlan.audioFrequencyHz == requestedTxHz;
     if (sameValidArm) {
         // The message/boundary/frequency identify the physical TX plan.  The
         // source tag is metadata only; an explicit operator TX may take
         // ownership of an already armed identical retry without creating a
         // second timer or skipping to another slot.
-        m_pendingFt8TxPlan.tag = txTag;
         m_pendingFt8TxPlan.tag = txTag;
         updateFt8TxBannerUi();
         updateTxControlState();
@@ -16847,6 +16864,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
     m_pendingFt8TxPlan.message = txMessage;
     m_pendingFt8TxPlan.tag = txTag;
     m_pendingFt8TxPlan = m_ftStandardMessages.makePlanForMessage(txMessage, m_pendingFt8TxPlan.tag);
+    m_pendingFt8TxPlan.operatorRequested = allowManualLatePartial;
     if (m_pendingFt8TxPlan.audioFrequencyHz <= 0) {
         m_pendingFt8TxPlan.audioFrequencyHz = (m_spinFt8TxFreq != nullptr) ? m_spinFt8TxFreq->value() : m_settings.ft8TxFrequencyHz;
     }
@@ -16900,7 +16918,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
                               elapsedAfterBoundaryMs > latestFtFullFrameArmMs(profile) &&
                               elapsedAfterBoundaryMs <= latestFtManualPartialArmMs(profile);
     m_pendingFt8TxPlan.audioTargetDelayMs = normalAudioTargetDelayMs;
-    if (elapsedAfterBoundaryMs > 0) {
+    if (elapsedAfterBoundaryMs > 0 && !allowManualLatePartial) {
         m_pendingFt8TxPlan.audioTargetDelayMs = static_cast<int>(qMin<qint64>(
             static_cast<qint64>(profile.slotMs),
             elapsedAfterBoundaryMs + kFtLateStartPreparationMs));
@@ -16964,7 +16982,7 @@ void MainWindow::scheduleFt8SequencerMessage(const QString &message,
         const int watchdogPttLead = m_pendingFt8TxPlan.pttLeadMs;
         const int watchdogDelay = qBound(0, delayMs + 250, 60000);
         QTimer::singleShot(watchdogDelay, this, [this, watchdogToken, watchdogBoundary, watchdogAudioDelay, watchdogPttLead]() {
-            if (m_txRunning || m_ftTxWorkerRunning) {
+            if (m_txRunning || m_ftTxWorkerRunning || m_ft8AudioStartRequested) {
                 return;
             }
             if (m_pendingFt8TxPlan.message.trimmed().isEmpty()) {
@@ -17144,6 +17162,7 @@ void MainWindow::handleFt8FullAutoQsoToggled(bool enabled)
         return;
     }
 
+    m_ft8AutoCqBusySlots.clear();
     if (enabled) {
         m_ft8FullAutoCqCandidates.clear();
         m_ft8FullAutoCqSelectionTimer.stop();
@@ -17171,6 +17190,7 @@ void MainWindow::handleFt8FullAutoQsoToggled(bool enabled)
         appendLog("FT Auto QSO disabled: no new CQ will be answered automatically.");
     }
 
+    refreshFtCqWorkListUi();
     updateFt8SequencerUi();
     updateTxControlState();
 }
@@ -17223,10 +17243,38 @@ void MainWindow::selectFt8OppositePeriodFromDecode(const Ft8RxDecoder::Decode &d
     updateFt8SlotStatus();
 }
 
+bool MainWindow::canCollectFt8FullAutoCqs() const
+{
+    return !m_ft8OperatorStopLatched && !m_shutdownInProgress && !m_runtimeShutdownComplete &&
+        !m_offlineAnalysisActive && m_ft8EvilModeUnlocked && m_chkFt8FullAutoQso &&
+        m_chkFt8FullAutoQso->isChecked() && ui && ui->cmbMode &&
+        Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
+}
+
+void MainWindow::observeFt8AutoCqActivity(const Ft8RxDecoder::Decode &decode)
+{
+    if (!canCollectFt8FullAutoCqs() || decode.slotStartUtcMs <= 0) return;
+    const auto parsed = parseFt8MessageText(decode.message, stationCallsign());
+    if (parsed.cq || parsed.senderCall.isEmpty()) return;
+    const qint64 oldest = QDateTime::currentMSecsSinceEpoch() -
+        2 * Ft8Mode::profileForMode(ui->cmbMode->currentText()).slotMs - 1000;
+    for (auto it=m_ft8AutoCqBusySlots.begin(); it!=m_ft8AutoCqBusySlots.end();) {
+        if (it.value()<oldest) it=m_ft8AutoCqBusySlots.erase(it); else ++it;
+    }
+    if (m_ft8AutoCqBusySlots.size() >= 128 && !m_ft8AutoCqBusySlots.contains(parsed.senderCall))
+        m_ft8AutoCqBusySlots.erase(std::min_element(m_ft8AutoCqBusySlots.begin(), m_ft8AutoCqBusySlots.end()));
+    auto &slot = m_ft8AutoCqBusySlots[parsed.senderCall];
+    slot = qMax(slot, decode.slotStartUtcMs);
+    for (auto &candidate : m_ft8FullAutoCqCandidates) {
+        if (FtDecodedText::callMatches(candidate.call, parsed.senderCall) &&
+            decode.slotStartUtcMs >= candidate.decode.slotStartUtcMs) candidate.cq = false;
+    }
+}
+
 bool MainWindow::canStartFt8FullAutoQsoNow() const
 {
-    if (m_ftCqWorkList.running) return false;
-    if (!m_ft8EvilModeUnlocked || m_chkFt8FullAutoQso == nullptr || !m_chkFt8FullAutoQso->isChecked()) {
+    if (m_ftCqWorkList.running && !m_ftCqWorkList.entries.isEmpty()) return false;
+    if (!canCollectFt8FullAutoCqs()) {
         return false;
     }
     if (m_offlineAnalysisActive || ui == nullptr || ui->cmbMode == nullptr ||
@@ -17353,99 +17401,82 @@ Ft8FullAutoCqCandidate MainWindow::buildFt8FullAutoCqCandidate(const Ft8RxDecode
 
 bool MainWindow::queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus)
 {
-    if (!canStartFt8FullAutoQsoNow()) {
-        return false;
-    }
-
-    Ft8FullAutoCqCandidate candidate = buildFt8FullAutoCqCandidate(decode, logbookStatus);
-    if (!candidate.valid) {
-        if (!candidate.call.isEmpty() && candidate.priorityText == QStringLiteral("fresh duplicate after completed QSO")) {
-            appendLog(QString("FT Auto QSO priority: ignoring fresh duplicate CQ from %1 after completed QSO.")
-                          .arg(candidate.call));
-        } else if (!candidate.call.isEmpty() && !candidate.priorityText.isEmpty()) {
-            appendLog(QString("FT Auto QSO priority: ignoring CQ from %1 (%2).").arg(candidate.call, candidate.priorityText));
-        }
-        return false;
-    }
-
-    const qint64 candidateSlot = candidate.decode.slotStartUtcMs;
-    const QDateTime now = QDateTime::currentDateTimeUtc();
-    for (int i = m_ft8FullAutoCqCandidates.size() - 1; i >= 0; --i) {
-        const Ft8FullAutoCqCandidate &old = m_ft8FullAutoCqCandidates.at(i);
-        if ((candidateSlot > 0 && old.decode.slotStartUtcMs > 0 && old.decode.slotStartUtcMs != candidateSlot) ||
-            (old.queuedUtc.isValid() && old.queuedUtc.secsTo(now) > 4)) {
+    // Collection survives an active QSO; only dispatch needs an idle transmitter.
+    if (!canCollectFt8FullAutoCqs()) return false;
+    auto candidate = buildFt8FullAutoCqCandidate(decode, logbookStatus);
+    if (!candidate.valid || (m_ftSession.qsoActive && FtDecodedText::callMatches(candidate.call, m_ftSession.dxCall))) return false;
+    for (const auto &entry : m_ftCqWorkList.entries)
+        if (FtDecodedText::callMatches(candidate.call,entry.call)) return false;
+    for (auto it=m_ft8AutoCqBusySlots.cbegin(); it!=m_ft8AutoCqBusySlots.cend(); ++it)
+        if (FtDecodedText::callMatches(it.key(),candidate.call) && candidate.decode.slotStartUtcMs<=it.value()) return false;
+    const auto now = QDateTime::currentDateTimeUtc();
+    for (int i=m_ft8FullAutoCqCandidates.size()-1;i>=0;--i) {
+        const auto &old=m_ft8FullAutoCqCandidates.at(i);
+        if (old.mode!=candidate.mode || old.band!=candidate.band || !old.queuedUtc.isValid() || old.queuedUtc.secsTo(now)>300)
             m_ft8FullAutoCqCandidates.removeAt(i);
+    }
+    bool replaced=false;
+    for (auto &old:m_ft8FullAutoCqCandidates) {
+        if (!FtDecodedText::callMatches(old.call,candidate.call)) continue;
+        if (candidate.decode.slotStartUtcMs<old.decode.slotStartUtcMs) return false;
+        // Refresh even a weaker CQ: freshness takes precedence over an old SNR.
+        old=candidate;replaced=true;break;
+    }
+    if (!replaced) m_ft8FullAutoCqCandidates.append(candidate);
+    std::sort(m_ft8FullAutoCqCandidates.begin(),m_ft8FullAutoCqCandidates.end(),Ft8FullAutoCqCandidate::higherPriority);
+    const auto profile=Ft8Mode::profileForMode(ui->cmbMode->currentText());
+    if (m_ft8FullAutoCqCandidates.size()>64) {
+        int discard=m_ft8FullAutoCqCandidates.size()-1;
+        for(int i=discard;i>=0;--i) {
+            const auto &e=m_ft8FullAutoCqCandidates.at(i);
+            if(!e.cq || now.toMSecsSinceEpoch()-e.decode.slotStartUtcMs>2*profile.slotMs+1000){discard=i;break;}
         }
+        m_ft8FullAutoCqCandidates.removeAt(discard);
     }
-
-    auto betterCandidate = [](const Ft8FullAutoCqCandidate &a, const Ft8FullAutoCqCandidate &b) {
-        if (a.newCountry != b.newCountry) return a.newCountry;
-        if (a.newGrid != b.newGrid) return a.newGrid;
-        if (a.newBand != b.newBand) return a.newBand;
-        if (a.newMode != b.newMode) return a.newMode;
-        if (a.workedCall != b.workedCall) return !a.workedCall;
-        if (qAbs(a.distanceKm - b.distanceKm) > 1.0) return a.distanceKm > b.distanceKm;
-        if (a.decode.snrDb != b.decode.snrDb) return a.decode.snrDb > b.decode.snrDb;
-        return a.decode.frequencyHz < b.decode.frequencyHz;
-    };
-
-    bool replaced = false;
-    for (Ft8FullAutoCqCandidate &old : m_ft8FullAutoCqCandidates) {
-        if (FtDecodedText::callMatches(old.call, candidate.call)) {
-            if (betterCandidate(candidate, old)) {
-                old = candidate;
-            }
-            replaced = true;
-            break;
-        }
-    }
-    if (!replaced) {
-        m_ft8FullAutoCqCandidates.append(candidate);
-    }
-
-    const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
-    const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
-    const int delayMs = (profile.slotMs <= 8000) ? 280 : 420;
-    m_ft8FullAutoCqSelectionTimer.start(delayMs);
+    if (!m_ft8FullAutoCqSelectionTimer.isActive()) m_ft8FullAutoCqSelectionTimer.start(profile.slotMs<=8000?280:420);
+    if (!m_ft8UiBatchApplying) refreshFtCqWorkListUi();
     return true;
 }
 
 void MainWindow::processFt8FullAutoCqCandidates()
 {
-    if (m_ft8FullAutoCqCandidates.isEmpty()) {
-        return;
+    if (m_ft8FullAutoCqCandidates.isEmpty() || !canStartFt8FullAutoQsoNow()) return;
+    const auto now=QDateTime::currentDateTimeUtc();
+    const auto mode=currentAdifMode().trimmed().toUpper();
+    const auto band=m_cmbFt8Band?m_cmbFt8Band->currentText().trimmed().toLower():m_settings.ft8Band.trimmed().toLower();
+    const int slotMs=Ft8Mode::profileForMode(ui->cmbMode->currentText()).slotMs;
+    std::sort(m_ft8FullAutoCqCandidates.begin(),m_ft8FullAutoCqCandidates.end(),Ft8FullAutoCqCandidate::higherPriority);
+    QVector<Ft8FullAutoCqCandidate> ready;
+    for (int i=0;i<m_ft8FullAutoCqCandidates.size();) {
+        auto candidate=m_ft8FullAutoCqCandidates.at(i);
+        if (candidate.mode!=mode || candidate.band!=band || !candidate.queuedUtc.isValid() || candidate.queuedUtc.secsTo(now)>300) {
+            m_ft8FullAutoCqCandidates.removeAt(i);continue;
+        }
+        const auto slot=candidate.decode.slotStartUtcMs;
+        // Keep stale targets visible, but require a recently heard CQ before calling.
+        if (!candidate.cq || slot<=0 || slot>now.toMSecsSinceEpoch() || now.toMSecsSinceEpoch()-slot>2*slotMs+1000) {++i;continue;}
+        const auto query=makeFtLogbookQuery(candidate.call,candidate.band,candidate.mode,candidate.dxcc,candidate.grid,
+            qBound(1,m_settings.ftAutoQsoRecentHours,168),0);
+        const auto status=cachedFtLogbookStatus(query);
+        if (status.isEmpty()) {queueFtLogbookQueriesForDecode(candidate.decode,true);++i;continue;}
+        candidate=buildFt8FullAutoCqCandidate(candidate.decode,status);
+        if (!candidate.valid) {m_ft8FullAutoCqCandidates.removeAt(i);continue;}
+        // Recheck priority/duplicate policy against the current logbook cache.
+        m_ft8FullAutoCqCandidates[i]=candidate;
+        ready.append(candidate);
+        ++i;
     }
-    if (!canStartFt8FullAutoQsoNow()) {
-        m_ft8FullAutoCqCandidates.clear();
-        return;
+    if (!ready.isEmpty()) {
+        std::sort(ready.begin(),ready.end(),Ft8FullAutoCqCandidate::higherPriority);
+        const auto best=ready.first();
+        appendLog(QStringLiteral("FT Auto QSO queue: selected %1 [%2]; %3 target(s) waiting.")
+            .arg(best.call,best.priorityText).arg(m_ft8FullAutoCqCandidates.size()-1));
+        if (startFt8FullAutoQsoFromCandidate(best)) {
+            for(int i=m_ft8FullAutoCqCandidates.size()-1;i>=0;--i)
+                if(FtDecodedText::callMatches(best.call,m_ft8FullAutoCqCandidates.at(i).call)) m_ft8FullAutoCqCandidates.removeAt(i);
+        }
     }
-
-    auto betterCandidate = [](const Ft8FullAutoCqCandidate &a, const Ft8FullAutoCqCandidate &b) {
-        if (a.newCountry != b.newCountry) return a.newCountry;
-        if (a.newGrid != b.newGrid) return a.newGrid;
-        if (a.newBand != b.newBand) return a.newBand;
-        if (a.newMode != b.newMode) return a.newMode;
-        if (a.workedCall != b.workedCall) return !a.workedCall;
-        if (qAbs(a.distanceKm - b.distanceKm) > 1.0) return a.distanceKm > b.distanceKm;
-        if (a.decode.snrDb != b.decode.snrDb) return a.decode.snrDb > b.decode.snrDb;
-        return a.decode.frequencyHz < b.decode.frequencyHz;
-    };
-
-    std::sort(m_ft8FullAutoCqCandidates.begin(), m_ft8FullAutoCqCandidates.end(), betterCandidate);
-    const Ft8FullAutoCqCandidate best = m_ft8FullAutoCqCandidates.first();
-
-    QStringList preview;
-    const int previewCount = qMin(3, m_ft8FullAutoCqCandidates.size());
-    for (int i = 0; i < previewCount; ++i) {
-        const Ft8FullAutoCqCandidate &c = m_ft8FullAutoCqCandidates.at(i);
-        preview << QStringLiteral("%1(%2)").arg(c.call, c.priorityText);
-    }
-    appendLog(QString("FT Auto QSO priority: %1 CQ candidate(s), selected %2 [%3]. %4")
-                  .arg(m_ft8FullAutoCqCandidates.size())
-                  .arg(best.call, best.priorityText, preview.join(QStringLiteral(" | "))));
-
-    m_ft8FullAutoCqCandidates.clear();
-    startFt8FullAutoQsoFromCandidate(best);
+    refreshFtCqWorkListUi();
 }
 
 bool MainWindow::tryStartFt8FullAutoQso(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus)
@@ -17642,7 +17673,10 @@ void MainWindow::stopFt8Sequencer(const QString &reason)
     m_deferredFt8TxPlan.tag.clear();
     m_deferredFt8TxPlan = FtTxPlan();
     m_ftSession.deferredState = Ft8SequencerState::Idle;
-    m_ft8FullAutoCqCandidates.clear();
+    if (m_ft8OperatorStopLatched || !canCollectFt8FullAutoCqs()) {
+        m_ft8FullAutoCqCandidates.clear();
+        m_ft8AutoCqBusySlots.clear();
+    }
     m_ft8FullAutoCqSelectionTimer.stop();
     if (!reason.trimmed().isEmpty()) {
         appendLog(uiText("log.ft8_sequencer_stopped", "FT8 sequencer stopped:")
@@ -18431,11 +18465,6 @@ void MainWindow::handleFt8QsoHistoryDoubleClicked(QTableWidgetItem *item)
 
 void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
 {
-    if (!m_ft8SelectionOnly && m_chkFtCqQueue && m_chkFtCqQueue->isChecked()) {
-        addFtDecodeToCqWorkList(item, false);
-        refreshFtCqWorkListUi();
-        return;
-    }
     m_ft8OperatorStopLatched = false;
     if (item == nullptr || m_tableFt8Rx == nullptr) {
         return;
@@ -18447,7 +18476,9 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
         return;
     }
 
-    const QString message = messageItem->text().trimmed().toUpper();
+    const auto selectedDecode = messageItem->data(kFtDecodeRole).value<Ft8RxDecoder::Decode>();
+    const QString message = selectedDecode.message.isEmpty() ? messageItem->text().trimmed().toUpper()
+                                                            : selectedDecode.message.trimmed().toUpper();
     const QString myCall = stationCallsign();
     const ParsedFt8Message parsed = parseFt8MessageText(message, myCall);
 
@@ -18467,7 +18498,9 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
     // HHmmss, so this is exact for FT8 and conservative around FT4 half-second
     // boundaries.
     QString txPeriodNote;
-    if (m_radioFt8TxFirst != nullptr && m_radioFt8TxSecond != nullptr) {
+    if (selectedDecode.slotStartUtcMs > 0) {
+        selectFt8OppositePeriodFromDecode(selectedDecode);
+    } else if (m_radioFt8TxFirst != nullptr && m_radioFt8TxSecond != nullptr) {
         QTableWidgetItem *utcItem = m_tableFt8Rx->item(row, 0);
         const QString utcText = utcItem != nullptr ? utcItem->text().trimmed() : QString();
         QTime decodedTime;
@@ -18599,6 +18632,15 @@ void MainWindow::handleFt8DecodeDoubleClicked(QTableWidgetItem *item)
         }
     }
 
+    if (!m_ft8SelectionOnly && !call.isEmpty()) {
+        // Explicit selection takes this target out of both work queues.
+        m_ft8FullAutoCqSelectionTimer.stop();
+        for (int i=m_ft8FullAutoCqCandidates.size()-1;i>=0;--i)
+            if (FtDecodedText::callMatches(call,m_ft8FullAutoCqCandidates.at(i).call)) m_ft8FullAutoCqCandidates.removeAt(i);
+        for (int i=m_ftCqWorkList.entries.size()-1;i>=0;--i)
+            if (FtDecodedText::callMatches(call,m_ftCqWorkList.entries.at(i).call)) m_ftCqWorkList.entries.removeAt(i);
+        refreshFtCqWorkListUi();
+    }
     if (!call.isEmpty()) {
         removeFt8QueuedCaller(call);
     }
@@ -18771,9 +18813,8 @@ qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs(bool allowManualLatePartial) c
             // the complete generated waveform still ends before the slot guard.
             deltaToBoundaryMs = -elapsedInSelectedMs;
         } else if (allowManualLatePartial && elapsedInSelectedMs <= latestManualPartialArmMs) {
-            // A direct operator action owns a bounded late visual burst. It
-            // begins with the real frame prefix and is truncated at the end of
-            // this selected period; automatic retries never take this branch.
+            // An operator action may start at the current UTC symbol position.
+            // Automatic retries keep the intact-frame admission policy.
             deltaToBoundaryMs = -elapsedInSelectedMs;
         } else {
             // Starting now would run past the selected slot. Defer the intact
@@ -18788,7 +18829,10 @@ qint64 MainWindow::selectedFt8TxSlotBoundaryUtcMs(bool allowManualLatePartial) c
     }
 
     qint64 boundary = now.toMSecsSinceEpoch() + static_cast<qint64>(deltaToBoundaryMs);
-    while (boundary <= m_ft8LastAttemptedSlotBoundaryUtcMs) boundary += cycleMs;
+    // Automatic retries use a new period. An explicit operator takeover may
+    // replace an interrupted frame in this same selected period.
+    if (!allowManualLatePartial)
+        while (boundary <= m_ft8LastAttemptedSlotBoundaryUtcMs) boundary += cycleMs;
     return boundary;
 }
 
@@ -19232,6 +19276,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 
     const QString myCall = stationCallsign();
     const ParsedFt8Message parsed = parseFt8MessageText(decode.message, myCall);
+    if (!presentationOnly) observeFt8AutoCqActivity(decode);
     if (!presentationOnly && !m_ftCqWorkList.entries.isEmpty()) {
         const QString heard = parsed.cq ? ft8CqCallsignFromMessage(parsed) : parsed.senderCall;
         m_ftCqWorkList.observe(heard.trimmed().toUpper(), parsed.cq, decode,
@@ -19907,11 +19952,10 @@ void MainWindow::beginScheduledFt8Transmit()
     // keying PTT.  The audio-start path retains the same check as a second hard
     // guard for backend-opening latency.
     if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.slotBoundaryUtcMs > 0) {
-        const qint64 targetMs = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
+        const qint64 targetMs = pendingFt8AudioStartDeadlineUtcMs();
         const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
         const qint64 lateMs = nowMs - targetMs;
-        constexpr qint64 kFtStartDeadlineToleranceMs = 20;
-        if (lateMs > kFtStartDeadlineToleranceMs) {
+        if (lateMs > 0) {
             deferPendingFtTx(QStringLiteral("audio target expired by %1 ms").arg(lateMs));
             return;
         }
@@ -19941,6 +19985,7 @@ void MainWindow::stopFt8Shell()
     if (m_txWaveformPreparer) m_txWaveformPreparer->cancel();
     if(m_ftTxWorker)m_ftTxWorker->cancelPendingStart();
     m_ft8OperatorStopLatched = true;
+    m_ft8TxStartFailureCount = 0;
     const bool txWasActive = (m_txRunning ||
                               m_ftTxWorkerRunning ||
                               (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning()));
@@ -24051,7 +24096,9 @@ std::unique_ptr<TxModulator> MainWindow::buildCurrentTxModulator(const QString &
         if (!modulator) return nullptr;
         auto *ft = static_cast<Ft8Transmitter *>(modulator.get());
         ft->setPlaybackWindow(m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs,
-            m_pendingFt8TxPlan.latePartial ? m_pendingFt8TxPlan.slotBoundaryUtcMs + profile.slotMs - kFtSlotEndGuardMs : 0);
+            m_pendingFt8TxPlan.slotBoundaryUtcMs + profile.slotMs - kFtSlotEndGuardMs,
+            m_pendingFt8TxPlan.latePartial || m_pendingFt8TxPlan.operatorRequested,
+            m_pendingFt8TxPlan.latePartial || m_pendingFt8TxPlan.operatorRequested);
         return modulator;
     }
 
@@ -24947,6 +24994,16 @@ void MainWindow::startImageTx()
 
 }
 
+qint64 MainWindow::pendingFt8AudioStartDeadlineUtcMs() const
+{
+    if (m_pendingFt8TxPlan.tune || m_pendingFt8TxPlan.slotBoundaryUtcMs <= 0) return 0;
+    const auto profile = Ft8Mode::profileForMode(ui->cmbMode->currentText());
+    const int latest = (m_pendingFt8TxPlan.latePartial || m_pendingFt8TxPlan.operatorRequested)
+        ? latestFtManualPartialStartMs(profile)
+        : MadModemFtTiming::latestFullFrameStartMs(profile.slotMs, profile.signalMs);
+    return m_pendingFt8TxPlan.slotBoundaryUtcMs + latest;
+}
+
 void MainWindow::deferPendingFtTx(const QString &reason)
 {
     const QString message=m_pendingFt8TxPlan.message, tag=m_pendingFt8TxPlan.tag;
@@ -24954,9 +25011,13 @@ void MainWindow::deferPendingFtTx(const QString &reason)
                                             m_pendingFt8TxPlan.slotBoundaryUtcMs);
     const quint64 generation=++m_txRequestGeneration;
     m_catCommand->cancel();
+    if (m_ftTxWorker) m_ftTxWorker->cancelPendingStart();
+    m_ftTxActiveRequest = 0; // Late signals from the failed worker cannot erase the replacement arm.
     if(m_ftSlotScheduler)QMetaObject::invokeMethod(m_ftSlotScheduler,"cancelTransmission",Qt::QueuedConnection);
     unkeyPttAfterTx();
     m_txPreparationPending=false;
+    m_currentTxIsTextMode=false;
+    m_returnToRxAfterTx=false;
     m_ft8PendingTxArmed=false;
     m_ft8PendingTxToken.clear();
     m_ft8AudioStartRequested=false;
@@ -24965,6 +25026,11 @@ void MainWindow::deferPendingFtTx(const QString &reason)
     m_pendingFt8PreparedModulator.reset();
     appendLog(QStringLiteral("FT slot deferred: %1; no audio started.").arg(reason));
     updateTxControlState();updateFt8TxBannerUi();
+    if (++m_ft8TxStartFailureCount >= 3) {
+        appendLog(QStringLiteral("FT TX: three consecutive CAT/audio start failures; automatic transmission stopped, RX remains available."));
+        stopFt8Shell();
+        return;
+    }
     QTimer::singleShot(0,this,[this,generation,message,tag](){
         if (generation==m_txRequestGeneration && !m_ft8OperatorStopLatched &&
             !m_shutdownInProgress && !message.isEmpty())
@@ -24980,7 +25046,7 @@ void MainWindow::prearmFtPreparedSlotTransmit()
         return;
     }
     if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.slotBoundaryUtcMs > 0 &&
-        QDateTime::currentMSecsSinceEpoch() > m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs + 20) {
+        QDateTime::currentMSecsSinceEpoch() > pendingFt8AudioStartDeadlineUtcMs()) {
         deferPendingFtTx(QStringLiteral("CAT gate became available after the slot deadline"));
         return;
     }
@@ -25100,16 +25166,14 @@ void MainWindow::startFtPreparedSlotTransmit()
         return;
     }
 
-    // Never repair backend lateness by skipping the beginning of a frame. A
-    // manual late visual burst is chosen explicitly upstream and keeps the real
-    // Costas/frame prefix; this deadline guard still defers any start that misses
-    // its newly assigned target.
+    // Automatic frames retain every sample. Explicit operator requests may
+    // seek to their UTC symbol position, bounded by the selected period end.
+    // The audio backend enforces the applicable window on its first PCM pull.
     if (!m_pendingFt8TxPlan.tune && m_pendingFt8TxPlan.slotBoundaryUtcMs > 0) {
-        const qint64 targetMs = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
+        const qint64 targetMs = pendingFt8AudioStartDeadlineUtcMs();
         const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
         const qint64 lateMs = nowMs - targetMs;
-        constexpr qint64 kFtStartDeadlineToleranceMs = 20;
-        if (lateMs > kFtStartDeadlineToleranceMs) {
+        if (lateMs > 0) {
             deferPendingFtTx(QStringLiteral("audio target expired by %1 ms").arg(lateMs));
             return;
         }
@@ -25119,8 +25183,8 @@ void MainWindow::startFtPreparedSlotTransmit()
         m_ft8AudioStartRequested = true;
         const auto token = m_ft8PendingTxToken;
         const auto generation = m_txRequestGeneration;
-        const qint64 deadline = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
-        QTimer::singleShot(static_cast<int>(qBound<qint64>(qint64{1}, deadline - QDateTime::currentMSecsSinceEpoch() + qint64{21}, qint64{60000})),
+        const qint64 deadline = pendingFt8AudioStartDeadlineUtcMs();
+        QTimer::singleShot(static_cast<int>(qBound<qint64>(qint64{1}, deadline - QDateTime::currentMSecsSinceEpoch() + qint64{1}, qint64{60000})),
                           this, [this, token, generation] {
             if (generation == m_txRequestGeneration && token == m_ft8PendingTxToken &&
                 m_ft8PendingTxArmed && !m_pendingFt8PreparedModulator)
@@ -25140,7 +25204,7 @@ void MainWindow::startFtPreparedSlotTransmit()
         m_ft8AudioStartRequested=true;
         const QString token=m_ft8PendingTxToken;
         const auto generation=m_txRequestGeneration;
-        const qint64 deadline=m_pendingFt8TxPlan.slotBoundaryUtcMs+m_pendingFt8TxPlan.audioTargetDelayMs;
+        const qint64 deadline=pendingFt8AudioStartDeadlineUtcMs();
         const int waitMs=static_cast<int>(qMax<qint64>(qint64{1}, deadline-QDateTime::currentMSecsSinceEpoch()+qint64{1}));
         QTimer::singleShot(waitMs,this,[this,token,generation](){
             if (generation==m_txRequestGeneration && token==m_ft8PendingTxToken &&
@@ -25179,7 +25243,7 @@ void MainWindow::startFtPreparedSlotTransmit()
 
     std::unique_ptr<TxModulator> modulator = buildCurrentTxModulator();
     if (!modulator) {
-        const qint64 targetMs = m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs;
+        const qint64 targetMs = pendingFt8AudioStartDeadlineUtcMs();
         const qint64 lateMs = (m_pendingFt8TxPlan.slotBoundaryUtcMs > 0)
             ? (QDateTime::currentDateTimeUtc().toMSecsSinceEpoch() - targetMs)
             : 0;
@@ -25238,8 +25302,7 @@ void MainWindow::startFtPreparedSlotTransmit()
     }
     m_ftTxWorkerRunning = true;
     m_ftTxActiveRequest=m_ftTxWorker->newRequest();
-    const qint64 deadline = m_pendingFt8TxPlan.tune ? 0 :
-        m_pendingFt8TxPlan.slotBoundaryUtcMs + m_pendingFt8TxPlan.audioTargetDelayMs + 20;
+    const qint64 deadline = pendingFt8AudioStartDeadlineUtcMs();
     const auto owned = std::make_shared<std::unique_ptr<TxModulator>>(std::move(modulator));
     auto *worker = m_ftTxWorker;
     const auto request = m_ftTxActiveRequest;
@@ -25381,6 +25444,7 @@ void MainWindow::handleTxStopped()
     const qint64 completedFtTxSlotBoundaryMs = ftModeAtStop ? m_pendingFt8TxPlan.slotBoundaryUtcMs : 0;
     const bool restartRx = m_returnToRxAfterTx;
     const bool naturalFinish = m_txFinishedNaturally;
+    if (ftModeAtStop && naturalFinish) m_ft8TxStartFailureCount = 0;
     const bool textTx = m_currentTxIsTextMode;
     const bool fastResumeCwRtty = restartRx && textTx &&
         m_fastResumeCwRttyRxPending &&
@@ -25453,6 +25517,7 @@ void MainWindow::handleTxStopped()
         const QString deferredMessage = m_deferredFt8TxPlan.message.trimmed().toUpper();
         const QString deferredTag = m_deferredFt8TxPlan.tag.trimmed().isEmpty() ? QStringLiteral("SEQ") : m_deferredFt8TxPlan.tag.trimmed().toUpper();
         const Ft8SequencerState deferredState = m_ftSession.deferredState;
+        const bool operatorRequested = m_deferredFt8TxPlan.operatorRequested;
         m_hasDeferredFt8TxPlan = false;
         m_deferredFt8TxPlan.message.clear();
         m_deferredFt8TxPlan.tag.clear();
@@ -25460,8 +25525,8 @@ void MainWindow::handleTxStopped()
         m_ftSession.deferredState = Ft8SequencerState::Idle;
         if (!deferredMessage.isEmpty()) {
             m_ftSession.state = deferredState;
-            appendLog("FT sequencer: arming deferred next-slot message after TX stop: " + deferredMessage);
-            scheduleFt8SequencerMessage(deferredMessage, deferredTag);
+            appendLog("FT sequencer: arming deferred message after TX stop: " + deferredMessage);
+            scheduleFt8SequencerMessage(deferredMessage, deferredTag, operatorRequested);
         }
     } else if (completedFt8Tx) {
         handleFt8TxCompleted();
@@ -25501,6 +25566,7 @@ void MainWindow::handleTxFinished()
 
 void MainWindow::handleTxError(const QString &message)
 {
+    const FtTxPlan failedFtPlan = m_pendingFt8TxPlan;
     m_pendingTextTxText.clear();
     m_pendingTextTxMode.clear();
     m_pendingRttyQuickReply.clear();
@@ -25560,6 +25626,29 @@ void MainWindow::handleTxError(const QString &message)
         const bool ftLowLatencyReturn = Ft8Mode::isFamilyMode(ui->cmbMode->currentText());
         QTimer::singleShot((ftLowLatencyReturn || fastResumeCwRtty) ? 0 : 250,
                            this, [this]() { startRx(); });
+    }
+
+    if (ftModeAtError && !failedFtPlan.tune && !failedFtPlan.message.isEmpty() &&
+        failedFtPlan.slotBoundaryUtcMs > 0 && !m_ft8OperatorStopLatched &&
+        !m_shutdownInProgress && !m_runtimeShutdownComplete) {
+        // No completed frame means no unanswered-QSO attempt was consumed.
+        // Preserve a newer decoded reply that arrived while audio was opening.
+        FtTxPlan retryPlan = failedFtPlan;
+        const bool operatorReplacement = m_hasDeferredFt8TxPlan && m_deferredFt8TxPlan.operatorRequested;
+        if (m_hasDeferredFt8TxPlan) {
+            retryPlan = m_deferredFt8TxPlan;
+            retryPlan.slotBoundaryUtcMs = failedFtPlan.slotBoundaryUtcMs;
+            m_ftSession.state = m_ftSession.deferredState;
+            m_hasDeferredFt8TxPlan = false;
+            m_deferredFt8TxPlan = FtTxPlan();
+            m_ftSession.deferredState = Ft8SequencerState::Idle;
+        }
+        m_pendingFt8TxPlan = retryPlan;
+        if (operatorReplacement) {
+            if (m_ftTxWorker) m_ftTxWorker->cancelPendingStart();
+            m_ftTxActiveRequest=0;
+            scheduleFt8SequencerMessage(retryPlan.message,retryPlan.tag,true);
+        } else deferPendingFtTx(QStringLiteral("audio backend failed: %1").arg(message));
     }
 }
 

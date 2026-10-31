@@ -1,4 +1,8 @@
-> Updated source: **0.6.4 R31 clean** — completed two-stage native FT8 residual recovery, existing FT4 and Doppler retained. [Current status and verification](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md). Public version remains 0.6.4; general JTDX parity is still open. Includes [Windows TLS link fix 1](docs/platform/WINDOWS_R31_TLS_FIX.md).
+> R31 LOGZIP1 writes complete diagnostics directly to compressed `.jsonl.gz`. Includes TXFIX2 and WINFIX1. [Format and recovery](docs/architecture/SESSION_LOG_GZIP_R31.md). Build dependency: zlib development headers/library (declared in CI).
+
+> R31 TXFIX2 includes operator TX takeover, UTC-aligned manual late starts and the persistent Evil Auto QSO priority queue. [Details and validation](docs/architecture/FT_R31_TXFIX2.md). Includes TXFIX1 and WINFIX1.
+
+> Updated source: **0.6.4 R31 clean** — completed two-stage native FT8 residual recovery, existing FT4 and Doppler retained. [Current status and verification](docs/architecture/RELEASE_0_6_4_R31_CLEAN.md). Public version remains 0.6.4; general JTDX parity is still open. Includes [Windows TLS link fix 1](docs/platform/WINDOWS_R31_TLS_FIX.md). Includes [FT sequencer/audio recovery fix 1](docs/architecture/FT_R31_SEQUENCER_FIX.md).
 
 # MadModem
 

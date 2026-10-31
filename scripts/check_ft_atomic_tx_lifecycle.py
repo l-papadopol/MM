@@ -31,7 +31,8 @@ def new_delta(slot_ms: int, cycle_ms: int, selected_start: int, cycle_pos: int,
         latest_safe = max(0, slot_ms - signal_ms - 120 - 700 - 200)
         if elapsed <= latest_safe:
             return -elapsed
-        latest_partial = max(0, slot_ms - 700 - 200 - 600)
+        nominal_delay = 300 if slot_ms <= 8000 else 500
+        latest_partial = max(0, min(slot_ms - 200, nominal_delay + signal_ms) - 700 - 600)
         if manual_partial and elapsed <= latest_partial:
             return -elapsed
         return cycle_ms - cycle_pos + selected_start
@@ -54,16 +55,16 @@ assert new_delta(15000, 30000, 0, 1341, 12640) > 0
 assert new_delta(7500, 15000, 0, 1440, 5040) == -1440
 assert new_delta(7500, 15000, 0, 1441, 5040) > 0
 
-# Only direct operator actions may emit a late visual burst. The exact live-log
+# Only direct operator actions may transmit a UTC-aligned late suffix. The exact live-log
 # click at +6.2 s starts now, while the same automatic retry waits for the next
-# selected period. Even a manual burst keeps 600 ms of useful tone and stops
-# 200 ms before the period changes.
+# selected period. Manual admission reserves 600 ms of useful frame suffix, 700 ms
+# preparation and the period-end guard.
 assert new_delta(15000, 30000, 0, 6200, 12640) > 0
 assert new_delta(15000, 30000, 0, 6200, 12640, True) == -6200
-assert new_delta(15000, 30000, 0, 13500, 12640, True) == -13500
-assert new_delta(15000, 30000, 0, 13501, 12640, True) > 0
-assert new_delta(7500, 15000, 0, 6000, 5040, True) == -6000
-assert new_delta(7500, 15000, 0, 6001, 5040, True) > 0
+assert new_delta(15000, 30000, 0, 11840, 12640, True) == -11840
+assert new_delta(15000, 30000, 0, 11841, 12640, True) > 0
+assert new_delta(7500, 15000, 0, 4040, 5040, True) == -4040
+assert new_delta(7500, 15000, 0, 4041, 5040, True) > 0
 
 # Atomic RX batch decision remains intact.
 for needle in ('handleFt8DecodeBatchStarted', 'handleFt8DecodeBatchFinished',
@@ -92,7 +93,10 @@ assert 'scheduleFt8SequencerMessage(autoTxMessage, QStringLiteral("SEQ"), true)'
 assert 'm_pendingFt8TxPlan.latePartial' in CPP and 'ft->setPlaybackWindow(' in CPP
 assert 'bool Ft8Transmitter::prepareForPlayback(qint64 utcMs)' in TX_CPP
 assert 'm_stopUtcMs - utcMs' in TX_CPP
-assert 'm_samples.resize(int(capacity))' in TX_CPP
+assert 'm_samples.resize(m_position + int(capacity))' in TX_CPP
+assert 'm_alignLateToSlot && utcMs > m_firstToneUtcMs' in TX_CPP
+assert 'm_samples.size() - m_position' in TX_CPP
+assert 'if (!m_allowPartialPlayback) return false;' in TX_CPP
 assert 'bool latePartial = false;' in (ROOT / 'modems/ft8/FtTxPlan.h').read_text(encoding='utf-8')
 assert 'void truncateTotalMilliseconds(int milliseconds);' in TX_HDR
 assert 'void Ft8Transmitter::truncateTotalMilliseconds(int milliseconds)' in TX_CPP
@@ -106,11 +110,11 @@ assert 'appendFt8LocalTxRow(' in started_body
 assert 'deferPendingFtTx(' in prearm_body
 
 print('PASS: atomic decode-batch decision retained')
-print('PASS: 1181 ms late operator request starts an intact FT8 frame now')
+print('PASS: automatic admission at +1181 ms still permits a complete FT8 frame')
 print('PASS: mode-specific current-slot window guarantees full-frame fit')
 print('PASS: automatic too-late requests defer intact frames')
-print('PASS: manual +6.2 s request emits a bounded current-period visual burst')
-print('PASS: manual late burst preserves frame prefix and stops before slot flip')
+print('PASS: manual +6.2 s request admits a UTC-aligned frame suffix')
+print('PASS: manual late TX seeks to the UTC sample and respects frame/period end')
 print('PASS: CAT/PTT pre-arms before the UTC boundary')
 print('PASS: TX start never blocks behind the FT decoder thread')
 print('PASS: one immutable boundary drives delay, token and watchdog')

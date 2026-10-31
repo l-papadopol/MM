@@ -167,3 +167,7 @@ FFTW3 (Matteo Frigo and Steven G. Johnson): external GPL-2.0-or-later library, c
 ## Native FT DSP reimplementation, source R31
 
 The native C++ spectral downconversion and complex Costas refinement were reimplemented with reference to the WSJT Development Group's WSJT-X 3.0.2 FT8 algorithms. Their pinned source inventory is in docs/architecture/WSJTX_R31_SOURCE_INVENTORY.json. FFTW3 remains the existing external numerical library. No WSJT-X decoder engine or Fortran runtime is linked by this change. MadModem's sliding-window FIR evaluation and linear min-sum implementation are described with their independent numerical validation in the R31 report. Existing original WSJT/MSHV attributions and GPL obligations remain in effect.
+
+## zlib — compressed session logs
+
+Session diagnostics use the platform zlib library (zlib license) for standard gzip compression. Project and license: https://zlib.net/. No zlib source is embedded by this change.

@@ -1,0 +1,40 @@
+{
+  "base": "R31 TXFIX1, canonical version42",
+  "base_zip_sha256": "7caa1afcab1562a7d73d87e94e682f2c06334c2fd68a8232825b8addd175f6b0",
+  "linux_qt5_application_build": "passed",
+  "targeted_ctest": "5/5 passed",
+  "ui_probes": {
+    "operator_queue": "FT8/FT4 passed",
+    "response": "FT8/FT4 passed",
+    "tx_error_recovery": "FT8/FT4 normal/Evil passed"
+  },
+  "operator_late_pcm": "exact UTC-aligned waveform suffix comparison FT8/FT4 passed in architecture regression",
+  "protected_sources_identical_to_TXFIX1": 1535,
+  "protected_prefixes": [
+    "modems except FtTxPlan and FT8/FT4 TX modulator",
+    "audio",
+    "dsp",
+    "rig",
+    "third_party"
+  ],
+  "windows_tls_fix": "preserved, including CMake registration",
+  "wsjt_x_study": {
+    "repository": "https://github.com/WSJTX/wsjtx",
+    "commit": "967c85a6119110788b0df3782cf796485b2cee14",
+    "files": {
+      "widgets/mainwindow.cpp": "c34b03533297774680722b526b63c4b3fc913a9e5941cb96dca906c36d824dfb",
+      "Modulator/Modulator.cpp": "408fe92fc1d0cab49a4b61d1104fd4c593060f6cce0b816e6f2978998183c21a",
+      "Audio/soundout.cpp": "bcbae0871ee64655670dd63edc1e17740406459bcaedf2d0bf3d70638f6eb400",
+      "doc/user_guide/en/controls-functions-center.adoc": "f85bee819806ab40a40641510a5eb61ef6a5e3c30ec517b116f9370332b4abd3"
+    },
+    "findings": {
+      "manual_decode": "doubleClickOnCall -> processMessage -> m_restart/quick_call",
+      "auto_sequence": "active correspondent, addressed report/ack, frequency tolerances and progress guards",
+      "late_start": "Modulator::start computes elapsed frame/sample index relative to nominal 500ms FT8 /300ms FT4 delay",
+      "stop": "stopTx ends modulation then separate PTT-off; STOP disables timers/automatic transmit",
+      "madmodem_application": "explicit operator only seeks buffered waveform at first pull; automatic full-frame RX-response policy retained. Independent priority CQ queue, no new engine."
+    }
+  },
+  "physical_radio_and_windows_build": "not executed here",
+  "rx_sensitivity_benchmarks": "not repeated: RX sources unchanged"
+}

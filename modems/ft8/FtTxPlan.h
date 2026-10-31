@@ -14,6 +14,7 @@
  */
 struct FtTxPlan
 {
+    bool operatorRequested = false; ///< Explicit TX/double-click may restart in the current selected period.
     int row = -1;                  ///< 0-based Tx1..Tx6 row, or -1 for manual/tune.
     QString message;               ///< Exact message passed to the FT modulator.
     QString tag = QStringLiteral("TX");

@@ -1,0 +1,56 @@
+[  0%] Copying localized MM HTML help files
+[  0%] Built target madmodem_weak_signal_codec_autogen_timestamp_deps
+[  0%] Built target madmodem_linear_resampler_autogen_timestamp_deps
+[  0%] Built target madmodem_diagnostics_autogen_timestamp_deps
+[  0%] Built target MadModemHelpFiles
+[  2%] Built target madmodem_cwskimmer
+[  2%] Generating localized MM Qt Help manuals (.qch, optional)
+[  5%] Built target madmodem_weak_signal_codec_autogen
+[  5%] Built target madmodem_linear_resampler_autogen
+[  8%] Built target madmodem_diagnostics_autogen
+CMake Warning at /workspace/scratch/5c40146f5a02/work/cmake/GenerateMadModemQtHelp.cmake:94 (message):
+  Some MM .qch files were not generated.  The build will continue and MM will
+  use embedded multilingual HTML help where needed.
+
+    - en: qhelpgenerator status 1
+    - it: qhelpgenerator status 1
+    - fr: qhelpgenerator status 1
+    - de: qhelpgenerator status 1
+    - no: qhelpgenerator status 1
+    - cs: qhelpgenerator status 1
+
+  Generator log:
+  /workspace/scratch/5c40146f5a02/build-r31-clean/docs/help/qhelpgenerator.log
+
+
+[  8%] Built target madmodem_linear_resampler
+[  8%] Built target MadModemQtHelp
+[ 14%] Built target madmodem_weak_signal_codec
+[ 14%] Built target madmodem_q65_autogen_timestamp_deps
+[ 14%] Built target madmodem_msk144_autogen_timestamp_deps
+[ 17%] Built target madmodem_diagnostics
+[ 17%] Built target madmodem_ft_reference_autogen_timestamp_deps
+[ 17%] Built target madmodem_msk144_autogen
+[ 17%] Built target madmodem_q65_autogen
+[ 17%] Built target madmodem_ft_reference_autogen
+[ 23%] Built target madmodem_msk144
+[ 29%] Built target madmodem_q65
+[ 35%] Built target madmodem_ft_reference
+[ 35%] Built target MadModem_autogen_timestamp_deps
+[ 35%] Automatic MOC and UIC for target MadModem
+[ 35%] Built target MadModem_autogen
+[ 35%] Automatic RCC for resources.qrc
+[ 35%] Building CXX object CMakeFiles/MadModem.dir/main.cpp.o
+[ 35%] Building CXX object CMakeFiles/MadModem.dir/mainwindow.cpp.o
+[ 38%] Building CXX object CMakeFiles/MadModem.dir/FtCqWorkListUi.cpp.o
+[ 38%] Building CXX object CMakeFiles/MadModem.dir/modems/ft8/tx/Ft8Transmitter.cpp.o
+[ 38%] Building CXX object CMakeFiles/MadModem.dir/MadModem_autogen/EWIEGA46WW/qrc_resources.cpp.o
+[ 38%] Linking CXX executable MadModem
+Copying external rtty_rules next to MadModem
+Copying external cw_rules next to MadModem
+[100%] Built target MadModem
+[  0%] Built target MadModemFtSequencerSelfTest_autogen_timestamp_deps
+[  0%] Built target MadModemFtSequencerSelfTest_autogen
+[100%] Built target MadModemFtSequencerSelfTest
+Built target madmodem_ft_timing_policy
+Built target madmodem_ft_cq_worklist

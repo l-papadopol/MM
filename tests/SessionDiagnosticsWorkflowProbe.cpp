@@ -2,6 +2,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "runtime/SessionDiagnostics.h"
+#include "GzipLogRead.h"
 #include "runtime/SessionDiagnosticsUiTap.h"
 #include "modems/ft8/tx/Ft8Transmitter.h"
 #include <QApplication>
@@ -40,13 +41,13 @@ int main(int argc,char **argv){QApplication app(argc,argv);app.setApplicationNam
  settings(true,true);closePath=SessionDiagnostics::instance().path();
  w.close();app.processEvents();
  }
- SessionDiagnostics::instance().stop();SessionDiagnostics::restoreQtCapture();QFile f(path);check(f.open(QIODevice::ReadOnly),"read native log");auto bytes=f.readAll();check(!bytes.contains("SECRET_"),"no profile/password key text in log");
+ SessionDiagnostics::instance().stop();SessionDiagnostics::restoreQtCapture();auto bytes=readGzipLog(path);check(!bytes.contains("SECRET_"),"no profile/password key text in log");
  QSet<QString> categories,modes,textModes;int candidates=0;bool rejected=false,accepted=false,decoderPerf=false,guiPerf=false;
  for(const auto &line:bytes.split('\n')){if(line.isEmpty())continue;QJsonParseError err;auto o=QJsonDocument::fromJson(line,&err).object();check(err.error==QJsonParseError::NoError,"native JSONL integrity");auto event=o["event"].toString();categories.insert(event);if(event=="rx.text")textModes.insert(o["mode"].toString());if(event=="ft.candidate"){++candidates;modes.insert(o["mode"].toString());if(o["accepted"].toBool())accepted=true;else rejected=true;}if(event=="ft.performance"){if(o["stage"]=="gui.delivery")guiPerf=true;else decoderPerf=true;}}
  for(const auto &c:{"runtime.log","qt.message","ui.event","audio.block","settings.snapshot","settings.persisted","ft.candidate","ft.job.begin","ft.job.end","ft.search","ft.pass","ft.performance","session.end"})check(categories.contains(c),c);
  check(textModes.contains("RTTY")&&textModes.contains("BPSK")&&textModes.contains("MFSK")&&textModes.contains("CW")&&categories.contains("rx.status")&&categories.contains("rx.image.progress"),"other-mode text/status/image hooks");
  check(candidates>100&&accepted&&rejected&&modes.contains("FT8")&&modes.contains("FT4")&&decoderPerf&&guiPerf,"FT8/FT4 attempts and complete producer/GUI telemetry");
- QFile closed(closePath);check(closed.open(QIODevice::ReadOnly),"shutdown log");auto shutdownBytes=closed.readAll();check(shutdownBytes.contains("MainWindow destructor done")&&shutdownBytes.contains("session.end"),"enabled close records complete shutdown");
+ auto shutdownBytes=readGzipLog(closePath);check(shutdownBytes.contains("MainWindow destructor done")&&shutdownBytes.contains("session.end"),"enabled close records complete shutdown");
  AppSettings cleanup;cleanup.load();cleanup.sessionDiagnosticsEnabled=false;check(cleanup.save(),"test preference cleanup");
  if(owned)managed.remove();std::cout<<"PASS actual Settings Cancel/OK/live-enable/disable/prefs, six languages, runtime/Qt/UI/audio/dispatcher, FT8 WAV and FT4 synthesis, candidate rejects/success, producer/GUI stats, redaction and drain; candidates="<<candidates<<'\n';
 }

@@ -1437,7 +1437,7 @@ QWidget *AppSettingsDialog::makeDiagnosticsPage()
         const QString folder=QFileDialog::getExistingDirectory(this,L(QStringLiteral("Session diagnostics")),m_editDiagnosticsFolder->text());
         if(!folder.isEmpty())m_editDiagnosticsFolder->setText(folder);
     });
-    auto *diagnosticHint = new QLabel(L(QStringLiteral("Records audio timing, decoder attempts, messages, CAT, TX and UI events. Audio samples use the separate WAV recorder. Files can grow large. Changes apply with OK.")), diagnostics);
+    auto *diagnosticHint = new QLabel(L(QStringLiteral("Records audio timing, decoder attempts, messages, CAT, TX and UI events. Saved directly as compressed .jsonl.gz without omitting events. Audio samples use the separate WAV recorder. Changes apply with OK.")), diagnostics);
     diagnosticHint->setWordWrap(true);diagnosticLayout->addWidget(diagnosticHint);
     auto *diagnosticStatus = new QLabel(diagnostics);diagnosticStatus->setObjectName("sessionDiagnosticsStatus");diagnosticStatus->setWordWrap(true);diagnosticLayout->addWidget(diagnosticStatus);
     diagnosticStatus->setTextFormat(Qt::PlainText);

@@ -126,6 +126,7 @@ struct Ft8FullAutoCqCandidate
     QString band;
     QString mode;
     bool valid = false;
+    bool cq = true;
     bool workedCall = false;
     bool newCountry = false;
     bool newGrid = false;
@@ -134,6 +135,16 @@ struct Ft8FullAutoCqCandidate
     double distanceKm = -1.0;
     QDateTime queuedUtc;
     QString priorityText;
+    static bool higherPriority(const Ft8FullAutoCqCandidate &a, const Ft8FullAutoCqCandidate &b) {
+        if (a.newCountry != b.newCountry) return a.newCountry;
+        if (a.newGrid != b.newGrid) return a.newGrid;
+        if (a.newBand != b.newBand) return a.newBand;
+        if (a.newMode != b.newMode) return a.newMode;
+        if (a.workedCall != b.workedCall) return !a.workedCall;
+        if (qAbs(a.distanceKm - b.distanceKm) > 1.0) return a.distanceKm > b.distanceKm;
+        if (a.decode.snrDb != b.decode.snrDb) return a.decode.snrDb > b.decode.snrDb;
+        return a.decode.frequencyHz < b.decode.frequencyHz;
+    }
 };
 
 /**
@@ -900,6 +911,7 @@ private slots:
      */
     void prearmFtPreparedSlotTransmit();
     void deferPendingFtTx(const QString &reason);
+    qint64 pendingFt8AudioStartDeadlineUtcMs() const;
 
     /**
      * @brief Starts the already pre-armed FT audio worker at the scheduled waveform time.
@@ -950,6 +962,8 @@ private:
      * @brief Returns true when Evil Auto QSO is unlocked, idle and allowed to answer a CQ.
      */
     bool canStartFt8FullAutoQsoNow() const;
+    bool canCollectFt8FullAutoCqs() const;
+    void observeFt8AutoCqActivity(const Ft8RxDecoder::Decode &decode);
 
     /**
      * @brief Builds the worked-needed priority record for one decoded CQ.
@@ -957,7 +971,7 @@ private:
     Ft8FullAutoCqCandidate buildFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus) const;
 
     /**
-     * @brief Adds a decoded CQ to the short Auto QSO priority buffer.
+     * @brief Collects a decoded CQ in the persistent, bounded Auto QSO priority queue.
      */
     bool queueFt8FullAutoCqCandidate(const Ft8RxDecoder::Decode &decode, const QVariantMap &logbookStatus);
 
@@ -2102,6 +2116,7 @@ private:
     bool m_ft8OperatorStopLatched = false;
     bool m_ft8SelectionOnly = false;
     QVector<Ft8FullAutoCqCandidate> m_ft8FullAutoCqCandidates;
+    QHash<QString, qint64> m_ft8AutoCqBusySlots;
     QTimer m_ft8FullAutoCqSelectionTimer;
     bool m_ft8DecodeBatchActive = false;
     qint64 m_ft8DecodeBatchSlotStartUtcMs = 0;
@@ -2217,6 +2232,7 @@ private:
     QString m_ft8PendingTxToken;
     quint64 m_ft8TxArmGeneration = 0;
     bool m_ft8AudioStartRequested = false;
+    int m_ft8TxStartFailureCount = 0;
     qint64 m_ft8LastAttemptedSlotBoundaryUtcMs = 0;
     bool m_pendingFt8PttPrearmed = false;
     bool m_pendingFt8PttKeyed = false;

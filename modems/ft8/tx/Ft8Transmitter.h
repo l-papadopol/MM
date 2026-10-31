@@ -13,8 +13,8 @@
  *
  * FT8 and FT4 both use the MSHV GPL generator ports. MM trims the generator's
  * post-frame silence for exact slot-timed PTT/audio return. An explicit late
- * operator response may also cap the waveform at the slot guard while keeping
- * the genuine frame prefix; automatic transmissions always use the full frame.
+ * operator response can seek to its UTC-aligned sample and cap at the slot
+ * guard. Automatic transmissions always use the full prepared frame.
  */
 class Ft8Transmitter final : public TxModulator
 {
@@ -42,7 +42,8 @@ public:
                    bool tuneMode);
 
     int sampleRate() const override;
-    void setPlaybackWindow(qint64 firstToneUtcMs, qint64 stopUtcMs = 0);
+    void setPlaybackWindow(qint64 firstToneUtcMs, qint64 stopUtcMs = 0, bool allowPartial = false,
+                           bool alignLateToSlot = false);
     bool prepareForPlayback(qint64 utcMs) override;
     int generate(float *output, int sampleCount) override;
     bool isFinished() const override;
@@ -81,6 +82,8 @@ private:
     qint64 m_firstToneUtcMs = 0;
     qint64 m_stopUtcMs = 0;
     int m_leadingSamples = 0;
+    bool m_allowPartialPlayback = false;
+    bool m_alignLateToSlot = false;
     bool m_tuneMode = false;
     bool m_ok = false;
     std::function<bool()> m_cancelled;
