@@ -70,6 +70,30 @@ int main(int argc,char **argv){
     check(UpdateController::linuxPlatform("","","ID=ubuntu\nVERSION_ID=\"24.04\"") == "Ubuntu24.04","quoted Ubuntu version rejected");
     check(UpdateController::linuxPlatform("","","ID=fedora\nVERSION_ID='43'") == "Fedora43","quoted Fedora version rejected");
     check(UpdateController::linuxPlatform("","","ID=arch").isEmpty(),"unknown ABI guessed");
+    for (const auto& mint : {QString("22"),QString("22.1"),QString("22.2"),QString("22.3")})
+        check(UpdateController::linuxPlatform("","","ID=linuxmint\nVERSION_ID=\""+mint+"\"\nVERSION_CODENAME=zena\nID_LIKE=\"ubuntu debian\"\n")=="Ubuntu24.04","Mint 22 base without UBUNTU_CODENAME rejected");
+    check(UpdateController::linuxPlatform("","","ID=pop\nID_LIKE=\"ubuntu debian\"\nVERSION_CODENAME=noble\r\n")=="Ubuntu24.04","Noble derivative rejected");
+    for (const auto& host : {QString("ID=linuxmint\nVERSION_ID=21.3\nUBUNTU_CODENAME=jammy"),
+                            QString("ID=linuxmint\nVERSION_ID=7\nID_LIKE=debian\nVERSION_CODENAME=gigi"),
+                            QString("ID=linuxmint\nVERSION_ID=23\nID_LIKE=\"ubuntu debian\""),
+                            QString("ID=debian\nVERSION_ID=13"),QString("ID=arch\nVERSION_CODENAME=noble")})
+        check(UpdateController::linuxPlatform("","",host).isEmpty(),"incompatible or unknown host mapped to Ubuntu");
+    check(UpdateController::linuxPlatform("Ubuntu24.04","","ID=linuxmint\nVERSION_ID=23")=="Ubuntu24.04","installed ABI identity lost to host version");
+    const auto mintPlatform=UpdateController::linuxPlatform("","","ID=linuxmint\nVERSION_ID=22.3");
+    const auto runNames=UpdateController::linuxAssetNames("0.6.4",true,mintPlatform,130);
+    QJsonObject mintAssets{{"assets",QJsonArray{
+        QJsonObject{{"name","MadModem-0.6.4-Linux-Fedora43-64bit-Installer.run"}},
+        QJsonObject{{"name","MadModem-0.6.4-Linux-Ubuntu24.04-64bit-Package.deb"}},
+        QJsonObject{{"name","MadModem-0.6.4-130-Ubuntu24.04-amd64-Setup.run"}},
+        QJsonObject{{"name","MadModem-0.6.4-Linux-Ubuntu24.04-64bit-Installer.run"}}}}};
+    check(UpdateController::selectAsset(mintAssets,runNames).value("name")==runNames.first(),"Mint did not prefer canonical Ubuntu RUN");
+    auto mintEntries=mintAssets.value("assets").toArray();mintEntries.removeLast();mintAssets.insert("assets",mintEntries);
+    check(UpdateController::selectAsset(mintAssets,runNames).value("name")==runNames.last(),"legacy same-build Ubuntu RUN ignored");
+    check(UpdateController::selectAsset(mintAssets,UpdateController::linuxAssetNames("0.6.4",true,mintPlatform,131)).isEmpty(),"another build or native package selected as RUN");
+    check(UpdateController::selectAsset(mintAssets,UpdateController::linuxAssetNames("0.6.4",false,mintPlatform,130)).isEmpty(),"portable changed into managed installation");
+    check(UpdateController::linuxAssetNames("0.6.4",true,"Debian13",130).isEmpty(),"unsupported package ABI guessed");
+    check(UpdateController::linuxAssetNames("0.6.4",true,"Fedora43",130).last()=="madmodem-0.6.4-130.fc43.x86_64-Setup.run","legacy Fedora RUN identity incorrect");
+    std::cout<<"PASS Mint 22.x without Ubuntu codename, compatible Noble derivative, incompatible bases rejected, canonical/legacy RUN and channel separation\n";
     QJsonObject assets{{"assets",QJsonArray{QJsonObject{{"name","test.zip"}},QJsonObject{{"name","test.tar.gz"}},QJsonObject{{"name","wrong-platform.run"}}}}};
     check(UpdateController::selectAsset(assets,{"test.tar.gz","test.zip"}).value("name")=="test.tar.gz","asset preference follows API order");
     check(UpdateController::selectAsset(assets,{"absent.tar.gz","test.zip"}).value("name")=="test.zip","ZIP fallback ignored");

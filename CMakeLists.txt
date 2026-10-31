@@ -1209,7 +1209,8 @@ if(BUILD_TESTING)
         if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             add_test(NAME madmodem_linux_update_helpers COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_update_helpers.py")
             add_test(NAME madmodem_linux_installer_preflight COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_linux_installer_preflight.py")
-            set_tests_properties(madmodem_linux_update_helpers madmodem_linux_installer_preflight PROPERTIES TIMEOUT 30)
+            add_test(NAME madmodem_update_publication COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/test_update_publication.py")
+            set_tests_properties(madmodem_linux_update_helpers madmodem_linux_installer_preflight madmodem_update_publication PROPERTIES TIMEOUT 30)
         endif()
 
         add_test(NAME madmodem_architecture_guard

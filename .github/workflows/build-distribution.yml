@@ -27,10 +27,12 @@ jobs:
         run: bash scripts/ci_release_version_guard.sh
       - name: Verify rejection of mixed source versions
         run: python3 tests/test_release_version_guard.py
+      - name: Verify complete release publication including Linux native packages
+        run: python3 tests/test_update_publication.py
 
   ubuntu:
     needs: source-check
-    name: Ubuntu 24.04 x64 portable and installer
+    name: Ubuntu 24.04 / Mint 22 x64 portable, RUN and DEB
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -72,16 +74,19 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python3 scripts/package_linux_installer.py --build-dir build-installer --format deb
+          test -s dist/packages/MadModem-*-Ubuntu24.04-amd64.deb
           bash scripts/test_linux_installer.sh dist/packages/*-Setup.run
       - uses: actions/upload-artifact@v4
         with:
           name: installer-ubuntu24-x64
-          path: dist/packages/*-Setup.run
+          path: |
+            dist/packages/*-Setup.run
+            dist/packages/*.deb
           if-no-files-found: error
 
   fedora:
     needs: source-check
-    name: Fedora 43 x64 portable and installer
+    name: Fedora 43 x64 portable, RUN and RPM
     runs-on: ubuntu-24.04
     container: fedora:43
     steps:
@@ -118,11 +123,14 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
           python3 scripts/package_linux_installer.py --build-dir build-installer --format rpm
+          test -s dist/packages/madmodem-*.fc43.x86_64.rpm
           bash scripts/test_linux_installer.sh dist/packages/*-Setup.run
       - uses: actions/upload-artifact@v4
         with:
           name: installer-fedora43-x64
-          path: dist/packages/*-Setup.run
+          path: |
+            dist/packages/*-Setup.run
+            dist/packages/*.rpm
           if-no-files-found: error
 
   fedora-portable-check:

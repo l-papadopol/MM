@@ -40,6 +40,10 @@ require_package "MadModem-$version-Linux-Ubuntu24.04-64bit-Installer.run" \
     "$assets_dir"/MadModem-"$version"-*-Ubuntu24.04-amd64-Setup.run
 require_package "MadModem-$version-Linux-Fedora43-64bit-Installer.run" \
     "$assets_dir"/madmodem-"$version"-*.fc43.x86_64-Setup.run
+require_package "MadModem-$version-Linux-Ubuntu24.04-64bit-Package.deb" \
+    "$assets_dir"/MadModem-"$version"-*-Ubuntu24.04-amd64.deb
+require_package "MadModem-$version-Linux-Fedora43-64bit-Package.rpm" \
+    "$assets_dir"/madmodem-"$version"-*.fc43.x86_64.rpm
 for variant in legacy avx2; do
     cpu=Compatible
     [[ "$variant" != avx2 ]] || cpu=AVX2-FMA

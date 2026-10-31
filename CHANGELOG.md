@@ -1,3 +1,10 @@
+## 0.6.4 source R31 — LINUXPKG1: Mint update selection and native package downloads
+
+- Publish the DEB/RPM already generated inside Linux RUN installers as separate GitHub Release downloads, with SHA256SUMS. Keep all existing RUN and portable assets; reject incomplete native publication.
+- Recognize Mint 22.x without UBUNTU_CODENAME and compatible Noble derivatives. Keep installed bundle ABI priority, canonical RUN preference, same-build legacy RUN fallback and managed/portable separation. Do not guess Mint21/LMDE/Debian compatibility.
+- Linux Qt5 application build and five targeted updater/installer/publication/path regressions passed. RX, Doppler, TXFIX2 queues/sequencing and LOGZIP1 sources preserved byte-for-byte. Native package creation/install checks remain in the next GitHub workflow; no remote publication was performed here.
+- [Support, install commands, results and official repository roadmap](docs/platform/LINUX_R31_PACKAGES.md).
+
 ## 0.6.4 source R31 — LOGZIP1: compressed complete session diagnostics
 
 - Write full session events directly to standard .jsonl.gz with fast, lossless gzip on the diagnostics worker. No event filtering or plain temporary log.

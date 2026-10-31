@@ -19,8 +19,9 @@ public:
     static quint64 releaseBuildNumber(const QJsonObject& release);
     static QJsonObject newestPublishedRelease(const QJsonArray& releases);
     static QString assetName(const QString& version, bool managed);
-    static QStringList assetNames(const QString& version, bool managed);
+    static QStringList assetNames(const QString& version, bool managed, quint64 releaseBuild = 0);
     static QString linuxPlatform(const QString& marker, const QString& bundleInfo, const QString& osRelease);
+    static QStringList linuxAssetNames(const QString& version, bool managed, const QString& platform, quint64 releaseBuild = 0);
     static QJsonObject selectAsset(const QJsonObject& release, const QStringList& names);
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

@@ -141,11 +141,38 @@ QString UpdateController::linuxPlatform(const QString& marker, const QString& bu
                              (v.front() == QChar(39) && v.back() == QChar(39)))) v = v.mid(1, v.size()-2);
         return v;
     };
-    if ((value("ID") == "ubuntu" && value("VERSION_ID") == "24.04") || value("UBUNTU_CODENAME") == "noble") return "Ubuntu24.04";
+    const QString id = value("ID");
+    const QString version = value("VERSION_ID");
+    const QStringList family = value("ID_LIKE").split(QChar(' '), Qt::SkipEmptyParts);
+    // Mint's own codename (wilma/xia/zara/zena) is not its Ubuntu ABI.
+    // Some installations omit UBUNTU_CODENAME, so recognize the documented
+    // Mint 22.x base as well. Do not guess Ubuntu compatibility for LMDE,
+    // Mint 21.x, Debian, or an arbitrary future Mint major version.
+    if ((id == "ubuntu" && version == "24.04") || value("UBUNTU_CODENAME") == "noble" ||
+        (id == "linuxmint" && QRegularExpression("^22(?:\\.[0-9]+)*$").match(version).hasMatch()) ||
+        ((id == "ubuntu" || family.contains("ubuntu")) && value("VERSION_CODENAME") == "noble")) return "Ubuntu24.04";
     if (value("ID") == "fedora" && value("VERSION_ID") == "43") return "Fedora43";
     return {};
 }
-QStringList UpdateController::assetNames(const QString& version, bool managed) {
+QStringList UpdateController::linuxAssetNames(const QString& version, bool managed, const QString& platform, quint64 releaseBuild) {
+    if (platform != "Ubuntu24.04" && platform != "Fedora43") return {};
+    const QString base = "MadModem-" + version;
+    if (managed) {
+        QStringList names{base + "-Linux-" + platform + "-64bit-Installer.run"};
+        // Earlier releases exposed the packager's original filename. Stay on
+        // the installed ABI and .run channel, even when both native formats exist.
+        if (releaseBuild) {
+            if (platform == "Ubuntu24.04") names.append(base + "-" + QString::number(releaseBuild) + "-Ubuntu24.04-amd64-Setup.run");
+            else names.append("madmodem-" + version + "-" + QString::number(releaseBuild) + ".fc43.x86_64-Setup.run");
+        }
+        return names;
+    }
+    return {base + "-Linux-" + platform + "-64bit-Portable.tar.gz",
+            base + "-Linux-" + platform + "-64bit-Portable.zip",
+            base + "-" + platform + "-x86_64.tar.gz",
+            base + "-" + platform + "-x86_64.zip"};
+}
+QStringList UpdateController::assetNames(const QString& version, bool managed, quint64 releaseBuild) {
     const QString base = "MadModem-" + version;
 #ifdef Q_OS_WIN
     if (QSysInfo::buildCpuArchitecture() != "x86_64") return {};
@@ -164,12 +191,7 @@ QStringList UpdateController::assetNames(const QString& version, bool managed) {
     auto read = [](const QString &path) { QFile file(path); return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString(); };
     const QString dir = QCoreApplication::applicationDirPath();
     const QString platform = linuxPlatform(read(dir + "/distribution-platform.txt"), read(dir + "/../BUILD_INFO.txt"), read("/etc/os-release"));
-    if (platform.isEmpty()) return {};
-    if (managed) return {base + "-Linux-" + platform + "-64bit-Installer.run"};
-    return {base + "-Linux-" + platform + "-64bit-Portable.tar.gz",
-            base + "-Linux-" + platform + "-64bit-Portable.zip",
-            base + "-" + platform + "-x86_64.tar.gz",
-            base + "-" + platform + "-x86_64.zip"};
+    return linuxAssetNames(version, managed, platform, releaseBuild);
 #endif
 }
 QString UpdateController::assetName(const QString& version, bool managed) {
@@ -251,7 +273,7 @@ void UpdateController::fetch(const QUrl& url, qint64 maximum, std::function<void
 void UpdateController::offer(const QJsonObject& release) {
     if (!m_idle()) { m_busy = false; if (!m_manual) m_automaticCheck->start(30000); return; }
     m_managed = MadModemInstallation::isManaged();
-    const QStringList names = assetNames(m_version, m_managed);
+    const QStringList names = assetNames(m_version, m_managed, m_releaseBuild);
     const QJsonObject asset = selectAsset(release, names);
     const QString name = asset.value("name").toString();
     QJsonObject sums;

@@ -1,3 +1,5 @@
+> R31 LINUXPKG1 adds separate DEB/RPM downloads beside Linux RUN/portable packages and robust Mint 22.x updater selection. Includes LOGZIP1, TXFIX2 and WINFIX1. [Linux support, verification and repository roadmap](docs/platform/LINUX_R31_PACKAGES.md).
+
 > R31 LOGZIP1 writes complete diagnostics directly to compressed `.jsonl.gz`. Includes TXFIX2 and WINFIX1. [Format and recovery](docs/architecture/SESSION_LOG_GZIP_R31.md). Build dependency: zlib development headers/library (declared in CI).
 
 > R31 TXFIX2 includes operator TX takeover, UTC-aligned manual late starts and the persistent Evil Auto QSO priority queue. [Details and validation](docs/architecture/FT_R31_TXFIX2.md). Includes TXFIX1 and WINFIX1.

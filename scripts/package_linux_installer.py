@@ -134,7 +134,8 @@ cp -a {payload}/. %{{buildroot}}/
         installer = output / (package.stem + '-Setup.run')
         installer.write_bytes(template.encode() + payload_archive.read_bytes())
         installer.chmod(0o755)
-        print(f'Installer: {installer}')
+        print(f'Native package: {package}')
+        print(f'Installer (contains the same native package): {installer}')
 
 if __name__ == '__main__':
     main()

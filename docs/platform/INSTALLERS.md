@@ -55,6 +55,9 @@ User data is not included in the uninstall file list.
 
 ## Linux
 
+Ubuntu 24.04 downloads also serve Mint 22.x (Ubuntu Noble base). Mint 21.x and
+LMDE have different bases and require their own compatible build.
+
 Choose the installer matching the distribution, then run:
 
 ```bash
@@ -68,6 +71,13 @@ or DNF. No manual extraction directory is needed. Start MM from the applications
 menu or with `MadModem`. Use `sudo apt remove madmodem` or `sudo dnf remove madmodem`
 to uninstall. Packages target their named distribution; they are not universal
 Linux binaries.
+
+Native downloads are also published beside the RUN installers. On Ubuntu 24.04
+or Mint 22.x use `sudo apt install ./MadModem-0.6.4-Linux-Ubuntu24.04-64bit-Package.deb`;
+on Fedora 43 use `sudo dnf install ./MadModem-0.6.4-Linux-Fedora43-64bit-Package.rpm`.
+They install the same managed package as the matching RUN. The in-application
+updater continues to select RUN for managed installations.
+See [Linux package support and repository plans](LINUX_R31_PACKAGES.md).
 
 For unattended deployment, `--accept-gpl3` explicitly records acceptance by the
 caller. An unattended run without this option refuses to install. Internet access
