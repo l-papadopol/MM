@@ -1,0 +1,99 @@
+{
+  "id": "mm-cw-r13-search",
+  "license": "GPL-3.0-or-later",
+  "experimental": true,
+  "parent": "mm-cw-tcn-ctc-v4-extended",
+  "selection": {
+    "name": "candidate-12000",
+    "checkpoint": "run-r13/candidate/checkpoints/step-012000.pt",
+    "sha256": "ea01c4e8dd7fb1178b428780afde3ee56a4cb573a3b0e75b83600e7f20d4a053",
+    "space_bias": 3.0,
+    "eligible": true,
+    "score": 0.019540174554128042,
+    "metrics": {
+      "arrl": {
+        "errors": 20,
+        "characters": 702,
+        "exact": 12,
+        "records": 24
+      },
+      "qso": {
+        "errors": 14,
+        "characters": 946,
+        "exact": 23,
+        "records": 32
+      },
+      "random": {
+        "errors": 2,
+        "characters": 375,
+        "exact": 38,
+        "records": 40
+      },
+      "negative": {
+        "errors": 0,
+        "characters": 0,
+        "exact": 20,
+        "records": 20
+      }
+    }
+  },
+  "released_envelope_baseline": {
+    "arrl": {
+      "errors": 153,
+      "characters": 702,
+      "exact": 0,
+      "records": 24
+    },
+    "qso": {
+      "errors": 105,
+      "characters": 946,
+      "exact": 8,
+      "records": 32
+    },
+    "random": {
+      "errors": 10,
+      "characters": 375,
+      "exact": 32,
+      "records": 40
+    },
+    "negative": {
+      "errors": 0,
+      "characters": 0,
+      "exact": 20,
+      "records": 20
+    }
+  },
+  "protocol_sha256": "262e8fbb28dd2839c89a4173f219c489809165c0fca248fba9e6c3df96a048bc",
+  "final_test_used_for_selection": false,
+  "frontend": {
+    "floor": 0.2,
+    "peak_release_seconds": 0.5
+  },
+  "decoding": {
+    "beam_width": 4,
+    "token_penalty": 1.5,
+    "blank_threshold": 0.99,
+    "blank_frames": 4
+  },
+  "architecture": {
+    "features": 9,
+    "channels": 48,
+    "kernel": 5,
+    "dilations": [
+      1,
+      4,
+      16,
+      64
+    ],
+    "causal": true
+  },
+  "runtime_requires_external_ml": false,
+  "weights_header_sha256": "1b470087d23fee4255a60b9760ca0edb5d5ef9450031f2cb259518da383faaf3",
+  "parameter_count": 38970,
+  "training_run_seconds": 900.2649844500002,
+  "training_completed_steps": 12038,
+  "selected_step": 12000,
+  "packaged_release": "0.6.3",
+  "runtime_engine": "neural_search",
+  "packaging_note": "Only the R13 model is bundled; header namespace standardized, numerical weights and checkpoint unchanged."
+}

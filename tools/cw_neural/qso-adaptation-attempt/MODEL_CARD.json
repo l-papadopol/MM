@@ -1,0 +1,161 @@
+{
+  "id": "mm-cw-tcn-ctc-v4-qso",
+  "license": "GPL-3.0-or-later",
+  "experimental": true,
+  "origin": "Original MM weights adapted to generated variable-call QSO audio. No upstream predictions or unverified radio labels.",
+  "parent_checkpoint_sha256": "8e5246a7ed974033f53e23ed348eaeed939e06fd5627403439ca865a1a0fdca9",
+  "requested_seconds": 450.0,
+  "baseline_validation": {
+    "selection_score": 0.09494497517174734,
+    "space_bias": 0.0,
+    "blank_bias": 0.0,
+    "metrics": {
+      "original": {
+        "errors": 16,
+        "characters": 848,
+        "cer": 0.018867924528301886,
+        "exact": 88,
+        "records": 100,
+        "emitted": 864
+      },
+      "filtered": {
+        "errors": 126,
+        "characters": 1077,
+        "cer": 0.116991643454039,
+        "exact": 60,
+        "records": 100,
+        "emitted": 1120
+      },
+      "clean": {
+        "errors": 29,
+        "characters": 867,
+        "cer": 0.03344867358708189,
+        "exact": 79,
+        "records": 100,
+        "emitted": 877
+      },
+      "negative": {
+        "errors": 3,
+        "characters": 0,
+        "cer": 3.0,
+        "exact": 59,
+        "records": 60,
+        "emitted": 3
+      },
+      "long": {
+        "errors": 13,
+        "characters": 598,
+        "cer": 0.021739130434782608,
+        "exact": 8,
+        "records": 16,
+        "emitted": 607
+      },
+      "qso": {
+        "errors": 336,
+        "characters": 3072,
+        "cer": 0.109375,
+        "exact": 17,
+        "records": 100,
+        "emitted": 3106
+      }
+    }
+  },
+  "training_records": 2900,
+  "qso_training_seed_range": [
+    95117000,
+    95118199
+  ],
+  "qso_development_seed_range": [
+    101117000,
+    101117099
+  ],
+  "reserved_calls": [
+    "IZ6NNH",
+    "DL1ABC",
+    "MM0ABC"
+  ],
+  "reserved_fixtures": [
+    "CQ CQ CQ DE IZ6NNH IZ6NNH PSE K",
+    "DL1ABC DE IZ6NNH TNX QSO 73 73 SK",
+    "IZ6NNH DE DL1ABC DL1ABC UR 599 599 PSE K",
+    "MM0ABC DE IZ6NNH R R UR 5NN 5NN BK",
+    "R R UR 559 559 NAME LUCIAN LUCIAN QTH ITALY ITALY BK",
+    "UR 599 599 BK"
+  ],
+  "loss_weights": {
+    "ce": 0.65,
+    "ctc": 2.0,
+    "ce_space": 3.0,
+    "ce_blank": 0.1
+  },
+  "selection_weighting": {
+    "qso": 0.55,
+    "filtered": 0.2,
+    "original": 0.075,
+    "clean": 0.1,
+    "long": 0.075
+  },
+  "torch_version": "2.14.1+cpu",
+  "phase_one_training_seconds": 901.407547537,
+  "selected_step": 0,
+  "selected_elapsed_seconds": 0.0,
+  "validation": {
+    "selection_score": 0.09494497517174734,
+    "space_bias": 0.0,
+    "blank_bias": 0.0,
+    "metrics": {
+      "original": {
+        "errors": 16,
+        "characters": 848,
+        "cer": 0.018867924528301886,
+        "exact": 88,
+        "records": 100,
+        "emitted": 864
+      },
+      "filtered": {
+        "errors": 126,
+        "characters": 1077,
+        "cer": 0.116991643454039,
+        "exact": 60,
+        "records": 100,
+        "emitted": 1120
+      },
+      "clean": {
+        "errors": 29,
+        "characters": 867,
+        "cer": 0.03344867358708189,
+        "exact": 79,
+        "records": 100,
+        "emitted": 877
+      },
+      "negative": {
+        "errors": 3,
+        "characters": 0,
+        "cer": 3.0,
+        "exact": 59,
+        "records": 60,
+        "emitted": 3
+      },
+      "long": {
+        "errors": 13,
+        "characters": 598,
+        "cer": 0.021739130434782608,
+        "exact": 8,
+        "records": 16,
+        "emitted": 607
+      },
+      "qso": {
+        "errors": 336,
+        "characters": 3072,
+        "cer": 0.109375,
+        "exact": 17,
+        "records": 100,
+        "emitted": 3106
+      }
+    }
+  },
+  "weights_header_sha256": "45e1202f69af7e4188c333f6aea97e9c25952231ceb4042206c0063f126369b3",
+  "parameter_count": 38970,
+  "completed_steps": 3054,
+  "completed_elapsed_seconds": 453.8037548000002
+}

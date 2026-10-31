@@ -1,0 +1,71 @@
+## hamlib.cfg.in--converted into hamlib.cfg by config.status
+
+PROJECT_NAME    = Hamlib
+PROJECT_NUMBER  = @VERSION@
+PROJECT_LOGO    = @top_srcdir@/doc/hamlib.png
+
+# Output
+OUTPUT_DIRECTORY= .
+
+OUTPUT_LANGUAGE = English
+GENERATE_HTML   = YES
+GENERATE_LATEX  = NO
+GENERATE_RTF    = NO
+GENERATE_MAN    = NO    # User can set to YES for local man pages
+MAN_EXTENSION	= .3
+
+# Set GENERATE_LATEX to YES to generate the needed files for the PDF manual
+# and run 'make doc'.  Then 'cd latex ; make' to generate the PDF manual.
+#
+# See section 1.3.1.2 in @top_srcdir@/README.developer for the needed LaTeX
+# packages.
+USE_PDFLATEX    = YES
+PDF_HYPERLINKS  = YES
+EXTRA_PACKAGES  = pmboxdraw
+
+# Input
+CASE_SENSE_NAMES = YES
+FULL_PATH_NAMES  = NO
+INPUT            = @top_srcdir@/doc/index.doxygen \
+                   @top_srcdir@/include/hamlib/ \
+                   @top_srcdir@/src/
+
+EXCLUDE          = @top_srcdir@/include/hamlib/ampclass.h \
+                   @top_srcdir@/include/hamlib/multicast.h \
+                   @top_srcdir@/include/hamlib/rigclass.h \
+                   @top_srcdir@/include/hamlib/rig_dll.h \
+                   @top_srcdir@/include/hamlib/rotclass.h \
+                   @top_srcdir@/include/hamlib/winpthreads.h \
+                   @top_srcdir@/src/amp_conf.h \
+                   @top_srcdir@/src/multicast.c
+
+INCLUDE_PATH     = @top_srcdir@/include
+
+EXAMPLE_PATH     = @top_srcdir@/tests/testrig.c \
+                   @top_srcdir@ \
+                   @top_srcdir@/scripts \
+                   @top_builddir@/scripts
+
+
+QUIET            = YES
+
+HTML_FOOTER           = @top_srcdir@/doc/footer.html
+HTML_EXTRA_STYLESHEET = @top_srcdir@/doc/hamlib.css
+
+EXTRACT_ALL           = NO
+EXTRACT_STATIC        = NO
+HIDE_UNDOC_MEMBERS    = NO
+SHOW_INCLUDE_FILES    = YES
+INHERIT_DOCS          = YES
+ENABLED_SECTIONS      = "hl_static"
+PREDEFINED            = DOXYGEN "DOC_HIDDEN"
+JAVADOC_AUTOBRIEF     = NO
+OPTIMIZE_OUTPUT_FOR_C = YES
+# Allow anonymous group for related macro definitions
+DISTRIBUTE_GROUP_DOC  = YES
+# Later versions default to NO
+HAVE_DOT              = YES
+CALL_GRAPH            = YES
+
+MAN_LINKS             = NO
+MACRO_EXPANSION       = YES

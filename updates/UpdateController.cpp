@@ -1,0 +1,400 @@
+#include "UpdateController.h"
+#include "../MadModemVersion.h"
+#include "MadModemBuildInfo.h"
+#include "../settings/AppSettings.h"
+#include "../utils/InstallationPaths.h"
+#include "../utils/RuntimeI18n.h"
+#include <QAction>
+#include <QApplication>
+#include <QCryptographicHash>
+#include <QDesktopServices>
+#include <QDir>
+#include <QEvent>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QMenu>
+#include <QMessageBox>
+#include <QNetworkReply>
+#include <QProcess>
+#include <QRegularExpression>
+#include <QSaveFile>
+#include <QSettings>
+#include <QStandardPaths>
+#include <QSysInfo>
+#include <QTimer>
+#include <QUuid>
+#include <QVersionNumber>
+#include <memory>
+namespace {
+QString uiText(const char* key, const char* fallback) { return MadModemI18n::translate(QString::fromUtf8(key), QString::fromUtf8(fallback)); }
+const QString repository = QStringLiteral("https://github.com/l-papadopol/MM");
+struct ReleaseIdentity { QString version; quint64 build = 0; };
+ReleaseIdentity releaseIdentity(const QJsonObject &release) {
+    if (release.value("draft").toBool()) return {};
+    static const QRegularExpression versionTag(QStringLiteral("\\Av?([0-9]+\\.[0-9]+\\.[0-9]+)\\z"));
+    static const QRegularExpression buildTag(QStringLiteral("\\Abuild-([0-9]+\\.[0-9]+\\.[0-9]+)-([1-9][0-9]*)\\z"));
+    static const QRegularExpression marker(QStringLiteral("<!-- MadModem build: ([1-9][0-9]*) -->"));
+    const QString tag = release.value("tag_name").toString();
+    auto match = versionTag.match(tag);
+    quint64 build = 0;
+    if (!match.hasMatch()) {
+        match = buildTag.match(tag);
+        if (!match.hasMatch()) return {};
+        bool ok = false; build = match.captured(2).toULongLong(&ok);
+        if (!ok || build > 2147483647ULL) return {};
+    }
+    const QString version = match.captured(1);
+    const auto meta = marker.match(release.value("body").toString());
+    if (meta.hasMatch()) {
+        bool ok = false; const auto number = meta.captured(1).toULongLong(&ok);
+        if (!ok || number > 2147483647ULL || (build && build != number)) return {};
+        build = number;
+    }
+    return {version, build};
+}
+QString versionLabel(const QString &version, quint64 build) {
+    return build ? version + QStringLiteral(" (build %1)").arg(build) : version;
+}
+int compareRelease(const QJsonObject &a, const QJsonObject &b) {
+    const auto left = releaseIdentity(a), right = releaseIdentity(b);
+    if (left.version.isEmpty()) return right.version.isEmpty() ? 0 : -1;
+    if (right.version.isEmpty()) return 1;
+    const int version = QVersionNumber::compare(QVersionNumber::fromString(left.version), QVersionNumber::fromString(right.version));
+    if (version) return version;
+    if (left.build != right.build) return left.build > right.build ? 1 : -1;
+    return QString::compare(a.value("published_at").toString(), b.value("published_at").toString());
+}
+
+bool assetUrl(const QUrl& url) {
+    return url.scheme() == "https" && url.host() == "github.com" && url.userInfo().isEmpty() &&
+           url.path().startsWith("/l-papadopol/MM/releases/download/");
+}
+}
+UpdateController::UpdateController(QWidget* window, QMenu* help, std::function<bool()> idle)
+    : QObject(window), m_window(window), m_idle(std::move(idle)), m_network(this) {
+    window->installEventFilter(this);
+    m_automaticCheck = new QTimer(this);
+    m_automaticCheck->setSingleShot(true);
+    connect(m_automaticCheck, &QTimer::timeout, this, [this] {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        if (!m_cancelled && settings.value("Updates/checkAtStartup", true).toBool()) check();
+    });
+    auto* action = help->addAction(uiText("text.check_for_updates", "Check for updates…"));
+    action->setObjectName("checkForUpdatesAction");
+    action->setProperty("i18nSourceText", "Check for updates…");
+    connect(action, &QAction::triggered, this, [this] { check(true); });
+    auto* automatic = help->addAction(uiText("text.check_for_updates_at_startup", "Check for updates at startup"));
+    automatic->setObjectName("automaticUpdatesAction");
+    automatic->setProperty("i18nSourceText", "Check for updates at startup");
+    automatic->setCheckable(true);
+    QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+    automatic->setChecked(settings.value("Updates/checkAtStartup", true).toBool());
+    connect(automatic, &QAction::toggled, this, [this](bool enabled) {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue("Updates/checkAtStartup", enabled);
+        if (enabled) m_automaticCheck->start(8000);
+        else m_automaticCheck->stop();
+    });
+    if (automatic->isChecked() && QCoreApplication::arguments().size() == 1) m_automaticCheck->start(8000);
+}
+bool UpdateController::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_window && event->type() == QEvent::Close) {
+        // Shutdown may pump events while audio/logbook workers finish. Do not
+        // offer an update or display a download error during that interval.
+        m_cancelled = true;
+        m_automaticCheck->stop();
+        for (auto* reply : m_network.findChildren<QNetworkReply*>()) reply->abort();
+        if (m_progress) {
+            disconnect(m_progress, nullptr, this, nullptr);
+            m_progress->hide(); m_progress->deleteLater(); m_progress = nullptr;
+        }
+    }
+    return QObject::eventFilter(watched, event);
+}
+QString UpdateController::newerPublishedVersion(const QJsonObject& release, const QString& current, quint64 currentBuild) {
+    const auto id = releaseIdentity(release);
+    if (id.version.isEmpty()) return {};
+    const int comparison = QVersionNumber::compare(QVersionNumber::fromString(id.version), QVersionNumber::fromString(current));
+    if (comparison > 0 || (comparison == 0 && id.build > currentBuild)) return id.version;
+    return {};
+}
+quint64 UpdateController::releaseBuildNumber(const QJsonObject& release) { return releaseIdentity(release).build; }
+QJsonObject UpdateController::newestPublishedRelease(const QJsonArray& releases) {
+    QJsonObject best;
+    for (const auto &value : releases) {
+        const auto item = value.toObject();
+        if (compareRelease(item, best) > 0) best = item;
+    }
+    return best;
+}
+QString UpdateController::linuxPlatform(const QString& marker, const QString& bundleInfo, const QString& osRelease) {
+    // The build identity travels with the bundle, including on Ubuntu derivatives.
+    const QString identity = marker.trimmed();
+    if (identity == "Ubuntu24.04" || identity == "Fedora43") return identity;
+    const auto bundled = QRegularExpression("(?:^|\\n)Build platform: (Ubuntu24\\.04|Fedora43)(?:\\r?\\n|$)").match(bundleInfo);
+    if (bundled.hasMatch()) return bundled.captured(1);
+    auto value = [&](const QString& key) {
+        QString v = QRegularExpression("(?:^|\\n)" + key + "=([^\\n]*)").match(osRelease).captured(1).trimmed();
+        if (v.size() >= 2 && ((v.front() == QChar(34) && v.back() == QChar(34)) ||
+                             (v.front() == QChar(39) && v.back() == QChar(39)))) v = v.mid(1, v.size()-2);
+        return v;
+    };
+    const QString id = value("ID");
+    const QString version = value("VERSION_ID");
+    const QStringList family = value("ID_LIKE").split(QChar(' '), Qt::SkipEmptyParts);
+    // Mint's own codename (wilma/xia/zara/zena) is not its Ubuntu ABI.
+    // Some installations omit UBUNTU_CODENAME, so recognize the documented
+    // Mint 22.x base as well. Do not guess Ubuntu compatibility for LMDE,
+    // Mint 21.x, Debian, or an arbitrary future Mint major version.
+    if ((id == "ubuntu" && version == "24.04") || value("UBUNTU_CODENAME") == "noble" ||
+        (id == "linuxmint" && QRegularExpression("^22(?:\\.[0-9]+)*$").match(version).hasMatch()) ||
+        ((id == "ubuntu" || family.contains("ubuntu")) && value("VERSION_CODENAME") == "noble")) return "Ubuntu24.04";
+    if (value("ID") == "fedora" && value("VERSION_ID") == "43") return "Fedora43";
+    return {};
+}
+QStringList UpdateController::linuxAssetNames(const QString& version, bool managed, const QString& platform, quint64 releaseBuild) {
+    if (platform != "Ubuntu24.04" && platform != "Fedora43") return {};
+    const QString base = "MadModem-" + version;
+    if (managed) {
+        QStringList names{base + "-Linux-" + platform + "-64bit-Installer.run"};
+        // Earlier releases exposed the packager's original filename. Stay on
+        // the installed ABI and .run channel, even when both native formats exist.
+        if (releaseBuild) {
+            if (platform == "Ubuntu24.04") names.append(base + "-" + QString::number(releaseBuild) + "-Ubuntu24.04-amd64-Setup.run");
+            else names.append("madmodem-" + version + "-" + QString::number(releaseBuild) + ".fc43.x86_64-Setup.run");
+        }
+        return names;
+    }
+    return {base + "-Linux-" + platform + "-64bit-Portable.tar.gz",
+            base + "-Linux-" + platform + "-64bit-Portable.zip",
+            base + "-" + platform + "-x86_64.tar.gz",
+            base + "-" + platform + "-x86_64.zip"};
+}
+QStringList UpdateController::assetNames(const QString& version, bool managed, quint64 releaseBuild) {
+    const QString base = "MadModem-" + version;
+#ifdef Q_OS_WIN
+    if (QSysInfo::buildCpuArchitecture() != "x86_64") return {};
+    if (managed) return {base + "-Windows-64bit-Installer-AutoCPU.exe"};
+#if defined(__AVX2__)
+    return {base + "-Windows-64bit-Portable-AVX2-FMA.zip"};
+#else
+    return {base + "-Windows-64bit-Portable-Compatible.zip"};
+#endif
+#elif defined(Q_OS_MACOS)
+    const QString arch = QSysInfo::buildCpuArchitecture();
+    if (arch != "arm64" && arch != "x86_64") return {};
+    return {base + "-macOS-" + (arch == "arm64" ? "AppleSilicon" : "Intel") + (managed ? "-Installer.pkg" : "-Portable.zip")};
+#else
+    if (QSysInfo::buildCpuArchitecture() != "x86_64") return {};
+    auto read = [](const QString &path) { QFile file(path); return file.open(QIODevice::ReadOnly) ? QString::fromUtf8(file.readAll()) : QString(); };
+    const QString dir = QCoreApplication::applicationDirPath();
+    const QString platform = linuxPlatform(read(dir + "/distribution-platform.txt"), read(dir + "/../BUILD_INFO.txt"), read("/etc/os-release"));
+    return linuxAssetNames(version, managed, platform, releaseBuild);
+#endif
+}
+QString UpdateController::assetName(const QString& version, bool managed) {
+    return assetNames(version, managed).value(0);
+}
+QJsonObject UpdateController::selectAsset(const QJsonObject& release, const QStringList& names) {
+    for (const auto& wanted : names) {
+        for (const auto& entry : release.value("assets").toArray()) {
+            const auto asset = entry.toObject();
+            if (asset.value("name").toString() == wanted) return asset;
+        }
+    }
+    return {};
+}
+void UpdateController::check(bool manual) {
+    if (m_busy) return;
+    m_manual = manual; m_cancelled = false;
+    m_automaticCheck->stop();
+    if (!m_idle()) {
+        if (manual) fail(uiText("update_idle", "Stop transmission, automatic TX and active operations before updating."));
+        else m_automaticCheck->start(30000);
+        return;
+    }
+    m_busy = true; m_cancelled = false;
+    m_newestRelease = {};
+    fetchReleasePage(1);
+}
+void UpdateController::fetchReleasePage(int page) {
+    const QUrl url(QStringLiteral("https://api.github.com/repos/l-papadopol/MM/releases?per_page=100&page=%1").arg(page));
+    fetch(url, 4*1024*1024, [this, page](QByteArray bytes) {
+        const auto document = QJsonDocument::fromJson(bytes);
+        if (!document.isArray()) { fail(uiText("update_invalid", "Invalid release information.")); return; }
+        const auto releases = document.array();
+        const auto candidate = newestPublishedRelease(releases);
+        if (compareRelease(candidate, m_newestRelease) > 0) m_newestRelease = candidate;
+        if (releases.size() >= 100) {
+            // Never silently say "up to date" after a truncated history.
+            if (page >= 50) { fail(uiText("update_history_limit", "The release history is too large to finish checking. Open the releases page.")); return; }
+            fetchReleasePage(page + 1); return;
+        }
+        const auto identity = releaseIdentity(m_newestRelease);
+        m_releaseBuild = identity.build;
+        const quint64 localBuild = QStringLiteral(MADMODEM_BUILD_NUMBER).toULongLong();
+        m_version = newerPublishedVersion(m_newestRelease, QStringLiteral(MADMODEM_VERSION_STRING), localBuild);
+        if (m_version.isEmpty()) {
+            m_busy = false;
+            if (m_manual) {
+                const QString newest = identity.version.isEmpty() ? QStringLiteral("—") : versionLabel(identity.version, identity.build);
+                QMessageBox::information(m_window, "MadModem", uiText("update_current_published", "No newer published release is available.\n\nInstalled: %1\nNewest published: %2")
+                    .arg(versionLabel(QStringLiteral(MADMODEM_VERSION_STRING), localBuild), newest));
+            }
+            return;
+        }
+        offer(m_newestRelease);
+    });
+}
+void UpdateController::fetch(const QUrl& url, qint64 maximum, std::function<void(QByteArray)> done) {
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", "MadModem/" MADMODEM_VERSION_STRING);
+    request.setRawHeader("Accept", "application/vnd.github+json");
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    auto* reply = m_network.get(request);
+    auto data = std::make_shared<QByteArray>();
+    auto* timer = new QTimer(reply); timer->setSingleShot(true); timer->start(20000);
+    connect(timer, &QTimer::timeout, reply, &QNetworkReply::abort);
+    connect(reply, &QNetworkReply::readyRead, this, [reply, data, maximum] {
+        data->append(reply->readAll()); if (data->size() > maximum) reply->abort();
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, data, maximum, done] {
+        data->append(reply->readAll());
+        const bool ok = reply->error() == QNetworkReply::NoError && data->size() <= maximum &&
+                        reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200;
+        reply->deleteLater();
+        if (m_cancelled) { m_busy = false; return; }
+        if (!ok) { fail(uiText("update_network", "Could not retrieve the update. Check the connection and try again from Help.")); return; }
+        done(*data);
+    });
+}
+void UpdateController::offer(const QJsonObject& release) {
+    if (!m_idle()) { m_busy = false; if (!m_manual) m_automaticCheck->start(30000); return; }
+    m_managed = MadModemInstallation::isManaged();
+    const QStringList names = assetNames(m_version, m_managed, m_releaseBuild);
+    const QJsonObject asset = selectAsset(release, names);
+    const QString name = asset.value("name").toString();
+    QJsonObject sums;
+    for (const auto& value : release.value("assets").toArray()) {
+        const auto item = value.toObject();
+        if (item.value("name").toString() == "SHA256SUMS.txt") sums = item;
+    }
+    if (name.isEmpty() || asset.isEmpty() || sums.isEmpty()) {
+        m_busy = false;
+        if (m_manual) {
+            QString reason;
+            if (sums.isEmpty()) reason = uiText("update_missing_checksums", "The release has no SHA256SUMS.txt file to verify downloads.");
+            else if (names.isEmpty()) reason = uiText("update_unknown_bundle", "The Linux package type could not be identified. Download the package for your distribution.");
+            else reason = uiText("update_missing_compatible_package", "The release has no compatible package. Expected: %1").arg(names.join(QStringLiteral("\n")));
+            QMessageBox::information(m_window, "MadModem", uiText("update_manual_download_reason", "A newer release is available. %1\n\nOpening the release page.").arg(reason));
+            QDesktopServices::openUrl(QUrl(repository + "/releases"));
+        }
+        return;
+    }
+    const QUrl url(asset.value("browser_download_url").toString()), sumsUrl(sums.value("browser_download_url").toString());
+    const qint64 size = static_cast<qint64>(asset.value("size").toDouble());
+    if (!assetUrl(url) || !assetUrl(sumsUrl) || size <= 0 || size > qint64{2}*1024*1024*1024) { fail(uiText("update_invalid", "Invalid release information.")); return; }
+    QString message = uiText("update_offer", "MadModem %1 is available. Download the update?\n\nCurrent version: %2\nPackage: %3").arg(versionLabel(m_version, m_releaseBuild), versionLabel(QStringLiteral(MADMODEM_VERSION_STRING), QStringLiteral(MADMODEM_BUILD_NUMBER).toULongLong()), name);
+    if (release.value("prerelease").toBool()) message += "\n\n" + uiText("update_prerelease", "This is a pre-release.");
+    message += "\n\n" + (m_managed ? uiText("update_installer_info", "After verification, you can close MM and start the installer. Settings and logbooks are preserved; the installer may request license acceptance or system permission.") : uiText("update_portable_info", "The portable copy will remain portable. After confirmation MM closes, a full backup is kept beside the program folder, the package is replaced and MM restarts."));
+    if (QMessageBox::question(m_window, "MadModem", message, QMessageBox::Yes|QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) { m_busy = false; return; }
+    if (m_cancelled || !m_idle()) { m_busy = false; return; }
+    m_manual = true;
+    fetch(sumsUrl, 1024*1024, [this, url, name, size](const QByteArray& bytes) {
+        QByteArray sha;
+        for (const auto& line : bytes.split('\n')) {
+            const auto match = QRegularExpression("^([a-fA-F0-9]{64}) [ *](.+)$").match(QString::fromUtf8(line).trimmed());
+            if (match.hasMatch() && match.captured(2) == name) {
+                if (!sha.isEmpty()) { fail(uiText("update_invalid", "Invalid release information.")); return; }
+                sha = match.captured(1).toLatin1().toLower();
+            }
+        }
+        if (sha.isEmpty()) { fail(uiText("update_checksum_missing", "The release has no checksum for this package. Update cancelled.")); return; }
+        download(url, name, sha, size);
+    });
+}
+void UpdateController::download(const QUrl& url, const QString& name, const QByteArray& sha, qint64 size) {
+    m_directory = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/updates/" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    if (!QDir().mkpath(m_directory)) { fail(uiText("update_storage", "Cannot create the update download folder.")); return; }
+    const QString path = m_directory + '/' + name;
+    auto file = std::make_shared<QSaveFile>(path);
+    if (!file->open(QIODevice::WriteOnly)) { fail(file->errorString()); return; }
+    auto hash = std::make_shared<QCryptographicHash>(QCryptographicHash::Sha256);
+    auto received = std::make_shared<qint64>(0);
+    QNetworkRequest request(url);
+    request.setRawHeader("User-Agent", "MadModem/" MADMODEM_VERSION_STRING);
+    request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+    auto* reply = m_network.get(request);
+    auto* timer = new QTimer(reply); timer->setSingleShot(true); timer->start(60000);
+    auto* totalTimer = new QTimer(reply); totalTimer->setSingleShot(true); totalTimer->start(30*60*1000);
+    connect(timer, &QTimer::timeout, reply, &QNetworkReply::abort);
+    connect(totalTimer, &QTimer::timeout, reply, &QNetworkReply::abort);
+    m_progress = new QProgressDialog(uiText("update_downloading", "Downloading update…"), uiText("update_cancel", "Cancel"), 0, 100, m_window);
+    m_progress->setWindowTitle("MadModem"); m_progress->setAutoClose(false); m_progress->setMinimumDuration(0);
+    connect(m_progress, &QProgressDialog::canceled, this, [this, reply] { m_cancelled = true; reply->abort(); });
+    connect(reply, &QNetworkReply::readyRead, this, [this, reply, file, hash, received, size, timer] {
+        timer->start(60000);
+        while (reply->bytesAvailable()) {
+            const auto chunk = reply->read(256*1024); *received += chunk.size();
+            if (*received > size || file->write(chunk) != chunk.size()) { reply->abort(); return; }
+            hash->addData(chunk);
+        }
+        if (m_progress) m_progress->setValue(static_cast<int>(*received * 100 / size));
+    });
+    connect(reply, &QNetworkReply::finished, this, [this, reply, file, hash, received, size, sha, path] {
+        if (m_progress) { disconnect(m_progress, nullptr, this, nullptr); m_progress->hide(); m_progress->deleteLater(); m_progress = nullptr; }
+        const bool ok = reply->error() == QNetworkReply::NoError && *received == size && hash->result().toHex() == sha;
+        reply->deleteLater();
+        if (m_cancelled) { m_busy = false; return; }
+        if (!ok || !file->commit()) { fail(uiText("update_corrupt", "Download failed or checksum mismatch. No program files were changed.")); return; }
+        if (!m_idle()) { m_busy = false; QMessageBox::information(m_window, "MadModem", uiText("update_wait", "Update downloaded. Stop active operations before installing it from the download folder.") + "\n" + m_directory); return; }
+        if (QMessageBox::question(m_window, "MadModem", uiText("update_install", "Download verified. Close MadModem and apply the update now?"), QMessageBox::Yes|QMessageBox::No, QMessageBox::No) != QMessageBox::Yes) { m_busy = false; return; }
+        if (!m_idle()) { m_busy = false; return; }
+        if (launch(path, sha)) { m_window->close(); m_busy = false; }
+        else fail(uiText("update_launch_failed", "Could not start the updater. The current installation is unchanged.") + "\n" + path);
+    });
+}
+void UpdateController::fail(const QString& message) {
+    m_busy = false;
+    if (m_manual && !m_cancelled) QMessageBox::warning(m_window, "MadModem", message);
+}
+bool UpdateController::launch(const QString& path, const QByteArray& sha) {
+    const QString appDir = QCoreApplication::applicationDirPath();
+    QString target = QDir(appDir + "/..").absolutePath();
+    if (m_managed) {
+#ifdef Q_OS_WIN
+        return QProcess::startDetached(path, {"/DIR=" + QDir::toNativeSeparators(target)});
+#elif defined(Q_OS_MACOS)
+        return QProcess::startDetached("/usr/bin/open", {path});
+#else
+        if (!QStandardPaths::findExecutable("zenity").isEmpty()) return QProcess::startDetached("/bin/bash", {path});
+        for (const auto& terminal : {QString("x-terminal-emulator"), QString("xterm")})
+            if (!QStandardPaths::findExecutable(terminal).isEmpty()) return QProcess::startDetached(terminal, {"-e", "/bin/bash", path});
+        return false;
+#endif
+    }
+#ifdef Q_OS_MACOS
+    target = QDir(appDir + "/../..").absolutePath();
+#endif
+    QFileInfo targetInfo(target);
+    if (!targetInfo.isWritable() || targetInfo.isSymLink()) return false;
+#ifdef Q_OS_WIN
+    const QString script = m_directory + "/apply.ps1";
+    if (!QFile::copy(":/updates/apply_portable.ps1", script)) return false;
+    const QString powershell = QDir::toNativeSeparators(qEnvironmentVariable("SystemRoot") + "/System32/WindowsPowerShell/v1.0/powershell.exe");
+    return QProcess::startDetached(powershell, {"-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script,
+        "-ParentPid", QString::number(QCoreApplication::applicationPid()), "-TargetPath", target, "-Archive", path,
+        "-ExpectedHash", QString::fromLatin1(sha), "-Version", m_version, "-BuildNumber", QString::number(m_releaseBuild)});
+#else
+    const QString script = m_directory + "/apply.sh";
+    if (!QFile::copy(":/updates/apply_portable.sh", script)) return false;
+#ifdef Q_OS_MACOS
+    const QString platform = "mac";
+#else
+    const QString platform = "linux";
+#endif
+    return QProcess::startDetached("/bin/bash", {script, QString::number(QCoreApplication::applicationPid()), target, path, QString::fromLatin1(sha), m_version, platform, QString::number(m_releaseBuild)}, m_directory);
+#endif
+}

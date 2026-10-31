@@ -1,0 +1,184 @@
+{
+  "id": "mm-cw-tcn-ctc-v4-extended",
+  "license": "GPL-3.0-or-later",
+  "experimental": true,
+  "origin": "Time-bounded refinement of independently trained MM R7 weights; generated labelled Morse and negative audio only.",
+  "parent_checkpoint_sha256": "e264e8f3329b3510990f3145df3cc2802f443f40f7ad79165cb92644861be2f7",
+  "training_seed_ranges": {
+    "filtered": [
+      61017000,
+      61020999
+    ],
+    "unfiltered": [
+      62017000,
+      62017999
+    ],
+    "clean": [
+      63017000,
+      63018499
+    ],
+    "ordinary": [
+      64017000,
+      64017999
+    ],
+    "negative": [
+      65017000,
+      65017999
+    ],
+    "long": [
+      66017000,
+      66017399
+    ]
+  },
+  "training_records": 8900,
+  "torch_version": "2.14.1+cpu",
+  "requested_seconds": 900.0,
+  "seed": 61017000,
+  "batch_size": 24,
+  "initial_learning_rate": 0.00012,
+  "final_learning_rate": 1.5e-05,
+  "loss_weights": {
+    "frame_ce": 0.5,
+    "ctc": 2.5,
+    "ce_blank": 0.1,
+    "ce_space": 1.5
+  },
+  "validation_seed_ranges": {
+    "ordinary": [
+      3900000,
+      3900099
+    ],
+    "filtered": [
+      4900000,
+      4900099
+    ],
+    "clean": [
+      98900000,
+      98900099
+    ],
+    "negative": [
+      5900000,
+      5900059
+    ],
+    "long": [
+      63900000,
+      63900015
+    ]
+  },
+  "architecture": {
+    "features": 9,
+    "channels": 48,
+    "kernel": 5,
+    "dilations": [
+      1,
+      4,
+      16,
+      64
+    ],
+    "direction": "causal"
+  },
+  "baseline_validation": {
+    "selection_score": 0.08372698990031902,
+    "space_bias": 0.0,
+    "blank_bias": 0.0,
+    "metrics": {
+      "original": {
+        "errors": 23,
+        "characters": 848,
+        "cer": 0.027122641509433963,
+        "exact": 85,
+        "records": 100,
+        "emitted": 868
+      },
+      "filtered": {
+        "errors": 171,
+        "characters": 1077,
+        "cer": 0.15877437325905291,
+        "exact": 47,
+        "records": 100,
+        "emitted": 1087
+      },
+      "clean": {
+        "errors": 24,
+        "characters": 867,
+        "cer": 0.02768166089965398,
+        "exact": 79,
+        "records": 100,
+        "emitted": 882
+      },
+      "negative": {
+        "errors": 1,
+        "characters": 0,
+        "cer": 1.0,
+        "exact": 59,
+        "records": 60,
+        "emitted": 1
+      },
+      "long": {
+        "errors": 29,
+        "characters": 598,
+        "cer": 0.048494983277591976,
+        "exact": 5,
+        "records": 16,
+        "emitted": 621
+      }
+    }
+  },
+  "limitations": [
+    "No verified real-radio training or CER.",
+    "Final test is not used for checkpoint selection."
+  ],
+  "selected_step": 9746,
+  "selected_elapsed_seconds": 901.3807393970001,
+  "validation": {
+    "selection_score": 0.06704243953090226,
+    "space_bias": 3.0,
+    "blank_bias": 0.0,
+    "metrics": {
+      "original": {
+        "errors": 16,
+        "characters": 848,
+        "cer": 0.018867924528301886,
+        "exact": 87,
+        "records": 100,
+        "emitted": 858
+      },
+      "filtered": {
+        "errors": 118,
+        "characters": 1077,
+        "cer": 0.1095636025998143,
+        "exact": 57,
+        "records": 100,
+        "emitted": 1086
+      },
+      "clean": {
+        "errors": 30,
+        "characters": 867,
+        "cer": 0.03460207612456748,
+        "exact": 79,
+        "records": 100,
+        "emitted": 868
+      },
+      "negative": {
+        "errors": 3,
+        "characters": 0,
+        "cer": 3.0,
+        "exact": 59,
+        "records": 60,
+        "emitted": 3
+      },
+      "long": {
+        "errors": 29,
+        "characters": 598,
+        "cer": 0.048494983277591976,
+        "exact": 4,
+        "records": 16,
+        "emitted": 599
+      }
+    },
+    "step": 9746,
+    "elapsed": 901.3807254819999
+  },
+  "weights_header_sha256": "3d78e070c5fe227a57534e5f113cc9dca9299973290bb1a0178ae6051ec79ef3",
+  "parameter_count": 38970
+}

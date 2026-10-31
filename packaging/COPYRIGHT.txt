@@ -1,0 +1,8 @@
+MadModem
+Copyright (C) 2026 Papadopol Lucian-Ioan <l.i.papadopol@gmail.com>
+IZ6NNH - www.madexp.it
+
+MadModem is free software distributed under the GNU General Public License,
+version 3. Third-party copyrights and license notices are retained with the
+distribution. The full GNU GPL version 3 follows, without modification.
+

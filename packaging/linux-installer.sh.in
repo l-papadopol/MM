@@ -1,0 +1,69 @@
+#!/bin/bash
+set -euo pipefail
+accepted=false
+case "${1:-}" in
+  --accept-gpl3) accepted=true ;;
+  --help|-h) printf '%s\n' 'MadModem @VERSION@ installer' 'Copyright (C) 2026 Papadopol Lucian-Ioan' 'Run interactively to read and accept GNU GPLv3.' 'For unattended installation, explicitly pass --accept-gpl3.'; exit 0 ;;
+  '') ;;
+  *) echo 'Unknown option. Use --help.' >&2; exit 2 ;;
+esac
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+payload_line="$(awk '/^__MADMODEM_PAYLOAD__$/ { print NR + 1; exit }' "$0")"
+tail -n +"$payload_line" "$0" > "$work/payload.tar.gz"
+printf '%s  %s\n' '@SHA256@' "$work/payload.tar.gz" | sha256sum --check --status
+tar -xzf "$work/payload.tar.gz" -C "$work"
+if ! "$accepted"; then
+  if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v zenity >/dev/null; then
+    zenity --text-info --title='MadModem @VERSION@ - GNU GPLv3' --width=760 --height=600 \
+      --filename="$work/INSTALLER_LICENSE.txt" --checkbox='I accept the GNU GPL version 3 license' || exit 1
+  elif [[ -t 0 ]]; then
+    if command -v less >/dev/null; then less "$work/INSTALLER_LICENSE.txt"; else cat "$work/INSTALLER_LICENSE.txt"; fi
+    printf '\nType I ACCEPT to accept GNU GPLv3 and install MadModem: '
+    read -r answer
+    [[ "$answer" == 'I ACCEPT' ]] || exit 1
+  else
+    echo 'Installation cancelled: interactive license acceptance or --accept-gpl3 is required.' >&2
+    exit 1
+  fi
+fi
+echo 'Installing MadModem @VERSION@. Please close MadModem before updating.'
+privilege=()
+if [[ "$EUID" != 0 ]]; then
+  if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v pkexec >/dev/null; then privilege=(pkexec)
+  else privilege=(sudo); fi
+fi
+package="$work/@PACKAGE@"
+if [[ "$package" == *.deb ]]; then
+  command -v apt-get >/dev/null || { echo 'This installer requires Ubuntu 24.04 or a compatible distribution.' >&2; exit 1; }
+  # Inspect package-manager state before changing the system. Repair remains
+  # an explicit administrator operation; the installer never configures unrelated packages.
+  audit_failed=false
+  LC_ALL=C dpkg --audit > "$work/dpkg-audit.txt" 2>&1 || audit_failed=true
+  journal_pending=false
+  if [[ -d /var/lib/dpkg/updates ]]; then
+    while IFS= read -r journal; do
+      [[ "${journal##*/}" =~ ^[0-9]+$ ]] && journal_pending=true
+    done < <(find /var/lib/dpkg/updates -maxdepth 1 -type f 2>/dev/null)
+  fi
+  if "$audit_failed" || "$journal_pending" || [[ -s "$work/dpkg-audit.txt" ]]; then
+    message=$'MadModem installation stopped: the system package manager has an unfinished operation.\n\nOpen a terminal and run:\n  sudo dpkg --configure -a\n\nWhen that command finishes successfully, run this installer again.'
+    printf '%s\n' "$message" >&2
+    cat "$work/dpkg-audit.txt" >&2
+    if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v zenity >/dev/null; then
+      zenity --error --title='MadModem - package manager repair required' --text="$message" || true
+    fi
+    exit 32
+  fi
+  "${privilege[@]}" apt-get install -y --reinstall "$package"
+else
+  command -v dnf >/dev/null || { echo 'This installer requires Fedora with dnf.' >&2; exit 1; }
+  wanted="$(rpm -qp --qf '%{VERSION}-%{RELEASE}' "$package")"
+  current="$(rpm -q --qf '%{VERSION}-%{RELEASE}' madmodem 2>/dev/null || true)"
+  operation=install
+  [[ "$current" != "$wanted" ]] || operation=reinstall
+  "${privilege[@]}" dnf "$operation" -y "$package"
+fi
+echo 'MadModem installation complete. Start it from the applications menu.'
+exit 0
+__MADMODEM_PAYLOAD__

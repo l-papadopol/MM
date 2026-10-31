@@ -1,0 +1,133 @@
+{
+  "id": "mm-cw-r13-adaptive-candidate",
+  "experimental": true,
+  "license": "GPL-3.0-or-later",
+  "parent_sha256": "8e5246a7ed974033f53e23ed348eaeed939e06fd5627403439ca865a1a0fdca9",
+  "floor_amplitude_fraction": 0.2,
+  "peak_power_release_seconds": 0.5,
+  "seed": 1310172026,
+  "requested_seconds": 900.0,
+  "baseline": {
+    "arrl": {
+      "errors": 98,
+      "characters": 702,
+      "cer": 0.1396011396011396,
+      "false_characters": 0,
+      "exact": 0,
+      "records": 24
+    },
+    "qso": {
+      "errors": 162,
+      "characters": 946,
+      "cer": 0.17124735729386892,
+      "false_characters": 0,
+      "exact": 0,
+      "records": 32
+    },
+    "random": {
+      "errors": 21,
+      "characters": 375,
+      "cer": 0.056,
+      "false_characters": 0,
+      "exact": 26,
+      "records": 40
+    },
+    "negative": {
+      "errors": 0,
+      "characters": 0,
+      "cer": 0.0,
+      "false_characters": 0,
+      "exact": 20,
+      "records": 20
+    },
+    "selection_score": 0.13971945573806038
+  },
+  "split": "Two QST article groups train; transition bulletin development. All speed variants remain together. RF never enters training or checkpoint selection.",
+  "loss": "Real: transcript-only CTC. Synthetic replay: CTC + 0.3 frame CE. L2 reference penalty to parent weights.",
+  "train_records": {
+    "real": 292,
+    "replay": 820
+  },
+  "training_seed_ranges": {
+    "random": [
+      131000000,
+      131000479
+    ],
+    "qso": [
+      132000000,
+      132000239
+    ],
+    "negative": [
+      133000000,
+      133000099
+    ]
+  },
+  "development_seed_ranges": {
+    "qso": [
+      134000000,
+      134000031
+    ],
+    "random": [
+      135000000,
+      135000039
+    ],
+    "negative": [
+      136000000,
+      136000019
+    ]
+  },
+  "final_test_seeds_reserved": {
+    "qso": [
+      137000000,
+      137000031
+    ],
+    "random": [
+      138000000,
+      138000039
+    ],
+    "negative": [
+      139000000,
+      139000019
+    ]
+  },
+  "selected_step": 0,
+  "validation": {
+    "arrl": {
+      "errors": 98,
+      "characters": 702,
+      "cer": 0.1396011396011396,
+      "false_characters": 0,
+      "exact": 0,
+      "records": 24
+    },
+    "qso": {
+      "errors": 162,
+      "characters": 946,
+      "cer": 0.17124735729386892,
+      "false_characters": 0,
+      "exact": 0,
+      "records": 32
+    },
+    "random": {
+      "errors": 21,
+      "characters": 375,
+      "cer": 0.056,
+      "false_characters": 0,
+      "exact": 26,
+      "records": 40
+    },
+    "negative": {
+      "errors": 0,
+      "characters": 0,
+      "cer": 0.0,
+      "false_characters": 0,
+      "exact": 20,
+      "records": 20
+    },
+    "selection_score": 0.13971945573806038
+  },
+  "weights_header_sha256": "45e1202f69af7e4188c333f6aea97e9c25952231ceb4042206c0063f126369b3",
+  "parameter_count": 38970,
+  "completed_steps": 12038,
+  "completed_seconds": 900.2649844500002
+}
