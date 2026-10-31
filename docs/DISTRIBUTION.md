@@ -1,11 +1,12 @@
 # GitHub distribution — MadModem 0.6.5
 
 Copy the complete source directory contents into the repository root, including
-`.github`. When overlaying an older source tree, run
-`python3 scripts/clean_legacy_docs.py --apply` **before committing** to remove the
-explicitly listed retired documentation. The script preserves current manuals,
-source code, upstream notices and unrelated files. Replacing files alone does not
-remove old tracked documents from GitHub.
+`.github`. To clean up documents left after overlaying an older source tree,
+optionally run `python3 scripts/clean_legacy_docs.py --apply` before committing.
+The script removes only explicitly listed retired documents and preserves current
+manuals, source code, upstream notices and unrelated files. Replacing files alone
+does not remove old tracked documents from GitHub. Documentation cleanup is a
+repository maintenance operation and does not block compilation or packaging.
 
 **Build installers** runs on main/master pushes, version tags and manual dispatch.
 It builds Windows UCRT64, Ubuntu 24.04, Fedora 43 and both macOS architectures.
