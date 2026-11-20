@@ -468,6 +468,8 @@ add_executable(MadModem
     rig/PowerSwrWindow.cpp
     callsign/LocatorSources.h
     callsign/LocatorSources.cpp
+    callsign/LotwUsers.h
+    callsign/LotwUsers.cpp
     utils/RuntimeI18n.h
     utils/RuntimeI18n.cpp
     utils/CockpitTheme.h

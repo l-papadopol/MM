@@ -91,6 +91,7 @@ class QLCDNumber;
 class Ft8SlotClockWidget;
 class PowerSwrWindow;
 class LocatorSources;
+class LotwUsers;
 class QAction;
 class QActionGroup;
 class QMenu;
@@ -1478,6 +1479,9 @@ private:
     // IC8TEM Power and SWR window: meters while transmitting, tune power, SWR block.
     void installPowerSwrWindow();
     void installLocatorLookup();
+    void installLotwUsers();
+    void refreshFtLotwFilter();
+    bool ftRowHiddenByLotw(const QString &message) const;
     QMenu *toolsMenu();
     void powerSwrTxStarted(bool tune);
     void powerSwrTxEnded();
@@ -1749,6 +1753,7 @@ private:
     HamlibController *m_rigController = nullptr;
     PowerSwrWindow *m_powerSwr = nullptr;      // IC8TEM
     LocatorSources *m_locatorSources = nullptr; // IC8TEM
+    LotwUsers *m_lotwUsers = nullptr;           // IC8TEM
     QMenu *m_toolsMenu = nullptr;              // IC8TEM
     bool m_powerSwrMetering = false;
     int m_powerTuneRestorePercent = -1;

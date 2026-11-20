@@ -5,6 +5,7 @@
 #include "widgets/RxNoiseBlankerMenu.h"
 #include "rig/PowerSwrWindow.h"
 #include "callsign/LocatorSources.h"
+#include "callsign/LotwUsers.h"
 #include "callsign/QrzLookupPanel.h"
 #include "updates/UpdateController.h"
 #include "logbook/AsyncLogbook.h"
@@ -2145,6 +2146,7 @@ void MainWindow::setupCustomWidgets()
     // Useful per-mode conditioning lives inside the relevant Mode pages.
     setupFt8Page();
     installLocatorLookup(); // IC8TEM
+    installLotwUsers();     // IC8TEM
 
     m_grpTxImage = new QGroupBox(QString(), ui->tabModeSettings);
     QGridLayout *txLayout = new QGridLayout(m_grpTxImage);
@@ -19501,6 +19503,11 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     if (upperMessage.contains(QStringLiteral("IC8TEM")) || upperMessage.contains(QStringLiteral("IC8FAX"))) {
         displayMessage += QString::fromUtf8("  🐣📡✨");
     }
+    // IC8TEM: LoTW users marked with a dot after the message.
+    const QString lotwCall = parsed.cq ? ft8CqCallsignFromMessage(parsed) : parsed.senderCall;
+    if (m_lotwUsers != nullptr && !lotwCall.isEmpty() && LotwUsers::isUser(lotwCall)) {
+        displayMessage += LotwUsers::marker();
+    }
 
     // Maintain a lightweight QSO-context grid source from actual decoded FT
     // messages.  The active QSO's DX grid remains the primary logbook source;
@@ -19719,6 +19726,9 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 
     for (int col = 0; col < items.size(); ++col) {
         m_tableFt8Rx->setItem(row, col, items.at(col));
+    }
+    if (m_lotwUsers != nullptr && m_lotwUsers->filterFt() && ftRowHiddenByLotw(decode.message)) {
+        m_tableFt8Rx->setRowHidden(row, true); // IC8TEM: LoTW users only
     }
     ++m_ftDisplayDiagRowsInserted;
     m_ftDisplayDiagRowsAfter = m_tableFt8Rx->rowCount();
@@ -25520,6 +25530,71 @@ void MainWindow::installLocatorLookup()
             dialog->setAttribute(Qt::WA_DeleteOnClose);
             dialog->show();
         });
+    }
+}
+
+void MainWindow::installLotwUsers()
+{
+    if (m_lotwUsers != nullptr) {
+        return;
+    }
+    m_lotwUsers = new LotwUsers(this);
+    connect(m_lotwUsers, &LotwUsers::listChanged, this, &MainWindow::refreshFtLotwFilter);
+    if (QMenu *menu = toolsMenu()) {
+        QAction *open = menu->addAction(uiText("lotw_menu", "LoTW users..."));
+        open->setToolTip(uiText("lotw_menu_tip", "ARRL list of the LoTW users: a dot after the decodes of LoTW users, and a filter for the FT decode list."));
+        connect(open, &QAction::triggered, this, [this]() {
+            auto *dialog = new LotwUsersDialog(m_lotwUsers, this);
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
+        });
+        QAction *only = menu->addAction(uiText("lotw_only_action", "FT: show LoTW users only"));
+        only->setCheckable(true);
+        only->setChecked(m_lotwUsers->filterFt());
+        only->setToolTip(uiText("lotw_only_tip", "Hides the FT decodes of stations that are not LoTW users. Messages to you are always shown. Needs the LoTW list (Tools › LoTW users)."));
+        connect(only, &QAction::toggled, m_lotwUsers, &LotwUsers::setFilterFt);
+        connect(m_lotwUsers, &LotwUsers::changed, only, [this, only]() {
+            const QSignalBlocker block(only);
+            only->setChecked(m_lotwUsers->filterFt());
+        });
+    }
+}
+
+bool MainWindow::ftRowHiddenByLotw(const QString &message) const
+{
+    if (m_lotwUsers == nullptr || !m_lotwUsers->filterFt() || !LotwUsers::hasList()) {
+        return false; // no list loaded = nothing hidden
+    }
+    const QString myCall = stationCallsign();
+    const ParsedFt8Message parsed = parseFt8MessageText(message, myCall);
+    if (isFt8DirectReplyToMyCall(parsed, myCall)) {
+        return false;
+    }
+    const QString call = parsed.cq ? ft8CqCallsignFromMessage(parsed) : parsed.senderCall;
+    if (call.isEmpty()) {
+        return false;
+    }
+    if (!myCall.isEmpty() && FtDecodedText::callMatches(call, myCall)) {
+        return false;
+    }
+    return !LotwUsers::isValid(call);
+}
+
+void MainWindow::refreshFtLotwFilter()
+{
+    if (m_tableFt8Rx == nullptr) {
+        return;
+    }
+    for (int row = 0; row < m_tableFt8Rx->rowCount(); ++row) {
+        const QTableWidgetItem *msgItem = m_tableFt8Rx->item(row, 4);
+        if (msgItem == nullptr) {
+            continue;
+        }
+        QString message = msgItem->data(kFtOriginalMessageRole).toString();
+        if (message.isEmpty()) {
+            message = msgItem->text();
+        }
+        m_tableFt8Rx->setRowHidden(row, ftRowHiddenByLotw(message));
     }
 }
 
