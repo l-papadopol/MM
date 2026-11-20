@@ -2,6 +2,7 @@
 #include "../utils/RuntimeI18n.h"
 #include "../MadModemVersion.h"
 #include "../settings/AppSettings.h"
+#include "../utils/InstallationPaths.h"
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -97,7 +98,7 @@ private:
 
 QString collectionFilePath(const QString &lang)
 {
-    QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString base = MadModemInstallation::writableLocation(QStandardPaths::AppDataLocation);
     if (base.trimmed().isEmpty()) {
         base = QDir::tempPath() + QStringLiteral("/MadModem");
     }

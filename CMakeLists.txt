@@ -474,6 +474,8 @@ add_executable(MadModem
     utils/RuntimeI18n.cpp
     utils/CockpitTheme.h
     utils/CockpitTheme.cpp utils/WindowResize.cpp
+    utils/LocalDataMigration.h
+    utils/LocalDataMigration.cpp
     utils/SystemResourceManager.h
     utils/SystemResourceManager.cpp
     dsp/DspEngine.h

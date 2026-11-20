@@ -268,7 +268,7 @@ QString dataFolder()
 {
     const QString exe = QCoreApplication::applicationDirPath();
     const QString base = MadModemInstallation::isManaged(exe)
-                             ? QStandardPaths::writableLocation(QStandardPaths::AppDataLocation)
+                             ? MadModemInstallation::writableLocation(QStandardPaths::AppDataLocation)
                              : exe;
     return QDir(base).filePath(QStringLiteral("locsources"));
 }

@@ -1560,6 +1560,10 @@ MainWindow::MainWindow(QWidget *parent)
     appendLog("MM started.");
     appendLog(QStringLiteral("MadModem %1 | build %2 | source %3 | commit %4").arg(QStringLiteral(MADMODEM_VERSION_STRING), QStringLiteral(MADMODEM_BUILD_NUMBER), QStringLiteral(MADMODEM_SOURCE_REVISION), QStringLiteral(MADMODEM_BUILD_COMMIT)));
     appendLog("Settings file: " + AppSettings::settingsFilePath());
+    {
+        const QString localDataReport = qApp->property("mmLocalDataReport").toString(); // IC8TEM
+        if (!localDataReport.isEmpty()) appendLog(localDataReport);
+    }
     appendLog("Receiver is ready. Use Status → ▶ RX to start live decoding, or analyze a WAV test file from the mode panel.");
     updateMainStateButton();
 }

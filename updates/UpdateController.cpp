@@ -316,7 +316,7 @@ void UpdateController::offer(const QJsonObject& release) {
     });
 }
 void UpdateController::download(const QUrl& url, const QString& name, const QByteArray& sha, qint64 size) {
-    m_directory = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/updates/" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_directory = MadModemInstallation::writableLocation(QStandardPaths::CacheLocation) + "/updates/" + QUuid::createUuid().toString(QUuid::WithoutBraces);
     if (!QDir().mkpath(m_directory)) { fail(uiText("update_storage", "Cannot create the update download folder.")); return; }
     const QString path = m_directory + '/' + name;
     auto file = std::make_shared<QSaveFile>(path);

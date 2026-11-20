@@ -103,7 +103,7 @@ int parseCsv(const QString &path, QHash<QString, int> &out, QDate &last)
 QString dataFolder()
 {
     const QString exe = QCoreApplication::applicationDirPath();
-    return MadModemInstallation::isManaged(exe) ? QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) : exe;
+    return MadModemInstallation::isManaged(exe) ? MadModemInstallation::writableLocation(QStandardPaths::AppDataLocation) : exe;
 }
 
 } // namespace

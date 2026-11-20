@@ -75,7 +75,7 @@ void qtCapture(QtMsgType type, const QMessageLogContext &context, const QString 
 SessionDiagnostics::SessionDiagnostics(size_t limit) : m_limit(limit) {}
 SessionDiagnostics::~SessionDiagnostics() { stop(); }
 SessionDiagnostics &SessionDiagnostics::instance() { static SessionDiagnostics log; return log; }
-QString SessionDiagnostics::defaultFolder() { return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath("diagnostics"); }
+QString SessionDiagnostics::defaultFolder() { return QDir(MadModemInstallation::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath("diagnostics"); }
 void SessionDiagnostics::installQtCapture() { static std::once_flag once; std::call_once(once,[]{previousHandler=qInstallMessageHandler(qtCapture);}); }
 void SessionDiagnostics::restoreQtCapture() {qInstallMessageHandler(previousHandler);}
 QString SessionDiagnostics::path() const {std::lock_guard<std::mutex> l(m_mutex);return m_path;}
