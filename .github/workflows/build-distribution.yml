@@ -262,6 +262,12 @@ jobs:
   publish-release:
     name: Publish installers and portable downloads to Releases
     needs: [ubuntu, fedora, fedora-portable-check, windows, macos]
+    # IC8TEM edition: also publish when only the macOS arm64 runner was not
+    # available; the script still requires every other package.
+    if: >-
+      ${{ always() && needs.ubuntu.result == 'success' && needs.fedora.result == 'success' &&
+          needs.fedora-portable-check.result == 'success' && needs.windows.result == 'success' &&
+          needs.macos.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -285,4 +291,5 @@ jobs:
           # IC8TEM edition: title of the releases, every main build is the current release.
           MADMODEM_RELEASE_EDITION: IC8TEM
           MADMODEM_RELEASE_BUILDS_AS_LATEST: '1'
+          MADMODEM_RELEASE_OPTIONAL_MACOS_ARM64: '1'
         run: bash scripts/publish_github_release.sh release-assets
