@@ -66,6 +66,7 @@ signals:
     void afcToneAdjusted(const QString &mode, int toneHz);
 private:
     void process(const AudioBlock &block);
+    void decode(const AudioBlock &block);
     void resetActive();
     Graph m_graph;
     Config m_config;

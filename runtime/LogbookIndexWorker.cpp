@@ -63,7 +63,7 @@ bool ignoredByReset(const LogbookEntry &entry)
 
 void LogbookIndexWorker::setIgnoreBeforeUtcMs(qint64 utcMs)
 {
-    g_ignoreBeforeUtcMs.store(qMax<qint64>(0, utcMs), std::memory_order_release);
+    g_ignoreBeforeUtcMs.store(qMax<qint64>(qint64{0}, utcMs), std::memory_order_release);
 }
 
 qint64 LogbookIndexWorker::ignoreBeforeUtcMs()
