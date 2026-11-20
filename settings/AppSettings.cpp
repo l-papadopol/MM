@@ -210,7 +210,7 @@ void AppSettings::load()
     waterfallPalette = "madmodem";
     uiTheme = settings.value("Display/uiTheme", uiTheme).toString().trimmed().toLower();
     if (uiTheme != "avionica" && uiTheme != "qt_default" && uiTheme != "hacker_green" &&
-        uiTheme != "classic_dark" && uiTheme != "high_contrast") {
+        uiTheme != "classic_dark" && uiTheme != "high_contrast" && uiTheme != "ya_nec") {
         uiTheme = "avionica";
     }
     uiUseThemeFont = settings.value("Display/uiUseThemeFont", uiUseThemeFont).toBool();

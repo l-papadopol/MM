@@ -1477,6 +1477,7 @@ QWidget *AppSettingsDialog::makeAppearancePage()
     m_comboUiTheme->addItem(L(QStringLiteral("Hacker Green")), QStringLiteral("hacker_green"));
     m_comboUiTheme->addItem(L(QStringLiteral("Classic Dark")), QStringLiteral("classic_dark"));
     m_comboUiTheme->addItem(L(QStringLiteral("High Contrast")), QStringLiteral("high_contrast"));
+    m_comboUiTheme->addItem(QStringLiteral("YA-NEC (IC8TEM)"), QStringLiteral("ya_nec"));
     const int themeIndex = m_comboUiTheme->findData(m_initialSettings.uiTheme.trimmed().isEmpty()
                                                         ? QStringLiteral("avionica")
                                                         : m_initialSettings.uiTheme.trimmed().toLower());

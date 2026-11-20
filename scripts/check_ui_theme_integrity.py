@@ -56,6 +56,14 @@ THEMES = {
         "muted": "#D0D0D0", "map_backdrop": "#000000", "map_text": "#FFFFFF",
         "map_muted": "#D0D0D0",
     },
+    "ya_nec": {
+        "window": "#F0F0F0", "window_text": "#1A1A1A", "base": "#FFFFFF",
+        "button": "#FFFFFF", "button_text": "#2554A0",
+        "highlight": "#1F6FD1", "highlighted_text": "#FFFFFF",
+        "positive": "#107C42", "negative": "#B22222", "warning": "#9E5A00",
+        "muted": "#6D6D6D", "map_backdrop": "#E8EDF2", "map_text": "#18212B",
+        "map_muted": "#556270",
+    },
 }
 
 
@@ -130,4 +138,4 @@ for marker in ('mmRole="positive"', 'mmRole="negative"', 'mmRole="warning"',
     assert marker in THEME, marker
 assert "m_lblFt8TxBanner->setStyleSheet(style)" not in WINDOW
 
-print("UI theme integrity audit: PASS (5/5 complete themes)")
+print(f"UI theme integrity audit: PASS ({len(THEMES)}/{len(THEMES)} complete themes)")

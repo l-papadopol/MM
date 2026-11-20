@@ -56,7 +56,7 @@ public:
     int waterfallColorScalePercent = 80;
     QString waterfallPalette = "madmodem";
     // Global UI appearance. Theme names are stable keys, not translated labels:
-    // avionica, qt_default, hacker_green, classic_dark, high_contrast.
+    // avionica, qt_default, hacker_green, classic_dark, high_contrast, ya_nec.
     QString uiTheme = "avionica";
     bool uiUseThemeFont = true;
     QString uiFontFamily;

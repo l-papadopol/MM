@@ -30,6 +30,9 @@
 #include <QVBoxLayout>
 #include <QPlainTextEdit>
 #include <QWidget>
+#include <QDir>
+#include <QImage>
+#include <QPainterPath>
 
 namespace {
 
@@ -68,6 +71,19 @@ struct ThemeSpec
 ThemeSpec themeSpec(const QString &requestedKey)
 {
     const QString key = requestedKey.trimmed().toLower();
+    if (key == QStringLiteral("ya_nec")) {
+        // IC8TEM: the light scheme of YA-NEC / YAEC / YA-MS ("Chiaro", src/UI/Theme.cs).
+        // Green and orange are a little darker than in YA-NEC for 4.5:1 contrast.
+        return {
+            QColor("#F0F0F0"), QColor("#1A1A1A"), QColor("#FFFFFF"), QColor("#F7F8FA"),
+            QColor("#FFFFFF"), QColor("#2554A0"), QColor("#D5DCEA"), QColor("#B9C0CA"),
+            QColor("#1F6FD1"), QColor("#FFFFFF"), QColor("#9AA3AF"), QColor("#1E293B"),
+            QColor("#E2E8F0"), QColor("#1F6FD1"), QColor("#FFFFFF"), QColor("#107C42"),
+            QColor("#B22222"), QColor("#9E5A00"), QColor("#6D6D6D"), QColor("#107C42"),
+            QColor("#1F6FD1"), QColor("#E8EDF2"), QColor("#18212B"), QColor("#556270"),
+            QColor("#94A3B8"), false
+        };
+    }
     if (key == QStringLiteral("qt_default")) {
         return {
             QColor("#F0F0F0"), QColor("#202020"), QColor("#FFFFFF"), QColor("#F7F7F7"),
@@ -265,6 +281,156 @@ QFrame#frameWaterfall > QWidget { margin:0; padding:0; border:none; }
     return qss;
 }
 
+
+// IC8TEM: YA-NEC look on top of the generic theme (the light "Chiaro" scheme of
+// YA-NEC / YAEC / YA-MS): navy title and menu bar, pill buttons and tabs, white
+// rounded panels with a small grey label, blue check boxes and radio buttons.
+enum class YaNecGlyph { Check, ChevronDown, ChevronUp };
+
+// Small glyphs for the style sheet, written to the temp folder (forward slashes, so
+// url() works on Windows too). Drawn at 32 px, the style sheet scales them down.
+QString yaNecGlyphImage(YaNecGlyph glyph, const QColor &color, const QString &name)
+{
+    const QString path = QDir::fromNativeSeparators(QDir::temp().filePath(name));
+    QImage image(32, 32, QImage::Format_ARGB32_Premultiplied);
+    image.fill(Qt::transparent);
+    QPainter p(&image);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPainterPath path2;
+    if (glyph == YaNecGlyph::Check) {
+        p.setPen(QPen(color, 4.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        path2.moveTo(7.5, 16.5);
+        path2.lineTo(13.5, 22.5);
+        path2.lineTo(25.0, 9.5);
+    } else {
+        p.setPen(QPen(color, 4.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        const bool down = glyph == YaNecGlyph::ChevronDown;
+        path2.moveTo(7.0, down ? 11.5 : 20.5);
+        path2.lineTo(16.0, down ? 20.5 : 11.5);
+        path2.lineTo(25.0, down ? 11.5 : 20.5);
+    }
+    p.drawPath(path2);
+    p.end();
+    image.save(path, "PNG");
+    return path;
+}
+
+QString yaNecStyleSheet()
+{
+    QString qss = QString::fromLatin1(R"QSS(
+QMainWindow, QDialog { background:#F0F0F0; }
+QDialog QDialog { background:transparent; }
+QFrame#cockpitMainHeader { background:#1E293B; border:none; border-radius:0; }
+QFrame#cockpitMainTitleBar, QFrame#cockpitTitleBar { background:#1E293B; border:none; border-radius:0; }
+QLabel#cockpitTitleLabel { color:#FFFFFF; font-weight:700; background:transparent; }
+QPushButton#cockpitMinimizeButton, QPushButton#cockpitMaximizeButton { background:#2C384E; color:#E2E8F0; border:1px solid #3B4A63; border-radius:5px; padding:0px; }
+QPushButton#cockpitMinimizeButton:hover, QPushButton#cockpitMaximizeButton:hover { background:#3B4A63; }
+QPushButton#cockpitCloseButton { background:#B22222; color:#FFFFFF; border:1px solid #D04848; border-radius:5px; padding:0px; }
+QMenuBar { background:#1E293B; color:#E2E8F0; border:none; padding:3px 6px; }
+QMenuBar::item { background:transparent; color:#E2E8F0; padding:4px 11px; border-radius:11px; }
+QMenuBar::item:selected, QMenuBar::item:pressed { background:#2C384E; color:#FFFFFF; }
+QMenu { background:#FFFFFF; color:#1A1A1A; border:1px solid #D5DCEA; border-radius:8px; padding:6px; }
+QMenu::item { padding:6px 26px 6px 30px; border-radius:6px; }
+QMenu::item:selected { background:#EBF5FF; color:#1F6FD1; }
+QMenu::item:disabled { color:#A0A8B4; }
+QMenu::separator { height:1px; background:#E2E6EE; margin:5px 8px; }
+QMenu::indicator { width:14px; height:14px; left:8px; }
+QMenu::indicator:non-exclusive:unchecked { border:1px solid #9AA6B8; border-radius:3px; background:#FFFFFF; }
+QMenu::indicator:non-exclusive:checked { border:1px solid #1F6FD1; border-radius:3px; background:#1F6FD1; image:url(@CHECK@); }
+QMenu::indicator:exclusive:unchecked { border:none; background:transparent; }
+QMenu::indicator:exclusive:checked { border:none; background:transparent; image:url(@CHECK_BLUE@); }
+QPushButton, QToolButton { background:#FFFFFF; color:#2554A0; border:1px solid #D5DCEA; border-radius:11px; padding:4px 11px; }
+QPushButton:hover, QToolButton:hover { background:#EBF5FF; border-color:#9FB9E6; }
+QPushButton:pressed, QToolButton:pressed, QPushButton:checked, QToolButton:checked { background:#1F6FD1; color:#FFFFFF; border-color:#1F6FD1; }
+QDialogButtonBox QPushButton:default { background:#1F6FD1; color:#FFFFFF; border-color:#1F6FD1; font-weight:600; }
+QDialogButtonBox QPushButton:default:hover { background:#2B7BE0; border-color:#2B7BE0; }
+QPushButton:disabled, QToolButton:disabled { background:#F5F6F8; color:#A0A8B4; border-color:#E2E6EE; }
+QGroupBox { background:#FFFFFF; border:1px solid #D5DCEA; border-radius:8px; margin-top:4px; padding:24px 7px 7px 7px; }
+QGroupBox[cockpitUntitled="true"] { margin-top:2px; padding:6px; }
+QGroupBox::title { subcontrol-origin:padding; subcontrol-position:top left; left:11px; top:5px; padding:0px; color:#6D6D6D; background:transparent; }
+QGroupBox::indicator { width:14px; height:14px; border:1px solid #9AA6B8; border-radius:3px; background:#FFFFFF; }
+QGroupBox::indicator:checked { background:#1F6FD1; border-color:#1F6FD1; image:url(@CHECK@); }
+QGroupBox#grpImage { background:transparent; border:none; margin:0px; padding:0px; }
+QTabWidget::pane { border:1px solid #D5DCEA; border-radius:8px; background:#F0F0F0; top:-1px; }
+QTabBar { background:#1E293B; border-top-left-radius:10px; border-top-right-radius:10px; }
+QTabBar::tab { background:transparent; color:#E2E8F0; border:none; border-radius:11px; padding:5px 14px; margin:4px 2px; min-width:30px; font-weight:600; }
+QTabBar::tab:first { margin-left:5px; }
+QTabBar::tab:last { margin-right:5px; }
+QTabBar::tab:selected { background:#1F6FD1; color:#FFFFFF; }
+QTabBar::tab:!selected { color:#E2E8F0; }
+QTabBar::tab:hover:!selected { background:#2C384E; }
+QTabBar::tab:disabled { color:#64748B; }
+QTabBar QToolButton { background:#1E293B; color:#E2E8F0; border:none; border-radius:0px; padding:0px; }
+QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox, QComboBox, QDateTimeEdit, QTimeEdit, QDateEdit {
+    background:#FFFFFF; color:#1A1A1A; border:1px solid #D5DCEA; border-radius:6px; padding:3px 6px;
+}
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QDateTimeEdit:focus { border:1px solid #1F6FD1; background:#FFFFFF; }
+QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled, QDateTimeEdit:disabled { background:#F5F6F8; color:#9AA3AF; border-color:#E2E6EE; }
+QLineEdit:read-only { background:#F7F8FA; }
+QComboBox::drop-down { subcontrol-origin:padding; subcontrol-position:top right; width:20px; background:transparent; border:none; }
+QComboBox::down-arrow { image:url(@DOWN@); width:10px; height:10px; border:none; }
+QComboBox::down-arrow:disabled { image:url(@DOWN_OFF@); }
+QComboBox QAbstractItemView { background:#FFFFFF; color:#1A1A1A; border:1px solid #D5DCEA; border-radius:0px; selection-background-color:#EBF5FF; selection-color:#1F6FD1; }
+QSpinBox::up-button, QDoubleSpinBox::up-button, QDateTimeEdit::up-button { subcontrol-origin:border; subcontrol-position:top right; width:18px; background:transparent; border:none; border-left:1px solid #E2E6EE; border-top-right-radius:6px; }
+QSpinBox::down-button, QDoubleSpinBox::down-button, QDateTimeEdit::down-button { subcontrol-origin:border; subcontrol-position:bottom right; width:18px; background:transparent; border:none; border-left:1px solid #E2E6EE; border-bottom-right-radius:6px; }
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover, QDateTimeEdit::up-button:hover, QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover, QDateTimeEdit::down-button:hover { background:#EBF5FF; }
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow, QDateTimeEdit::up-arrow { image:url(@UP@); width:8px; height:8px; border:none; }
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow, QDateTimeEdit::down-arrow { image:url(@DOWN@); width:8px; height:8px; border:none; }
+QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled, QDateTimeEdit::up-arrow:disabled, QSpinBox::up-arrow:off, QDoubleSpinBox::up-arrow:off, QDateTimeEdit::up-arrow:off { image:url(@UP_OFF@); }
+QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled, QDateTimeEdit::down-arrow:disabled, QSpinBox::down-arrow:off, QDoubleSpinBox::down-arrow:off, QDateTimeEdit::down-arrow:off { image:url(@DOWN_OFF@); }
+QCheckBox, QRadioButton { color:#1A1A1A; spacing:6px; background:transparent; }
+QCheckBox::indicator, QRadioButton::indicator { width:15px; height:15px; border:1px solid #9AA6B8; background:#FFFFFF; }
+QCheckBox::indicator { border-radius:4px; }
+QCheckBox::indicator:hover, QRadioButton::indicator:hover { border-color:#1F6FD1; }
+QCheckBox::indicator:checked, QCheckBox::indicator:indeterminate { background:#1F6FD1; border-color:#1F6FD1; image:url(@CHECK@); }
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled { background:#F0F2F5; border-color:#D5DCEA; }
+QCheckBox::indicator:checked:disabled { background:#A9C6EE; border-color:#A9C6EE; }
+QRadioButton::indicator { border-radius:8px; }
+QRadioButton::indicator:checked { border:1px solid #1F6FD1; background:qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 #1F6FD1, stop:0.45 #1F6FD1, stop:0.55 #FFFFFF, stop:1 #FFFFFF); }
+QHeaderView { background:#F5F6F8; border:none; }
+QHeaderView::section { background:#F5F6F8; color:#4A5565; border:none; border-right:1px solid #E2E6EE; border-bottom:1px solid #D5DCEA; padding:4px 6px; font-weight:600; }
+QTableCornerButton::section { background:#F5F6F8; border:none; border-bottom:1px solid #D5DCEA; }
+QTableWidget, QTreeWidget, QListWidget, QAbstractItemView { background:#FFFFFF; alternate-background-color:#F8FAFC; color:#1A1A1A; gridline-color:#E5E9F0; border:1px solid #D5DCEA; border-radius:6px; }
+QAbstractItemView::item:selected { background:#DCEBFF; color:#1A1A1A; }
+QScrollBar:vertical { background:transparent; border:none; width:11px; margin:2px; }
+QScrollBar:horizontal { background:transparent; border:none; height:11px; margin:2px; }
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background:#C7D0DD; border:none; border-radius:3px; min-height:24px; min-width:24px; }
+QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover { background:#9FB0C6; }
+QScrollBar::add-line, QScrollBar::sub-line { background:transparent; border:none; width:0px; height:0px; }
+QScrollBar::add-page, QScrollBar::sub-page { background:transparent; }
+QProgressBar { background:#E6E8F0; color:#1A1A1A; border:none; border-radius:6px; text-align:center; min-height:16px; }
+QProgressBar::chunk { background:#1F6FD1; border-radius:6px; }
+QSlider:horizontal { min-height:22px; background:transparent; }
+QSlider:vertical { min-width:22px; background:transparent; }
+QSlider::groove:horizontal { height:6px; background:#E6E8F0; border:none; border-radius:3px; }
+QSlider::sub-page:horizontal { background:#1F6FD1; border-radius:3px; }
+QSlider::handle:horizontal { width:14px; margin:-6px 0; background:#FFFFFF; border:2px solid #1F6FD1; border-radius:9px; }
+QSlider::groove:vertical { width:6px; background:#E6E8F0; border:none; border-radius:3px; }
+QSlider::add-page:vertical { background:#1F6FD1; border-radius:3px; }
+QSlider::handle:vertical { height:14px; margin:0 -6px; background:#FFFFFF; border:2px solid #1F6FD1; border-radius:9px; }
+QToolTip { background:#1E293B; color:#E2E8F0; border:none; padding:6px 8px; }
+QStatusBar { background:#F0F0F0; color:#4A5565; border-top:1px solid #D5DCEA; }
+QSplitter::handle { background:transparent; }
+QSplitter::handle:hover { background:#D5DCEA; }
+QScrollArea, QScrollArea > QWidget > QWidget { background:#F0F0F0; }
+QFrame[frameShape="1"], QFrame[frameShape="2"], QFrame[frameShape="6"] { background:#FFFFFF; border:1px solid #D5DCEA; border-radius:8px; }
+QLCDNumber, QLCDNumber[frameShape="1"], QLCDNumber[frameShape="2"], QLCDNumber[frameShape="6"] { background:transparent; color:#1E293B; border:none; }
+QFrame[frameShape="4"], QFrame[frameShape="HLine"] { background:#E2E6EE; border:none; min-height:1px; max-height:1px; max-width:16777215px; }
+QFrame[frameShape="5"], QFrame[frameShape="VLine"] { background:#E2E6EE; border:none; min-width:1px; max-width:1px; max-height:16777215px; }
+)QSS");
+    const struct { const char *key; YaNecGlyph glyph; const char *color; const char *file; } glyphs[] = {
+        {"@CHECK_BLUE@", YaNecGlyph::Check, "#1F6FD1", "madmodem-ya-nec-check-blue.png"},
+        {"@CHECK@", YaNecGlyph::Check, "#FFFFFF", "madmodem-ya-nec-check.png"},
+        {"@DOWN_OFF@", YaNecGlyph::ChevronDown, "#B9C0CA", "madmodem-ya-nec-down-off.png"},
+        {"@DOWN@", YaNecGlyph::ChevronDown, "#4A5565", "madmodem-ya-nec-down.png"},
+        {"@UP_OFF@", YaNecGlyph::ChevronUp, "#B9C0CA", "madmodem-ya-nec-up-off.png"},
+        {"@UP@", YaNecGlyph::ChevronUp, "#4A5565", "madmodem-ya-nec-up.png"},
+    };
+    for (const auto &g : glyphs) {
+        qss.replace(QLatin1String(g.key), yaNecGlyphImage(g.glyph, QColor(QLatin1String(g.color)), QLatin1String(g.file)));
+    }
+    return qss;
+}
 
 class CockpitTitleBar final : public QFrame
 {
@@ -1220,7 +1386,7 @@ QString normalizedThemeKey(const QString &themeKey)
     const QString key = themeKey.trimmed().toLower();
     if (key == QStringLiteral("avionica") || key == QStringLiteral("qt_default") ||
         key == QStringLiteral("hacker_green") || key == QStringLiteral("classic_dark") ||
-        key == QStringLiteral("high_contrast")) {
+        key == QStringLiteral("high_contrast") || key == QStringLiteral("ya_nec")) {
         return key;
     }
     return QStringLiteral("avionica");
@@ -1275,7 +1441,8 @@ void applyUiTheme(QApplication &app, const QString &themeKey)
     } else {
         const ThemeSpec spec = themeSpec(key);
         app.setPalette(paletteForTheme(spec));
-        app.setStyleSheet(genericThemeStyleSheet(spec));
+        app.setStyleSheet(key == QStringLiteral("ya_nec") ? genericThemeStyleSheet(spec) + yaNecStyleSheet()
+                                                          : genericThemeStyleSheet(spec));
     }
 
     // Existing dialogs and combo popups may survive a live theme switch. Apply

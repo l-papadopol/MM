@@ -11754,7 +11754,7 @@ void MainWindow::applyUiAppearanceSettings()
     if (theme.isEmpty()) theme = QStringLiteral("avionica");
     if (theme != QStringLiteral("avionica") && theme != QStringLiteral("qt_default") &&
         theme != QStringLiteral("hacker_green") && theme != QStringLiteral("classic_dark") &&
-        theme != QStringLiteral("high_contrast")) {
+        theme != QStringLiteral("high_contrast") && theme != QStringLiteral("ya_nec")) {
         theme = QStringLiteral("avionica");
     }
 
