@@ -11,7 +11,9 @@ for variant in legacy avx2; do
     test -f "$source_dir/bin/MadModem.exe"
     mkdir -p "$work/$variant"
     cp -a "$source_dir/." "$work/$variant/"
-    printf 'Managed installation; user data is stored outside this directory.\n' > "$work/$variant/bin/managed-install.flag"
+    printf 'Managed installation; updates are installed with the setup program.\n' > "$work/$variant/bin/managed-install.flag"
+    # IC8TEM edition: the user data lives in the "data" folder of the installation.
+    printf 'IC8TEM edition: user data is kept in the data folder of this installation.\n' > "$work/$variant/bin/local-data.flag"
     # The installer supplies real shortcuts; remove portable-only instructions.
     rm -f "$work/$variant/RUN_WINDOWS.txt"
 done

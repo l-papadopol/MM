@@ -22,6 +22,7 @@
 | **Durata del ping MSK144**: colonna "ms" nella lista MSK144. / MSK144 ping duration column. | MSK144 |
 | **Tema YA-NEC**: tema chiaro con lo stile di YA-NEC (barre blu scuro, pulsanti a pillola, riquadri bianchi). / Light theme in the YA-NEC style. | Settings › Logbook / FT colours › Theme |
 | **Split Fake It di serie** (con il CAT attivo), anche in MSK144 e Q65: audio TX tra 1500 e 2000 Hz e frequenza TX spostata a passi di 500 Hz, come in WSJT-X/JTDX. / Fake It split by default with CAT, for FT8/FT4, MSK144 and Q65. | Settings › Audio / PTT / CAT › Split operation |
+| **Windows: tutto in C:\MadModem-tem** (programma e, nella cartella data, impostazioni, log e liste), separato dal MadModem originale; i dati delle versioni precedenti vengono spostati da AppData. / Windows: everything in C:\MadModem-tem, separate from the original. | Setup |
 | Aggiornamenti automatici da questo fork. / Updates come from this fork. | Help |
 
 **MadModem (MM)** è un'applicazione libera per radioamatori: modi digitali, audio,

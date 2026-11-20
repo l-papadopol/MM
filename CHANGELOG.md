@@ -23,6 +23,10 @@
 - Make Fake It the default Split Operation of the IC8TEM edition when CAT is on;
   without CAT there is no split. A None saved by MadModem before becomes Fake It
   once; a None chosen afterwards is kept.
+- Windows: the edition installs as "MadModem IC8TEM", separate from the original,
+  into C:\MadModem-tem, with settings, logbook, lists and diagnostics in its data
+  folder. The setup removes an earlier installation of the edition; at the first
+  start the data of the per-user folders is moved into C:\MadModem-tem\data.
 
 ## 0.6.5
 

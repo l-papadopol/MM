@@ -24,6 +24,11 @@ funzioni di [MSHV-IC8TEM](https://github.com/ic8tem/MSHV-IC8TEM).
   split di WSJT-X/JTDX: l'audio TX resta tra 1500 e 2000 Hz e la frequenza TX si sposta a
   passi di 500 Hz, ora in FT8, FT4, MSK144 e Q65. Vale quando il CAT è attivo; senza CAT
   niente split. Chi aveva Nessuna lo trova su Fake It e può rimettere Nessuna.
+- **Windows: tutto in C:\MadModem-tem.** L'edizione si installa come "MadModem IC8TEM",
+  separata dal MadModem originale, in C:\MadModem-tem; impostazioni, log, liste scaricate e
+  diagnostica stanno in C:\MadModem-tem\data. L'installazione toglie la versione precedente
+  dell'edizione e al primo avvio MadModem sposta i dati da AppData (li copia se c'è anche il
+  MadModem originale).
 - Gli aggiornamenti automatici arrivano da questo fork.
 
 **English.** Noise blanker before every decoder (Decode › Noise Blanker: NR0V NB2 style or
@@ -32,7 +37,9 @@ blanked) and MSK144 carrier notch (ZAP). Tools menu: Power and SWR (RF power, Po
 meters, SWR protection), locator sources for the DX call, LoTW users, FT call-again,
 fictitious log reset. MSK144 ping duration column. YA-NEC light theme (Settings ›
 Logbook / FT colours › Theme). Split Operation Fake It (WSJT-X/JTDX style) by default
-when CAT is on, for FT8, FT4, MSK144 and Q65. Updates come from this fork.
+when CAT is on, for FT8, FT4, MSK144 and Q65. Windows: installed as "MadModem IC8TEM" in
+C:\MadModem-tem with all user data in its data folder (moved from AppData at the first
+start). Updates come from this fork.
 
 Pacchetti / Packages: Windows (installer and portable), Ubuntu 24.04 / Mint 22 (RUN, DEB,
 portable), Fedora 43 (RUN, RPM, portable), macOS 15+ Intel and Apple Silicon (PKG, DMG, ZIP).
