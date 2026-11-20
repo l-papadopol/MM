@@ -4,6 +4,7 @@
 #include "widgets/DecodeTableClipboard.h"
 #include "widgets/RxNoiseBlankerMenu.h"
 #include "rig/PowerSwrWindow.h"
+#include "callsign/LocatorSources.h"
 #include "callsign/QrzLookupPanel.h"
 #include "updates/UpdateController.h"
 #include "logbook/AsyncLogbook.h"
@@ -2143,6 +2144,7 @@ void MainWindow::setupCustomWidgets()
     setupQ65Page();
     // Useful per-mode conditioning lives inside the relevant Mode pages.
     setupFt8Page();
+    installLocatorLookup(); // IC8TEM
 
     m_grpTxImage = new QGroupBox(QString(), ui->tabModeSettings);
     QGridLayout *txLayout = new QGridLayout(m_grpTxImage);
@@ -14005,6 +14007,7 @@ void MainWindow::stopMsk144Shell()
 void MainWindow::handleMsk144DecodeReady(const Msk144Decode &decode)
 {
     SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","MSK144"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
+    if (m_locatorSources != nullptr && !m_offlineAnalysisActive) m_locatorSources->addRx(decode.message); // IC8TEM
     if (m_tableMsk144Rx != nullptr) {
         const int row = m_tableMsk144Rx->rowCount();
         m_tableMsk144Rx->insertRow(row);
@@ -14404,6 +14407,7 @@ void MainWindow::handleNativeWeakSignalPeriodTxDue()
 void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
 {
     SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","Q65"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
+    if (m_locatorSources != nullptr && !m_offlineAnalysisActive) m_locatorSources->addRx(decode.message); // IC8TEM
     if (m_tableQ65Rx != nullptr) {
         const int row = m_tableQ65Rx->rowCount();
         m_tableQ65Rx->insertRow(row);
@@ -19315,6 +19319,7 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
 void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 {
     SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","FT"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
+    if (m_locatorSources != nullptr && !m_offlineAnalysisActive) m_locatorSources->addRx(decode.message); // IC8TEM
     if (m_ft8DecodeBatchActive && !m_ft8UiBatchApplying) {
         m_ft8PendingDisplayBatch.append(decode);
         return;
@@ -25450,25 +25455,7 @@ void MainWindow::installPowerSwrWindow()
         appendLog(QStringLiteral("SWR protection: TX unlocked by the operator."));
     });
 
-    // "Radio" menu after Settings (Power and SWR, and later the other radio tools).
-    QMenu *menu = nullptr;
-    if (ui->menubar != nullptr) {
-        menu = new QMenu(uiText("menu_radio", "Radio"), this);
-        hardenPopupMenuForFullscreen(menu);
-        menu->setToolTipsVisible(true);
-        QAction *before = m_menuLanguage != nullptr ? m_menuLanguage->menuAction()
-                        : (ui->menuHelp != nullptr ? ui->menuHelp->menuAction() : nullptr);
-        const QList<QAction *> bar = ui->menubar->actions();
-        const int settingsIndex = m_actionAppSettings != nullptr ? bar.indexOf(m_actionAppSettings) : -1;
-        if (settingsIndex >= 0 && settingsIndex + 1 < bar.size()) {
-            before = bar.at(settingsIndex + 1);
-        }
-        if (before != nullptr && bar.contains(before)) {
-            ui->menubar->insertMenu(before, menu);
-        } else {
-            ui->menubar->addMenu(menu);
-        }
-    }
+    QMenu *menu = toolsMenu();
     if (menu != nullptr) {
         QAction *action = menu->addAction(uiText("pwr_menu", "Power and SWR..."));
         action->setToolTip(uiText("pwr_menu_tip", "RF power, Po / SWR / ALC meters while transmitting and SWR protection, through the Hamlib CAT."));
@@ -25478,6 +25465,60 @@ void MainWindow::installPowerSwrWindow()
             m_powerSwr->show();
             m_powerSwr->raise();
             m_powerSwr->activateWindow();
+        });
+    }
+}
+
+QMenu *MainWindow::toolsMenu()
+{
+    // IC8TEM "Tools" menu (Power and SWR, locator sources, ...), before Language.
+    if (m_toolsMenu != nullptr || ui->menubar == nullptr) {
+        return m_toolsMenu;
+    }
+    m_toolsMenu = new QMenu(uiText("menu_tools", "Tools"), this);
+    hardenPopupMenuForFullscreen(m_toolsMenu);
+    m_toolsMenu->setToolTipsVisible(true);
+    QAction *before = m_menuLanguage != nullptr ? m_menuLanguage->menuAction()
+                    : (ui->menuHelp != nullptr ? ui->menuHelp->menuAction() : nullptr);
+    if (before != nullptr && ui->menubar->actions().contains(before)) {
+        ui->menubar->insertMenu(before, m_toolsMenu);
+    } else {
+        ui->menubar->addMenu(m_toolsMenu);
+    }
+    return m_toolsMenu;
+}
+
+void MainWindow::installLocatorLookup()
+{
+    if (m_locatorSources != nullptr) {
+        return;
+    }
+    m_locatorSources = new LocatorSources(this);
+    auto ftPeriod = [this]() {
+        return Ft8Mode::profileForMode(ui->cmbMode->currentText()).slotMs / 1000.0;
+    };
+    auto mskPeriod = [this]() {
+        return m_cmbMsk144Period != nullptr ? qMax(1, m_cmbMsk144Period->currentData().toInt()) * 1.0 : 15.0;
+    };
+    auto q65Period = [this]() {
+        return m_cmbQ65Period != nullptr ? qMax(1, m_cmbQ65Period->currentData().toInt()) * 1.0 : 60.0;
+    };
+    if (m_editFt8DxCall != nullptr && m_editFt8DxGrid != nullptr) {
+        new LocatorLookupBinder(m_locatorSources, m_editFt8DxCall, m_editFt8DxGrid, ftPeriod, this);
+    }
+    if (m_editMsk144DxCall != nullptr && m_editMsk144DxGrid != nullptr) {
+        new LocatorLookupBinder(m_locatorSources, m_editMsk144DxCall, m_editMsk144DxGrid, mskPeriod, this);
+    }
+    if (m_editQ65DxCall != nullptr && m_editQ65DxGrid != nullptr) {
+        new LocatorLookupBinder(m_locatorSources, m_editQ65DxCall, m_editQ65DxGrid, q65Period, this);
+    }
+    if (QMenu *menu = toolsMenu()) {
+        QAction *action = menu->addAction(uiText("loc_menu", "Locator sources..."));
+        action->setToolTip(uiText("loc_menu_tip", "Where MadModem looks for the locator of the DX call: recent decodes, CALL3.TXT, EME CALL3.TXT, JTDX grid_data.bin, online."));
+        connect(action, &QAction::triggered, this, [this]() {
+            auto *dialog = new LocatorSourcesDialog(m_locatorSources, this);
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
         });
     }
 }

@@ -48,7 +48,6 @@ KEYS = {
 
 # Power and SWR window (rig/PowerSwrWindow.cpp) and the Radio menu.
 KEYS.update({
-    'menu_radio': {'en': 'Radio', 'it': 'Radio', 'fr': 'Radio', 'de': 'Funkgerät', 'no': 'Radio', 'cs': 'Rádio'},
     'pwr_menu': {'en': 'Power and SWR...', 'it': 'Potenza e ROS...', 'fr': 'Puissance et ROS...', 'de': 'Leistung und SWR...', 'no': 'Effekt og SWR...', 'cs': 'Výkon a PSV...'},
     'pwr_menu_tip': {'en': 'RF power, Po / SWR / ALC meters while transmitting and SWR protection, through the Hamlib CAT.', 'it': 'Potenza RF, misure Po / ROS / ALC in trasmissione e protezione ROS, tramite il CAT Hamlib.', 'fr': 'Puissance HF, mesures Po / ROS / ALC en émission et protection ROS, par le CAT Hamlib.', 'de': 'HF-Leistung, Po-/SWR-/ALC-Anzeige beim Senden und SWR-Schutz über das Hamlib-CAT.', 'no': 'RF-effekt, Po / SWR / ALC-målinger under sending og SWR-beskyttelse via Hamlib-CAT.', 'cs': 'VF výkon, měření Po / PSV / ALC při vysílání a ochrana PSV přes Hamlib CAT.'},
     'pwr_title': {'en': 'Power and SWR', 'it': 'Potenza e ROS', 'fr': 'Puissance et ROS', 'de': 'Leistung und SWR', 'no': 'Effekt og SWR', 'cs': 'Výkon a PSV'},
@@ -86,4 +85,57 @@ KEYS.update({
     'pwr_alc_high': {'en': 'ALC above 50 %: lower the audio level for a clean digital signal.', 'it': "ALC oltre il 50 %: abbassate il livello audio per un segnale digitale pulito.", 'fr': "ALC au-dessus de 50 % : baissez le niveau audio pour un signal numérique propre.", 'de': 'ALC über 50 %: Audiopegel für ein sauberes Digitalsignal senken.', 'no': 'ALC over 50 %: senk lydnivået for et rent digitalt signal.', 'cs': 'ALC nad 50 %: snižte úroveň zvuku pro čistý digitální signál.'},
     'pwr_po_low': {'en': 'Po below 50 % of the set power: check the audio level and the ALC.', 'it': "Po sotto il 50 % della potenza impostata: controllate il livello audio e l'ALC.", 'fr': "Po sous 50 % de la puissance réglée : vérifiez le niveau audio et l'ALC.", 'de': 'Po unter 50 % der eingestellten Leistung: Audiopegel und ALC prüfen.', 'no': 'Po under 50 % av innstilt effekt: sjekk lydnivået og ALC.', 'cs': 'Po pod 50 % nastaveného výkonu: zkontrolujte úroveň zvuku a ALC.'},
     'pwr_blocked': {'en': 'TX stopped and blocked: SWR %1 above %2. Check the antenna, then press Unlock.', 'it': "TX fermata e bloccata: ROS %1 oltre %2. Controllate l'antenna, poi premete Sblocca.", 'fr': "Émission arrêtée et bloquée : ROS %1 au-dessus de %2. Vérifiez l'antenne, puis appuyez sur Débloquer.", 'de': 'TX gestoppt und gesperrt: SWR %1 über %2. Antenne prüfen, dann Freigeben drücken.', 'no': 'TX stoppet og sperret: SWR %1 over %2. Sjekk antennen, trykk deretter Lås opp.', 'cs': 'TX zastaveno a zablokováno: PSV %1 nad %2. Zkontrolujte anténu a stiskněte Odblokovat.'},
+})
+
+# Tools menu and locator lookup (callsign/LocatorSources.cpp).
+def _t(en, it, fr, de, no, cs):
+    return {'en': en, 'it': it, 'fr': fr, 'de': de, 'no': no, 'cs': cs}
+
+KEYS.update({
+    'menu_tools': _t('Tools', 'Strumenti', 'Outils', 'Werkzeuge', 'Verktøy', 'Nástroje'),
+    'loc_menu': _t('Locator sources...', 'Fonti del locatore...', 'Sources des locators...', 'Locator-Quellen...', 'Lokatorkilder...', 'Zdroje lokátorů...'),
+    'loc_menu_tip': _t('Where MadModem looks for the locator of the DX call: recent decodes, CALL3.TXT, EME CALL3.TXT, JTDX grid_data.bin, online.',
+                       "Dove MadModem cerca il locatore del nominativo DX: decodifiche recenti, CALL3.TXT, CALL3.TXT EME, grid_data.bin di JTDX, in rete.",
+                       "Où MadModem cherche le locator de l'indicatif DX : décodages récents, CALL3.TXT, CALL3.TXT EME, grid_data.bin de JTDX, en ligne.",
+                       'Wo MadModem den Locator des DX-Rufzeichens sucht: letzte Dekodierungen, CALL3.TXT, EME-CALL3.TXT, JTDX grid_data.bin, online.',
+                       'Hvor MadModem leter etter lokatoren til DX-kallesignalet: nylige dekodinger, CALL3.TXT, EME CALL3.TXT, JTDX grid_data.bin, på nett.',
+                       'Kde MadModem hledá lokátor DX značky: poslední dekódování, CALL3.TXT, EME CALL3.TXT, grid_data.bin z JTDX, online.'),
+    'loc_title': _t('Locator sources', 'Fonti del locatore', 'Sources des locators', 'Locator-Quellen', 'Lokatorkilder', 'Zdroje lokátorů'),
+    'loc_group': _t('Locator lookup for the DX call', 'Ricerca del locatore del nominativo DX', "Recherche du locator de l'indicatif DX", 'Locator-Suche für das DX-Rufzeichen', 'Lokatorsøk for DX-kallesignalet', 'Hledání lokátoru DX značky'),
+    'loc_info': _t('When the DX call has no locator, MadModem looks in these sources, in this order, and fills the DX grid. The small label inside the DX grid field shows where the locator comes from; hold the mouse on it to see what every source says.',
+                   "Quando il nominativo DX non ha un locatore, MadModem lo cerca in queste fonti, in quest'ordine, e lo scrive nel locatore DX. La piccola etichetta dentro il campo del locatore dice da dove viene; tenendoci sopra il mouse si vede cosa dice ogni fonte.",
+                   "Quand l'indicatif DX n'a pas de locator, MadModem le cherche dans ces sources, dans cet ordre, et remplit le locator DX. La petite étiquette dans le champ indique d'où il vient ; en y laissant la souris, on voit ce que dit chaque source.",
+                   'Hat das DX-Rufzeichen keinen Locator, sucht MadModem in diesen Quellen in dieser Reihenfolge und füllt den DX-Locator aus. Die kleine Marke im Feld zeigt die Herkunft; mit der Maus darauf sieht man, was jede Quelle meldet.',
+                   'Når DX-kallesignalet ikke har lokator, leter MadModem i disse kildene i denne rekkefølgen og fyller ut DX-lokatoren. Den lille merkelappen i feltet viser hvor lokatoren kommer fra; hold musen over den for å se hva hver kilde sier.',
+                   'Když DX značka nemá lokátor, MadModem ho hledá v těchto zdrojích v tomto pořadí a vyplní DX lokátor. Malý štítek v poli ukazuje, odkud lokátor pochází; po najetí myší je vidět, co říká každý zdroj.'),
+    'loc_src_rx': _t('Decodes of the last %1 periods', 'Decodifiche degli ultimi %1 periodi', 'Décodages des %1 dernières périodes', 'Dekodierungen der letzten %1 Perioden', 'Dekodinger fra de siste %1 periodene', 'Dekódování za posledních %1 period'),
+    'loc_src_web': _t('Online (api.g7vrd.co.uk)', 'In rete (api.g7vrd.co.uk)', 'En ligne (api.g7vrd.co.uk)', 'Online (api.g7vrd.co.uk)', 'På nett (api.g7vrd.co.uk)', 'Online (api.g7vrd.co.uk)'),
+    'loc_web_info': _t('The online lookup sends the call to api.g7vrd.co.uk only when no other source has the locator; the answers are kept for 30 days.',
+                       "La ricerca in rete invia il nominativo ad api.g7vrd.co.uk solo se nessun'altra fonte ha il locatore; le risposte restano per 30 giorni.",
+                       "La recherche en ligne envoie l'indicatif à api.g7vrd.co.uk seulement si aucune autre source n'a le locator ; les réponses sont gardées 30 jours.",
+                       'Die Online-Suche sendet das Rufzeichen nur dann an api.g7vrd.co.uk, wenn keine andere Quelle den Locator kennt; die Antworten bleiben 30 Tage.',
+                       'Nettsøket sender kallesignalet til api.g7vrd.co.uk bare når ingen annen kilde har lokatoren; svarene beholdes i 30 dager.',
+                       'Online hledání pošle značku na api.g7vrd.co.uk jen tehdy, když lokátor nemá žádný jiný zdroj; odpovědi se uchovávají 30 dní.'),
+    'loc_auto': _t('Download the lists and update them every 14 days', 'Scarica le liste e aggiornale ogni 14 giorni', 'Télécharger les listes et les mettre à jour tous les 14 jours', 'Listen herunterladen und alle 14 Tage aktualisieren', 'Last ned listene og oppdater dem hver 14. dag', 'Stáhnout seznamy a aktualizovat je každých 14 dní'),
+    'loc_update_now': _t('Update Now', 'Aggiorna ora', 'Mettre à jour', 'Jetzt aktualisieren', 'Oppdater nå', 'Aktualizovat'),
+    'loc_sources': _t('Sources:', 'Fonti:', 'Sources :', 'Quellen:', 'Kilder:', 'Zdroje:'),
+    'loc_folder': _t('Folder: %1', 'Cartella: %1', 'Dossier : %1', 'Ordner: %1', 'Mappe: %1', 'Složka: %1'),
+    'loc_tooltip_title': _t('Locator of %1:', 'Locatore di %1:', 'Locator de %1 :', 'Locator von %1:', 'Lokator for %1:', 'Lokátor %1:'),
+    'loc_off': _t('off', 'spenta', 'désactivée', 'aus', 'av', 'vypnuto'),
+    'loc_not_asked': _t('not asked', 'non chiesto', 'pas demandé', 'nicht gefragt', 'ikke spurt', 'nedotázáno'),
+    'loc_not_loaded': _t('list not loaded', 'lista non caricata', 'liste non chargée', 'Liste nicht geladen', 'liste ikke lastet', 'seznam nenačten'),
+    'loc_status_rx': _t('Calls heard with a locator: %1', 'Nominativi ascoltati con locatore: %1', 'Indicatifs entendus avec locator : %1', 'Gehörte Rufzeichen mit Locator: %1', 'Kallesignaler hørt med lokator: %1', 'Slyšené značky s lokátorem: %1'),
+    'loc_status_web': _t('Answers kept: %1    asked since the start: %2', 'Risposte conservate: %1    chieste dall\'avvio: %2', 'Réponses gardées : %1    demandées depuis le démarrage : %2', 'Gespeicherte Antworten: %1    seit dem Start gefragt: %2', 'Svar lagret: %1    spurt siden start: %2', 'Uložené odpovědi: %1    dotazy od spuštění: %2'),
+    'loc_status_calls': _t('Calls: %1', 'Nominativi: %1', 'Indicatifs : %1', 'Rufzeichen: %1', 'Kallesignaler: %1', 'Značky: %1'),
+    'loc_status_not_loaded': _t('List not loaded', 'Lista non caricata', 'Liste non chargée', 'Liste nicht geladen', 'Liste ikke lastet', 'Seznam nenačten'),
+    'loc_status_downloaded': _t('downloaded: %1', 'scaricata: %1', 'téléchargée : %1', 'heruntergeladen: %1', 'lastet ned: %1', 'staženo: %1'),
+    'loc_status_downloading': _t('downloading...', 'download in corso...', 'téléchargement...', 'wird heruntergeladen...', 'laster ned...', 'stahuje se...'),
+    'loc_status_waiting': _t('waiting to download', 'in attesa di download', 'en attente de téléchargement', 'wartet auf Download', 'venter på nedlasting', 'čeká na stažení'),
+    'loc_bad_download': _t('The downloaded file is not valid: %1', 'Il file scaricato non è valido: %1', "Le fichier téléchargé n'est pas valide : %1", 'Die heruntergeladene Datei ist ungültig: %1', 'Den nedlastede filen er ugyldig: %1', 'Stažený soubor není platný: %1'),
+    'loc_download_failed': _t('Download failed: %1', 'Download non riuscito: %1', 'Échec du téléchargement : %1', 'Download fehlgeschlagen: %1', 'Nedlasting mislyktes: %1', 'Stažení selhalo: %1'),
+    'loc_empty_answer': _t('empty answer', 'risposta vuota', 'réponse vide', 'leere Antwort', 'tomt svar', 'prázdná odpověď'),
+    'loc_cannot_write': _t('Cannot write %1', 'Impossibile scrivere %1', "Impossible d'écrire %1", '%1 kann nicht geschrieben werden', 'Kan ikke skrive %1', 'Nelze zapsat %1'),
+    'loc_no_https': _t('HTTPS is not available (no OpenSSL and no curl)', 'HTTPS non disponibile (né OpenSSL né curl)', 'HTTPS indisponible (ni OpenSSL ni curl)', 'HTTPS nicht verfügbar (weder OpenSSL noch curl)', 'HTTPS er ikke tilgjengelig (verken OpenSSL eller curl)', 'HTTPS není k dispozici (chybí OpenSSL i curl)'),
+    'loc_timeout': _t('no answer (timeout)', 'nessuna risposta (timeout)', 'pas de réponse (délai dépassé)', 'keine Antwort (Zeitüberschreitung)', 'ingen svar (tidsavbrudd)', 'bez odpovědi (časový limit)'),
+    'loc_web_failed': _t('Online lookup failed: %1', 'Ricerca in rete non riuscita: %1', 'Échec de la recherche en ligne : %1', 'Online-Suche fehlgeschlagen: %1', 'Nettsøk mislyktes: %1', 'Online hledání selhalo: %1'),
 })

@@ -90,6 +90,7 @@ class QRadioButton;
 class QLCDNumber;
 class Ft8SlotClockWidget;
 class PowerSwrWindow;
+class LocatorSources;
 class QAction;
 class QActionGroup;
 class QMenu;
@@ -1476,6 +1477,8 @@ private:
     void keyPttForTx(std::function<void(bool)> completion);
     // IC8TEM Power and SWR window: meters while transmitting, tune power, SWR block.
     void installPowerSwrWindow();
+    void installLocatorLookup();
+    QMenu *toolsMenu();
     void powerSwrTxStarted(bool tune);
     void powerSwrTxEnded();
     void stopTxForPowerProtection(const QString &reason);
@@ -1745,6 +1748,8 @@ private:
     NtpClient *m_ntpClient = nullptr;
     HamlibController *m_rigController = nullptr;
     PowerSwrWindow *m_powerSwr = nullptr;      // IC8TEM
+    LocatorSources *m_locatorSources = nullptr; // IC8TEM
+    QMenu *m_toolsMenu = nullptr;              // IC8TEM
     bool m_powerSwrMetering = false;
     int m_powerTuneRestorePercent = -1;
     QThread *m_rigThread = nullptr;
