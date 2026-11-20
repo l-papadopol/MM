@@ -7,6 +7,7 @@
 
 #include <QObject>
 #include "dsp/common/TimestampResampler.h"
+#include "dsp/common/RxNoiseBlanker.h"
 #include <QDateTime>
 #include <QString>
 #include <QVector>
@@ -496,6 +497,8 @@ private:
 
     int m_inputSampleRate = 0;
     TimestampResampler m_timedResampler;
+    MadModemNoise::RxNoiseStage m_noise; // IC8TEM: noise blanker on the 12 kHz stream
+    qint64 m_noiseNextUtcNs = 0;         // expected time of the next 12 kHz sample
     double m_resampleAbsoluteInputIndex = 0.0;
     double m_resampleNextOutputInputIndex = 0.0;
     double m_resamplePreviousSample = 0.0;

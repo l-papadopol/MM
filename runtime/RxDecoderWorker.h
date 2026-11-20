@@ -3,6 +3,7 @@
 #include "../audio/AudioContinuity.h"
 #include "../audio/RadioPowerWindow.h"
 #include "../dsp/common/DspConditioner.h"
+#include "../dsp/common/RxNoiseBlanker.h"
 #include "../modems/rtty/RttyAfc.h"
 #include "../modems/rtty/RttyDecoder.h"
 #include "../modems/rtty/RttyMultiDecoder.h"
@@ -72,6 +73,7 @@ private:
     AudioContinuity m_continuity;
     RadioPowerWindow m_radioPower;
     DspConditioner m_conditioner;
+    MadModemNoise::RxNoiseStage m_noise; // IC8TEM: noise blanker for the text and image modes
     RttyAfc::Tracker m_afc;
     int m_afcSamples=0;
     mutable QMutex m_snapshotMutex;

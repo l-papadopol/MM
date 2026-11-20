@@ -104,6 +104,7 @@ void Q65Decoder::reset()
 {
     m_samples12k.clear();
     m_resampler.reset();
+    m_noise.reset();
     m_periodStartUtc = QDateTime();
     m_currentPeriodId = -1;
     m_nextOutputUtcNs = 0;
@@ -167,8 +168,11 @@ void Q65Decoder::appendResampledTo12k(const AudioBlock &block)
     const bool timestampJump = m_lastInputEndUtcNs > 0 &&
                                qAbs(blockStartUtcNs - m_lastInputEndUtcNs) >
                                    qMax<qint64>(qint64{5000000}, inputSampleNs * qint64{4});
-    if (generationChanged || timestampJump) {
+    // IC8TEM: a new noise blanker setting can change the delay of the samples.
+    const bool noiseDelayChanged = m_noise.update(kInternalRate);
+    if (generationChanged || timestampJump || noiseDelayChanged) {
         m_resampler.reset();
+        m_noise.reset();
         m_samples12k.clear();
         m_currentPeriodId = -1;
         m_nextOutputUtcNs = 0;
@@ -178,13 +182,14 @@ void Q65Decoder::appendResampledTo12k(const AudioBlock &block)
     }
     if (block.captureGeneration != 0) m_captureGeneration = block.captureGeneration;
 
-    const QVector<double> resampled = m_resampler.process(block.samples, block.sampleRate);
+    QVector<double> resampled = m_resampler.process(block.samples, block.sampleRate);
     m_lastInputEndUtcNs = blockStartUtcNs +
         (static_cast<qint64>(block.samples.size()) * 1000000000LL) / qMax(1, block.sampleRate);
     if (resampled.isEmpty()) return;
+    m_noise.process(resampled); // IC8TEM: same length, delayed by m_noise.latencyNs()
 
     if (m_nextOutputUtcNs <= 0) {
-        m_nextOutputUtcNs = blockStartUtcNs - m_resampler.delayNanoseconds();
+        m_nextOutputUtcNs = blockStartUtcNs - m_resampler.delayNanoseconds() - m_noise.latencyNs();
         m_outputTimeRemainder = 0;
     }
     const qint64 periodNs = static_cast<qint64>(m_periodSeconds) * 1000000000LL;

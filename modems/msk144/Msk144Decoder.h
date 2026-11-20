@@ -3,6 +3,7 @@
 
 #include "../../audio/AudioBlock.h"
 #include "../../dsp/text/LinearResampler.h"
+#include "../../dsp/common/RxNoiseBlanker.h"
 
 #include <QObject>
 #include <QDateTime>
@@ -85,6 +86,7 @@ private:
 private:
     QVector<float> m_samples12k;
     LinearResampler m_resampler;
+    MadModemNoise::RxNoiseStage m_noise{true}; // IC8TEM: noise blanker and carrier notch
     qint64 m_totalInputSamples = 0;
     qint64 m_total12kSamples = 0;
     int m_inputSampleRate = 48000;

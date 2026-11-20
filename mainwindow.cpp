@@ -2,6 +2,7 @@
 #include "runtime/SessionDiagnostics.h"
 #include "modems/ft8/FtDiagnostics.h"
 #include "widgets/DecodeTableClipboard.h"
+#include "widgets/RxNoiseBlankerMenu.h"
 #include "callsign/QrzLookupPanel.h"
 #include "updates/UpdateController.h"
 #include "logbook/AsyncLogbook.h"
@@ -8236,6 +8237,7 @@ void MainWindow::setupMsk144Page()
         m_btnMsk144Tune->setEnabled(false);
     }
 
+    MadModemNoise::loadSettings(); // IC8TEM: noise blanker settings for every decoder
     if (ui != nullptr && ui->menubar != nullptr && m_cmbMsk144DecodeDepth != nullptr) {
         QMenu *decodeMenu = new QMenu(uiText("menu_decode", "Decode"), this);
         hardenPopupMenuForFullscreen(decodeMenu);
@@ -8291,6 +8293,8 @@ void MainWindow::setupMsk144Page()
                 }
             }
         });
+
+        MadModemNoise::installMenu(decodeMenu, [this](const QString &message) { appendLog(message); });
 
         QAction *insertBefore = m_actionAppSettings != nullptr ? m_actionAppSettings : nullptr;
         if (insertBefore == nullptr && ui->menuHelp != nullptr) {

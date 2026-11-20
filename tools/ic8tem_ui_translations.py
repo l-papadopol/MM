@@ -1,0 +1,47 @@
+# Reviewed translations of the IC8TEM additions (noise blanker and the other
+# MSHV-IC8TEM features). Merged by update_ui_translations.py like the other key sets.
+KEYS = {
+    'nb_menu': {'en': 'Noise Blanker', 'it': 'Noise blanker', 'fr': 'Noise blanker', 'de': 'Störaustaster', 'no': 'Støyutblender', 'cs': 'Potlačení impulsů'},
+    'nb_help': {
+        'en': 'Removes impulses (QRN, sparks, switching supplies) from the audio before every decoder. MSK144 pings, keyed CW and FT/Q65 tones are never blanked. Adds 48 ms of delay, compensated in the decode times.',
+        'it': "Toglie gli impulsi (QRN, scintille, alimentatori switching) dall'audio prima di ogni decodificatore. Ping MSK144, CW manipolato e toni FT/Q65 non vengono mai cancellati. Aggiunge 48 ms di ritardo, compensati negli orari di decodifica.",
+        'fr': "Retire les impulsions (QRN, étincelles, alimentations à découpage) de l'audio avant chaque décodeur. Les pings MSK144, la CW manipulée et les tonalités FT/Q65 ne sont jamais effacés. Ajoute 48 ms de retard, compensés dans les heures de décodage.",
+        'de': 'Entfernt Impulse (QRN, Funken, Schaltnetzteile) aus dem Audio vor jedem Decoder. MSK144-Pings, getastete CW und FT/Q65-Töne werden nie ausgetastet. Fügt 48 ms Verzögerung hinzu, die in den Dekodierzeiten ausgeglichen wird.',
+        'no': 'Fjerner impulser (QRN, gnister, svitsjede strømforsyninger) fra lyden før hver dekoder. MSK144-ping, nøklet CW og FT/Q65-toner blir aldri blanket. Gir 48 ms forsinkelse, som kompenseres i dekodetidene.',
+        'cs': 'Odstraňuje impulsy (QRN, jiskry, spínané zdroje) ze zvuku před každým dekodérem. Pingy MSK144, klíčované CW a tóny FT/Q65 se nikdy nepotlačí. Přidává zpoždění 48 ms, které je v časech dekódování vyrovnáno.',
+    },
+    'nb_off': {'en': 'Off', 'it': 'Spento', 'fr': 'Désactivé', 'de': 'Aus', 'no': 'Av', 'cs': 'Vypnuto'},
+    'nb_off_tip': {'en': 'No processing, no delay.', 'it': 'Nessuna elaborazione, nessun ritardo.', 'fr': 'Aucun traitement, aucun retard.', 'de': 'Keine Verarbeitung, keine Verzögerung.', 'no': 'Ingen behandling, ingen forsinkelse.', 'cs': 'Žádné zpracování, žádné zpoždění.'},
+    'nb_nb2': {'en': 'NB2 (NR0V) - recommended', 'it': 'NB2 (NR0V) - consigliato', 'fr': 'NB2 (NR0V) - recommandé', 'de': 'NB2 (NR0V) - empfohlen', 'no': 'NB2 (NR0V) - anbefalt', 'cs': 'NB2 (NR0V) - doporučeno'},
+    'nb_nb2_tip': {
+        'en': 'Impulses found on the signal envelope and blanked with soft edges, like the NB2 noise blanker of WDSP by NR0V.',
+        'it': "Impulsi trovati sull'inviluppo del segnale e cancellati con fronti morbidi, come il noise blanker NB2 di WDSP di NR0V.",
+        'fr': "Impulsions détectées sur l'enveloppe du signal et effacées avec des fronts doux, comme le noise blanker NB2 de WDSP par NR0V.",
+        'de': 'Impulse werden an der Hüllkurve des Signals erkannt und mit weichen Flanken ausgetastet, wie beim NB2-Störaustaster von WDSP (NR0V).',
+        'no': 'Impulser finnes på signalets omhyllingskurve og blankes med myke flanker, som NB2-støyutblenderen i WDSP av NR0V.',
+        'cs': 'Impulsy se hledají na obálce signálu a potlačují se s měkkými hranami, jako NB2 noise blanker WDSP od NR0V.',
+    },
+    'nb_lpc': {'en': 'Linear prediction (DL2FW)', 'it': 'Predizione lineare (DL2FW)', 'fr': 'Prédiction linéaire (DL2FW)', 'de': 'Lineare Prädiktion (DL2FW)', 'no': 'Lineær prediksjon (DL2FW)', 'cs': 'Lineární predikce (DL2FW)'},
+    'nb_lpc_tip': {
+        'en': 'The samples of short impulses are rebuilt from the signal before and after them (UHSDR noise blanker by DL2FW).',
+        'it': 'I campioni degli impulsi brevi vengono ricostruiti dal segnale prima e dopo (noise blanker UHSDR di DL2FW).',
+        'fr': "Les échantillons des impulsions courtes sont reconstruits à partir du signal avant et après (noise blanker UHSDR de DL2FW).",
+        'de': 'Die Abtastwerte kurzer Impulse werden aus dem Signal davor und danach rekonstruiert (UHSDR-Störaustaster von DL2FW).',
+        'no': 'Samplene i korte impulser gjenskapes fra signalet før og etter dem (UHSDR-støyutblender av DL2FW).',
+        'cs': 'Vzorky krátkých impulsů se rekonstruují ze signálu před nimi a po nich (noise blanker UHSDR od DL2FW).',
+    },
+    'nb_threshold': {'en': 'Threshold', 'it': 'Soglia', 'fr': 'Seuil', 'de': 'Schwelle', 'no': 'Terskel', 'cs': 'Práh'},
+    'nb_level_sensitive': {'en': 'Sensitive (weaker impulses too)', 'it': 'Sensibile (anche impulsi più deboli)', 'fr': 'Sensible (impulsions plus faibles aussi)', 'de': 'Empfindlich (auch schwächere Impulse)', 'no': 'Følsom (også svakere impulser)', 'cs': 'Citlivý (i slabší impulsy)'},
+    'nb_level_normal': {'en': 'Normal (recommended)', 'it': 'Normale (consigliata)', 'fr': 'Normal (recommandé)', 'de': 'Normal (empfohlen)', 'no': 'Normal (anbefalt)', 'cs': 'Normální (doporučeno)'},
+    'nb_level_strong': {'en': 'Strong impulses only', 'it': 'Solo impulsi forti', 'fr': 'Impulsions fortes seulement', 'de': 'Nur starke Impulse', 'no': 'Bare sterke impulser', 'cs': 'Jen silné impulsy'},
+    'nb_count': {'en': 'Impulses blanked since start: %1', 'it': "Impulsi cancellati dall'avvio: %1", 'fr': 'Impulsions effacées depuis le démarrage : %1', 'de': 'Seit dem Start ausgetastete Impulse: %1', 'no': 'Impulser blanket siden start: %1', 'cs': 'Potlačené impulsy od spuštění: %1'},
+    'nb_msk_zap': {'en': 'MSK144 Carrier Notch (ZAP)', 'it': 'Notch portanti MSK144 (ZAP)', 'fr': 'Notch des porteuses MSK144 (ZAP)', 'de': 'MSK144-Trägerkerbe (ZAP)', 'no': 'MSK144 bærebølge-notch (ZAP)', 'cs': 'Notch nosných MSK144 (ZAP)'},
+    'nb_msk_zap_tip': {
+        'en': 'MSK144: steady carriers and birdies are removed with 10 Hz notches, found on the last 5 s of audio. A continuous MSK signal is never notched.',
+        'it': 'MSK144: portanti fisse e birdie vengono tolti con notch di 10 Hz, trovati sugli ultimi 5 s di audio. Un segnale MSK continuo non viene mai filtrato.',
+        'fr': "MSK144 : les porteuses fixes et les birdies sont supprimés par des notch de 10 Hz, trouvés sur les 5 dernières secondes d'audio. Un signal MSK continu n'est jamais filtré.",
+        'de': 'MSK144: Feste Träger und Birdies werden mit 10-Hz-Kerben entfernt, die in den letzten 5 s Audio gefunden werden. Ein durchgehendes MSK-Signal wird nie ausgefiltert.',
+        'no': 'MSK144: faste bærebølger og birdies fjernes med 10 Hz notch, funnet i de siste 5 s med lyd. Et kontinuerlig MSK-signal blir aldri filtrert.',
+        'cs': 'MSK144: stálé nosné a birdies se odstraní 10Hz notch filtry nalezenými v posledních 5 s zvuku. Souvislý signál MSK se nikdy nefiltruje.',
+    },
+}

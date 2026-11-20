@@ -33,7 +33,7 @@ void RxDecoderWorker::drain() {
     for (const auto &block:blocks) process(block);
 }
 void RxDecoderWorker::resetActive() {
-    m_conditioner.reset(); m_afc.reset(); m_afcSamples=0;
+    m_conditioner.reset(); m_afc.reset(); m_afcSamples=0; m_noise.reset();
     const auto &mode=m_config.mode;
     if(mode==RttyDecoder::modeName()){m_graph.rtty->reset();m_graph.multi->reset();}
     else if(mode==CwDecoder::modeName())m_graph.cw->reset();
@@ -44,10 +44,22 @@ void RxDecoderWorker::resetActive() {
     else if(mode==HellschreiberDecoder::modeName())m_graph.hell->reset();
     else if(mode==Msk144Decoder::modeName())m_graph.msk->reset();
 }
-void RxDecoderWorker::process(const AudioBlock &block) {
-    if(m_continuity.accept(block)){m_radioPower.markGap();resetActive();}
+void RxDecoderWorker::process(const AudioBlock &input) {
+    if(m_continuity.accept(input)){m_radioPower.markGap();resetActive();}
     const auto mode=m_config.mode;
-    if(mode==QStringLiteral("Radio Telescope")){m_radioPower.process(block);return;}
+    if(mode==QStringLiteral("Radio Telescope")){m_radioPower.process(input);return;}
+    // IC8TEM: noise blanker before the decoders (MSK144 has its own, inside the decoder).
+    AudioBlock blanked;
+    const bool blank=mode!=Msk144Decoder::modeName();
+    if(blank)m_noise.update(input.sampleRate);
+    if(blank&&m_noise.active()){
+        blanked=input;
+        m_noise.process(blanked.samples);
+        const qint64 delay=m_noise.latencyNs();
+        if(blanked.firstSampleUtcNs>0)blanked.firstSampleUtcNs-=delay;
+        if(blanked.firstSampleMonotonicNs>0)blanked.firstSampleMonotonicNs-=delay;
+    }
+    const AudioBlock &block=(blank&&m_noise.active())?blanked:input;
     if(mode==RttyDecoder::modeName()) {
         const int mark=qRound(m_config.filter.blackHz),shift=qRound(m_config.filter.whiteHz-m_config.filter.blackHz);
         if (m_config.afc) m_afc.process(block,mark,shift,m_config.afcRange);

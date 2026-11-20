@@ -196,6 +196,7 @@ QVector<Msk144Decode> Msk144Decoder::decodeRecordedPeriod(const QVector<float> &
     Msk144Decoder worker;
     worker.m_asyncDecodeEnabled = false;
     worker.m_samples12k = samples12k;
+    MadModemNoise::RxNoiseStage::processRecording(worker.m_samples12k, kInternalRate, true); // IC8TEM
     worker.m_periodStartUtc = periodStartUtc.isValid() ? periodStartUtc.toUTC()
                                                        : QDateTime::currentDateTimeUtc();
     worker.m_periodSeconds = m_periodSeconds;
@@ -218,6 +219,7 @@ void Msk144Decoder::reset()
     m_decodeGeneration.fetch_add(1, std::memory_order_acq_rel);
     m_samples12k.clear();
     m_resampler.reset();
+    m_noise.reset();
     m_totalInputSamples = 0;
     m_total12kSamples = 0;
     m_nextPingAnalysisSample = 0;
@@ -274,8 +276,12 @@ void Msk144Decoder::appendResampledTo12k(const AudioBlock &block)
     const qint64 inputSampleNs = 1000000000LL / qMax(1, block.sampleRate);
     const bool timestampJump = m_lastInputEndUtcNs > 0 &&
                                qAbs(blockStartUtcNs - m_lastInputEndUtcNs) > qMax<qint64>(qint64{5000000}, inputSampleNs * qint64{4});
-    if (generationChanged || timestampJump) {
+    // IC8TEM: a new noise blanker setting can change the delay of the samples, so
+    // the period timeline restarts like after a capture discontinuity.
+    const bool noiseDelayChanged = m_noise.update(kInternalRate);
+    if (generationChanged || timestampJump || noiseDelayChanged) {
         m_resampler.reset();
+        m_noise.reset();
         m_samples12k.clear();
         m_currentPeriodId = -1;
         m_nextOutputUtcNs = 0;
@@ -287,16 +293,17 @@ void Msk144Decoder::appendResampledTo12k(const AudioBlock &block)
         m_captureGeneration = block.captureGeneration;
     }
 
-    const QVector<double> resampled = m_resampler.process(block.samples, block.sampleRate);
+    QVector<double> resampled = m_resampler.process(block.samples, block.sampleRate);
     m_totalInputSamples += block.samples.size();
     m_lastInputEndUtcNs = blockStartUtcNs +
         (static_cast<qint64>(block.samples.size()) * 1000000000LL) / qMax(1, block.sampleRate);
     if (resampled.isEmpty()) {
         return;
     }
+    m_noise.process(resampled); // IC8TEM: same length, delayed by m_noise.latencyNs()
 
     if (m_nextOutputUtcNs <= 0) {
-        m_nextOutputUtcNs = blockStartUtcNs - m_resampler.delayNanoseconds();
+        m_nextOutputUtcNs = blockStartUtcNs - m_resampler.delayNanoseconds() - m_noise.latencyNs();
         m_outputTimeRemainder = 0;
     }
 

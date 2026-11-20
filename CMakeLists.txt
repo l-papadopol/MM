@@ -314,6 +314,20 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # -------------------------------------------------------------------------
+# IC8TEM: RX noise blanker (NB2 / LPC) and MSK144 carrier notch, used by every
+# decoder before demodulation.
+# -------------------------------------------------------------------------
+add_library(madmodem_rx_noise STATIC
+    dsp/common/RxNoiseBlanker.h
+    dsp/common/RxNoiseBlanker.cpp
+)
+target_link_libraries(madmodem_rx_noise PUBLIC ${QT}::Core)
+set_target_properties(madmodem_rx_noise PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(madmodem_rx_noise PRIVATE -Wall -Wextra)
+endif()
+
+# -------------------------------------------------------------------------
 # Shared streaming resampler used by the native weak-signal engines and by
 # the application text-mode decoders. Keep the implementation in one target
 # so standalone regression executables link the exact same DSP code as MM.
@@ -374,7 +388,7 @@ target_include_directories(madmodem_msk144 PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port"
 )
 target_link_libraries(madmodem_msk144 PUBLIC madmodem_weak_signal_codec ${QT}::Core ${QT}::Widgets Threads::Threads)
-target_link_libraries(madmodem_msk144 PUBLIC madmodem_linear_resampler)
+target_link_libraries(madmodem_msk144 PUBLIC madmodem_linear_resampler madmodem_rx_noise)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(madmodem_msk144 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
 endif()
@@ -403,7 +417,7 @@ target_include_directories(madmodem_q65 PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mshv_gpl/port"
 )
 target_link_libraries(madmodem_q65 PUBLIC madmodem_weak_signal_codec ${QT}::Core ${QT}::Widgets Threads::Threads)
-target_link_libraries(madmodem_q65 PUBLIC madmodem_linear_resampler)
+target_link_libraries(madmodem_q65 PUBLIC madmodem_linear_resampler madmodem_rx_noise)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(madmodem_q65 PRIVATE -Wall -Wextra -Wno-unused-function -Wno-unused-variable -Wno-sign-compare -Wno-unused-parameter)
 endif()
@@ -448,6 +462,8 @@ add_executable(MadModem
     widgets/RadioTelescopeHeatmapWidget.cpp
     widgets/CwDiagnosticWidget.h
     widgets/CwDiagnosticWidget.cpp
+    widgets/RxNoiseBlankerMenu.h
+    widgets/RxNoiseBlankerMenu.cpp
     utils/RuntimeI18n.h
     utils/RuntimeI18n.cpp
     utils/CockpitTheme.h
@@ -749,6 +765,7 @@ target_link_libraries(MadModem PRIVATE
     madmodem_q65
     madmodem_weak_signal_codec
     madmodem_linear_resampler
+    madmodem_rx_noise
     ${QT}::Widgets
     ${QT}::SerialPort
     ${QT}::Multimedia
@@ -1104,6 +1121,11 @@ if(BUILD_TESTING)
     target_link_libraries(madmodem_decode_clipboard PRIVATE ${QT}::Widgets ${QT}::Test)
     add_test(NAME madmodem_decode_clipboard COMMAND madmodem_decode_clipboard)
     set_tests_properties(madmodem_decode_clipboard PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen" TIMEOUT 10)
+    add_executable(madmodem_rx_noise_blanker tests/RxNoiseBlankerRegression.cpp)
+    target_include_directories(madmodem_rx_noise_blanker PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(madmodem_rx_noise_blanker PRIVATE madmodem_rx_noise)
+    set_target_properties(madmodem_rx_noise_blanker PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    add_test(NAME madmodem_rx_noise_blanker COMMAND madmodem_rx_noise_blanker)
     add_executable(madmodem_ft_cq_worklist tests/FtCqWorkListRegression.cpp)
     target_include_directories(madmodem_ft_cq_worklist PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(madmodem_ft_cq_worklist PRIVATE ${QT}::Core)
@@ -1190,6 +1212,14 @@ if(BUILD_TESTING)
     target_link_libraries(madmodem_msk144_native_regression PRIVATE madmodem_msk144 ${QT}::Core)
     add_test(NAME madmodem_msk144_native_regression COMMAND madmodem_msk144_native_regression)
     set_tests_properties(madmodem_msk144_native_regression PROPERTIES TIMEOUT 180)
+
+    add_executable(madmodem_msk144_noise_blanker_regression
+        tests/Msk144NoiseBlankerRegression.cpp
+    )
+    target_include_directories(madmodem_msk144_noise_blanker_regression PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(madmodem_msk144_noise_blanker_regression PRIVATE madmodem_msk144 madmodem_rx_noise ${QT}::Core)
+    add_test(NAME madmodem_msk144_noise_blanker_regression COMMAND madmodem_msk144_noise_blanker_regression)
+    set_tests_properties(madmodem_msk144_noise_blanker_regression PROPERTIES TIMEOUT 180)
 
     find_package(Python3 COMPONENTS Interpreter QUIET)
     if(Python3_Interpreter_FOUND AND UNIX AND CMAKE_GENERATOR STREQUAL "Unix Makefiles")
