@@ -1523,8 +1523,10 @@ private:
     void invokeRigSetFrequency(double frequencyHz);
 
     QString ftSplitOperationKey() const;
+    QString weakSignalSplitLabel(int logicalTxHz) const; // IC8TEM
     int ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShiftHz = nullptr) const;
-    void prepareFtSplitForTx(std::function<void(bool)> completion);
+    void prepareFtSplitForTx(std::function<void(bool)> completion, int logicalTxHz = -1);
+    void keyPttForTxWithSplit(bool split, int logicalTxHz, std::function<void(bool)> completion); // IC8TEM
     void restoreFtSplitAfterTx();
 
     /**

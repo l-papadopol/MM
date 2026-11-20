@@ -21,6 +21,7 @@
 | **Reset fittizio del log**: i QSO prima di una data non contano per già lavorato, nuovo paese e nuovo quadrato. / Fictitious log reset for worked-before marks. | Tools |
 | **Durata del ping MSK144**: colonna "ms" nella lista MSK144. / MSK144 ping duration column. | MSK144 |
 | **Tema YA-NEC**: tema chiaro con lo stile di YA-NEC (barre blu scuro, pulsanti a pillola, riquadri bianchi). / Light theme in the YA-NEC style. | Settings › Logbook / FT colours › Theme |
+| **Split anche in MSK144 e Q65**: audio TX tra 1500 e 2000 Hz e frequenza TX spostata a passi di 500 Hz, come in WSJT-X/JTDX (Rig o Fake It). / Split Operation for MSK144 and Q65 too. | Settings › Audio / PTT / CAT › Split operation |
 | Aggiornamenti automatici da questo fork. / Updates come from this fork. | Help |
 
 **MadModem (MM)** è un'applicazione libera per radioamatori: modi digitali, audio,

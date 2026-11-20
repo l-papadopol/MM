@@ -11644,14 +11644,28 @@ int MainWindow::ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShift
     return audioHz;
 }
 
-void MainWindow::prepareFtSplitForTx(std::function<void(bool)> completion)
+// IC8TEM: the split shown in the MSK144/Q65 TX line, as in the FT one.
+QString MainWindow::weakSignalSplitLabel(int logicalTxHz) const
+{
+    const QString split = ftSplitOperationKey();
+    if (split == QStringLiteral("none")) return QString();
+    int rfShiftHz = 0;
+    const int audioHz = ftEffectiveTxAudioFrequency(logicalTxHz, &rfShiftHz);
+    return QStringLiteral(" -> AF %1 Hz, Split %2 (%3 Hz CAT)")
+        .arg(audioHz)
+        .arg(split == QStringLiteral("rig") ? QStringLiteral("Rig") : QStringLiteral("Fake It"))
+        .arg(rfShiftHz);
+}
+
+void MainWindow::prepareFtSplitForTx(std::function<void(bool)> completion, int logicalTxHz)
 {
     if(m_ftSplitRestoreFailed){completion(false);return;}
     const QString operation=ftSplitOperationKey();
     if(m_ftSplitPreparedForTx || operation==QStringLiteral("none")){completion(true);return;}
     if(!m_settings.hamlibCatEnabled || !m_rigController){completion(false);return;}
     int shift=0;
-    ftEffectiveTxAudioFrequency(m_spinFt8TxFreq?m_spinFt8TxFreq->value():m_settings.ft8TxFrequencyHz,&shift);
+    if(logicalTxHz<0)logicalTxHz=m_spinFt8TxFreq?m_spinFt8TxFreq->value():m_settings.ft8TxFrequencyHz;
+    ftEffectiveTxAudioFrequency(logicalTxHz,&shift);
     auto *controller=m_rigController;
     m_catCommand->request(controller,[controller,operation,shift](){return controller->beginFtSplitTx(operation,shift);},
         [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},
@@ -11672,6 +11686,26 @@ void MainWindow::restoreFtSplitAfterTx()
             appendLog(ok?QStringLiteral("FT Split: RX CAT state restored."):
                 QStringLiteral("FT Split ERROR: CAT could not fully restore the pre-TX RX/split state; further FT TX is blocked until the CAT state is restored or the rig is reconnected."));
         },3000,true);
+}
+
+// IC8TEM: MSK144 and Q65 use the Split Operation of FT4/FT8 too (WSJT-X/JTDX:
+// TX audio kept between 1500 and 2000 Hz, CAT shifted in 500 Hz steps). The
+// split is prepared before PTT and restored by unkeyPttAfterTx(); when the PTT
+// does not key, the dial is restored at once.
+void MainWindow::keyPttForTxWithSplit(bool split, int logicalTxHz, std::function<void(bool)> completion)
+{
+    if(!split){keyPttForTx(std::move(completion));return;}
+    prepareFtSplitForTx([this,completion](bool ok){
+        if(!ok){
+            appendLog(QStringLiteral("TX aborted: CAT split preparation failed or timed out."));
+            completion(false);
+            return;
+        }
+        keyPttForTx([this,completion](bool keyed){
+            if(!keyed)restoreFtSplitAfterTx();
+            completion(keyed);
+        });
+    },logicalTxHz);
 }
 
 void MainWindow::invokeRigSetFrequency(double frequencyHz)
@@ -14306,7 +14340,8 @@ void MainWindow::scheduleNativeWeakSignalPeriodTx()
         const int sampleRate = (m_settings.audioSampleRate == 44100 || m_settings.audioSampleRate == 48000 ||
                                 m_settings.audioSampleRate == 96000) ? m_settings.audioSampleRate : 48000;
         auto *frequency = msk144 ? m_spinMsk144TxFreq : m_spinQ65TxFreq;
-        const double hz = frequency ? frequency->value() : 1500;
+        // IC8TEM: with Split Operation the tone goes to 1500..2000 Hz, CAT moves the dial.
+        const double hz = ftEffectiveTxAudioFrequency(frequency ? frequency->value() : 1500);
         const bool shortMessage = msk144 && m_chkMsk144ShortMessages && m_chkMsk144ShortMessages->isChecked();
         const auto generation = ++m_nativeTxPreparationGeneration;
         m_txWaveformPreparer->prepareNative(msk144, message, sampleRate, periodSeconds,
@@ -24290,7 +24325,7 @@ void MainWindow::updateTxPreview()
         const int tx = (m_spinMsk144TxFreq != nullptr) ? m_spinMsk144TxFreq->value() : 1500;
         m_lblTxMode->setText(
             MadModemI18n::text(QStringLiteral("MSK144: RX %1 Hz, TX %2 Hz, %3 s"))
-                .arg(rx).arg(tx).arg(period));
+                .arg(rx).arg(tx).arg(period) + weakSignalSplitLabel(tx));
         m_txPreparedImage = QImage();
     } else if (Q65Mode::isFamilyMode(modeName)) {
         const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
@@ -24298,7 +24333,7 @@ void MainWindow::updateTxPreview()
         const int tx = (m_spinQ65TxFreq != nullptr) ? m_spinQ65TxFreq->value() : 1500;
         m_lblTxMode->setText(
             MadModemI18n::text(QStringLiteral("%1: RX %2 Hz, TX %3 Hz, %4 s"))
-                .arg(Q65Mode::modeName(currentQ65Submode())).arg(rx).arg(tx).arg(period));
+                .arg(Q65Mode::modeName(currentQ65Submode())).arg(rx).arg(tx).arg(period) + weakSignalSplitLabel(tx));
         m_txPreparedImage = QImage();
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
@@ -25036,7 +25071,10 @@ void MainWindow::startImageTx()
     const QString preparedMode=ui->cmbMode->currentText();
     m_txPreparationPending=true;
     updateTxControlState();
-    keyPttForTx([=](bool pttKeyed) mutable {
+    // IC8TEM: Split Operation for MSK144 and Q65, as for FT4/FT8.
+    const int weakSignalTxHz = msk144Mode ? (m_spinMsk144TxFreq ? m_spinMsk144TxFreq->value() : 1500)
+                                          : (m_spinQ65TxFreq ? m_spinQ65TxFreq->value() : 1500);
+    keyPttForTxWithSplit(msk144Mode || q65Mode, weakSignalTxHz, [=](bool pttKeyed) mutable {
         if (generation != m_txRequestGeneration || m_shutdownInProgress ||
             preparedMode != ui->cmbMode->currentText()) return;
         m_txPreparationPending=false;

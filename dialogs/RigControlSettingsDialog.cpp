@@ -463,7 +463,7 @@ void RigControlSettingsDialog::buildUi()
     m_cmbSplitOperation->addItem(QString(), QStringLiteral("none"));
     m_cmbSplitOperation->addItem(QString(), QStringLiteral("rig"));
     m_cmbSplitOperation->addItem(QString(), QStringLiteral("fake_it"));
-    m_cmbSplitOperation->setToolTip(L(QStringLiteral("FT4/FT8 only: keep TX audio between 1500 and 2000 Hz. Rig uses separate RX/TX VFOs; Fake It temporarily retunes a single VFO at each TX/RX transition.")));
+    m_cmbSplitOperation->setToolTip(L(QStringLiteral("FT4/FT8, MSK144 and Q65: keep TX audio between 1500 and 2000 Hz, moving the TX dial in 500 Hz steps (WSJT-X/JTDX). Rig uses separate RX/TX VFOs; Fake It temporarily retunes a single VFO at each TX/RX transition.")));
 
     m_lblTransmitAudioSource = new QLabel(catGroup);
     m_cmbTransmitAudioSource = new QComboBox(catGroup);
@@ -1007,7 +1007,7 @@ void RigControlSettingsDialog::refreshLabels()
         m_cmbSplitOperation->setItemText(0, L("None"));
         m_cmbSplitOperation->setItemText(1, L("Rig"));
         m_cmbSplitOperation->setItemText(2, L("Fake It"));
-        m_cmbSplitOperation->setToolTip(L("FT4/FT8 only: keep TX audio between 1500 and 2000 Hz. Rig uses separate RX/TX VFOs; Fake It temporarily retunes a single VFO at each TX/RX transition."));
+        m_cmbSplitOperation->setToolTip(L("FT4/FT8, MSK144 and Q65: keep TX audio between 1500 and 2000 Hz, moving the TX dial in 500 Hz steps (WSJT-X/JTDX). Rig uses separate RX/TX VFOs; Fake It temporarily retunes a single VFO at each TX/RX transition."));
         if (current >= 0) m_cmbSplitOperation->setCurrentIndex(current);
     }
     if (m_lblTransmitAudioSource != nullptr) {

@@ -210,3 +210,21 @@ KEYS.update({
                           'Ping-varighet i ms (trinn på 20 ms): hvor lenge MSK144-båndet lå 3 dB over støyen i perioden rundt den dekodede rammen.',
                           'Délka pingu v ms (kroky 20 ms): jak dlouho bylo pásmo MSK144 kolem dekódovaného rámce 3 dB nad šumem periody.'),
 })
+
+# Split Operation for MSK144 and Q65 too (WSJT-X/JTDX style), RigControlSettingsDialog / mainwindow.
+KEYS.update({
+    'text.ft4_ft8_msk144_and_q65_keep_tx_audio_between_1500_and_2000_hz_moving_the_tx_dial_in_500_hz': _t(
+        'FT4/FT8, MSK144 and Q65: keep TX audio between 1500 and 2000 Hz, moving the TX dial in 500 Hz steps (WSJT-X/JTDX). Rig uses separate RX/TX VFOs; Fake It temporarily retunes a single VFO at each TX/RX transition.',
+        "FT4/FT8, MSK144 e Q65: mantiene l'audio TX tra 1500 e 2000 Hz spostando la frequenza TX a passi di 500 Hz (come WSJT-X/JTDX). Rig usa VFO RX/TX separati; Fake It risintonizza temporaneamente un singolo VFO a ogni transizione TX/RX.",
+        "FT4/FT8, MSK144 et Q65 : maintient l'audio TX entre 1500 et 2000 Hz en déplaçant la fréquence TX par pas de 500 Hz (WSJT-X/JTDX). Rig utilise des VFO RX/TX séparés ; Fake It réaccorde temporairement un seul VFO à chaque transition TX/RX.",
+        'FT4/FT8, MSK144 und Q65: Hält das TX-Audio zwischen 1500 und 2000 Hz und verschiebt die TX-Frequenz in 500-Hz-Schritten (WSJT-X/JTDX). Rig verwendet getrennte RX/TX-VFOs; Fake It stimmt bei jedem TX/RX-Wechsel vorübergehend einen einzelnen VFO um.',
+        'FT4/FT8, MSK144 og Q65: holder TX-lyden mellom 1500 og 2000 Hz og flytter TX-frekvensen i steg på 500 Hz (WSJT-X/JTDX). Rig bruker separate RX/TX-VFO-er; Fake It stiller midlertidig om én VFO ved hver TX/RX-overgang.',
+        'FT4/FT8, MSK144 a Q65: udržuje TX audio mezi 1500 a 2000 Hz a posouvá TX kmitočet v krocích po 500 Hz (WSJT-X/JTDX). Rig používá oddělené RX/TX VFO; Fake It dočasně přelaďuje jeden VFO při každém přechodu TX/RX.'),
+    'log.tx_aborted_cat_split_preparation_failed_or_timed_out': _t(
+        'TX aborted: CAT split preparation failed or timed out.',
+        'TX annullata: la preparazione dello split via CAT non è riuscita o è scaduta.',
+        'TX annulée : la préparation du split par CAT a échoué ou a expiré.',
+        'TX abgebrochen: Die Split-Vorbereitung über CAT ist fehlgeschlagen oder abgelaufen.',
+        'TX avbrutt: split-forberedelsen via CAT feilet eller fikk tidsavbrudd.',
+        'TX zrušeno: příprava splitu přes CAT selhala nebo vypršel čas.'),
+})

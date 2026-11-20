@@ -20,6 +20,9 @@ funzioni di [MSHV-IC8TEM](https://github.com/ic8tem/MSHV-IC8TEM).
   Strumenti); colonna "ms" con la durata del ping nella lista MSK144.
 - **Tema YA-NEC** (Impostazioni › Logbook / colori FT › Tema): tema chiaro con lo stile di
   YA-NEC: barre blu scuro, pulsanti a pillola, riquadri bianchi arrotondati.
+- **Split anche in MSK144 e Q65** (Impostazioni › Audio / PTT / CAT › Operazione split: Rig o
+  Fake It): come in WSJT-X/JTDX l'audio TX resta tra 1500 e 2000 Hz e la frequenza TX si
+  sposta a passi di 500 Hz, come già in FT8/FT4.
 - Gli aggiornamenti automatici arrivano da questo fork.
 
 **English.** Noise blanker before every decoder (Decode › Noise Blanker: NR0V NB2 style or
@@ -27,7 +30,8 @@ DL2FW linear prediction, three thresholds; pings, keyed CW and FT/Q65 tones are 
 blanked) and MSK144 carrier notch (ZAP). Tools menu: Power and SWR (RF power, Po/SWR/ALC
 meters, SWR protection), locator sources for the DX call, LoTW users, FT call-again,
 fictitious log reset. MSK144 ping duration column. YA-NEC light theme (Settings ›
-Logbook / FT colours › Theme). Updates come from this fork.
+Logbook / FT colours › Theme). Split Operation (Rig / Fake It, WSJT-X/JTDX style) for
+MSK144 and Q65 too. Updates come from this fork.
 
 Pacchetti / Packages: Windows (installer and portable), Ubuntu 24.04 / Mint 22 (RUN, DEB,
 portable), Fedora 43 (RUN, RPM, portable), macOS 15+ Intel and Apple Silicon (PKG, DMG, ZIP).
