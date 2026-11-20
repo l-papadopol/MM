@@ -1,78 +1,64 @@
-# MadModem 0.6.5 — edizione IC8TEM
-
-> **Edizione IC8TEM** di MadModem, a cura di **Costantino Cerrotta, IC8TEM**: il programma
-> di IZ6NNH con in più le funzioni che IC8TEM ha sviluppato per la sua versione di MSHV
-> ([MSHV-IC8TEM](https://github.com/ic8tem/MSHV-IC8TEM)). Le modifiche sono in commit
-> separati, a disposizione dell'autore. Scaricate questa edizione dalle
-> [Releases del fork](https://github.com/ic8tem/MM/releases); il programma originale è su
-> [l-papadopol/MM](https://github.com/l-papadopol/MM).
->
-> **IC8TEM edition** of MadModem by Costantino Cerrotta, IC8TEM: IZ6NNH's program plus the
-> features IC8TEM developed for MSHV-IC8TEM. Downloads: [fork releases](https://github.com/ic8tem/MM/releases).
-
-| Aggiunta / Addition | Dove / Where |
-| --- | --- |
-| **Noise blanker**: toglie gli impulsi (QRN, scintille, alimentatori switching) dall'audio prima di ogni decodificatore. NB2 alla NR0V (consigliato) o predizione lineare DL2FW, tre soglie; ping MSK144, CW manipolato e toni FT/Q65 mai toccati. / Impulse blanker before every decoder, NR0V NB2 style or DL2FW linear prediction. | Decode › Noise Blanker |
-| **Notch delle portanti MSK144 (ZAP)**: portanti fisse e birdie tolti con notch di 10 Hz; un segnale MSK continuo non viene mai filtrato. / MSK144 carrier notch. | Decode › MSK144 Carrier Notch (ZAP) |
-| **Potenza e ROS**: potenza RF via CAT Hamlib con preset, −1/+1 e memoria per banda; misure Po, ROS e ALC in trasmissione; Tune a potenza ridotta; protezione ROS. / RF power, Po/SWR/ALC meters, tune power and SWR protection through Hamlib. | Tools › Power and SWR |
-| **Fonti del locatore**: locatore del DX dalle decodifiche ricevute, da CALL3.TXT (WSJT-X Improved, W7GJ EME), da JTDX o online (G7VRD), con l'indicazione della fonte. / Locator lookup for the DX call. | Tools › Locator sources |
-| **Utenti LoTW**: lista ARRL, pallino accanto agli utenti LoTW nella lista FT e filtro "solo utenti LoTW". / LoTW users marker and FT filter. | Tools › LoTW users |
-| **FT: richiama il DX quando viene decodificato**: dopo lo stop la trasmissione riparte se il DX torna a farsi sentire (massimo 3 volte). / FT call-again. | Tools |
-| **Reset fittizio del log**: i QSO prima di una data non contano per già lavorato, nuovo paese e nuovo quadrato. / Fictitious log reset for worked-before marks. | Tools |
-| **Durata del ping MSK144**: colonna "ms" nella lista MSK144. / MSK144 ping duration column. | MSK144 |
-| **Tema YA-NEC**: tema chiaro con lo stile di YA-NEC (barre blu scuro, pulsanti a pillola, riquadri bianchi). / Light theme in the YA-NEC style. | Settings › Logbook / FT colours › Theme |
-| **Split Fake It di serie** (con il CAT attivo), anche in MSK144 e Q65: audio TX tra 1500 e 2000 Hz e frequenza TX spostata a passi di 500 Hz, come in WSJT-X/JTDX. / Fake It split by default with CAT, for FT8/FT4, MSK144 and Q65. | Settings › Audio / PTT / CAT › Split operation |
-| **Windows: tutto in C:\MadModem-tem** (programma e, nella cartella data, impostazioni, log e liste), separato dal MadModem originale; i dati delle versioni precedenti vengono spostati da AppData. / Windows: everything in C:\MadModem-tem, separate from the original. | Setup |
-| Aggiornamenti automatici da questo fork. / Updates come from this fork. | Help |
+# MadModem 0.6.6
 
 **MadModem (MM)** è un'applicazione libera per radioamatori: modi digitali, audio,
-waterfall, controllo della radio e del rotore, logbook e mappe in un unico programma.
+waterfall, controllo radio e rotore, logbook ADIF e mappe in un unico programma Qt.
 Sviluppato da **Lucian-Ioan Papadopol, IZ6NNH** — [madexp.it](https://www.madexp.it).
 
-**MadModem** is free amateur-radio software combining digital modes, a waterfall,
-CAT/PTT, antenna rotator control and an ADIF logbook in one Qt desktop application.
+Free amateur-radio software combining digital modes, CAT/PTT, antenna rotator
+control and logging. Interface and built-in help are available in six languages.
 
-## Funzioni / Features
+## Funzioni
 
 - FT8, FT4, MSK144, Q65, CW, RTTY, BPSK/QPSK, MFSK, Feld Hell, SSTV e WEFAX.
-- FT8/FT4 QSO sequencer, CQ queues, Evil Auto QSO and Doppler correction.
-- CW native/neural receivers, CW/RTTY skimmers, audio CW and serial keying.
-- Hamlib CAT/PTT, rotator tracking, station/DX information, QSO maps and UTC scheduler.
-- ADIF logging, contest tools, macro messages, WAV recording and offline analysis.
-- Help and interface in English, Italian, French, German, Norwegian and Czech.
+- Sequencer FT8/FT4, code CQ con priorità, Evil Auto QSO e correzione Doppler.
+- Noise blanker RX selezionabile e notch delle portanti MSK144; durata dei ping.
+- CAT/PTT Hamlib, split Rig/Fake It, potenza RF per banda e strumenti Po/ROS/ALC.
+- Ricevitori CW nativo e neurale, skimmer CW/RTTY, manipolazione audio e seriale.
+- Logbook ADIF, strumenti contest, fonti del locatore, indicatori e filtro LoTW.
+- Mappe QSO, inseguimento rotore, scheduler UTC, macro, registrazione e analisi WAV.
+- Temi grafici, incluso YA-NEC; log operativo e diagnostica di sessione compressa.
 
-## Download e installazione / Downloads
+I contributi di **Costantino Cerrotta, IC8TEM** sono integrati in MadModem.
+Funzioni e comandi sono descritti nella [guida agli strumenti](docs/FEATURES.md).
+Crediti completi in [AUTHORS.md](AUTHORS.md).
 
-Scaricare il pacchetto dalla pagina [Releases](https://github.com/ic8tem/MM/releases) (edizione IC8TEM).
+## Download e installazione
 
-| Sistema / System | Download |
-| --- | --- |
-| Windows x64 | AutoCPU EXE installer; Compatible or AVX2/FMA portable ZIP |
-| Ubuntu 24.04 / Mint 22.x x64 | RUN, DEB, portable TAR.GZ/ZIP |
-| Fedora 43 x64 | RUN, RPM, portable TAR.GZ/ZIP |
-| macOS 15+ Intel / Apple Silicon | PKG, app ZIP, DMG |
+Scaricare i pacchetti da [GitHub Releases](https://github.com/l-papadopol/MM/releases).
+Anche il controllo aggiornamenti del programma utilizza questo repository.
 
-Select the package for your system and processor. Linux packages target the named
-base distribution. Portable Linux: extract into a writable folder and run `AppRun`.
-Installation details and user-data paths: [Installation](docs/INSTALLATION.md).
+| Sistema | Installer | Portabile |
+| --- | --- | --- |
+| Windows x64 | EXE AutoCPU | ZIP Compatible o AVX2/FMA |
+| Ubuntu 24.04 / Mint 22.x x64 | RUN, DEB | TAR.GZ, ZIP |
+| Fedora 43 x64 | RUN, RPM | TAR.GZ, ZIP |
+| macOS 15+ Intel / Apple Silicon | PKG | App ZIP, DMG |
 
-## Primo avvio / First run
+Su Windows l'installer usa il nome **MadModem**, il percorso predefinito
+`%LOCALAPPDATA%\Programs\MadModem` e le cartelle dati personali di sistema.
+Percorsi, aggiornamenti e passaggio da precedenti installazioni:
+[installazione](docs/INSTALLATION.md).
 
-1. Enter your callsign and locator in Settings → User/QTH.
-2. Configure audio devices, CAT and PTT; check radio control and RX before TX.
-3. Select a mode, start RX and adjust the input level without clipping.
-4. For FT8/FT4, synchronize UTC. Check the selected correspondent and TX message.
-5. Open the built-in Help for mode-specific instructions. Stop cancels TX and automation.
+I pacchetti Linux richiedono una base compatibile con quella indicata.
+Per la versione portabile Linux, estrarre l'archivio e avviare `AppRun`.
 
-The title shows both version and build. Evil automation decisions are recorded in
-Runtime log; complete compressed session logging is available in Settings → Diagnostics.
-See [Troubleshooting](docs/TROUBLESHOOTING.md).
+## Primo avvio
 
-## Sorgenti / Source
+1. Inserire nominativo e locatore in Settings → User/QTH.
+2. Configurare audio, CAT e PTT; verificare ricezione e controllo radio.
+3. Selezionare il modo, avviare RX e regolare il livello senza saturazione.
+4. Per FT8/FT4 sincronizzare UTC e controllare interlocutore e messaggio TX.
+5. Consultare l'Aiuto integrato per i singoli modi e le automazioni.
 
-- [Build instructions](docs/BUILDING.md)
-- [GitHub distribution workflow](docs/DISTRIBUTION.md)
-- [Documentation](docs/README.md) · [Release notes](RELEASE_NOTES.md)
+Il titolo mostra versione e build. Le decisioni di Evil Auto QSO sono consultabili
+nel Runtime log; la diagnostica completa si abilita in Settings → Diagnostics.
+Consultare [risoluzione dei problemi](docs/TROUBLESHOOTING.md).
 
-Licensed under GNU GPLv3; see [COPYING](COPYING), [LICENSE.md](LICENSE.md),
-[authors](AUTHORS.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+## Sorgenti e documentazione
+
+- [Compilazione](docs/BUILDING.md)
+- [Pacchetti e workflow GitHub](docs/DISTRIBUTION.md)
+- [Documentazione](docs/README.md) · [Novità](RELEASE_NOTES.md)
+
+Licenza GNU GPLv3: [COPYING](COPYING), [LICENSE.md](LICENSE.md) e
+[attribuzioni dei componenti](THIRD_PARTY_NOTICES.md).

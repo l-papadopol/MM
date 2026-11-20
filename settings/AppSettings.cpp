@@ -323,7 +323,7 @@ void AppSettings::load()
         hamlibSplitOperation != "fake_it") {
         hamlibSplitOperation = "none";
     }
-    // IC8TEM edition: the "none" saved by MadModem before this edition (its
+    // The "none" saved by MadModem before the IC8TEM contribution (its
     // default) becomes Fake It once; a None chosen afterwards is kept.
     if (hamlibSplitOperation == "none" && !settings.value("Hamlib/splitDefaultIc8tem", false).toBool()) {
         hamlibSplitOperation = "fake_it";

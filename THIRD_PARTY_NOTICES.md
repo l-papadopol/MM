@@ -10,9 +10,9 @@ Original MadModem material not otherwise credited to a third-party project is pa
 
 The project uses an AI-assisted coding workflow under human direction. The author remains responsible for the product concept, requirements, testing and release decisions.
 
-## IC8TEM edition
+## Contributions by IC8TEM
 
-Changes of the IC8TEM edition: **Costantino Cerrotta, IC8TEM** — https://github.com/ic8tem/MM, GPLv3.
+Integrated contributions: **Costantino Cerrotta, IC8TEM** — https://github.com/ic8tem/MM, GPLv3.
 They port features of MSHV-IC8TEM (https://github.com/ic8tem/MSHV-IC8TEM, GPLv3).
 
 ### Noise blanker (`dsp/common/RxNoiseBlanker.*`)
@@ -20,7 +20,7 @@ They port features of MSHV-IC8TEM (https://github.com/ic8tem/MSHV-IC8TEM, GPLv3)
 - NB2 impulse blanker: method of the "NB2" noise blanker of WDSP — Warren Pratt, NR0V —
   https://github.com/TAPR/OpenHPSDR-wdsp, GPL v2 or later (detection against the average
   level, advance/hang times, raised-cosine slews). The C++ code is new, changed so that
-  meteor-scatter pings and keyed signals are never blanked.
+  meteor-scatter pings and keyed signals have additional detection safeguards.
 - Linear prediction blanker: port of `alt_noise_blanking()` — Michael Wild, DL2FW — UHSDR
   firmware, https://github.com/df8oe/UHSDR, GPLv3; double precision and plain C++, robust
   threshold for digital signals.

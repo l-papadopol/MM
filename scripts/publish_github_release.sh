@@ -56,7 +56,7 @@ missing_macos_arm64=false
 for arch in x86_64 arm64; do
     cpu=Intel
     [[ "$arch" != arm64 ]] || cpu=AppleSilicon
-    # IC8TEM edition: GitHub sometimes has no macOS arm64 runner for hours. With
+    # GitHub sometimes has no macOS arm64 runner for hours. With
     # MADMODEM_RELEASE_OPTIONAL_MACOS_ARM64=1 a build whose arm64 packages are not
     # all there is published without them (and says so); every other package is
     # still required.
@@ -86,7 +86,7 @@ packages+=("$publish_dir/SHA256SUMS.txt")
 prerelease=false
 create_options=()
 edit_options=()
-# Optional edition name in the release title (a fork such as "IC8TEM").
+# Optional downstream release-title suffix; official builds leave this empty.
 edition="${MADMODEM_RELEASE_EDITION:-}"
 if [[ "${GITHUB_REF_TYPE:-}" == tag ]]; then
     tag="$GITHUB_REF_NAME"

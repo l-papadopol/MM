@@ -1,6 +1,7 @@
-# MadModem 0.6.5 documentation
+# MadModem 0.6.6 documentation
 
 - [Installation and user data](INSTALLATION.md)
+- [Receiver, station and logbook tools](FEATURES.md)
 - [Troubleshooting and automation logs](TROUBLESHOOTING.md)
 - [Building from source](BUILDING.md)
 - [GitHub packages and releases](DISTRIBUTION.md)

@@ -1,4 +1,4 @@
-# GitHub distribution — MadModem 0.6.5
+# GitHub distribution — MadModem 0.6.6
 
 Copy the complete source directory contents into the repository root, including
 `.github`. To clean up documents left after overlaying an older source tree,
@@ -10,10 +10,12 @@ repository maintenance operation and does not block compilation or packaging.
 
 **Build installers** runs on main/master pushes, version tags and manual dispatch.
 It builds Windows UCRT64, Ubuntu 24.04, Fedora 43 and both macOS architectures.
-After all jobs succeed, it publishes portable archives, EXE/RUN/DEB/RPM/PKG
-installers and SHA256SUMS. Native Linux packages are the same payloads wrapped by RUN.
+It publishes portable archives, EXE/RUN/DEB/RPM/PKG installers and SHA256SUMS
+after the required package checks pass. If the optional Apple Silicon packages
+are unavailable, publication may proceed with an explicit notice in the release.
+Native Linux packages are the same payloads wrapped by RUN.
 
-A branch build creates a numbered prerelease (`build-0.6.5-N`). Tag `v0.6.5` creates
+A branch build creates a numbered prerelease (`build-0.6.6-N`). Tag `v0.6.6` creates
 a version release. The tag must match all source metadata; the source-check job
 rejects mixed versions. Run the workflow on the new commit, not an older run.
 Only the publish job requests `contents: write`; the normal GitHub token is used.

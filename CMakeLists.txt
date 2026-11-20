@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(MadModem
-    VERSION 0.6.5
+    VERSION 0.6.6
     LANGUAGES CXX
 )
 
@@ -474,8 +474,6 @@ add_executable(MadModem
     utils/RuntimeI18n.cpp
     utils/CockpitTheme.h
     utils/CockpitTheme.cpp utils/WindowResize.cpp
-    utils/LocalDataMigration.h
-    utils/LocalDataMigration.cpp
     utils/SystemResourceManager.h
     utils/SystemResourceManager.cpp
     dsp/DspEngine.h

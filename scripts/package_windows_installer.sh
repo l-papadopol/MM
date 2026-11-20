@@ -12,8 +12,8 @@ for variant in legacy avx2; do
     mkdir -p "$work/$variant"
     cp -a "$source_dir/." "$work/$variant/"
     printf 'Managed installation; updates are installed with the setup program.\n' > "$work/$variant/bin/managed-install.flag"
-    # IC8TEM edition: the user data lives in the "data" folder of the installation.
-    printf 'IC8TEM edition: user data is kept in the data folder of this installation.\n' > "$work/$variant/bin/local-data.flag"
+    # Do not propagate an old edition marker from a reused portable payload.
+    rm -f "$work/$variant/bin/local-data.flag"
     # The installer supplies real shortcuts; remove portable-only instructions.
     rm -f "$work/$variant/RUN_WINDOWS.txt"
 done

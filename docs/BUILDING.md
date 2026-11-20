@@ -1,4 +1,4 @@
-# Building MadModem 0.6.5
+# Building MadModem 0.6.6
 
 Use a C++17 compiler, CMake 3.16+, Qt 5.15 or Qt 6, Hamlib, FFTW3 double precision
 and zlib development libraries. Qt modules: Widgets, Network, Multimedia, SerialPort,

@@ -1,4 +1,4 @@
-# Architecture — MadModem 0.6.5
+# Architecture — MadModem 0.6.6
 
 MadModem is a C++17 Qt Widgets application. Audio capture and bounded decoder
 queues run independently of GUI rendering. CAT/PTT, waveform preparation and

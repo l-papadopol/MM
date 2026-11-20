@@ -1,1 +1,1 @@
-0.6.5-ic8tem-r1-edition
+0.6.6-source-r1-integrated

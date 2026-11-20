@@ -1,4 +1,4 @@
-# MSK144 implementation status — 0.6.5
+# MSK144 implementation status — 0.6.6
 
 The active MSK144 decoder is the self-contained implementation in:
 

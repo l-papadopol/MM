@@ -116,9 +116,8 @@ checks = {
         and "rig_get_split_mode" in controller
         and "rig_set_split_mode" in controller
     ),
-    # IC8TEM edition: Fake It is the default, but only with CAT; upstream keeps
-    # the split opt-in.
-    "Split is opt-in (upstream) or Fake It only with CAT (IC8TEM edition)": (
+    # Fake It is the default; CAT remains required for split.
+    "Split requires CAT and supports the saved None choice": (
         ('QString hamlibSplitOperation = "none";' in all_relevant
          or ('QString hamlibSplitOperation = "fake_it";' in all_relevant
              and 'if (!m_settings.hamlibCatEnabled) return QStringLiteral("none");' in main))

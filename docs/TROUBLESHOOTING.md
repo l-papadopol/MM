@@ -1,4 +1,4 @@
-# Troubleshooting — MadModem 0.6.5
+# Troubleshooting — MadModem 0.6.6
 
 Include the complete window title or `MadModem --build-info`, operating system,
 mode, radio/audio configuration and the time of the problem in a report.

@@ -24,8 +24,15 @@ manual coding.
 
 ## Third-party projects
 
-See `THIRD_PARTY_NOTICES.md`, `docs/SOURCE_AUDIT.md` and the notice/license files preserved under `third_party/` for upstream material and reference trees.
+See `THIRD_PARTY_NOTICES.md`, `docs/provenance/` and the notice/license files preserved under `third_party/` for upstream material and reference trees.
 
 ## Testing and ideas
 
 **IK7IMK Nick** — principal tester; extensive testing, valuable advice and new ideas.
+
+## Contributions
+
+**Costantino Cerrotta, IC8TEM** — RX noise blanker, MSK144 carrier notch and
+ping duration, Power and SWR window, locator sources, LoTW users, FT call-again,
+worked-before reset, YA-NEC theme and CAT/split improvements. Some features were
+ported from his MSHV-IC8TEM work; see THIRD_PARTY_NOTICES.md for provenance.

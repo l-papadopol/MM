@@ -1,9 +1,22 @@
 #include "../utils/InstallationPaths.h"
 #include <QTemporaryDir>
 #include <QTextStream>
+#include <QProcess>
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
+    app.setApplicationName(QStringLiteral("MadModem"));
+    if (app.arguments().contains(QStringLiteral("--standard-paths-probe"))) {
+        for (const auto type : {QStandardPaths::AppConfigLocation,
+                                QStandardPaths::AppLocalDataLocation,
+                                QStandardPaths::CacheLocation}) {
+            if (MadModemInstallation::writableLocation(type) != QStandardPaths::writableLocation(type))
+                return 2;
+        }
+        const QString expected = QDir(QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation))
+                                     .filePath(QStringLiteral("settings.mad"));
+        return MadModemInstallation::settingsFilePath() == expected ? 0 : 3;
+    }
     QTemporaryDir storage;
     if (!storage.isValid()) return 1;
     bool all = true;
@@ -15,6 +28,22 @@ int main(int argc, char **argv) {
     };
     auto read = [](const QString &path) { QFile file(path); file.open(QIODevice::ReadOnly); return file.readAll(); };
     const QString install = storage.filePath("application"), user = storage.filePath("user/data");
+    const QString probeDir = storage.filePath("obsolete-edition/bin");
+    QDir().mkpath(probeDir);
+    const QString probe = probeDir + "/path-probe"
+#ifdef Q_OS_WIN
+                          ".exe"
+#endif
+                          ;
+    check(QFile::copy(QCoreApplication::applicationFilePath(), probe) &&
+          write(probeDir + "/managed-install.flag", "managed") &&
+          write(probeDir + "/local-data.flag", "obsolete"), "obsolete edition marker fixture");
+    QProcess process;
+    process.start(probe, {QStringLiteral("--standard-paths-probe")});
+    const bool finished = process.waitForFinished(10000);
+    check(finished && process.exitStatus() == QProcess::NormalExit && process.exitCode() == 0,
+          "obsolete local-data marker cannot redirect managed settings or data");
+    if (!finished) { process.kill(); process.waitForFinished(); }
     QDir().mkpath(install);
     check(!MadModemInstallation::isManaged(install), "portable builds retain portable behavior");
     check(write(install + "/managed-install.flag", "managed"), "managed marker created");

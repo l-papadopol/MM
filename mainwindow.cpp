@@ -1560,10 +1560,6 @@ MainWindow::MainWindow(QWidget *parent)
     appendLog("MM started.");
     appendLog(QStringLiteral("MadModem %1 | build %2 | source %3 | commit %4").arg(QStringLiteral(MADMODEM_VERSION_STRING), QStringLiteral(MADMODEM_BUILD_NUMBER), QStringLiteral(MADMODEM_SOURCE_REVISION), QStringLiteral(MADMODEM_BUILD_COMMIT)));
     appendLog("Settings file: " + AppSettings::settingsFilePath());
-    {
-        const QString localDataReport = qApp->property("mmLocalDataReport").toString(); // IC8TEM
-        if (!localDataReport.isEmpty()) appendLog(localDataReport);
-    }
     appendLog("Receiver is ready. Use Status → ▶ RX to start live decoding, or analyze a WAV test file from the mode panel.");
     updateMainStateButton();
 }
@@ -11620,7 +11616,7 @@ void MainWindow::requestRigPtt(bool enabled, std::function<void(bool)> completio
 
 QString MainWindow::ftSplitOperationKey() const
 {
-    // IC8TEM edition: Fake It is the default split, so without CAT there is no
+    // Fake It is the default split, so without CAT there is no
     // split at all (TX on the audio frequency of the page, as with None).
     if (!m_settings.hamlibCatEnabled) return QStringLiteral("none");
     QString key = m_settings.hamlibSplitOperation.trimmed().toLower();
@@ -23177,11 +23173,11 @@ void MainWindow::showAboutMadModem()
         "<p><b>Includes:</b> CAT/PTT via Hamlib/HRD, rotator control, "
         "Radio Telescope, ADIF logbook, QSO map and bundled third-party "
         "open-source components.</p>"
-        "<p><b>IC8TEM edition:</b> Costantino Cerrotta, IC8TEM — "
-        "github.com/ic8tem/MM<br>"
-        "Noise blanker (NR0V NB2 / DL2FW LPC) and MSK144 carrier notch, "
-        "ported from MSHV-IC8TEM.</p>"
-        "<p>See <tt>LICENSE</tt> and "
+        "<p><b>Contributor:</b> Costantino Cerrotta, IC8TEM<br>"
+        "Noise blanker, MSK144 carrier notch and ping duration, power/SWR/ALC, "
+        "locator sources, LoTW users, FT call-again, log reset, YA-NEC theme "
+        "and CAT/split improvements, including features ported from MSHV-IC8TEM.</p>"
+        "<p>See <tt>LICENSE.md</tt> and "
         "<tt>THIRD_PARTY_NOTICES.md</tt> for full legal notices.</p>"));
     outer->addWidget(body, 1);
 

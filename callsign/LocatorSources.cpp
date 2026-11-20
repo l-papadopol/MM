@@ -6,7 +6,7 @@
  */
 
 #include "../MadModemVersion.h"
-// The IC8TEM edition defines these in MadModemVersion.h; defaults for a tree without them.
+// Application identity comes from MadModemVersion.h; defaults support standalone builds.
 #ifndef MADMODEM_EDITION
 #define MADMODEM_EDITION ""
 #endif

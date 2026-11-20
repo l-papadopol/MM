@@ -1,7 +1,7 @@
-# Installation — MadModem 0.6.5
+# Installation — MadModem 0.6.6
 
 Download the installer or portable package matching your system from
-[GitHub Releases](https://github.com/ic8tem/MM/releases). Close MM before installation.
+[GitHub Releases](https://github.com/l-papadopol/MM/releases). Close MM before installation.
 
 | System | Installer | Portable |
 | --- | --- | --- |
@@ -19,20 +19,27 @@ Windows packages are unsigned; macOS packages are ad-hoc signed.
 
 ## Settings, logbook and updates
 
-Managed installations use per-user directories, except the Windows installer of the
-IC8TEM edition: it installs into `C:\MadModem-tem` (separate from the original
-MadModem) and keeps settings, logbook, downloaded lists and diagnostics in
-`C:\MadModem-tem\data`. At the first start the edition moves there what earlier
-builds kept in `%LOCALAPPDATA%\MadModem` and `%APPDATA%\MadModem` (it copies them
-instead when the original MadModem is installed); the setup removes an earlier
-installation of the edition made under the original MadModem's name.
+The Windows installer uses the original **MadModem** identity and upgrade AppId.
+The default program directory is `%LOCALAPPDATA%\Programs\MadModem`; an existing
+installation directory is respected. Managed installations use per-user system
+directories for settings, logbook, downloaded lists and diagnostics.
 
 | System | Settings | Default logbook |
 | --- | --- | --- |
-| Windows, IC8TEM edition | `C:/MadModem-tem/data/settings.mad` | `C:/MadModem-tem/data/logbook.adi` |
-| Windows, original MadModem | `%LOCALAPPDATA%/MadModem/settings.mad` | `%LOCALAPPDATA%/MadModem/logbook.adi` |
+| Windows | `%LOCALAPPDATA%/MadModem/settings.mad` | `%LOCALAPPDATA%/MadModem/logbook.adi` |
 | Linux | `~/.config/MadModem/settings.mad` | `~/.local/share/MadModem/logbook.adi` |
 | macOS | `~/Library/Preferences/MadModem/settings.mad` | `~/Library/Application Support/MadModem/logbook.adi` |
+
+### Existing IC8TEM-edition installations
+
+Version 0.6.6 no longer relocates AppData or uses `local-data.flag`. Existing
+standard MadModem data remains in use. If you used the separate edition in
+`C:\MadModem-tem`, back up its `data` folder before switching. With both programs
+closed, copy needed settings and downloaded lists into the corresponding per-user
+folders; preserve existing files rather than overwriting newer data. Import any
+additional ADIF QSOs through the logbook and check custom logbook/recording paths
+in Settings. The new installer does not uninstall that separate edition or erase
+its data. Remove the old installation only after checking your settings and QSOs.
 
 Linux XDG overrides and explicitly chosen logbook paths are respected. Portable
 copies retain executable-adjacent data. Back up settings, ADIF files and recordings
