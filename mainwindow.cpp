@@ -3,6 +3,7 @@
 #include "modems/ft8/FtDiagnostics.h"
 #include "widgets/DecodeTableClipboard.h"
 #include "widgets/RxNoiseBlankerMenu.h"
+#include "rig/PowerSwrWindow.h"
 #include "callsign/QrzLookupPanel.h"
 #include "updates/UpdateController.h"
 #include "logbook/AsyncLogbook.h"
@@ -9720,6 +9721,8 @@ void MainWindow::setupProcessingConnections()
                 },
                 Qt::QueuedConnection);
     }
+
+    installPowerSwrWindow(); // IC8TEM
 
     connect(m_weatherFaxDecoder, &WeatherFaxDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -24549,6 +24552,20 @@ void MainWindow::updateTxControlState()
 
 void MainWindow::keyPttForTx(std::function<void(bool)> completion)
 {
+    // IC8TEM: the SWR protection blocks every TX until Unlock; a keyed TX starts
+    // the meters (and the tune power for an FT Tune).
+    if (m_powerSwr != nullptr && m_powerSwr->txBlocked()) {
+        appendLog(QStringLiteral("TX blocked by the SWR protection: %1").arg(m_powerSwr->blockReason()));
+        completion(false);
+        return;
+    }
+    {
+        const bool tune = m_pendingFt8TxPlan.tune;
+        completion = [this, tune, inner = std::move(completion)](bool ok) {
+            if (ok) powerSwrTxStarted(tune);
+            inner(ok);
+        };
+    }
     if (m_cwKeyReleaseFailed) { completion(false); return; }
     if(m_catCommand->faulted() || m_ftSplitRestoreFailed){completion(false);return;}
     if (!ensureStationIdentityForTx(QStringLiteral("TX/PTT"))) {
@@ -24643,6 +24660,7 @@ void MainWindow::unkeyPttAfterTx()
 {
     if (m_cwSerialActive) return;
     if(m_shutdownInProgress || m_runtimeShutdownComplete)return;
+    powerSwrTxEnded(); // IC8TEM
     const QString pttMethod = m_settings.pttMethod.trimmed().toLower();
     const QString pttPort = selectedPttPort().trimmed();
     const bool pttUsesCatPort = pttPort.isEmpty() ||
@@ -25391,6 +25409,129 @@ void MainWindow::startFtPreparedSlotTransmit()
 
 }
 
+
+// ---------------------------------------------------------------- IC8TEM Power and SWR
+
+void MainWindow::installPowerSwrWindow()
+{
+    if (m_powerSwr != nullptr || m_rigController == nullptr) {
+        return;
+    }
+    m_powerSwr = new PowerSwrWindow(this);
+    auto *controller = m_rigController;
+    connect(controller, &HamlibController::metersChanged, m_powerSwr, &PowerSwrWindow::setMeters, Qt::QueuedConnection);
+    connect(controller, &HamlibController::rfPowerChanged, m_powerSwr, &PowerSwrWindow::setRigPower, Qt::QueuedConnection);
+    connect(controller, &HamlibController::powerCapabilitiesChanged, this, [this](bool meters, bool power) {
+        m_powerSwr->setConnected(meters || power || m_rigCatConnected);
+        m_powerSwr->setCapabilities(meters, power);
+    }, Qt::QueuedConnection);
+    connect(controller, &HamlibController::statusChanged, this, [this]() {
+        m_powerSwr->setConnected(m_rigCatConnected);
+    }, Qt::QueuedConnection);
+    connect(controller, &HamlibController::frequencyChanged, this, [this](double hz) {
+        m_powerSwr->setContext(hz, ui->cmbMode->currentText());
+    }, Qt::QueuedConnection);
+    connect(ui->cmbMode, &QComboBox::currentTextChanged, this, [this](const QString &mode) {
+        m_powerSwr->setContext(m_lastRigFrequencyHz, mode);
+    });
+    connect(m_powerSwr, &PowerSwrWindow::powerRequested, this, [this, controller](double fraction) {
+        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
+    });
+    connect(m_powerSwr, &PowerSwrWindow::readPowerRequested, this, [controller]() {
+        QMetaObject::invokeMethod(controller, [controller]() { controller->readRfPower(); }, Qt::QueuedConnection);
+    });
+    connect(m_powerSwr, &PowerSwrWindow::swrTripped, this, [this](double, const QString &reason) {
+        appendLog(QStringLiteral("SWR PROTECTION: ") + reason);
+        stopTxForPowerProtection(reason);
+        m_powerSwr->show();
+        m_powerSwr->raise();
+    });
+    connect(m_powerSwr, &PowerSwrWindow::unlocked, this, [this]() {
+        appendLog(QStringLiteral("SWR protection: TX unlocked by the operator."));
+    });
+
+    // "Radio" menu after Settings (Power and SWR, and later the other radio tools).
+    QMenu *menu = nullptr;
+    if (ui->menubar != nullptr) {
+        menu = new QMenu(uiText("menu_radio", "Radio"), this);
+        hardenPopupMenuForFullscreen(menu);
+        menu->setToolTipsVisible(true);
+        QAction *before = m_menuLanguage != nullptr ? m_menuLanguage->menuAction()
+                        : (ui->menuHelp != nullptr ? ui->menuHelp->menuAction() : nullptr);
+        const QList<QAction *> bar = ui->menubar->actions();
+        const int settingsIndex = m_actionAppSettings != nullptr ? bar.indexOf(m_actionAppSettings) : -1;
+        if (settingsIndex >= 0 && settingsIndex + 1 < bar.size()) {
+            before = bar.at(settingsIndex + 1);
+        }
+        if (before != nullptr && bar.contains(before)) {
+            ui->menubar->insertMenu(before, menu);
+        } else {
+            ui->menubar->addMenu(menu);
+        }
+    }
+    if (menu != nullptr) {
+        QAction *action = menu->addAction(uiText("pwr_menu", "Power and SWR..."));
+        action->setToolTip(uiText("pwr_menu_tip", "RF power, Po / SWR / ALC meters while transmitting and SWR protection, through the Hamlib CAT."));
+        connect(action, &QAction::triggered, this, [this]() {
+            QMetaObject::invokeMethod(m_rigController, [controller = m_rigController]() { controller->readRfPower(); }, Qt::QueuedConnection);
+            m_powerSwr->setContext(m_lastRigFrequencyHz, ui->cmbMode->currentText());
+            m_powerSwr->show();
+            m_powerSwr->raise();
+            m_powerSwr->activateWindow();
+        });
+    }
+}
+
+void MainWindow::powerSwrTxStarted(bool tune)
+{
+    if (m_powerSwr == nullptr || m_rigController == nullptr || !m_settings.hamlibCatEnabled) {
+        return;
+    }
+    auto *controller = m_rigController;
+    const int tunePercent = tune && m_powerSwr->powerControlAvailable() ? m_powerSwr->tunePercent() : -1;
+    if (tunePercent > 0 && m_powerSwr->currentPercent() >= 0 && tunePercent != m_powerSwr->currentPercent()) {
+        m_powerTuneRestorePercent = m_powerSwr->currentPercent();
+        appendLog(QStringLiteral("Power: tune at %1 % (back to %2 % after the tune).").arg(tunePercent).arg(m_powerTuneRestorePercent));
+        const double fraction = tunePercent / 100.0;
+        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
+    }
+    m_powerSwrMetering = true;
+    m_powerSwr->setTransmitting(true);
+    QMetaObject::invokeMethod(controller, [controller]() { controller->setMeterPolling(true); }, Qt::QueuedConnection);
+}
+
+void MainWindow::powerSwrTxEnded()
+{
+    if (m_powerSwr == nullptr || m_rigController == nullptr) {
+        return;
+    }
+    auto *controller = m_rigController;
+    if (m_powerSwrMetering) {
+        m_powerSwrMetering = false;
+        m_powerSwr->setTransmitting(false);
+        QMetaObject::invokeMethod(controller, [controller]() { controller->setMeterPolling(false); }, Qt::QueuedConnection);
+    }
+    if (m_powerTuneRestorePercent >= 0) {
+        const double fraction = m_powerTuneRestorePercent / 100.0;
+        m_powerTuneRestorePercent = -1;
+        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
+    }
+}
+
+void MainWindow::stopTxForPowerProtection(const QString &reason)
+{
+    const QString mode = ui->cmbMode->currentText();
+    if (Ft8Mode::isFamilyMode(mode)) {
+        stopFt8Shell();
+        return;
+    }
+    if (m_nativeWeakSignalTxPending) {
+        cancelNativeWeakSignalPeriodTx(reason);
+    }
+    if (m_txRunning || m_txPreparationPending) {
+        stopImageTx();
+    }
+}
 
 void MainWindow::stopImageTx()
 {

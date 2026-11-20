@@ -464,6 +464,8 @@ add_executable(MadModem
     widgets/CwDiagnosticWidget.cpp
     widgets/RxNoiseBlankerMenu.h
     widgets/RxNoiseBlankerMenu.cpp
+    rig/PowerSwrWindow.h
+    rig/PowerSwrWindow.cpp
     utils/RuntimeI18n.h
     utils/RuntimeI18n.cpp
     utils/CockpitTheme.h

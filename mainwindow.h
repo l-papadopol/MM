@@ -89,6 +89,7 @@ class QTableWidgetItem;
 class QRadioButton;
 class QLCDNumber;
 class Ft8SlotClockWidget;
+class PowerSwrWindow;
 class QAction;
 class QActionGroup;
 class QMenu;
@@ -1473,6 +1474,11 @@ private:
      * @brief Opens the configured RTS PTT line for image TX.
      */
     void keyPttForTx(std::function<void(bool)> completion);
+    // IC8TEM Power and SWR window: meters while transmitting, tune power, SWR block.
+    void installPowerSwrWindow();
+    void powerSwrTxStarted(bool tune);
+    void powerSwrTxEnded();
+    void stopTxForPowerProtection(const QString &reason);
 
     /**
      * @brief Releases the RTS PTT line after image TX.
@@ -1738,6 +1744,9 @@ private:
     QThread *m_ft8RxThread = nullptr;
     NtpClient *m_ntpClient = nullptr;
     HamlibController *m_rigController = nullptr;
+    PowerSwrWindow *m_powerSwr = nullptr;      // IC8TEM
+    bool m_powerSwrMetering = false;
+    int m_powerTuneRestorePercent = -1;
     QThread *m_rigThread = nullptr;
     bool m_rigCatConnected = false;
     QString m_rigStatusMirror;
