@@ -323,6 +323,11 @@ void AppSettings::load()
         hamlibSplitOperation != "fake_it") {
         hamlibSplitOperation = "none";
     }
+    // IC8TEM edition: the "none" saved by MadModem before this edition (its
+    // default) becomes Fake It once; a None chosen afterwards is kept.
+    if (hamlibSplitOperation == "none" && !settings.value("Hamlib/splitDefaultIc8tem", false).toBool()) {
+        hamlibSplitOperation = "fake_it";
+    }
     hamlibTransmitAudioSource = settings.value("Hamlib/transmitAudioSource", hamlibTransmitAudioSource).toString().trimmed().toLower();
     if (hamlibTransmitAudioSource == "rear" || hamlibTransmitAudioSource == "data" ||
         hamlibTransmitAudioSource == "rear_data" || hamlibTransmitAudioSource == "back") {
@@ -817,6 +822,7 @@ bool AppSettings::save() const
     settings.setValue("Hamlib/pollIntervalMs", hamlibPollIntervalMs);
     settings.setValue("Hamlib/txAudioRoute", hamlibTxAudioRoute);
     settings.setValue("Hamlib/splitOperation", hamlibSplitOperation);
+    settings.setValue("Hamlib/splitDefaultIc8tem", true); // IC8TEM: see load()
     settings.setValue("Hamlib/transmitAudioSource", hamlibTransmitAudioSource);
 
     settings.setValue("Scheduler/enabledModes", schedulerQsyEnabledModes);

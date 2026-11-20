@@ -20,6 +20,9 @@
   and menu bar, pill buttons and tabs, white rounded panels, blue check boxes.
 - Use the Split Operation (Rig / Fake It) for MSK144 and Q65 too: TX audio kept
   between 1500 and 2000 Hz and the TX dial moved in 500 Hz steps, as in WSJT-X/JTDX.
+- Make Fake It the default Split Operation of the IC8TEM edition when CAT is on;
+  without CAT there is no split. A None saved by MadModem before becomes Fake It
+  once; a None chosen afterwards is kept.
 
 ## 0.6.5
 

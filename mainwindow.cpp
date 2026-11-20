@@ -11616,6 +11616,9 @@ void MainWindow::requestRigPtt(bool enabled, std::function<void(bool)> completio
 
 QString MainWindow::ftSplitOperationKey() const
 {
+    // IC8TEM edition: Fake It is the default split, so without CAT there is no
+    // split at all (TX on the audio frequency of the page, as with None).
+    if (!m_settings.hamlibCatEnabled) return QStringLiteral("none");
     QString key = m_settings.hamlibSplitOperation.trimmed().toLower();
     if (key != QStringLiteral("rig") && key != QStringLiteral("fake_it")) {
         key = QStringLiteral("none");
