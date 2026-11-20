@@ -1,4 +1,20 @@
-# MadModem 0.6.5
+# MadModem 0.6.5 — edizione IC8TEM
+
+> **Edizione IC8TEM** di MadModem, a cura di **Costantino Cerrotta, IC8TEM**: il programma
+> di IZ6NNH con in più le funzioni che IC8TEM ha sviluppato per la sua versione di MSHV
+> ([MSHV-IC8TEM](https://github.com/ic8tem/MSHV-IC8TEM)). Le modifiche sono in commit
+> separati, a disposizione dell'autore. Scaricate questa edizione dalle
+> [Releases del fork](https://github.com/ic8tem/MM/releases); il programma originale è su
+> [l-papadopol/MM](https://github.com/l-papadopol/MM).
+>
+> **IC8TEM edition** of MadModem by Costantino Cerrotta, IC8TEM: IZ6NNH's program plus the
+> features IC8TEM developed for MSHV-IC8TEM. Downloads: [fork releases](https://github.com/ic8tem/MM/releases).
+
+| Aggiunta / Addition | Dove / Where |
+| --- | --- |
+| **Noise blanker**: toglie gli impulsi (QRN, scintille, alimentatori switching) dall'audio prima di ogni decodificatore. NB2 alla NR0V (consigliato) o predizione lineare DL2FW, tre soglie; ping MSK144, CW manipolato e toni FT/Q65 mai toccati. / Impulse blanker before every decoder, NR0V NB2 style or DL2FW linear prediction. | Decode › Noise Blanker |
+| **Notch delle portanti MSK144 (ZAP)**: portanti fisse e birdie tolti con notch di 10 Hz; un segnale MSK continuo non viene mai filtrato. / MSK144 carrier notch. | Decode › MSK144 Carrier Notch (ZAP) |
+| Aggiornamenti automatici da questo fork. / Updates come from this fork. | Help |
 
 **MadModem (MM)** è un'applicazione libera per radioamatori: modi digitali, audio,
 waterfall, controllo della radio e del rotore, logbook e mappe in un unico programma.
@@ -18,7 +34,7 @@ CAT/PTT, antenna rotator control and an ADIF logbook in one Qt desktop applicati
 
 ## Download e installazione / Downloads
 
-Scaricare il pacchetto dalla pagina [Releases](https://github.com/l-papadopol/MM/releases).
+Scaricare il pacchetto dalla pagina [Releases](https://github.com/ic8tem/MM/releases) (edizione IC8TEM).
 
 | Sistema / System | Download |
 | --- | --- |

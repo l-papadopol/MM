@@ -282,4 +282,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          # IC8TEM edition: title of the releases, every main build is the current release.
+          MADMODEM_RELEASE_EDITION: IC8TEM
+          MADMODEM_RELEASE_BUILDS_AS_LATEST: '1'
         run: bash scripts/publish_github_release.sh release-assets

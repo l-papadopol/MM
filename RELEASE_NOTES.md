@@ -1,11 +1,21 @@
-# MadModem 0.6.5
+# MadModem 0.6.5 IC8TEM
 
-- Evil Auto QSO now records CQ acceptance/rejection, priority selection, logbook
-  waits, queue waits, received replies, sequencer progress, TX preparation and
-  actual audio events, retries, timeouts, completion and ADIF save results.
-- Automation records include session/QSO identifiers, UTC slots, messages,
-  queue sizes and TX plan tokens. Repeated unchanged waits are coalesced.
-- The application title displays version and build, including after language changes.
-- Documentation is organized around installation, operation, building and distribution.
-- Existing decoder, Doppler, manual TX takeover, CQ priority policies and compressed
-  complete logging remain available. Linux RUN/DEB/RPM and portable downloads continue.
+Edizione IC8TEM di [MadModem](https://github.com/l-papadopol/MM) 0.6.5 di IZ6NNH, con le
+funzioni di [MSHV-IC8TEM](https://github.com/ic8tem/MSHV-IC8TEM).
+
+- **Noise blanker** (menu Decode › Noise Blanker): toglie gli impulsi (QRN, scintille,
+  alimentatori switching) dall'audio prima di ogni decodificatore: FT8, FT4, Q65, MSK144,
+  CW, RTTY, PSK, MFSK, Hell, SSTV, WEFAX. Metodo NB2 alla NR0V (consigliato) o predizione
+  lineare di DL2FW, tre soglie. I ping MSK144, il CW manipolato e i toni FT/Q65 non vengono
+  mai toccati. Aggiunge 48 ms di ritardo, compensati negli orari di decodifica. Spento di serie.
+- **Notch delle portanti MSK144 (ZAP)** (menu Decode): portanti fisse e birdie tolti con
+  notch di 10 Hz trovati sugli ultimi 5 secondi; un segnale MSK continuo non viene mai filtrato.
+- Gli aggiornamenti automatici arrivano da questo fork.
+
+**English.** Noise blanker before every decoder (Decode › Noise Blanker: NR0V NB2 style or
+DL2FW linear prediction, three thresholds; pings, keyed CW and FT/Q65 tones are never
+blanked) and MSK144 carrier notch (ZAP). Updates come from this fork.
+
+Pacchetti / Packages: Windows (installer and portable), Ubuntu 24.04 / Mint 22 (RUN, DEB,
+portable), Fedora 43 (RUN, RPM, portable), macOS 15+ Intel and Apple Silicon (PKG, DMG, ZIP).
+The macOS packages are not signed: right-click the app and choose Open the first time.

@@ -29,7 +29,7 @@
 #include <memory>
 namespace {
 QString uiText(const char* key, const char* fallback) { return MadModemI18n::translate(QString::fromUtf8(key), QString::fromUtf8(fallback)); }
-const QString repository = QStringLiteral("https://github.com/l-papadopol/MM");
+const QString repository = QStringLiteral("https://github.com/" MADMODEM_UPDATE_REPOSITORY);
 struct ReleaseIdentity { QString version; quint64 build = 0; };
 ReleaseIdentity releaseIdentity(const QJsonObject &release) {
     if (release.value("draft").toBool()) return {};
@@ -69,7 +69,7 @@ int compareRelease(const QJsonObject &a, const QJsonObject &b) {
 
 bool assetUrl(const QUrl& url) {
     return url.scheme() == "https" && url.host() == "github.com" && url.userInfo().isEmpty() &&
-           url.path().startsWith("/l-papadopol/MM/releases/download/");
+           url.path().startsWith(QStringLiteral("/" MADMODEM_UPDATE_REPOSITORY "/releases/download/"));
 }
 }
 UpdateController::UpdateController(QWidget* window, QMenu* help, std::function<bool()> idle)
@@ -220,7 +220,7 @@ void UpdateController::check(bool manual) {
     fetchReleasePage(1);
 }
 void UpdateController::fetchReleasePage(int page) {
-    const QUrl url(QStringLiteral("https://api.github.com/repos/l-papadopol/MM/releases?per_page=100&page=%1").arg(page));
+    const QUrl url(QStringLiteral("https://api.github.com/repos/" MADMODEM_UPDATE_REPOSITORY "/releases?per_page=100&page=%1").arg(page));
     fetch(url, 4*1024*1024, [this, page](QByteArray bytes) {
         const auto document = QJsonDocument::fromJson(bytes);
         if (!document.isArray()) { fail(uiText("update_invalid", "Invalid release information.")); return; }

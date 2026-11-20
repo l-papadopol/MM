@@ -1,7 +1,7 @@
 # Installation — MadModem 0.6.5
 
 Download the installer or portable package matching your system from
-[GitHub Releases](https://github.com/l-papadopol/MM/releases). Close MM before installation.
+[GitHub Releases](https://github.com/ic8tem/MM/releases). Close MM before installation.
 
 | System | Installer | Portable |
 | --- | --- | --- |

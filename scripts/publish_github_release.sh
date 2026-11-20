@@ -70,17 +70,25 @@ packages+=("$publish_dir/SHA256SUMS.txt")
 prerelease=false
 create_options=()
 edit_options=()
+# Optional edition name in the release title (a fork such as "IC8TEM").
+edition="${MADMODEM_RELEASE_EDITION:-}"
 if [[ "${GITHUB_REF_TYPE:-}" == tag ]]; then
     tag="$GITHUB_REF_NAME"
-    title="MadModem $version"
+    title="MadModem $version${edition:+ $edition}"
     create_options+=(--verify-tag)
 else
     # Unique build tags never move an existing version tag or replace a stable release.
     tag="build-$version-$GITHUB_RUN_NUMBER"
-    title="MadModem $version — build $GITHUB_RUN_NUMBER"
-    prerelease=true
-    create_options+=(--latest=false)
-    edit_options+=(--latest=false)
+    title="MadModem $version${edition:+ $edition} — build $GITHUB_RUN_NUMBER"
+    if [[ "${MADMODEM_RELEASE_BUILDS_AS_LATEST:-}" == 1 ]]; then
+        # A fork that publishes every build of its main branch as its current release.
+        create_options+=(--latest)
+        edit_options+=(--latest)
+    else
+        prerelease=true
+        create_options+=(--latest=false)
+        edit_options+=(--latest=false)
+    fi
 fi
 
 notes_file="$publish_dir/release-notes.md"

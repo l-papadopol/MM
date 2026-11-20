@@ -6,6 +6,8 @@
 namespace MadModemIdentity {
 inline QString windowTitle()
 {
-    return QStringLiteral(MADMODEM_VERSION_DISPLAY " — build " MADMODEM_BUILD_NUMBER);
+    const QString edition = QStringLiteral(MADMODEM_EDITION);
+    return QStringLiteral(MADMODEM_VERSION_DISPLAY) + (edition.isEmpty() ? QString() : QStringLiteral(" ") + edition)
+           + QStringLiteral(" — build " MADMODEM_BUILD_NUMBER);
 }
 }

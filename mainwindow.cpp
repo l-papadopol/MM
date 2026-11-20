@@ -23083,7 +23083,7 @@ void MainWindow::showAboutMadModem()
     QLabel *title = new QLabel(QStringLiteral(
         "<b>%1</b><br>"
         "Amateur radio digital modem and station hub.")
-        .arg(QStringLiteral(MADMODEM_VERSION_DISPLAY)), &dialog);
+        .arg(MadModemIdentity::windowTitle().toHtmlEscaped()), &dialog);
     title->setTextFormat(Qt::RichText);
     title->setWordWrap(true);
     header->addWidget(title, 1);
@@ -23103,6 +23103,10 @@ void MainWindow::showAboutMadModem()
         "<p><b>Includes:</b> CAT/PTT via Hamlib/HRD, rotator control, "
         "Radio Telescope, ADIF logbook, QSO map and bundled third-party "
         "open-source components.</p>"
+        "<p><b>IC8TEM edition:</b> Costantino Cerrotta, IC8TEM — "
+        "github.com/ic8tem/MM<br>"
+        "Noise blanker (NR0V NB2 / DL2FW LPC) and MSK144 carrier notch, "
+        "ported from MSHV-IC8TEM.</p>"
         "<p>See <tt>LICENSE</tt> and "
         "<tt>THIRD_PARTY_NOTICES.md</tt> for full legal notices.</p>"));
     outer->addWidget(body, 1);
