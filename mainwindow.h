@@ -89,6 +89,9 @@ class QTableWidgetItem;
 class QRadioButton;
 class QLCDNumber;
 class Ft8SlotClockWidget;
+class PowerSwrWindow;
+class LocatorSources;
+class LotwUsers;
 class QAction;
 class QActionGroup;
 class QMenu;
@@ -1473,6 +1476,19 @@ private:
      * @brief Opens the configured RTS PTT line for image TX.
      */
     void keyPttForTx(std::function<void(bool)> completion);
+    // IC8TEM Power and SWR window: meters while transmitting, tune power, SWR block.
+    void installPowerSwrWindow();
+    void installLocatorLookup();
+    void installLotwUsers();
+    void installLogReset();
+    void refreshFtLotwFilter();
+    bool ftRowHiddenByLotw(const QString &message) const;
+    // IC8TEM: call the DX again when he is decoded after the TX stopped.
+    void maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDecoder::Decode &decode);
+    QMenu *toolsMenu();
+    void powerSwrTxStarted(bool tune);
+    void powerSwrTxEnded();
+    void stopTxForPowerProtection(const QString &reason);
 
     /**
      * @brief Releases the RTS PTT line after image TX.
@@ -1507,8 +1523,10 @@ private:
     void invokeRigSetFrequency(double frequencyHz);
 
     QString ftSplitOperationKey() const;
+    QString weakSignalSplitLabel(int logicalTxHz) const; // IC8TEM
     int ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShiftHz = nullptr) const;
-    void prepareFtSplitForTx(std::function<void(bool)> completion);
+    void prepareFtSplitForTx(std::function<void(bool)> completion, int logicalTxHz = -1);
+    void keyPttForTxWithSplit(bool split, int logicalTxHz, std::function<void(bool)> completion); // IC8TEM
     void restoreFtSplitAfterTx();
 
     /**
@@ -1738,6 +1756,15 @@ private:
     QThread *m_ft8RxThread = nullptr;
     NtpClient *m_ntpClient = nullptr;
     HamlibController *m_rigController = nullptr;
+    PowerSwrWindow *m_powerSwr = nullptr;      // IC8TEM
+    LocatorSources *m_locatorSources = nullptr; // IC8TEM
+    LotwUsers *m_lotwUsers = nullptr;           // IC8TEM
+    QAction *m_actionFtRestart = nullptr;       // IC8TEM TX restart option
+    QHash<QString, int> m_ftRestartCounts;
+    bool m_ftRestartInProgress = false;
+    QMenu *m_toolsMenu = nullptr;              // IC8TEM
+    bool m_powerSwrMetering = false;
+    int m_powerTuneRestorePercent = -1;
     QThread *m_rigThread = nullptr;
     bool m_rigCatConnected = false;
     QString m_rigStatusMirror;

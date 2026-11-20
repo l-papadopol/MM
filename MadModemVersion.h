@@ -10,3 +10,9 @@
 #define MADMODEM_VERSION_STRING "0.6.5"
 #define MADMODEM_VERSION_DISPLAY "MadModem 0.6.5"
 #define MADMODEM_LEGACY_SNAPSHOT "0.5.0-alpha26-ft-osd-gf2-order1-full"
+
+// Edition of this source tree, shown after the version in the title and the
+// About box. Empty in the original MadModem by IZ6NNH.
+#define MADMODEM_EDITION "IC8TEM"
+// GitHub repository (owner/name) whose releases the update check offers.
+#define MADMODEM_UPDATE_REPOSITORY "ic8tem/MM"

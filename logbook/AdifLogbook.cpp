@@ -395,11 +395,11 @@ QString AdifLogbook::defaultPath()
     const QString legacy = executable.filePath(QStringLiteral("logbook.adi"));
     if (MadModemInstallation::isManaged()) {
         return MadModemInstallation::userFile(executable.absolutePath(),
-            QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation),
+            MadModemInstallation::writableLocation(QStandardPaths::AppLocalDataLocation),
             QStringLiteral("logbook.adi"));
     }
     if (QFileInfo::exists(legacy) || QFileInfo::exists(executable.filePath(QStringLiteral("portable.flag")))) return legacy;
-    return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath(QStringLiteral("logbook.adi"));
+    return QDir(MadModemInstallation::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath(QStringLiteral("logbook.adi"));
 }
 
 AdifLogbook::AdifLogbook(const QString &fileName)

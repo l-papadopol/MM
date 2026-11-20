@@ -1,5 +1,33 @@
 # MadModem changelog
 
+## 0.6.5 — IC8TEM edition
+
+- Add an RX noise blanker before every decoder (Decode › Noise Blanker): NR0V NB2
+  style impulse blanker or DL2FW linear prediction, three thresholds; MSK144 pings,
+  keyed CW and FT/Q65 tones are never blanked; 48 ms delay compensated in the decode
+  times; off by default. Ported from MSHV-IC8TEM.
+- Add the MSK144 carrier notch (Decode › MSK144 Carrier Notch (ZAP)).
+- Show the edition in the title and the About box; updates come from ic8tem/MM.
+- Add the Power and SWR window (Tools menu): RF power through Hamlib with presets
+  and per-band memory, Po/SWR/ALC meters while transmitting, tune power and SWR
+  protection.
+- Add the locator lookup for the DX call (Tools › Locator sources): live decodes,
+  CALL3.TXT of WSJT-X Improved and W7GJ, JTDX grid_data.bin, G7VRD online.
+- Add the LoTW users list (Tools › LoTW users): marker and FT filter.
+- Add FT call-again, the fictitious log reset (Tools menu) and the MSK144 ping
+  duration column.
+- Add the YA-NEC light theme (Settings › Logbook / FT colours › Theme): navy title
+  and menu bar, pill buttons and tabs, white rounded panels, blue check boxes.
+- Use the Split Operation (Rig / Fake It) for MSK144 and Q65 too: TX audio kept
+  between 1500 and 2000 Hz and the TX dial moved in 500 Hz steps, as in WSJT-X/JTDX.
+- Make Fake It the default Split Operation of the IC8TEM edition when CAT is on;
+  without CAT there is no split. A None saved by MadModem before becomes Fake It
+  once; a None chosen afterwards is kept.
+- Windows: the edition installs as "MadModem IC8TEM", separate from the original,
+  into C:\MadModem-tem, with settings, logbook, lists and diagnostics in its data
+  folder. The setup removes an earlier installation of the edition; at the first
+  start the data of the per-user folders is moved into C:\MadModem-tem\data.
+
 ## 0.6.5
 
 - Add correlated operational traces for Evil Auto QSO in Runtime log and compressed session logs.

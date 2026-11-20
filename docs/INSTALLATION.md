@@ -1,7 +1,7 @@
 # Installation — MadModem 0.6.5
 
 Download the installer or portable package matching your system from
-[GitHub Releases](https://github.com/l-papadopol/MM/releases). Close MM before installation.
+[GitHub Releases](https://github.com/ic8tem/MM/releases). Close MM before installation.
 
 | System | Installer | Portable |
 | --- | --- | --- |
@@ -19,11 +19,18 @@ Windows packages are unsigned; macOS packages are ad-hoc signed.
 
 ## Settings, logbook and updates
 
-Managed installations use per-user directories:
+Managed installations use per-user directories, except the Windows installer of the
+IC8TEM edition: it installs into `C:\MadModem-tem` (separate from the original
+MadModem) and keeps settings, logbook, downloaded lists and diagnostics in
+`C:\MadModem-tem\data`. At the first start the edition moves there what earlier
+builds kept in `%LOCALAPPDATA%\MadModem` and `%APPDATA%\MadModem` (it copies them
+instead when the original MadModem is installed); the setup removes an earlier
+installation of the edition made under the original MadModem's name.
 
 | System | Settings | Default logbook |
 | --- | --- | --- |
-| Windows | `%LOCALAPPDATA%/MadModem/settings.mad` | `%LOCALAPPDATA%/MadModem/logbook.adi` |
+| Windows, IC8TEM edition | `C:/MadModem-tem/data/settings.mad` | `C:/MadModem-tem/data/logbook.adi` |
+| Windows, original MadModem | `%LOCALAPPDATA%/MadModem/settings.mad` | `%LOCALAPPDATA%/MadModem/logbook.adi` |
 | Linux | `~/.config/MadModem/settings.mad` | `~/.local/share/MadModem/logbook.adi` |
 | macOS | `~/Library/Preferences/MadModem/settings.mad` | `~/Library/Application Support/MadModem/logbook.adi` |
 

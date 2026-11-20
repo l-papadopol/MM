@@ -88,6 +88,13 @@ public slots:
     bool beginFtSplitTx(const QString &operation, int rfShiftHz);
     bool endFtSplitTx();
 
+    // IC8TEM Power and SWR: meters read while transmitting, RF power control.
+    // The meter values are NaN when the rig (or its Hamlib backend) cannot
+    // report them.
+    void setMeterPolling(bool enabled);
+    bool setRfPower(double fraction);
+    void readRfPower();
+
 signals:
     void statusChanged(const QString &status);
     void errorOccurred(const QString &message);
@@ -96,6 +103,12 @@ signals:
     // source: 0 unavailable, 1 backend-reported (may be nominal), 2 direct CAT.
     void receiverFilterChanged(const QString &modeName, int widthHz, int source);
     void pttChanged(bool enabled);
+    /** Po in W, Po as 0..1, SWR (1 = 1:1), ALC 0..1; NaN when not available. */
+    void metersChanged(double watts, double powerFraction, double swr, double alc);
+    /** RF power setting 0..1 and the full scale in W at this frequency (0 = unknown). */
+    void rfPowerChanged(double fraction, double fullScaleWatts);
+    /** What the connected rig offers through Hamlib. */
+    void powerCapabilitiesChanged(bool meters, bool powerControl);
 
 private:
     void setStatus(const QString &status);
@@ -129,6 +142,10 @@ private:
     bool m_cwReconnect = false;
     Config m_config;
     QTimer *m_pollTimer = nullptr;
+    QTimer *m_meterTimer = nullptr;
+    bool m_meterPolling = false;
+    void pollMeters();
+    void reportPowerCapabilities();
     double m_lastFrequencyHz = 0.0;
     QString m_lastModeName;
     Ts890FilterQuery m_ts890Filter;

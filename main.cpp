@@ -13,6 +13,7 @@
 #include "settings/AppSettings.h"
 #include "modems/ft8/Ft8RxDecoder.h"
 #include "utils/CockpitTheme.h"
+#include "utils/LocalDataMigration.h"
 #include "utils/RuntimeI18n.h"
 #include "dialogs/AppSettingsDialog.h"
 #include <QPushButton>
@@ -288,6 +289,9 @@ int main(int argc, char *argv[])
     if (commandLine.isSet(architectureRegressionOption)) return runArchitectureRegression(app);
     if (commandLine.isSet(runtimeRegressionOption)) return runRuntimeWorkersRegression(app);
     if (commandLine.isSet(uiRegressionOption)) return runSettingsUiRegression(app);
+
+    // IC8TEM edition: bring the user data into the data folder of the installation.
+    app.setProperty("mmLocalDataReport", MadModemInstallation::migrateToLocalData());
 
     AppSettings bootSettings;
     bootSettings.load();

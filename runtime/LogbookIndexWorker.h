@@ -22,6 +22,11 @@ class LogbookIndexWorker final : public QObject
 {
     Q_OBJECT
 public:
+    // IC8TEM "fictitious log reset": QSOs before this UTC time do not count for
+    // worked-before, new country and new square (the logbook is not changed).
+    // 0 = off. Set it, then rebuild the index.
+    static void setIgnoreBeforeUtcMs(qint64 utcMs);
+    static qint64 ignoreBeforeUtcMs();
     struct ContestConfig {
         bool active = false;
         QString mode;

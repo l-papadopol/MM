@@ -52,9 +52,25 @@ for variant in legacy avx2; do
 done
 require_package "MadModem-$version-Windows-64bit-Installer-AutoCPU.exe" \
     "$assets_dir/MadModem-$version-Windows-x64-Setup.exe"
+missing_macos_arm64=false
 for arch in x86_64 arm64; do
     cpu=Intel
     [[ "$arch" != arm64 ]] || cpu=AppleSilicon
+    # IC8TEM edition: GitHub sometimes has no macOS arm64 runner for hours. With
+    # MADMODEM_RELEASE_OPTIONAL_MACOS_ARM64=1 a build whose arm64 packages are not
+    # all there is published without them (and says so); every other package is
+    # still required.
+    if [[ "$arch" == arm64 && "${MADMODEM_RELEASE_OPTIONAL_MACOS_ARM64:-}" == 1 ]]; then
+        arm64_complete=true
+        for extension in zip dmg pkg; do
+            [[ -s "$assets_dir/MadModem-$version-macOS-$arch-unsigned.$extension" ]] || arm64_complete=false
+        done
+        if [[ "$arm64_complete" != true ]]; then
+            echo "WARNING: macOS arm64 packages are missing; publishing this build without them." >&2
+            missing_macos_arm64=true
+            continue
+        fi
+    fi
     for extension in zip dmg pkg; do
         case "$extension" in zip) kind=Portable ;; dmg) kind=DiskImage ;; pkg) kind=Installer ;; esac
         require_package "MadModem-$version-macOS-$cpu-$kind.$extension" \
@@ -70,21 +86,32 @@ packages+=("$publish_dir/SHA256SUMS.txt")
 prerelease=false
 create_options=()
 edit_options=()
+# Optional edition name in the release title (a fork such as "IC8TEM").
+edition="${MADMODEM_RELEASE_EDITION:-}"
 if [[ "${GITHUB_REF_TYPE:-}" == tag ]]; then
     tag="$GITHUB_REF_NAME"
-    title="MadModem $version"
+    title="MadModem $version${edition:+ $edition}"
     create_options+=(--verify-tag)
 else
     # Unique build tags never move an existing version tag or replace a stable release.
     tag="build-$version-$GITHUB_RUN_NUMBER"
-    title="MadModem $version — build $GITHUB_RUN_NUMBER"
-    prerelease=true
-    create_options+=(--latest=false)
-    edit_options+=(--latest=false)
+    title="MadModem $version${edition:+ $edition} — build $GITHUB_RUN_NUMBER"
+    if [[ "${MADMODEM_RELEASE_BUILDS_AS_LATEST:-}" == 1 ]]; then
+        # A fork that publishes every build of its main branch as its current release.
+        create_options+=(--latest)
+        edit_options+=(--latest)
+    else
+        prerelease=true
+        create_options+=(--latest=false)
+        edit_options+=(--latest=false)
+    fi
 fi
 
 notes_file="$publish_dir/release-notes.md"
 python3 "$root/scripts/stamp_release_notes.py" "$root/RELEASE_NOTES.md" "$notes_file" "$GITHUB_RUN_NUMBER" "$GITHUB_SHA"
+if [[ "$missing_macos_arm64" == true ]]; then
+    printf '\n> **macOS Apple Silicon:** i pacchetti arm64 mancano in questa build (runner macOS arm64 di GitHub non disponibili): usare il pacchetto Intel (Rosetta) o una build successiva. / The Apple Silicon packages are missing from this build (no GitHub macOS arm64 runner): use the Intel package (Rosetta) or a later build.\n' >> "$notes_file"
+fi
 
 # New releases stay drafts until every asset has uploaded. Re-runs resume drafts
 # or replace same-named assets on an existing mutable release, preserving its notes.

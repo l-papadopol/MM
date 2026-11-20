@@ -2,6 +2,10 @@
 #include "runtime/SessionDiagnostics.h"
 #include "modems/ft8/FtDiagnostics.h"
 #include "widgets/DecodeTableClipboard.h"
+#include "widgets/RxNoiseBlankerMenu.h"
+#include "rig/PowerSwrWindow.h"
+#include "callsign/LocatorSources.h"
+#include "callsign/LotwUsers.h"
 #include "callsign/QrzLookupPanel.h"
 #include "updates/UpdateController.h"
 #include "logbook/AsyncLogbook.h"
@@ -82,6 +86,7 @@
 #include <QUrl>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDateTimeEdit>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QFile>
@@ -1555,6 +1560,10 @@ MainWindow::MainWindow(QWidget *parent)
     appendLog("MM started.");
     appendLog(QStringLiteral("MadModem %1 | build %2 | source %3 | commit %4").arg(QStringLiteral(MADMODEM_VERSION_STRING), QStringLiteral(MADMODEM_BUILD_NUMBER), QStringLiteral(MADMODEM_SOURCE_REVISION), QStringLiteral(MADMODEM_BUILD_COMMIT)));
     appendLog("Settings file: " + AppSettings::settingsFilePath());
+    {
+        const QString localDataReport = qApp->property("mmLocalDataReport").toString(); // IC8TEM
+        if (!localDataReport.isEmpty()) appendLog(localDataReport);
+    }
     appendLog("Receiver is ready. Use Status → ▶ RX to start live decoding, or analyze a WAV test file from the mode panel.");
     updateMainStateButton();
 }
@@ -2141,6 +2150,9 @@ void MainWindow::setupCustomWidgets()
     setupQ65Page();
     // Useful per-mode conditioning lives inside the relevant Mode pages.
     setupFt8Page();
+    installLocatorLookup(); // IC8TEM
+    installLotwUsers();     // IC8TEM
+    installLogReset();      // IC8TEM
 
     m_grpTxImage = new QGroupBox(QString(), ui->tabModeSettings);
     QGridLayout *txLayout = new QGridLayout(m_grpTxImage);
@@ -4224,8 +4236,8 @@ void MainWindow::setupTextTerminalPages()
 
     QLabel *mskCaption = new QLabel(uiText("msk144_activity", "MSK144 activity"), m_msk144DisplayPage);
     mskCaption->setStyleSheet(QStringLiteral("font-weight: 600;"));
-    m_tableMsk144Rx = new QTableWidget(0, 5, m_msk144DisplayPage);
-    m_tableMsk144Rx->setHorizontalHeaderLabels(QStringList() << "UTC" << "dB" << "T" << "DF" << "Message");
+    m_tableMsk144Rx = new QTableWidget(0, 6, m_msk144DisplayPage);
+    m_tableMsk144Rx->setHorizontalHeaderLabels(QStringList() << "UTC" << "dB" << "T" << "DF" << "Message" << "ms");
     m_tableMsk144Rx->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tableMsk144Rx->setSelectionMode(QAbstractItemView::SingleSelection);
     m_tableMsk144Rx->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -4235,6 +4247,13 @@ void MainWindow::setupTextTerminalPages()
     m_tableMsk144Rx->setColumnWidth(1, 42);
     m_tableMsk144Rx->setColumnWidth(2, 42);
     m_tableMsk144Rx->setColumnWidth(3, 52);
+    // IC8TEM: ping duration (ms, 20 ms steps) after the message, as in MSK144ms.
+    m_tableMsk144Rx->horizontalHeader()->setStretchLastSection(false);
+    m_tableMsk144Rx->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
+    m_tableMsk144Rx->setColumnWidth(5, 54);
+    if (QTableWidgetItem *header = m_tableMsk144Rx->horizontalHeaderItem(5)) {
+        header->setToolTip(uiText("msk_ping_ms_tip", "Ping duration in ms (20 ms steps): how long the MSK144 band stayed 3 dB above the noise of the period around the decoded frame."));
+    }
     applyDecodeTableVisualSettings(m_tableMsk144Rx);
     connect(m_tableMsk144Rx, &QTableWidget::cellClicked, this, [this](int row, int) {
         if (m_tableMsk144Rx == nullptr || row < 0 || row >= m_tableMsk144Rx->rowCount()) return;
@@ -8236,6 +8255,7 @@ void MainWindow::setupMsk144Page()
         m_btnMsk144Tune->setEnabled(false);
     }
 
+    MadModemNoise::loadSettings(); // IC8TEM: noise blanker settings for every decoder
     if (ui != nullptr && ui->menubar != nullptr && m_cmbMsk144DecodeDepth != nullptr) {
         QMenu *decodeMenu = new QMenu(uiText("menu_decode", "Decode"), this);
         hardenPopupMenuForFullscreen(decodeMenu);
@@ -8291,6 +8311,8 @@ void MainWindow::setupMsk144Page()
                 }
             }
         });
+
+        MadModemNoise::installMenu(decodeMenu, [this](const QString &message) { appendLog(message); });
 
         QAction *insertBefore = m_actionAppSettings != nullptr ? m_actionAppSettings : nullptr;
         if (insertBefore == nullptr && ui->menuHelp != nullptr) {
@@ -9716,6 +9738,8 @@ void MainWindow::setupProcessingConnections()
                 },
                 Qt::QueuedConnection);
     }
+
+    installPowerSwrWindow(); // IC8TEM
 
     connect(m_weatherFaxDecoder, &WeatherFaxDecoder::statusChanged,
             this, &MainWindow::handleWeatherFaxStatus);
@@ -11596,6 +11620,9 @@ void MainWindow::requestRigPtt(bool enabled, std::function<void(bool)> completio
 
 QString MainWindow::ftSplitOperationKey() const
 {
+    // IC8TEM edition: Fake It is the default split, so without CAT there is no
+    // split at all (TX on the audio frequency of the page, as with None).
+    if (!m_settings.hamlibCatEnabled) return QStringLiteral("none");
     QString key = m_settings.hamlibSplitOperation.trimmed().toLower();
     if (key != QStringLiteral("rig") && key != QStringLiteral("fake_it")) {
         key = QStringLiteral("none");
@@ -11624,14 +11651,28 @@ int MainWindow::ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShift
     return audioHz;
 }
 
-void MainWindow::prepareFtSplitForTx(std::function<void(bool)> completion)
+// IC8TEM: the split shown in the MSK144/Q65 TX line, as in the FT one.
+QString MainWindow::weakSignalSplitLabel(int logicalTxHz) const
+{
+    const QString split = ftSplitOperationKey();
+    if (split == QStringLiteral("none")) return QString();
+    int rfShiftHz = 0;
+    const int audioHz = ftEffectiveTxAudioFrequency(logicalTxHz, &rfShiftHz);
+    return QStringLiteral(" -> AF %1 Hz, Split %2 (%3 Hz CAT)")
+        .arg(audioHz)
+        .arg(split == QStringLiteral("rig") ? QStringLiteral("Rig") : QStringLiteral("Fake It"))
+        .arg(rfShiftHz);
+}
+
+void MainWindow::prepareFtSplitForTx(std::function<void(bool)> completion, int logicalTxHz)
 {
     if(m_ftSplitRestoreFailed){completion(false);return;}
     const QString operation=ftSplitOperationKey();
     if(m_ftSplitPreparedForTx || operation==QStringLiteral("none")){completion(true);return;}
     if(!m_settings.hamlibCatEnabled || !m_rigController){completion(false);return;}
     int shift=0;
-    ftEffectiveTxAudioFrequency(m_spinFt8TxFreq?m_spinFt8TxFreq->value():m_settings.ft8TxFrequencyHz,&shift);
+    if(logicalTxHz<0)logicalTxHz=m_spinFt8TxFreq?m_spinFt8TxFreq->value():m_settings.ft8TxFrequencyHz;
+    ftEffectiveTxAudioFrequency(logicalTxHz,&shift);
     auto *controller=m_rigController;
     m_catCommand->request(controller,[controller,operation,shift](){return controller->beginFtSplitTx(operation,shift);},
         [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},
@@ -11652,6 +11693,26 @@ void MainWindow::restoreFtSplitAfterTx()
             appendLog(ok?QStringLiteral("FT Split: RX CAT state restored."):
                 QStringLiteral("FT Split ERROR: CAT could not fully restore the pre-TX RX/split state; further FT TX is blocked until the CAT state is restored or the rig is reconnected."));
         },3000,true);
+}
+
+// IC8TEM: MSK144 and Q65 use the Split Operation of FT4/FT8 too (WSJT-X/JTDX:
+// TX audio kept between 1500 and 2000 Hz, CAT shifted in 500 Hz steps). The
+// split is prepared before PTT and restored by unkeyPttAfterTx(); when the PTT
+// does not key, the dial is restored at once.
+void MainWindow::keyPttForTxWithSplit(bool split, int logicalTxHz, std::function<void(bool)> completion)
+{
+    if(!split){keyPttForTx(std::move(completion));return;}
+    prepareFtSplitForTx([this,completion](bool ok){
+        if(!ok){
+            appendLog(QStringLiteral("TX aborted: CAT split preparation failed or timed out."));
+            completion(false);
+            return;
+        }
+        keyPttForTx([this,completion](bool keyed){
+            if(!keyed)restoreFtSplitAfterTx();
+            completion(keyed);
+        });
+    },logicalTxHz);
 }
 
 void MainWindow::invokeRigSetFrequency(double frequencyHz)
@@ -11734,7 +11795,7 @@ void MainWindow::applyUiAppearanceSettings()
     if (theme.isEmpty()) theme = QStringLiteral("avionica");
     if (theme != QStringLiteral("avionica") && theme != QStringLiteral("qt_default") &&
         theme != QStringLiteral("hacker_green") && theme != QStringLiteral("classic_dark") &&
-        theme != QStringLiteral("high_contrast")) {
+        theme != QStringLiteral("high_contrast") && theme != QStringLiteral("ya_nec")) {
         theme = QStringLiteral("avionica");
     }
 
@@ -13998,6 +14059,7 @@ void MainWindow::stopMsk144Shell()
 void MainWindow::handleMsk144DecodeReady(const Msk144Decode &decode)
 {
     SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","MSK144"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
+    if (m_locatorSources != nullptr && !m_offlineAnalysisActive) m_locatorSources->addRx(decode.message); // IC8TEM
     if (m_tableMsk144Rx != nullptr) {
         const int row = m_tableMsk144Rx->rowCount();
         m_tableMsk144Rx->insertRow(row);
@@ -14006,6 +14068,7 @@ void MainWindow::handleMsk144DecodeReady(const Msk144Decode &decode)
         m_tableMsk144Rx->setItem(row, 2, new QTableWidgetItem(QString::number(decode.tSeconds, 'f', 1)));
         m_tableMsk144Rx->setItem(row, 3, new QTableWidgetItem(QString::number(decode.dfHz)));
         m_tableMsk144Rx->setItem(row, 4, new QTableWidgetItem(decode.message));
+        m_tableMsk144Rx->setItem(row, 5, new QTableWidgetItem(decode.pingWidthMs > 0 ? QString::number(decode.pingWidthMs) : QString())); // IC8TEM
         while (m_tableMsk144Rx->rowCount() > 600) {
             m_tableMsk144Rx->removeRow(0);
         }
@@ -14284,7 +14347,8 @@ void MainWindow::scheduleNativeWeakSignalPeriodTx()
         const int sampleRate = (m_settings.audioSampleRate == 44100 || m_settings.audioSampleRate == 48000 ||
                                 m_settings.audioSampleRate == 96000) ? m_settings.audioSampleRate : 48000;
         auto *frequency = msk144 ? m_spinMsk144TxFreq : m_spinQ65TxFreq;
-        const double hz = frequency ? frequency->value() : 1500;
+        // IC8TEM: with Split Operation the tone goes to 1500..2000 Hz, CAT moves the dial.
+        const double hz = ftEffectiveTxAudioFrequency(frequency ? frequency->value() : 1500);
         const bool shortMessage = msk144 && m_chkMsk144ShortMessages && m_chkMsk144ShortMessages->isChecked();
         const auto generation = ++m_nativeTxPreparationGeneration;
         m_txWaveformPreparer->prepareNative(msk144, message, sampleRate, periodSeconds,
@@ -14397,6 +14461,7 @@ void MainWindow::handleNativeWeakSignalPeriodTxDue()
 void MainWindow::handleQ65DecodeReady(const Q65Decode &decode)
 {
     SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","Q65"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
+    if (m_locatorSources != nullptr && !m_offlineAnalysisActive) m_locatorSources->addRx(decode.message); // IC8TEM
     if (m_tableQ65Rx != nullptr) {
         const int row = m_tableQ65Rx->rowCount();
         m_tableQ65Rx->insertRow(row);
@@ -19308,6 +19373,7 @@ void MainWindow::handleFt8DecodeBatchFinished(qint64 slotStartUtcMs, const QStri
 void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
 {
     SessionDiagnostics::instance().record("rx.message.delivery",{{"mode","FT"},{"message",decode.message},{"snr",decode.snrDb},{"frequency",decode.frequencyHz}});
+    if (m_locatorSources != nullptr && !m_offlineAnalysisActive) m_locatorSources->addRx(decode.message); // IC8TEM
     if (m_ft8DecodeBatchActive && !m_ft8UiBatchApplying) {
         m_ft8PendingDisplayBatch.append(decode);
         return;
@@ -19488,6 +19554,14 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     const QString upperMessage = decode.message.trimmed().toUpper();
     if (upperMessage.contains(QStringLiteral("IC8TEM")) || upperMessage.contains(QStringLiteral("IC8FAX"))) {
         displayMessage += QString::fromUtf8("  🐣📡✨");
+    }
+    // IC8TEM: LoTW users marked with a dot after the message.
+    const QString lotwCall = parsed.cq ? ft8CqCallsignFromMessage(parsed) : parsed.senderCall;
+    if (m_lotwUsers != nullptr && !lotwCall.isEmpty() && LotwUsers::isUser(lotwCall)) {
+        displayMessage += LotwUsers::marker();
+    }
+    if (!presentationOnly && !blacklistedDecode && !m_offlineAnalysisActive) {
+        maybeRestartFt8TxForDx(lotwCall, decode); // IC8TEM: the DX is back
     }
 
     // Maintain a lightweight QSO-context grid source from actual decoded FT
@@ -19708,6 +19782,9 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     for (int col = 0; col < items.size(); ++col) {
         m_tableFt8Rx->setItem(row, col, items.at(col));
     }
+    if (m_lotwUsers != nullptr && m_lotwUsers->filterFt() && ftRowHiddenByLotw(decode.message)) {
+        m_tableFt8Rx->setRowHidden(row, true); // IC8TEM: LoTW users only
+    }
     ++m_ftDisplayDiagRowsInserted;
     m_ftDisplayDiagRowsAfter = m_tableFt8Rx->rowCount();
     if (directReplyToMe) {
@@ -19858,6 +19935,7 @@ void MainWindow::updateFt8WaterfallOverlays()
 
 void MainWindow::startFt8TxShell()
 {
+    if (!m_ftRestartInProgress) m_ftRestartCounts.clear(); // IC8TEM: the operator pressed TX
     m_ft8OperatorStopLatched = false;
     applyFt8Settings();
     const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
@@ -23079,7 +23157,7 @@ void MainWindow::showAboutMadModem()
     QLabel *title = new QLabel(QStringLiteral(
         "<b>%1</b><br>"
         "Amateur radio digital modem and station hub.")
-        .arg(QStringLiteral(MADMODEM_VERSION_DISPLAY)), &dialog);
+        .arg(MadModemIdentity::windowTitle().toHtmlEscaped()), &dialog);
     title->setTextFormat(Qt::RichText);
     title->setWordWrap(true);
     header->addWidget(title, 1);
@@ -23099,6 +23177,10 @@ void MainWindow::showAboutMadModem()
         "<p><b>Includes:</b> CAT/PTT via Hamlib/HRD, rotator control, "
         "Radio Telescope, ADIF logbook, QSO map and bundled third-party "
         "open-source components.</p>"
+        "<p><b>IC8TEM edition:</b> Costantino Cerrotta, IC8TEM — "
+        "github.com/ic8tem/MM<br>"
+        "Noise blanker (NR0V NB2 / DL2FW LPC) and MSK144 carrier notch, "
+        "ported from MSHV-IC8TEM.</p>"
         "<p>See <tt>LICENSE</tt> and "
         "<tt>THIRD_PARTY_NOTICES.md</tt> for full legal notices.</p>"));
     outer->addWidget(body, 1);
@@ -24250,7 +24332,7 @@ void MainWindow::updateTxPreview()
         const int tx = (m_spinMsk144TxFreq != nullptr) ? m_spinMsk144TxFreq->value() : 1500;
         m_lblTxMode->setText(
             MadModemI18n::text(QStringLiteral("MSK144: RX %1 Hz, TX %2 Hz, %3 s"))
-                .arg(rx).arg(tx).arg(period));
+                .arg(rx).arg(tx).arg(period) + weakSignalSplitLabel(tx));
         m_txPreparedImage = QImage();
     } else if (Q65Mode::isFamilyMode(modeName)) {
         const int period = (m_cmbQ65Period != nullptr) ? m_cmbQ65Period->currentData().toInt() : 60;
@@ -24258,7 +24340,7 @@ void MainWindow::updateTxPreview()
         const int tx = (m_spinQ65TxFreq != nullptr) ? m_spinQ65TxFreq->value() : 1500;
         m_lblTxMode->setText(
             MadModemI18n::text(QStringLiteral("%1: RX %2 Hz, TX %3 Hz, %4 s"))
-                .arg(Q65Mode::modeName(currentQ65Submode())).arg(rx).arg(tx).arg(period));
+                .arg(Q65Mode::modeName(currentQ65Submode())).arg(rx).arg(tx).arg(period) + weakSignalSplitLabel(tx));
         m_txPreparedImage = QImage();
     } else if (Ft8Mode::isFamilyMode(modeName)) {
         const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
@@ -24541,6 +24623,20 @@ void MainWindow::updateTxControlState()
 
 void MainWindow::keyPttForTx(std::function<void(bool)> completion)
 {
+    // IC8TEM: the SWR protection blocks every TX until Unlock; a keyed TX starts
+    // the meters (and the tune power for an FT Tune).
+    if (m_powerSwr != nullptr && m_powerSwr->txBlocked()) {
+        appendLog(QStringLiteral("TX blocked by the SWR protection: %1").arg(m_powerSwr->blockReason()));
+        completion(false);
+        return;
+    }
+    {
+        const bool tune = m_pendingFt8TxPlan.tune;
+        completion = [this, tune, inner = std::move(completion)](bool ok) {
+            if (ok) powerSwrTxStarted(tune);
+            inner(ok);
+        };
+    }
     if (m_cwKeyReleaseFailed) { completion(false); return; }
     if(m_catCommand->faulted() || m_ftSplitRestoreFailed){completion(false);return;}
     if (!ensureStationIdentityForTx(QStringLiteral("TX/PTT"))) {
@@ -24635,6 +24731,7 @@ void MainWindow::unkeyPttAfterTx()
 {
     if (m_cwSerialActive) return;
     if(m_shutdownInProgress || m_runtimeShutdownComplete)return;
+    powerSwrTxEnded(); // IC8TEM
     const QString pttMethod = m_settings.pttMethod.trimmed().toLower();
     const QString pttPort = selectedPttPort().trimmed();
     const bool pttUsesCatPort = pttPort.isEmpty() ||
@@ -24981,7 +25078,10 @@ void MainWindow::startImageTx()
     const QString preparedMode=ui->cmbMode->currentText();
     m_txPreparationPending=true;
     updateTxControlState();
-    keyPttForTx([=](bool pttKeyed) mutable {
+    // IC8TEM: Split Operation for MSK144 and Q65, as for FT4/FT8.
+    const int weakSignalTxHz = msk144Mode ? (m_spinMsk144TxFreq ? m_spinMsk144TxFreq->value() : 1500)
+                                          : (m_spinQ65TxFreq ? m_spinQ65TxFreq->value() : 1500);
+    keyPttForTxWithSplit(msk144Mode || q65Mode, weakSignalTxHz, [=](bool pttKeyed) mutable {
         if (generation != m_txRequestGeneration || m_shutdownInProgress ||
             preparedMode != ui->cmbMode->currentText()) return;
         m_txPreparationPending=false;
@@ -25383,6 +25483,357 @@ void MainWindow::startFtPreparedSlotTransmit()
 
 }
 
+
+// ---------------------------------------------------------------- IC8TEM Power and SWR
+
+void MainWindow::installPowerSwrWindow()
+{
+    if (m_powerSwr != nullptr || m_rigController == nullptr) {
+        return;
+    }
+    m_powerSwr = new PowerSwrWindow(this);
+    auto *controller = m_rigController;
+    connect(controller, &HamlibController::metersChanged, m_powerSwr, &PowerSwrWindow::setMeters, Qt::QueuedConnection);
+    connect(controller, &HamlibController::rfPowerChanged, m_powerSwr, &PowerSwrWindow::setRigPower, Qt::QueuedConnection);
+    connect(controller, &HamlibController::powerCapabilitiesChanged, this, [this](bool meters, bool power) {
+        m_powerSwr->setConnected(meters || power || m_rigCatConnected);
+        m_powerSwr->setCapabilities(meters, power);
+    }, Qt::QueuedConnection);
+    connect(controller, &HamlibController::statusChanged, this, [this]() {
+        m_powerSwr->setConnected(m_rigCatConnected);
+    }, Qt::QueuedConnection);
+    connect(controller, &HamlibController::frequencyChanged, this, [this](double hz) {
+        m_powerSwr->setContext(hz, ui->cmbMode->currentText());
+    }, Qt::QueuedConnection);
+    connect(ui->cmbMode, &QComboBox::currentTextChanged, this, [this](const QString &mode) {
+        m_powerSwr->setContext(m_lastRigFrequencyHz, mode);
+    });
+    connect(m_powerSwr, &PowerSwrWindow::powerRequested, this, [this, controller](double fraction) {
+        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
+    });
+    connect(m_powerSwr, &PowerSwrWindow::readPowerRequested, this, [controller]() {
+        QMetaObject::invokeMethod(controller, [controller]() { controller->readRfPower(); }, Qt::QueuedConnection);
+    });
+    connect(m_powerSwr, &PowerSwrWindow::swrTripped, this, [this](double, const QString &reason) {
+        appendLog(QStringLiteral("SWR PROTECTION: ") + reason);
+        stopTxForPowerProtection(reason);
+        m_powerSwr->show();
+        m_powerSwr->raise();
+    });
+    connect(m_powerSwr, &PowerSwrWindow::unlocked, this, [this]() {
+        appendLog(QStringLiteral("SWR protection: TX unlocked by the operator."));
+    });
+
+    QMenu *menu = toolsMenu();
+    if (menu != nullptr) {
+        QAction *action = menu->addAction(uiText("pwr_menu", "Power and SWR..."));
+        action->setToolTip(uiText("pwr_menu_tip", "RF power, Po / SWR / ALC meters while transmitting and SWR protection, through the Hamlib CAT."));
+        connect(action, &QAction::triggered, this, [this]() {
+            QMetaObject::invokeMethod(m_rigController, [controller = m_rigController]() { controller->readRfPower(); }, Qt::QueuedConnection);
+            m_powerSwr->setContext(m_lastRigFrequencyHz, ui->cmbMode->currentText());
+            m_powerSwr->show();
+            m_powerSwr->raise();
+            m_powerSwr->activateWindow();
+        });
+    }
+}
+
+QMenu *MainWindow::toolsMenu()
+{
+    // IC8TEM "Tools" menu (Power and SWR, locator sources, ...), before Language.
+    if (m_toolsMenu != nullptr || ui->menubar == nullptr) {
+        return m_toolsMenu;
+    }
+    m_toolsMenu = new QMenu(uiText("menu_tools", "Tools"), this);
+    hardenPopupMenuForFullscreen(m_toolsMenu);
+    m_toolsMenu->setToolTipsVisible(true);
+    QAction *before = m_menuLanguage != nullptr ? m_menuLanguage->menuAction()
+                    : (ui->menuHelp != nullptr ? ui->menuHelp->menuAction() : nullptr);
+    if (before != nullptr && ui->menubar->actions().contains(before)) {
+        ui->menubar->insertMenu(before, m_toolsMenu);
+    } else {
+        ui->menubar->addMenu(m_toolsMenu);
+    }
+    return m_toolsMenu;
+}
+
+void MainWindow::installLocatorLookup()
+{
+    if (m_locatorSources != nullptr) {
+        return;
+    }
+    m_locatorSources = new LocatorSources(this);
+    auto ftPeriod = [this]() {
+        return Ft8Mode::profileForMode(ui->cmbMode->currentText()).slotMs / 1000.0;
+    };
+    auto mskPeriod = [this]() {
+        return m_cmbMsk144Period != nullptr ? qMax(1, m_cmbMsk144Period->currentData().toInt()) * 1.0 : 15.0;
+    };
+    auto q65Period = [this]() {
+        return m_cmbQ65Period != nullptr ? qMax(1, m_cmbQ65Period->currentData().toInt()) * 1.0 : 60.0;
+    };
+    if (m_editFt8DxCall != nullptr && m_editFt8DxGrid != nullptr) {
+        new LocatorLookupBinder(m_locatorSources, m_editFt8DxCall, m_editFt8DxGrid, ftPeriod, this);
+    }
+    if (m_editMsk144DxCall != nullptr && m_editMsk144DxGrid != nullptr) {
+        new LocatorLookupBinder(m_locatorSources, m_editMsk144DxCall, m_editMsk144DxGrid, mskPeriod, this);
+    }
+    if (m_editQ65DxCall != nullptr && m_editQ65DxGrid != nullptr) {
+        new LocatorLookupBinder(m_locatorSources, m_editQ65DxCall, m_editQ65DxGrid, q65Period, this);
+    }
+    if (QMenu *menu = toolsMenu()) {
+        QAction *action = menu->addAction(uiText("loc_menu", "Locator sources..."));
+        action->setToolTip(uiText("loc_menu_tip", "Where MadModem looks for the locator of the DX call: recent decodes, CALL3.TXT, EME CALL3.TXT, JTDX grid_data.bin, online."));
+        connect(action, &QAction::triggered, this, [this]() {
+            auto *dialog = new LocatorSourcesDialog(m_locatorSources, this);
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
+        });
+    }
+}
+
+void MainWindow::installLotwUsers()
+{
+    if (m_lotwUsers != nullptr) {
+        return;
+    }
+    m_lotwUsers = new LotwUsers(this);
+    connect(m_lotwUsers, &LotwUsers::listChanged, this, &MainWindow::refreshFtLotwFilter);
+    if (QMenu *menu = toolsMenu()) {
+        QAction *open = menu->addAction(uiText("lotw_menu", "LoTW users..."));
+        open->setToolTip(uiText("lotw_menu_tip", "ARRL list of the LoTW users: a dot after the decodes of LoTW users, and a filter for the FT decode list."));
+        connect(open, &QAction::triggered, this, [this]() {
+            auto *dialog = new LotwUsersDialog(m_lotwUsers, this);
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
+        });
+        menu->addSeparator();
+        m_actionFtRestart = menu->addAction(uiText("ftrestart_action", "FT: call the DX again when he is decoded"));
+        m_actionFtRestart->setCheckable(true);
+        m_actionFtRestart->setToolTip(uiText("ftrestart_tip", "When the TX has stopped (no answer, STOP) and the DX call is decoded again as the sender, TX starts again with the selected message for him, in the opposite period. Not with RR73/73/RRR or CQ, at most 3 times per call (TX resets the count), not with the SWR block."));
+        {
+            QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+            m_actionFtRestart->setChecked(settings.value(QStringLiteral("IC8TEM/ftRestartOnDecode"), false).toBool());
+        }
+        connect(m_actionFtRestart, &QAction::toggled, this, [this](bool on) {
+            QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("IC8TEM/ftRestartOnDecode"), on);
+            m_ftRestartCounts.clear();
+            appendLog(on ? QStringLiteral("FT: automatic call-again of the DX on.") : QStringLiteral("FT: automatic call-again of the DX off."));
+        });
+        QAction *only = menu->addAction(uiText("lotw_only_action", "FT: show LoTW users only"));
+        only->setCheckable(true);
+        only->setChecked(m_lotwUsers->filterFt());
+        only->setToolTip(uiText("lotw_only_tip", "Hides the FT decodes of stations that are not LoTW users. Messages to you are always shown. Needs the LoTW list (Tools › LoTW users)."));
+        connect(only, &QAction::toggled, m_lotwUsers, &LotwUsers::setFilterFt);
+        connect(m_lotwUsers, &LotwUsers::changed, only, [this, only]() {
+            const QSignalBlocker block(only);
+            only->setChecked(m_lotwUsers->filterFt());
+        });
+    }
+}
+
+bool MainWindow::ftRowHiddenByLotw(const QString &message) const
+{
+    if (m_lotwUsers == nullptr || !m_lotwUsers->filterFt() || !LotwUsers::hasList()) {
+        return false; // no list loaded = nothing hidden
+    }
+    const QString myCall = stationCallsign();
+    const ParsedFt8Message parsed = parseFt8MessageText(message, myCall);
+    if (isFt8DirectReplyToMyCall(parsed, myCall)) {
+        return false;
+    }
+    const QString call = parsed.cq ? ft8CqCallsignFromMessage(parsed) : parsed.senderCall;
+    if (call.isEmpty()) {
+        return false;
+    }
+    if (!myCall.isEmpty() && FtDecodedText::callMatches(call, myCall)) {
+        return false;
+    }
+    return !LotwUsers::isValid(call);
+}
+
+void MainWindow::refreshFtLotwFilter()
+{
+    if (m_tableFt8Rx == nullptr) {
+        return;
+    }
+    for (int row = 0; row < m_tableFt8Rx->rowCount(); ++row) {
+        const QTableWidgetItem *msgItem = m_tableFt8Rx->item(row, 4);
+        if (msgItem == nullptr) {
+            continue;
+        }
+        QString message = msgItem->data(kFtOriginalMessageRole).toString();
+        if (message.isEmpty()) {
+            message = msgItem->text();
+        }
+        m_tableFt8Rx->setRowHidden(row, ftRowHiddenByLotw(message));
+    }
+}
+
+void MainWindow::maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDecoder::Decode &decode)
+{
+    // IC8TEM (from MSHV-IC8TEM "TO RADIO Call Decoded Again Sets Auto Is On"):
+    // when the transmission has stopped and the DX call is decoded again as the
+    // sender, call him again with the selected message, in the opposite period.
+    if (m_actionFtRestart == nullptr || !m_actionFtRestart->isChecked() || m_editFt8DxCall == nullptr) {
+        return;
+    }
+    const QString dx = m_editFt8DxCall->text().trimmed().toUpper();
+    if (dx.isEmpty() || senderCall.isEmpty() || !FtDecodedText::callMatches(senderCall, dx)) {
+        return;
+    }
+    const bool fullAuto = m_ft8EvilModeUnlocked && m_chkFt8FullAutoQso != nullptr && m_chkFt8FullAutoQso->isChecked();
+    if (fullAuto || !m_rxRunning || m_ftSession.qsoActive || m_ftSession.cqRepeatActive || m_txRunning ||
+        m_ftTxWorkerRunning || m_txPreparationPending || m_ft8PendingTxArmed || m_pendingFt8PttKeyed) {
+        return; // TX still running or the automation takes care of it
+    }
+    if (m_powerSwr != nullptr && m_powerSwr->txBlocked()) {
+        return;
+    }
+    // The selected message must be for him and must not end the QSO.
+    const QString message = selectedFt8TxMessage().trimmed().toUpper();
+    const QStringList words = message.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    if (words.size() < 2 || !FtDecodedText::callMatches(words.first(), dx)) {
+        return;
+    }
+    const QString last = words.last();
+    if (last == QLatin1String("RR73") || last == QLatin1String("73") || last == QLatin1String("RRR")) {
+        return;
+    }
+    const QString key = FtDecodedText::baseCall(dx);
+    int &count = m_ftRestartCounts[key];
+    if (count >= 3) {
+        return;
+    }
+    ++count;
+    appendLog(QStringLiteral("FT: %1 decoded again (%2); calling him again with \"%3\" (automatic restart %4 of 3).")
+                  .arg(dx, decode.message.trimmed(), message).arg(count));
+    selectFt8OppositePeriodFromDecode(decode);
+    m_ftRestartInProgress = true;
+    startFt8TxShell();
+    m_ftRestartInProgress = false;
+}
+
+void MainWindow::installLogReset()
+{
+    // IC8TEM (from MSHV-IC8TEM "Fictitious log reset"): QSOs before a UTC time do
+    // not count for worked-before, new country and new square. The logbook is
+    // not changed; maps and statistics still show every QSO.
+    {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        const QDateTime reset = QDateTime::fromString(settings.value(QStringLiteral("IC8TEM/logResetUtc")).toString(), Qt::ISODate);
+        if (reset.isValid()) {
+            LogbookIndexWorker::setIgnoreBeforeUtcMs(reset.toUTC().toMSecsSinceEpoch());
+            queueLogbookIndexRebuild();
+            appendLog(QStringLiteral("Logbook: QSOs before %1 UTC are ignored for worked-before (fictitious reset).")
+                          .arg(reset.toUTC().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))));
+        }
+    }
+    QMenu *menu = toolsMenu();
+    if (menu == nullptr) {
+        return;
+    }
+    menu->addSeparator();
+    QAction *action = menu->addAction(uiText("logreset_menu", "Fictitious log reset..."));
+    action->setToolTip(uiText("logreset_tip", "QSOs before a UTC time are ignored for worked-before calls, new countries and new squares. The logbook is not changed."));
+    connect(action, &QAction::triggered, this, [this]() {
+        QDialog dialog(this);
+        dialog.setWindowTitle(uiText("logreset_title", "Fictitious log reset"));
+        auto *info = new QLabel(uiText("logreset_info", "QSOs logged before this time (UTC) are ignored for worked-before calls, new countries, new squares and the needed-station marks, as if the log started here. The logbook is not changed: maps, statistics and exports still use every QSO. Useful for a new activity, a contest weekend or a new antenna."), &dialog);
+        info->setWordWrap(true);
+        auto *enabled = new QCheckBox(uiText("logreset_enable", "Ignore the QSOs before"), &dialog);
+        auto *when = new QDateTimeEdit(&dialog);
+        when->setTimeSpec(Qt::UTC);
+        when->setDisplayFormat(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+        when->setCalendarPopup(true);
+        const qint64 current = LogbookIndexWorker::ignoreBeforeUtcMs();
+        enabled->setChecked(current > 0);
+        when->setDateTime(current > 0 ? QDateTime::fromMSecsSinceEpoch(current, Qt::UTC) : QDateTime::currentDateTimeUtc());
+        auto *now = new QPushButton(uiText("logreset_now", "Now"), &dialog);
+        connect(now, &QPushButton::clicked, when, [when, enabled]() {
+            when->setDateTime(QDateTime::currentDateTimeUtc());
+            enabled->setChecked(true);
+        });
+        auto *row = new QHBoxLayout();
+        row->addWidget(enabled);
+        row->addWidget(when);
+        row->addWidget(new QLabel(QStringLiteral("UTC"), &dialog));
+        row->addWidget(now);
+        row->addStretch(1);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        auto *layout = new QVBoxLayout(&dialog);
+        layout->addWidget(info);
+        layout->addLayout(row);
+        layout->addWidget(buttons);
+        dialog.resize(560, 220);
+        if (dialog.exec() != QDialog::Accepted) {
+            return;
+        }
+        const QDateTime reset = when->dateTime().toUTC();
+        const qint64 value = enabled->isChecked() ? reset.toMSecsSinceEpoch() : 0;
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("IC8TEM/logResetUtc"), value > 0 ? reset.toString(Qt::ISODate) : QString());
+        LogbookIndexWorker::setIgnoreBeforeUtcMs(value);
+        queueLogbookIndexRebuild();
+        appendLog(value > 0 ? QStringLiteral("Logbook: QSOs before %1 UTC are now ignored for worked-before (fictitious reset).")
+                                  .arg(reset.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")))
+                            : QStringLiteral("Logbook: fictitious reset off, every QSO counts for worked-before."));
+    });
+}
+
+void MainWindow::powerSwrTxStarted(bool tune)
+{
+    if (m_powerSwr == nullptr || m_rigController == nullptr || !m_settings.hamlibCatEnabled) {
+        return;
+    }
+    auto *controller = m_rigController;
+    const int tunePercent = tune && m_powerSwr->powerControlAvailable() ? m_powerSwr->tunePercent() : -1;
+    if (tunePercent > 0 && m_powerSwr->currentPercent() >= 0 && tunePercent != m_powerSwr->currentPercent()) {
+        m_powerTuneRestorePercent = m_powerSwr->currentPercent();
+        appendLog(QStringLiteral("Power: tune at %1 % (back to %2 % after the tune).").arg(tunePercent).arg(m_powerTuneRestorePercent));
+        const double fraction = tunePercent / 100.0;
+        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
+    }
+    m_powerSwrMetering = true;
+    m_powerSwr->setTransmitting(true);
+    QMetaObject::invokeMethod(controller, [controller]() { controller->setMeterPolling(true); }, Qt::QueuedConnection);
+}
+
+void MainWindow::powerSwrTxEnded()
+{
+    if (m_powerSwr == nullptr || m_rigController == nullptr) {
+        return;
+    }
+    auto *controller = m_rigController;
+    if (m_powerSwrMetering) {
+        m_powerSwrMetering = false;
+        m_powerSwr->setTransmitting(false);
+        QMetaObject::invokeMethod(controller, [controller]() { controller->setMeterPolling(false); }, Qt::QueuedConnection);
+    }
+    if (m_powerTuneRestorePercent >= 0) {
+        const double fraction = m_powerTuneRestorePercent / 100.0;
+        m_powerTuneRestorePercent = -1;
+        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
+    }
+}
+
+void MainWindow::stopTxForPowerProtection(const QString &reason)
+{
+    const QString mode = ui->cmbMode->currentText();
+    if (Ft8Mode::isFamilyMode(mode)) {
+        stopFt8Shell();
+        return;
+    }
+    if (m_nativeWeakSignalTxPending) {
+        cancelNativeWeakSignalPeriodTx(reason);
+    }
+    if (m_txRunning || m_txPreparationPending) {
+        stopImageTx();
+    }
+}
 
 void MainWindow::stopImageTx()
 {

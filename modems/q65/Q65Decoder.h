@@ -3,6 +3,7 @@
 
 #include "../../audio/AudioBlock.h"
 #include "../../dsp/text/LinearResampler.h"
+#include "../../dsp/common/RxNoiseBlanker.h"
 #include "Q65Mode.h"
 #include "Q65NativeEngine.h"
 
@@ -82,6 +83,7 @@ private:
 private:
     QVector<double> m_samples12k;
     LinearResampler m_resampler;
+    MadModemNoise::RxNoiseStage m_noise; // IC8TEM: noise blanker
     int m_inputSampleRate = 48000;
     int m_periodSeconds = 60;
     int m_decodeDepth = 2;

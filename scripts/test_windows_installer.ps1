@@ -77,6 +77,7 @@ try {
             '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
             "/DIR=`"$destination`"", "/LOG=`"$setupLog`"")
         if (!(Test-Path "$destination/bin/managed-install.flag")) { throw 'Missing managed installation marker' }
+        if (!(Test-Path "$destination/bin/local-data.flag")) { throw 'Missing IC8TEM local data marker' }
         if ((Get-FileHash "$destination/bin/MadModem.exe").Hash -ne $expected) { throw 'Incorrect CPU variant installed' }
         if ((Get-Content $sentinel -Raw).Trim() -ne 'preserve user data') { throw 'User data changed during reinstall' }
     }
@@ -105,6 +106,38 @@ try {
     if (Test-Path "$destination/bin/MadModem.exe") { throw 'Uninstaller left the application executable behind' }
     if ((Get-Content $sentinel -Raw).Trim() -ne 'preserve user data') { throw 'Uninstall removed user data' }
     Write-Host "PASS install, $variant CPU selection, reinstall, standalone launch and data preservation"
+
+    # IC8TEM edition: builds 5 and 7 used the installer name of the original MadModem.
+    # The new setup must remove such an installation and install into C:\MadModem-tem,
+    # also when the old updater passes the old folder with /DIR.
+    $previousSetup = Join-Path $env:RUNNER_TEMP 'MadModem-IC8TEM-build7-Setup.exe'
+    $previousUrl = 'https://github.com/ic8tem/MM/releases/download/build-0.6.5-7/MadModem-0.6.5-Windows-64bit-Installer-AutoCPU.exe'
+    $downloaded = $false
+    try {
+        Invoke-WebRequest -Uri $previousUrl -OutFile $previousSetup -UseBasicParsing
+        $downloaded = $true
+    } catch {
+        Write-Warning "Previous edition installer not available, upgrade check skipped: $_"
+    }
+    if ($downloaded) {
+        $oldKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{E9A289C9-3586-49BE-82A2-72594C56E2B8}_is1'
+        $null = Invoke-BoundedProcess -Name 'install-previous-edition' -FilePath $previousSetup -TimeoutSeconds 240 -Arguments @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/LOG=`"$(Join-Path $logDirectory 'setup-previous.log')`"")
+        $oldDir = ((Get-ItemProperty $oldKey).InstallLocation).TrimEnd('\')
+        if (!(Test-Path "$oldDir/bin/MadModem.exe")) { throw 'Previous edition was not installed' }
+        $null = Invoke-BoundedProcess -Name 'install-over-previous' -FilePath $setup -TimeoutSeconds 300 -Arguments @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', "/DIR=`"$oldDir`"",
+            "/LOG=`"$(Join-Path $logDirectory 'setup-over-previous.log')`"")
+        if (Test-Path $oldKey) { throw 'Previous edition is still registered' }
+        if (Test-Path "$oldDir/bin/MadModem.exe") { throw 'Previous edition files were left behind' }
+        $editionDir = Join-Path $env:SystemDrive 'MadModem-tem'
+        if (!(Test-Path "$editionDir/bin/MadModem.exe")) { throw 'New edition is not in C:\MadModem-tem' }
+        if (!(Test-Path "$editionDir/bin/local-data.flag")) { throw 'New edition lacks the local data marker' }
+        if ((Get-Content $sentinel -Raw).Trim() -ne 'preserve user data') { throw 'User data changed during the upgrade' }
+        $null = Invoke-BoundedProcess -Name 'uninstall-edition' -FilePath "$editionDir/unins000.exe" -TimeoutSeconds 120 -Arguments @(
+            '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$(Join-Path $logDirectory 'uninstall-edition.log')`"")
+        Write-Host "PASS earlier edition removed and new edition installed in $editionDir"
+    }
 } catch {
     Get-ChildItem $logDirectory -Filter '*.log' | ForEach-Object {
         Write-Host "LOG $($_.Name)"

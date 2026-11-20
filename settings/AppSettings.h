@@ -56,7 +56,7 @@ public:
     int waterfallColorScalePercent = 80;
     QString waterfallPalette = "madmodem";
     // Global UI appearance. Theme names are stable keys, not translated labels:
-    // avionica, qt_default, hacker_green, classic_dark, high_contrast.
+    // avionica, qt_default, hacker_green, classic_dark, high_contrast, ya_nec.
     QString uiTheme = "avionica";
     bool uiUseThemeFont = true;
     QString uiFontFamily;
@@ -91,7 +91,8 @@ public:
     // WSJT-X-like TX rig mode policy: default, usb, data_pkt.
     QString hamlibTxAudioRoute = "default";
     // FT4/FT8 split policy: none, rig (real RX/TX VFO split), fake_it (single-VFO CAT retune).
-    QString hamlibSplitOperation = "none";
+    // IC8TEM edition: WSJT-X/JTDX Fake It by default; without CAT there is no split.
+    QString hamlibSplitOperation = "fake_it";
     // WSJT-X-like transmit audio source hint for CAT PTT: rear_data or front_mic.
     QString hamlibTransmitAudioSource = "rear_data";
 

@@ -7,9 +7,11 @@
 
 #include <QByteArray>
 #include <QTcpSocket>
+#include <QThread>
 #include <QtGlobal>
 
 #include <cstdint>
+#include <limits>
 
 #ifdef MADMODEM_WITH_HAMLIB
 #include <hamlib/rig.h>
@@ -196,6 +198,22 @@ bool hamlibVfoListContains(const QByteArray &vfoList, vfo_t wanted)
         }
     }
     return false;
+}
+
+// IC8TEM: around the TX/RX switch Icom radios refuse a frequency change for a
+// moment ("Command rejected by the rig", seen on an IC-7300/IC-7610 with PTT on
+// RTS when Fake It restores the RX frequency): try again a few times before
+// reporting an error. Other errors are returned at once.
+int setFrequencyRetrying(RIG *rig, vfo_t vfo, freq_t frequency)
+{
+    int ret = RIG_OK;
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        if (attempt > 0) QThread::msleep(200);
+        ret = rig_set_freq(rig, vfo, frequency);
+        if (ret == RIG_OK) return ret;
+        if (ret != -RIG_ERJCTED && ret != -RIG_ETIMEOUT && ret != -RIG_EPROTO) return ret;
+    }
+    return ret;
 }
 
 // Choose only among VFO selectors that Hamlib publicly reports as usable.
@@ -558,6 +576,7 @@ bool HamlibController::connectRig()
 
     m_rig = rig;
     setStatus(QStringLiteral("CAT connected"));
+    reportPowerCapabilities();
 
     if (m_config.catEnabled) {
         m_pollTimer->start();
@@ -568,11 +587,125 @@ bool HamlibController::connectRig()
 #endif
 }
 
+// ---------------------------------------------------------------- IC8TEM Power and SWR
+
+void HamlibController::reportPowerCapabilities()
+{
+#ifdef MADMODEM_WITH_HAMLIB
+    RIG *rig = static_cast<RIG *>(m_rig);
+    if (rig == nullptr) {
+        emit powerCapabilitiesChanged(false, false);
+        return;
+    }
+    const bool meters = rig_has_get_level(rig, RIG_LEVEL_RFPOWER_METER_WATTS | RIG_LEVEL_RFPOWER_METER |
+                                                   RIG_LEVEL_SWR | RIG_LEVEL_ALC) != 0;
+    const bool power = rig_has_set_level(rig, RIG_LEVEL_RFPOWER) != 0;
+    emit powerCapabilitiesChanged(meters, power);
+    if (power) {
+        readRfPower();
+    }
+#else
+    emit powerCapabilitiesChanged(false, false);
+#endif
+}
+
+void HamlibController::setMeterPolling(bool enabled)
+{
+    m_meterPolling = enabled;
+    if (m_meterTimer == nullptr) {
+        m_meterTimer = new QTimer(this);
+        m_meterTimer->setInterval(300);
+        connect(m_meterTimer, &QTimer::timeout, this, &HamlibController::pollMeters);
+    }
+    if (enabled) {
+        m_meterTimer->start();
+        QTimer::singleShot(150, this, &HamlibController::pollMeters);
+    } else {
+        m_meterTimer->stop();
+        const double none = std::numeric_limits<double>::quiet_NaN();
+        emit metersChanged(none, none, none, none);
+    }
+}
+
+void HamlibController::pollMeters()
+{
+#ifdef MADMODEM_WITH_HAMLIB
+    if (!m_meterPolling || m_rig == nullptr || m_cwPortSuspended || !m_config.catEnabled) {
+        return;
+    }
+    RIG *rig = static_cast<RIG *>(m_rig);
+    auto read = [rig](setting_t level) {
+        if (rig_has_get_level(rig, level) == 0) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        value_t value;
+        std::memset(&value, 0, sizeof(value));
+        if (rig_get_level(rig, RIG_VFO_CURR, level, &value) != RIG_OK) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        return RIG_LEVEL_IS_FLOAT(level) ? static_cast<double>(value.f) : static_cast<double>(value.i);
+    };
+    const double watts = read(RIG_LEVEL_RFPOWER_METER_WATTS);
+    const double fraction = read(RIG_LEVEL_RFPOWER_METER);
+    const double swr = read(RIG_LEVEL_SWR);
+    const double alc = read(RIG_LEVEL_ALC);
+    emit metersChanged(watts, fraction, swr, alc);
+#endif
+}
+
+bool HamlibController::setRfPower(double fraction)
+{
+#ifdef MADMODEM_WITH_HAMLIB
+    RIG *rig = static_cast<RIG *>(m_rig);
+    if (rig == nullptr || rig_has_set_level(rig, RIG_LEVEL_RFPOWER) == 0) {
+        return false;
+    }
+    value_t value;
+    std::memset(&value, 0, sizeof(value));
+    value.f = static_cast<float>(qBound(0.0, fraction, 1.0));
+    const int ret = rig_set_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, value);
+    if (ret != RIG_OK) {
+        emitError(QStringLiteral("Hamlib set RF power failed: %1").arg(QString::fromLocal8Bit(rigerror(ret))));
+        return false;
+    }
+    readRfPower();
+    return true;
+#else
+    Q_UNUSED(fraction);
+    return false;
+#endif
+}
+
+void HamlibController::readRfPower()
+{
+#ifdef MADMODEM_WITH_HAMLIB
+    RIG *rig = static_cast<RIG *>(m_rig);
+    if (rig == nullptr || rig_has_get_level(rig, RIG_LEVEL_RFPOWER) == 0) {
+        return;
+    }
+    value_t value;
+    std::memset(&value, 0, sizeof(value));
+    if (rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &value) != RIG_OK) {
+        return;
+    }
+    double fullScale = 0.0;
+    unsigned int milliwatts = 0;
+    const freq_t frequency = m_lastFrequencyHz > 0.0 ? static_cast<freq_t>(m_lastFrequencyHz) : 14074000.0;
+    if (rig_power2mW(rig, &milliwatts, 1.0f, frequency, RIG_MODE_USB) == RIG_OK && milliwatts > 0) {
+        fullScale = milliwatts / 1000.0;
+    }
+    emit rfPowerChanged(qBound(0.0, static_cast<double>(value.f), 1.0), fullScale);
+#endif
+}
+
 bool HamlibController::disconnectRig()
 {
     SessionDiagnostics::instance().record("cat.disconnectRig",{});
     if (m_pollTimer != nullptr) {
         m_pollTimer->stop();
+    }
+    if (m_meterTimer != nullptr) {
+        m_meterTimer->stop();
     }
 
     // Fail safe before releasing either backend.  Never rely on closing the
@@ -596,6 +729,7 @@ bool HamlibController::disconnectRig()
         m_rig = nullptr;
     }
 #endif
+    emit powerCapabilitiesChanged(false, false);
     m_lastFrequencyHz = 0.0;
     m_ts890Filter.reset();
     m_filterContext.clear();
@@ -929,7 +1063,7 @@ bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
         // WSJT-X/JTDX Fake It: deliberately retune the current RX VFO only for
         // the TX interval, then restore the exact RX frequency after PTT OFF.
         if (rfShiftHz != 0) {
-            ret = rig_set_freq(rig, RIG_VFO_CURR, targetFrequency);
+            ret = setFrequencyRetrying(rig, RIG_VFO_CURR, targetFrequency); // IC8TEM: retries
             if (ret != RIG_OK) {
                 emitError(QStringLiteral("FT Fake It could not set the temporary TX frequency: %1")
                               .arg(QString::fromLocal8Bit(rigerror(ret))));
@@ -1088,7 +1222,7 @@ bool HamlibController::endFtSplitTx()
         RIG *rig = static_cast<RIG *>(m_rig);
 
         if (op == QStringLiteral("fake_it")) {
-            const int ret = rig_set_freq(rig, RIG_VFO_CURR, static_cast<freq_t>(m_ftSplitRxFrequencyHz));
+            const int ret = setFrequencyRetrying(rig, RIG_VFO_CURR, static_cast<freq_t>(m_ftSplitRxFrequencyHz)); // IC8TEM: retries
             if (ret != RIG_OK) {
                 emitError(QStringLiteral("FT Fake It could not restore the RX frequency after TX: %1")
                               .arg(QString::fromLocal8Bit(rigerror(ret))));
