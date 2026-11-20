@@ -7,6 +7,7 @@
 
 #include <QByteArray>
 #include <QTcpSocket>
+#include <QThread>
 #include <QtGlobal>
 
 #include <cstdint>
@@ -197,6 +198,22 @@ bool hamlibVfoListContains(const QByteArray &vfoList, vfo_t wanted)
         }
     }
     return false;
+}
+
+// IC8TEM: around the TX/RX switch Icom radios refuse a frequency change for a
+// moment ("Command rejected by the rig", seen on an IC-7300/IC-7610 with PTT on
+// RTS when Fake It restores the RX frequency): try again a few times before
+// reporting an error. Other errors are returned at once.
+int setFrequencyRetrying(RIG *rig, vfo_t vfo, freq_t frequency)
+{
+    int ret = RIG_OK;
+    for (int attempt = 0; attempt < 3; ++attempt) {
+        if (attempt > 0) QThread::msleep(200);
+        ret = rig_set_freq(rig, vfo, frequency);
+        if (ret == RIG_OK) return ret;
+        if (ret != -RIG_ERJCTED && ret != -RIG_ETIMEOUT && ret != -RIG_EPROTO) return ret;
+    }
+    return ret;
 }
 
 // Choose only among VFO selectors that Hamlib publicly reports as usable.
@@ -1046,7 +1063,7 @@ bool HamlibController::beginFtSplitTx(const QString &operation, int rfShiftHz)
         // WSJT-X/JTDX Fake It: deliberately retune the current RX VFO only for
         // the TX interval, then restore the exact RX frequency after PTT OFF.
         if (rfShiftHz != 0) {
-            ret = rig_set_freq(rig, RIG_VFO_CURR, targetFrequency);
+            ret = setFrequencyRetrying(rig, RIG_VFO_CURR, targetFrequency); // IC8TEM: retries
             if (ret != RIG_OK) {
                 emitError(QStringLiteral("FT Fake It could not set the temporary TX frequency: %1")
                               .arg(QString::fromLocal8Bit(rigerror(ret))));
@@ -1205,7 +1222,7 @@ bool HamlibController::endFtSplitTx()
         RIG *rig = static_cast<RIG *>(m_rig);
 
         if (op == QStringLiteral("fake_it")) {
-            const int ret = rig_set_freq(rig, RIG_VFO_CURR, static_cast<freq_t>(m_ftSplitRxFrequencyHz));
+            const int ret = setFrequencyRetrying(rig, RIG_VFO_CURR, static_cast<freq_t>(m_ftSplitRxFrequencyHz)); // IC8TEM: retries
             if (ret != RIG_OK) {
                 emitError(QStringLiteral("FT Fake It could not restore the RX frequency after TX: %1")
                               .arg(QString::fromLocal8Bit(rigerror(ret))));
