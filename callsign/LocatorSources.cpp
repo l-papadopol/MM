@@ -6,6 +6,13 @@
  */
 
 #include "../MadModemVersion.h"
+// The IC8TEM edition defines these in MadModemVersion.h; defaults for a tree without them.
+#ifndef MADMODEM_EDITION
+#define MADMODEM_EDITION ""
+#endif
+#ifndef MADMODEM_UPDATE_REPOSITORY
+#define MADMODEM_UPDATE_REPOSITORY "l-papadopol/MM"
+#endif
 #include "../settings/AppSettings.h"
 #include "../utils/InstallationPaths.h"
 #include "../utils/RuntimeI18n.h"
