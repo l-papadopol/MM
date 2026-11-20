@@ -1084,4 +1084,3 @@ int Msk144Decoder::pingWidthMs(int startSample, double frequencyHz)
     while (above(hi + 1) || (above(hi + 2) && hi + 2 < blocks)) hi += above(hi + 1) ? 1 : 2;
     return (hi - lo + 1) * 20;
 }
-
