@@ -14,6 +14,13 @@
 | --- | --- |
 | **Noise blanker**: toglie gli impulsi (QRN, scintille, alimentatori switching) dall'audio prima di ogni decodificatore. NB2 alla NR0V (consigliato) o predizione lineare DL2FW, tre soglie; ping MSK144, CW manipolato e toni FT/Q65 mai toccati. / Impulse blanker before every decoder, NR0V NB2 style or DL2FW linear prediction. | Decode › Noise Blanker |
 | **Notch delle portanti MSK144 (ZAP)**: portanti fisse e birdie tolti con notch di 10 Hz; un segnale MSK continuo non viene mai filtrato. / MSK144 carrier notch. | Decode › MSK144 Carrier Notch (ZAP) |
+| **Potenza e ROS**: potenza RF via CAT Hamlib con preset, −1/+1 e memoria per banda; misure Po, ROS e ALC in trasmissione; Tune a potenza ridotta; protezione ROS. / RF power, Po/SWR/ALC meters, tune power and SWR protection through Hamlib. | Tools › Power and SWR |
+| **Fonti del locatore**: locatore del DX dalle decodifiche ricevute, da CALL3.TXT (WSJT-X Improved, W7GJ EME), da JTDX o online (G7VRD), con l'indicazione della fonte. / Locator lookup for the DX call. | Tools › Locator sources |
+| **Utenti LoTW**: lista ARRL, pallino accanto agli utenti LoTW nella lista FT e filtro "solo utenti LoTW". / LoTW users marker and FT filter. | Tools › LoTW users |
+| **FT: richiama il DX quando viene decodificato**: dopo lo stop la trasmissione riparte se il DX torna a farsi sentire (massimo 3 volte). / FT call-again. | Tools |
+| **Reset fittizio del log**: i QSO prima di una data non contano per già lavorato, nuovo paese e nuovo quadrato. / Fictitious log reset for worked-before marks. | Tools |
+| **Durata del ping MSK144**: colonna "ms" nella lista MSK144. / MSK144 ping duration column. | MSK144 |
+| **Tema YA-NEC**: tema chiaro con lo stile di YA-NEC (barre blu scuro, pulsanti a pillola, riquadri bianchi). / Light theme in the YA-NEC style. | Settings › Logbook / FT colours › Theme |
 | Aggiornamenti automatici da questo fork. / Updates come from this fork. | Help |
 
 **MadModem (MM)** è un'applicazione libera per radioamatori: modi digitali, audio,
