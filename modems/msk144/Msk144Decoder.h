@@ -25,6 +25,7 @@ struct Msk144Decode
     int navg = 0;
     double eye = 0.0;
     bool shortMessage = false;
+    int pingWidthMs = 0; // IC8TEM: duration of the ping in 20 ms steps (0 = not measured)
 };
 Q_DECLARE_METATYPE(Msk144Decode)
 
@@ -81,6 +82,12 @@ private:
                       QVector<std::complex<double>> &frame) const;
     double estimateFrameSnrDb(int startSample, int frameSamples) const;
     double bandEnergyGoertzel(const QVector<float> &samples, int start, int count, double frequencyHz) const;
+    // IC8TEM: power of the MSK144 band (f +-1 kHz) in 20 ms blocks of the period, and
+    // the duration of the ping that contains a decoded frame.
+    void computePingBlockPower(double frequencyHz);
+    int pingWidthMs(int startSample, double frequencyHz);
+    QVector<double> m_pingBlockPower;
+    double m_pingBlockFrequencyHz = -1.0;
     QString backendStatusText() const;
 
 private:

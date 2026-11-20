@@ -86,6 +86,7 @@
 #include <QUrl>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDateTimeEdit>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QFile>
@@ -2147,6 +2148,7 @@ void MainWindow::setupCustomWidgets()
     setupFt8Page();
     installLocatorLookup(); // IC8TEM
     installLotwUsers();     // IC8TEM
+    installLogReset();      // IC8TEM
 
     m_grpTxImage = new QGroupBox(QString(), ui->tabModeSettings);
     QGridLayout *txLayout = new QGridLayout(m_grpTxImage);
@@ -4230,8 +4232,8 @@ void MainWindow::setupTextTerminalPages()
 
     QLabel *mskCaption = new QLabel(uiText("msk144_activity", "MSK144 activity"), m_msk144DisplayPage);
     mskCaption->setStyleSheet(QStringLiteral("font-weight: 600;"));
-    m_tableMsk144Rx = new QTableWidget(0, 5, m_msk144DisplayPage);
-    m_tableMsk144Rx->setHorizontalHeaderLabels(QStringList() << "UTC" << "dB" << "T" << "DF" << "Message");
+    m_tableMsk144Rx = new QTableWidget(0, 6, m_msk144DisplayPage);
+    m_tableMsk144Rx->setHorizontalHeaderLabels(QStringList() << "UTC" << "dB" << "T" << "DF" << "Message" << "ms");
     m_tableMsk144Rx->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tableMsk144Rx->setSelectionMode(QAbstractItemView::SingleSelection);
     m_tableMsk144Rx->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -4241,6 +4243,13 @@ void MainWindow::setupTextTerminalPages()
     m_tableMsk144Rx->setColumnWidth(1, 42);
     m_tableMsk144Rx->setColumnWidth(2, 42);
     m_tableMsk144Rx->setColumnWidth(3, 52);
+    // IC8TEM: ping duration (ms, 20 ms steps) after the message, as in MSK144ms.
+    m_tableMsk144Rx->horizontalHeader()->setStretchLastSection(false);
+    m_tableMsk144Rx->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Stretch);
+    m_tableMsk144Rx->setColumnWidth(5, 54);
+    if (QTableWidgetItem *header = m_tableMsk144Rx->horizontalHeaderItem(5)) {
+        header->setToolTip(uiText("msk_ping_ms_tip", "Ping duration in ms (20 ms steps): how long the MSK144 band stayed 3 dB above the noise of the period around the decoded frame."));
+    }
     applyDecodeTableVisualSettings(m_tableMsk144Rx);
     connect(m_tableMsk144Rx, &QTableWidget::cellClicked, this, [this](int row, int) {
         if (m_tableMsk144Rx == nullptr || row < 0 || row >= m_tableMsk144Rx->rowCount()) return;
@@ -14018,6 +14027,7 @@ void MainWindow::handleMsk144DecodeReady(const Msk144Decode &decode)
         m_tableMsk144Rx->setItem(row, 2, new QTableWidgetItem(QString::number(decode.tSeconds, 'f', 1)));
         m_tableMsk144Rx->setItem(row, 3, new QTableWidgetItem(QString::number(decode.dfHz)));
         m_tableMsk144Rx->setItem(row, 4, new QTableWidgetItem(decode.message));
+        m_tableMsk144Rx->setItem(row, 5, new QTableWidgetItem(decode.pingWidthMs > 0 ? QString::number(decode.pingWidthMs) : QString())); // IC8TEM
         while (m_tableMsk144Rx->rowCount() > 600) {
             m_tableMsk144Rx->removeRow(0);
         }
@@ -19508,6 +19518,9 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     if (m_lotwUsers != nullptr && !lotwCall.isEmpty() && LotwUsers::isUser(lotwCall)) {
         displayMessage += LotwUsers::marker();
     }
+    if (!presentationOnly && !blacklistedDecode && !m_offlineAnalysisActive) {
+        maybeRestartFt8TxForDx(lotwCall, decode); // IC8TEM: the DX is back
+    }
 
     // Maintain a lightweight QSO-context grid source from actual decoded FT
     // messages.  The active QSO's DX grid remains the primary logbook source;
@@ -19880,6 +19893,7 @@ void MainWindow::updateFt8WaterfallOverlays()
 
 void MainWindow::startFt8TxShell()
 {
+    if (!m_ftRestartInProgress) m_ftRestartCounts.clear(); // IC8TEM: the operator pressed TX
     m_ft8OperatorStopLatched = false;
     applyFt8Settings();
     const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
@@ -25548,6 +25562,20 @@ void MainWindow::installLotwUsers()
             dialog->setAttribute(Qt::WA_DeleteOnClose);
             dialog->show();
         });
+        menu->addSeparator();
+        m_actionFtRestart = menu->addAction(uiText("ftrestart_action", "FT: call the DX again when he is decoded"));
+        m_actionFtRestart->setCheckable(true);
+        m_actionFtRestart->setToolTip(uiText("ftrestart_tip", "When the TX has stopped (no answer, STOP) and the DX call is decoded again as the sender, TX starts again with the selected message for him, in the opposite period. Not with RR73/73/RRR or CQ, at most 3 times per call (TX resets the count), not with the SWR block."));
+        {
+            QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+            m_actionFtRestart->setChecked(settings.value(QStringLiteral("IC8TEM/ftRestartOnDecode"), false).toBool());
+        }
+        connect(m_actionFtRestart, &QAction::toggled, this, [this](bool on) {
+            QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+            settings.setValue(QStringLiteral("IC8TEM/ftRestartOnDecode"), on);
+            m_ftRestartCounts.clear();
+            appendLog(on ? QStringLiteral("FT: automatic call-again of the DX on.") : QStringLiteral("FT: automatic call-again of the DX off."));
+        });
         QAction *only = menu->addAction(uiText("lotw_only_action", "FT: show LoTW users only"));
         only->setCheckable(true);
         only->setChecked(m_lotwUsers->filterFt());
@@ -25596,6 +25624,119 @@ void MainWindow::refreshFtLotwFilter()
         }
         m_tableFt8Rx->setRowHidden(row, ftRowHiddenByLotw(message));
     }
+}
+
+void MainWindow::maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDecoder::Decode &decode)
+{
+    // IC8TEM (from MSHV-IC8TEM "TO RADIO Call Decoded Again Sets Auto Is On"):
+    // when the transmission has stopped and the DX call is decoded again as the
+    // sender, call him again with the selected message, in the opposite period.
+    if (m_actionFtRestart == nullptr || !m_actionFtRestart->isChecked() || m_editFt8DxCall == nullptr) {
+        return;
+    }
+    const QString dx = m_editFt8DxCall->text().trimmed().toUpper();
+    if (dx.isEmpty() || senderCall.isEmpty() || !FtDecodedText::callMatches(senderCall, dx)) {
+        return;
+    }
+    const bool fullAuto = m_ft8EvilModeUnlocked && m_chkFt8FullAutoQso != nullptr && m_chkFt8FullAutoQso->isChecked();
+    if (fullAuto || !m_rxRunning || m_ftSession.qsoActive || m_ftSession.cqRepeatActive || m_txRunning ||
+        m_ftTxWorkerRunning || m_txPreparationPending || m_ft8PendingTxArmed || m_pendingFt8PttKeyed) {
+        return; // TX still running or the automation takes care of it
+    }
+    if (m_powerSwr != nullptr && m_powerSwr->txBlocked()) {
+        return;
+    }
+    // The selected message must be for him and must not end the QSO.
+    const QString message = selectedFt8TxMessage().trimmed().toUpper();
+    const QStringList words = message.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    if (words.size() < 2 || !FtDecodedText::callMatches(words.first(), dx)) {
+        return;
+    }
+    const QString last = words.last();
+    if (last == QLatin1String("RR73") || last == QLatin1String("73") || last == QLatin1String("RRR")) {
+        return;
+    }
+    const QString key = FtDecodedText::baseCall(dx);
+    int &count = m_ftRestartCounts[key];
+    if (count >= 3) {
+        return;
+    }
+    ++count;
+    appendLog(QStringLiteral("FT: %1 decoded again (%2); calling him again with \"%3\" (automatic restart %4 of 3).")
+                  .arg(dx, decode.message.trimmed(), message).arg(count));
+    selectFt8OppositePeriodFromDecode(decode);
+    m_ftRestartInProgress = true;
+    startFt8TxShell();
+    m_ftRestartInProgress = false;
+}
+
+void MainWindow::installLogReset()
+{
+    // IC8TEM (from MSHV-IC8TEM "Fictitious log reset"): QSOs before a UTC time do
+    // not count for worked-before, new country and new square. The logbook is
+    // not changed; maps and statistics still show every QSO.
+    {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        const QDateTime reset = QDateTime::fromString(settings.value(QStringLiteral("IC8TEM/logResetUtc")).toString(), Qt::ISODate);
+        if (reset.isValid()) {
+            LogbookIndexWorker::setIgnoreBeforeUtcMs(reset.toUTC().toMSecsSinceEpoch());
+            queueLogbookIndexRebuild();
+            appendLog(QStringLiteral("Logbook: QSOs before %1 UTC are ignored for worked-before (fictitious reset).")
+                          .arg(reset.toUTC().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"))));
+        }
+    }
+    QMenu *menu = toolsMenu();
+    if (menu == nullptr) {
+        return;
+    }
+    menu->addSeparator();
+    QAction *action = menu->addAction(uiText("logreset_menu", "Fictitious log reset..."));
+    action->setToolTip(uiText("logreset_tip", "QSOs before a UTC time are ignored for worked-before calls, new countries and new squares. The logbook is not changed."));
+    connect(action, &QAction::triggered, this, [this]() {
+        QDialog dialog(this);
+        dialog.setWindowTitle(uiText("logreset_title", "Fictitious log reset"));
+        auto *info = new QLabel(uiText("logreset_info", "QSOs logged before this time (UTC) are ignored for worked-before calls, new countries, new squares and the needed-station marks, as if the log started here. The logbook is not changed: maps, statistics and exports still use every QSO. Useful for a new activity, a contest weekend or a new antenna."), &dialog);
+        info->setWordWrap(true);
+        auto *enabled = new QCheckBox(uiText("logreset_enable", "Ignore the QSOs before"), &dialog);
+        auto *when = new QDateTimeEdit(&dialog);
+        when->setTimeSpec(Qt::UTC);
+        when->setDisplayFormat(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+        when->setCalendarPopup(true);
+        const qint64 current = LogbookIndexWorker::ignoreBeforeUtcMs();
+        enabled->setChecked(current > 0);
+        when->setDateTime(current > 0 ? QDateTime::fromMSecsSinceEpoch(current, Qt::UTC) : QDateTime::currentDateTimeUtc());
+        auto *now = new QPushButton(uiText("logreset_now", "Now"), &dialog);
+        connect(now, &QPushButton::clicked, when, [when, enabled]() {
+            when->setDateTime(QDateTime::currentDateTimeUtc());
+            enabled->setChecked(true);
+        });
+        auto *row = new QHBoxLayout();
+        row->addWidget(enabled);
+        row->addWidget(when);
+        row->addWidget(new QLabel(QStringLiteral("UTC"), &dialog));
+        row->addWidget(now);
+        row->addStretch(1);
+        auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+        connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+        auto *layout = new QVBoxLayout(&dialog);
+        layout->addWidget(info);
+        layout->addLayout(row);
+        layout->addWidget(buttons);
+        dialog.resize(560, 220);
+        if (dialog.exec() != QDialog::Accepted) {
+            return;
+        }
+        const QDateTime reset = when->dateTime().toUTC();
+        const qint64 value = enabled->isChecked() ? reset.toMSecsSinceEpoch() : 0;
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        settings.setValue(QStringLiteral("IC8TEM/logResetUtc"), value > 0 ? reset.toString(Qt::ISODate) : QString());
+        LogbookIndexWorker::setIgnoreBeforeUtcMs(value);
+        queueLogbookIndexRebuild();
+        appendLog(value > 0 ? QStringLiteral("Logbook: QSOs before %1 UTC are now ignored for worked-before (fictitious reset).")
+                                  .arg(reset.toString(QStringLiteral("yyyy-MM-dd HH:mm:ss")))
+                            : QStringLiteral("Logbook: fictitious reset off, every QSO counts for worked-before."));
+    });
 }
 
 void MainWindow::powerSwrTxStarted(bool tune)

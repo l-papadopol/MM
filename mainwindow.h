@@ -1480,8 +1480,11 @@ private:
     void installPowerSwrWindow();
     void installLocatorLookup();
     void installLotwUsers();
+    void installLogReset();
     void refreshFtLotwFilter();
     bool ftRowHiddenByLotw(const QString &message) const;
+    // IC8TEM: call the DX again when he is decoded after the TX stopped.
+    void maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDecoder::Decode &decode);
     QMenu *toolsMenu();
     void powerSwrTxStarted(bool tune);
     void powerSwrTxEnded();
@@ -1754,6 +1757,9 @@ private:
     PowerSwrWindow *m_powerSwr = nullptr;      // IC8TEM
     LocatorSources *m_locatorSources = nullptr; // IC8TEM
     LotwUsers *m_lotwUsers = nullptr;           // IC8TEM
+    QAction *m_actionFtRestart = nullptr;       // IC8TEM TX restart option
+    QHash<QString, int> m_ftRestartCounts;
+    bool m_ftRestartInProgress = false;
     QMenu *m_toolsMenu = nullptr;              // IC8TEM
     bool m_powerSwrMetering = false;
     int m_powerTuneRestorePercent = -1;

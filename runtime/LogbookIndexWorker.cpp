@@ -2,6 +2,7 @@
 #include "../dxcc/CtyCountryFile.h"
 
 #include <QSet>
+#include <atomic>
 #include <QVariantMap>
 
 LogbookIndexWorker::LogbookIndexWorker(QObject *parent)
@@ -51,8 +52,28 @@ QString LogbookIndexWorker::dxccForEntry(const LogbookEntry &entry) const
     return cty.valid ? cty.entity.dxcc.trimmed() : QString();
 }
 
+namespace {
+std::atomic<qint64> g_ignoreBeforeUtcMs{0};
+bool ignoredByReset(const LogbookEntry &entry)
+{
+    const qint64 limit = g_ignoreBeforeUtcMs.load(std::memory_order_acquire);
+    return limit > 0 && entry.utc.isValid() && entry.utc.toMSecsSinceEpoch() < limit;
+}
+} // namespace
+
+void LogbookIndexWorker::setIgnoreBeforeUtcMs(qint64 utcMs)
+{
+    g_ignoreBeforeUtcMs.store(qMax<qint64>(0, utcMs), std::memory_order_release);
+}
+
+qint64 LogbookIndexWorker::ignoreBeforeUtcMs()
+{
+    return g_ignoreBeforeUtcMs.load(std::memory_order_acquire);
+}
+
 void LogbookIndexWorker::indexEntry(const LogbookEntry &entry)
 {
+    if (ignoredByReset(entry)) return; // IC8TEM fictitious log reset
     const QString call = AdifLogbook::normalizeCallsign(entry.callsign);
     const QString band = normalizedBand(entry.band);
     const QString mode = normalizedMode(entry.mode);
@@ -82,6 +103,7 @@ void LogbookIndexWorker::indexEntry(const LogbookEntry &entry)
 
 void LogbookIndexWorker::unindexEntry(const LogbookEntry &entry)
 {
+    if (ignoredByReset(entry)) return; // never indexed
     const QString call = AdifLogbook::normalizeCallsign(entry.callsign);
     const QString band = normalizedBand(entry.band);
     const QString mode = normalizedMode(entry.mode);

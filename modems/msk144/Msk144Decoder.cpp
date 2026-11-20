@@ -1,5 +1,6 @@
 #include "Msk144Decoder.h"
 #include "../weak_signal/WeakSignalCodecLock.h"
+#include "../../dsp/common/RxNoiseBlanker.h"
 
 #include <QtGlobal>
 #include <QtMath>
@@ -676,6 +677,7 @@ void Msk144Decoder::tryPeriodDecodeSync(bool force)
     int decodes = 0;
     std::set<QString> seen;
     Msk144Decode d;
+    m_pingBlockFrequencyHz = -1.0; // new period: block powers computed again on demand
     for (const Candidate &c : candidates) {
         if(m_cancelDecode && m_cancelDecode())return;
         ++attempts;
@@ -688,6 +690,7 @@ void Msk144Decoder::tryPeriodDecodeSync(bool force)
                             QString::number(qRound(d.frequencyHz / 5.0));
         if (seen.insert(key).second) {
             ++decodes;
+            d.pingWidthMs = pingWidthMs(qRound(d.tSeconds * kInternalRate), d.frequencyHz); // IC8TEM
             emit decoded(d);
         }
     }
@@ -1023,3 +1026,62 @@ double Msk144Decoder::estimateFrameSnrDb(int startSample, int frameSamples) cons
     const double ratio = qMax(1e-6, framePower / qMax(1e-12, allPower));
     return 10.0 * std::log10(ratio) + 4.0;
 }
+
+// ---------------------------------------------------------------- IC8TEM ping duration
+
+void Msk144Decoder::computePingBlockPower(double frequencyHz)
+{
+    // 20 ms blocks (240 samples), 256-point FFT, power of the bins within +-1 kHz
+    // of the MSK144 centre: the two tones and most of the modulation sidebands.
+    constexpr int kBlock = 240;
+    constexpr int kFft = 256;
+    const int blocks = m_samples12k.size() / kBlock;
+    m_pingBlockPower = QVector<double>(qMax(0, blocks), 0.0);
+    m_pingBlockFrequencyHz = frequencyHz;
+    if (blocks <= 0) return;
+    MadModemNoise::Fft fft;
+    fft.resize(kFft);
+    std::vector<std::complex<double>> work(kFft);
+    const double binHz = static_cast<double>(kInternalRate) / kFft;
+    const int k0 = qMax(1, static_cast<int>(std::floor((frequencyHz - 1000.0) / binHz)));
+    const int k1 = qMin(kFft / 2 - 1, static_cast<int>(std::ceil((frequencyHz + 1000.0) / binHz)));
+    for (int b = 0; b < blocks; ++b) {
+        std::fill(work.begin(), work.end(), std::complex<double>());
+        for (int i = 0; i < kBlock; ++i) {
+            const double w = 0.5 - 0.5 * std::cos(2.0 * M_PI * (i + 0.5) / kBlock);
+            work[static_cast<std::size_t>(i)] = std::complex<double>(w * m_samples12k.at(b * kBlock + i), 0.0);
+        }
+        fft.forward(work.data());
+        double p = 0.0;
+        for (int k = k0; k <= k1; ++k) p += std::norm(work[static_cast<std::size_t>(k)]);
+        m_pingBlockPower[b] = p;
+    }
+}
+
+int Msk144Decoder::pingWidthMs(int startSample, double frequencyHz)
+{
+    constexpr int kBlock = 240; // 20 ms
+    if (m_pingBlockFrequencyHz < 0.0 || std::fabs(m_pingBlockFrequencyHz - frequencyHz) > 100.0) {
+        computePingBlockPower(frequencyHz);
+    }
+    const int blocks = m_pingBlockPower.size();
+    if (blocks < 10) return 0;
+    QVector<double> sorted = m_pingBlockPower;
+    std::nth_element(sorted.begin(), sorted.begin() + blocks / 2, sorted.end());
+    const double noise = sorted.at(blocks / 2);
+    if (!(noise > 0.0)) return 0;
+    const double threshold = 2.0 * noise; // 3 dB above the median of the period
+    // The strongest block close to the decoded frame (a frame lasts 72 ms).
+    const int first = qBound(0, startSample / kBlock, blocks - 1);
+    int peak = first;
+    for (int b = qMax(0, first - 2); b <= qMin(blocks - 1, first + 4); ++b) {
+        if (m_pingBlockPower.at(b) > m_pingBlockPower.at(peak)) peak = b;
+    }
+    if (m_pingBlockPower.at(peak) <= threshold) return 0;
+    auto above = [this, threshold, blocks](int b) { return b >= 0 && b < blocks && m_pingBlockPower.at(b) > threshold; };
+    int lo = peak, hi = peak;
+    while (above(lo - 1) || (above(lo - 2) && lo - 2 >= 0)) lo -= above(lo - 1) ? 1 : 2; // one-block dips allowed
+    while (above(hi + 1) || (above(hi + 2) && hi + 2 < blocks)) hi += above(hi + 1) ? 1 : 2;
+    return (hi - lo + 1) * 20;
+}
+
