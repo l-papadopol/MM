@@ -430,6 +430,7 @@ endif()
 add_executable(MadModem
     main.cpp
     FtCqWorkListUi.cpp
+    FtDecodeFilterUi.cpp
     mainwindow.cpp
     FtAutomationLog.cpp
     updates/UpdateController.cpp updates/UpdateController.h
@@ -575,6 +576,8 @@ add_executable(MadModem
     dsp/gpu/FtSyncCompute.cpp
     modems/ft8/FtDecodedText.h
     modems/ft8/FtDecodedText.cpp
+    modems/ft8/FtDecodeFilter.h
+    modems/ft8/FtDecodeFilter.cpp
     modems/ft8/FtStandardMessageSet.h
     modems/ft8/FtStandardMessageSet.cpp
     modems/ft8/FtQsoSequencer.h

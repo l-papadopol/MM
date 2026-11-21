@@ -27,6 +27,7 @@
 #include "modems/hell/HellschreiberDecoder.h"
 #include "modems/ft8/Ft8Mode.h"
 #include "modems/ft8/Ft8RxDecoder.h"
+#include "modems/ft8/FtDecodeFilter.h"
 #include "modems/ft8/FtCqWorkList.h"
 #include "modems/ft8/FtSlotScheduler.h"
 #include "modems/ft8/FtQsoSequencer.h"
@@ -1484,6 +1485,9 @@ private:
     void installLogReset();
     void refreshFtLotwFilter();
     bool ftRowHiddenByLotw(const QString &message) const;
+    void showFtDecodeFilters();
+    void updateFtDecodeRowVisibility(int row);
+    FtDecodeFilter m_ftDecodeFilter;
     // IC8TEM: call the DX again when he is decoded after the TX stopped.
     void startSelectedFt8Tx(bool operatorRequested);
     void maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDecoder::Decode &decode);

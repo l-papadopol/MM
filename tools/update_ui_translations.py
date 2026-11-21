@@ -22,6 +22,7 @@ from release_078_exact import KEYS as RELEASE_078_KEYS
 from reviewed_operator_translations_058 import KEYS as REVIEWED_OPERATOR_KEYS_058
 from cw_neural_ui_translations import KEYS as CW_NEURAL_UI_KEYS
 from ic8tem_ui_translations import KEYS as IC8TEM_UI_KEYS
+from ft_decode_filter_translations import KEYS as FT_DECODE_FILTER_KEYS
 
 ROOT = Path(__file__).resolve().parents[1]
 TRANS_DIR = ROOT / "translations"
@@ -1181,7 +1182,7 @@ for _key, _translations in SEMANTIC_REPAIR_TRANSLATIONS.items():
     for _lang, _value in _translations.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 
-for _key, _translations in {**REVIEWED_OPERATOR_KEYS_058, **CW_NEURAL_UI_KEYS, **IC8TEM_UI_KEYS}.items():
+for _key, _translations in {**REVIEWED_OPERATOR_KEYS_058, **CW_NEURAL_UI_KEYS, **IC8TEM_UI_KEYS, **FT_DECODE_FILTER_KEYS}.items():
     for _lang, _value in _translations.items():
         KEY_EXACT.setdefault(_lang, {})[_key] = _value
 

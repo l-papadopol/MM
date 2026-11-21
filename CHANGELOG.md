@@ -2,6 +2,8 @@
 
 ## 0.6.6
 
+- Speed up the FT8 Costas search with reusable real FFT plans and precomputed frequency interpolation.
+- Add FT8/FT4 display filters for continent, DXCC, CQ and ITU zones, WAP references and CQ traffic.
 - Recover weak FT8 CQs using recently decoded tracks from the same RX parity. Estimate the current timing, frequency and drift from Costas symbols and confirm the codeword from the current slot.
 - Recover repeated FT8 and FT4 CQs from matched soft decisions in consecutive RX periods of the same parity.
 - Add NB2 Auto to analyze candidate impulse windows with NB2. The audio delay

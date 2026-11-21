@@ -288,6 +288,9 @@ CtyCountryFile::LookupResult CtyCountryFile::lookupCallsign(const QString &calls
             result.entity = m_entities.at(idx);
             result.matchedToken = token;
             result.exactMatch = exact;
+            const auto zones = m_zoneOverrides.value((exact ? QStringLiteral("=") : QString()) + token);
+            if (zones.first > 0) result.entity.cqZone = zones.first;
+            if (zones.second > 0) result.entity.ituZone = zones.second;
         }
     };
 

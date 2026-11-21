@@ -8655,6 +8655,14 @@ void MainWindow::setupFt8Page()
     m_chkFt8AutoScroll->setToolTip(uiText("ft_auto_scroll_tooltip", "Keep the decode table scrolled to the newest line while receiving."));
     rxToolsLayout->addWidget(m_btnFt8ClearRx);
     rxToolsLayout->addWidget(m_chkFt8AutoScroll);
+    auto *filterButton = new QPushButton(uiText("ft_rx_filters_button", "Display filters"), rxGroup);
+    filterButton->setObjectName(QStringLiteral("ftDisplayFilters"));
+    connect(filterButton, &QPushButton::clicked, this, &MainWindow::showFtDecodeFilters);
+    rxToolsLayout->addWidget(filterButton);
+    {
+        QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
+        m_ftDecodeFilter.load(settings);
+    }
     rxToolsLayout->addStretch(1);
     rxLayout->addLayout(rxToolsLayout);
 
@@ -19813,9 +19821,7 @@ void MainWindow::handleFt8DecodeReady(const Ft8RxDecoder::Decode &decode)
     for (int col = 0; col < items.size(); ++col) {
         m_tableFt8Rx->setItem(row, col, items.at(col));
     }
-    if (m_lotwUsers != nullptr && m_lotwUsers->filterFt() && ftRowHiddenByLotw(decode.message)) {
-        m_tableFt8Rx->setRowHidden(row, true); // IC8TEM: LoTW users only
-    }
+    updateFtDecodeRowVisibility(row);
     ++m_ftDisplayDiagRowsInserted;
     m_ftDisplayDiagRowsAfter = m_tableFt8Rx->rowCount();
     if (directReplyToMe) {
@@ -25731,17 +25737,18 @@ void MainWindow::refreshFtLotwFilter()
     if (m_tableFt8Rx == nullptr) {
         return;
     }
-    for (int row = 0; row < m_tableFt8Rx->rowCount(); ++row) {
-        const QTableWidgetItem *msgItem = m_tableFt8Rx->item(row, 4);
-        if (msgItem == nullptr) {
-            continue;
-        }
-        QString message = msgItem->data(kFtOriginalMessageRole).toString();
-        if (message.isEmpty()) {
-            message = msgItem->text();
-        }
-        m_tableFt8Rx->setRowHidden(row, ftRowHiddenByLotw(message));
-    }
+    for (int row = 0; row < m_tableFt8Rx->rowCount(); ++row)
+        updateFtDecodeRowVisibility(row);
+}
+
+void MainWindow::updateFtDecodeRowVisibility(int row)
+{
+    const auto *item = m_tableFt8Rx->item(row, 4);
+    if (!item) return;
+    const QString message = item->data(kFtOriginalMessageRole).toString();
+    if (message.isEmpty()) return; // TX and time separators are not RX decodes.
+    const bool hidden = ftRowHiddenByLotw(message) || m_ftDecodeFilter.hides(message, stationCallsign());
+    if (m_tableFt8Rx->isRowHidden(row) != hidden) m_tableFt8Rx->setRowHidden(row, hidden);
 }
 
 void MainWindow::maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDecoder::Decode &decode)
