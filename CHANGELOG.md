@@ -2,6 +2,13 @@
 
 ## 0.6.6
 
+- Add NB2 Auto to analyze candidate impulse windows with NB2. The audio delay
+  stays constant during automatic bypass and when switching to manual NB2.
+- Apply the configured USB or Data/Pkt mode when entering FT8, FT4, Q65 or
+  MSK144 with Hamlib CAT, and when tuning a standard FT band.
+- Speed up NB2 and migrate saved LPC selections to NB2 Normal. Document NB2 in
+  CW, RTTY and both skimmers.
+
 - Keep STOP latched on FT8/FT4 call-again. Apply the SWR lock to serial CW and
   require continuous valid SWR readings above the threshold.
 - Confirm reduced Tune power before PTT and restore power after PTT OFF.

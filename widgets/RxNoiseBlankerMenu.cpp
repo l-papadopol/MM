@@ -35,7 +35,7 @@ QString describe(const Settings &s)
     QString text;
     switch (s.mode) {
     case BlankerMode::Nb2: text = QStringLiteral("NB2 (NR0V)"); break;
-    case BlankerMode::Lpc: text = QStringLiteral("LPC (DL2FW)"); break;
+    case BlankerMode::Auto: text = modeName(s.mode); break;
     case BlankerMode::Off: text = QStringLiteral("off"); break;
     }
     if (s.mode != BlankerMode::Off) {
@@ -53,9 +53,19 @@ void loadSettings()
 {
     QSettings settings(AppSettings::settingsFilePath(), QSettings::IniFormat);
     Settings s;
-    s.mode = static_cast<BlankerMode>(qBound(0, settings.value(QStringLiteral("NoiseBlanker/mode"), 0).toInt(), 2));
+    const int mode = settings.value(QStringLiteral("NoiseBlanker/mode"), 0).toInt();
+    constexpr int legacyLpcMode = 2;
+    if (mode == static_cast<int>(BlankerMode::Auto)) {
+        s.mode = BlankerMode::Auto;
+    } else if (mode == static_cast<int>(BlankerMode::Nb2) || mode == legacyLpcMode) {
+        s.mode = BlankerMode::Nb2;
+    }
     s.level = static_cast<BlankerLevel>(qBound(0, settings.value(QStringLiteral("NoiseBlanker/level"), 1).toInt(), 2));
     s.mskCarrierNotch = settings.value(QStringLiteral("NoiseBlanker/mskCarrierNotch"), false).toBool();
+    if (mode == legacyLpcMode) {
+        s.level = BlankerLevel::Normal;
+        save(s);
+    }
     setSettings(s);
 }
 
@@ -66,7 +76,7 @@ void installMenu(QMenu *decodeMenu, const std::function<void(const QString &)> &
     }
     decodeMenu->addSeparator();
     QMenu *menu = decodeMenu->addMenu(uiText("nb_menu", "Noise Blanker"));
-    const QString help = uiText("nb_help", "Removes impulses (QRN, sparks, switching supplies) from the audio before every decoder. MSK144 pings, keyed CW and FT/Q65 tones are never blanked. Adds 48 ms of delay, compensated in the decode times.");
+    const QString help = uiText("nb_help", "Reduce short impulsive noise before decoding FT8, FT4, CW, RTTY and other digital modes. CW and RTTY skimmers also use the filtered audio. Adds 48 ms of audio delay, compensated in decode timestamps.");
     menu->setToolTipsVisible(true);
     menu->menuAction()->setToolTip(help);
     menu->menuAction()->setStatusTip(help);
@@ -92,10 +102,10 @@ void installMenu(QMenu *decodeMenu, const std::function<void(const QString &)> &
         });
     };
     addMode(BlankerMode::Off, uiText("nb_off", "Off"), uiText("nb_off_tip", "No processing, no delay."));
-    addMode(BlankerMode::Nb2, uiText("nb_nb2", "NB2 (NR0V) - recommended"),
+    addMode(BlankerMode::Auto, uiText("nb_auto", "NB2 Auto"),
+            uiText("nb_auto_tip", "Run NB2 only when the audio contains a possible impulse. The audio delay stays constant."));
+    addMode(BlankerMode::Nb2, uiText("nb_nb2", "NB2 (NR0V)"),
             uiText("nb_nb2_tip", "Impulses found on the signal envelope and blanked with soft edges, like the NB2 noise blanker of WDSP by NR0V."));
-    addMode(BlankerMode::Lpc, uiText("nb_lpc", "Linear prediction (DL2FW)"),
-            uiText("nb_lpc_tip", "The samples of short impulses are rebuilt from the signal before and after them (UHSDR noise blanker by DL2FW)."));
 
     menu->addSeparator();
     QMenu *levelMenu = menu->addMenu(uiText("nb_threshold", "Threshold"));

@@ -47,8 +47,8 @@ public:
         QString pttMethod = "none";
         QString pttPort;
         int pollIntervalMs = 1000;
-        // WSJT-X-like TX mode policy: default = do not change rig mode,
-        // usb = force normal USB on TX, data_pkt = force Data/Pkt/USB-D mode on TX.
+        // Rig mode policy: keep the current mode, use USB, or use Data/Pkt.
+        // USB/Data also apply on entry to a weak-signal mode in RX.
         // PTT itself remains CAT/RTS/DTR/VOX and is not a vendor route selector.
         QString txAudioRoute = "default";
         // WSJT-X-like transmit audio source hint: front_mic or rear_data.
@@ -80,6 +80,7 @@ public slots:
     bool connectRig();
     bool disconnectRig();
     void pollNow();
+    void setDigitalReceiveMode(bool enabled);
     bool setPtt(bool enabled);
     bool setFrequencyHz(double frequencyHz);
     // Prepare/restore the temporary CAT frequency transaction used by FT4/FT8
@@ -158,6 +159,8 @@ private:
     Ts890FilterQuery m_ts890Filter;
     QString m_filterContext;
     QElapsedTimer m_filterRetryClock;
+    bool m_digitalReceiveMode = false;
+    bool m_rxModeSyncPending = false;
     bool m_lastPtt = false;
     QString m_lastStatus;
 

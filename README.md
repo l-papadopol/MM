@@ -11,7 +11,7 @@ control and logging. Interface and built-in help are available in six languages.
 
 - FT8, FT4, MSK144, Q65, CW, RTTY, BPSK/QPSK, MFSK, Feld Hell, SSTV e WEFAX.
 - Sequencer FT8/FT4, code CQ con priorità, Evil Auto QSO e correzione Doppler.
-- Noise blanker RX selezionabile e notch delle portanti MSK144; durata dei ping.
+- Noise blanker RX NB2 per FT8, FT4, CW, RTTY e altri modi, e notch delle portanti MSK144; durata dei ping.
 - CAT/PTT Hamlib, split Rig/Fake It, potenza RF per banda e strumenti Po/ROS/ALC.
 - Ricevitori CW nativo e neurale, skimmer CW/RTTY, manipolazione audio e seriale.
 - Logbook ADIF, strumenti contest, fonti del locatore, indicatori e filtro LoTW.

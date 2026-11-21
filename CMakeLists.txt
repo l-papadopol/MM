@@ -314,7 +314,7 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 endif()
 
 # -------------------------------------------------------------------------
-# IC8TEM: RX noise blanker (NB2 / LPC) and MSK144 carrier notch, used by every
+# IC8TEM: RX noise blanker (NB2) and MSK144 carrier notch, used by every
 # decoder before demodulation.
 # -------------------------------------------------------------------------
 add_library(madmodem_rx_noise STATIC
@@ -349,6 +349,7 @@ find_library(MADMODEM_FFTW3_LIBRARY NAMES fftw3 fftw3-3 libfftw3.so.3)
 if(NOT MADMODEM_FFTW3_LIBRARY)
     message(FATAL_ERROR "FT reference recovery requires FFTW3 double precision (libfftw3-dev / fftw / brew fftw)")
 endif()
+target_link_libraries(madmodem_rx_noise PRIVATE "${MADMODEM_FFTW3_LIBRARY}")
 add_library(madmodem_ft_reference STATIC
     modems/ft8/FtReferenceRecovery.h modems/ft8/FtReferenceRecovery.cpp
     third_party/mshv_gpl/ft_reference/budget.cpp

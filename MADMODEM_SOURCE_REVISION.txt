@@ -1,1 +1,1 @@
-0.6.6-source-r2-bugfix
+0.6.6-source-r4-nb2-auto

@@ -5,7 +5,7 @@ below use the English interface; translations are available in the application.
 
 | Tool | Location | Operation |
 | --- | --- | --- |
-| RX noise blanker | Decode → Noise Blanker | Select NB2-style impulse blanking or DL2FW linear prediction and a threshold. Disabled by default; compare reception before choosing a level. |
+| RX noise blanker | Decode → Noise Blanker | Select NB2 Auto to scan for impulses before running NB2, or NB2 to always analyze the audio. Choose a threshold for either mode. Both keep the same 48 ms of look-ahead, which is compensated in the decode timestamps. It runs before the FT8, FT4, CW and RTTY decoders, including the CW and RTTY skimmers, as well as other digital modes. Off is the default. A saved LPC selection migrates to NB2 Normal. |
 | MSK144 carrier notch | Decode → MSK144 Carrier Notch (ZAP) | Suppress persistent narrow carriers, with detection safeguards for MSK signals. |
 | RF power and meters | Tools → Power and SWR | CAT power presets, per-band memory, Po/SWR/ALC readouts, reduced Tune power and SWR protection. Availability depends on rig and Hamlib support. |
 | Locator sources | Tools → Locator sources | Use received locators, CALL3.TXT, JTDX locator data and optional G7VRD lookup, with source indication. |

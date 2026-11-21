@@ -3,7 +3,13 @@
 Questa versione integra i contributi di **Costantino Cerrotta, IC8TEM** nel
 progetto MadModem di **Lucian-Ioan Papadopol, IZ6NNH**.
 
-- Noise blanker RX NB2/LPC e notch delle portanti MSK144.
+- Con CAT Hamlib, la preferenza USB o Data/Pkt si applica anche in ricezione
+  per FT8, FT4, Q65 e MSK144. Vale al collegamento, al cambio di modo e durante
+  il QSY delle bande FT.
+- NB2 Auto rileva i possibili impulsi e avvia NB2 solo nelle finestre interessate.
+  Il ritardo audio resta costante.
+- Noise blanker NB2 ottimizzato anche per CW, RTTY e i loro skimmer. LPC viene
+  sostituito da NB2 normale nelle configurazioni esistenti. Notch delle portanti MSK144.
 - Strumenti potenza/ROS/ALC, preset e memoria RF per banda, potenza Tune e protezione ROS.
 - Fonti del locatore, lista utenti LoTW con indicatori e filtro FT.
 - Richiamo FT del DX decodificato, reset dei soli indicatori già lavorato,

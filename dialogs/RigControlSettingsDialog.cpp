@@ -126,7 +126,7 @@ QString defaultTxRouteFor(const QString &manufacturer, const QString &model, int
 
     // Be conservative by default, like WSJT-X: selecting a rig model never
     // auto-selects a radio mode or vendor audio route. The user chooses the
-    // TX mode policy explicitly: None, USB, or Data/Pkt.
+    // radio mode explicitly: None, USB, or Data/Pkt.
     Q_UNUSED(manufacturer);
     Q_UNUSED(model);
     return QStringLiteral("default");
@@ -988,7 +988,7 @@ void RigControlSettingsDialog::refreshLabels()
         m_lblManualId->setText(L("Custom Hamlib model ID"));
     }
     if (m_lblTxAudioRoute != nullptr) {
-        m_lblTxAudioRoute->setText(L("Radio mode on TX"));
+        m_lblTxAudioRoute->setText(L("Radio mode RX/TX"));
     }
     if (m_cmbTxAudioRoute != nullptr) {
         const int current = m_cmbTxAudioRoute->currentIndex();

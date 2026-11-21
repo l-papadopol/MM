@@ -66,7 +66,7 @@ std::vector<double> noise(int n, double sigma, unsigned seed)
     return x;
 }
 
-void testRate(BlankerMode mode, int fs, const char *label)
+void testRate(int fs, const char *label)
 {
     const int n = fs * 20;
     // Delay and transparency: noise plus an FT-like tone, no impulses.
@@ -75,7 +75,7 @@ void testRate(BlankerMode mode, int fs, const char *label)
         x[static_cast<std::size_t>(i)] += 0.05 * std::sin(2.0 * kPi * 1500.0 * i / fs);
     }
     ImpulseBlanker nb;
-    nb.configure(mode, mode == BlankerMode::Lpc ? lpcThreshold(BlankerLevel::Normal) : nb2Threshold(BlankerLevel::Normal), fs);
+    nb.configure(BlankerMode::Nb2, nb2Threshold(BlankerLevel::Normal), fs);
     const int delay = nb.latencySamples();
     std::vector<double> y = run(nb, x);
     double worst = 0.0;
@@ -85,8 +85,7 @@ void testRate(BlankerMode mode, int fs, const char *label)
     char text[200];
     std::snprintf(text, sizeof(text), "%s: output = input delayed by %d samples (%.1f ms), %llu false events, max error %.2e",
                   label, delay, 1000.0 * delay / fs, static_cast<unsigned long long>(nb.events()), worst);
-    // LPC repairs a few noise peaks too (DL2FW method): harmless, the prediction replaces them.
-    check(worst < (mode == BlankerMode::Lpc ? 0.1 : 1e-12) && nb.events() <= (mode == BlankerMode::Lpc ? 10u : 0u), text);
+    check(worst < 1e-12 && nb.events() == 0, text);
     check(std::fabs(1000.0 * delay / fs - 48.0) < 1.0, "delay is 48 ms");
 
     // Impulses on noise and tone, plus a 60 ms ping and keyed CW: only the impulses go.
@@ -111,8 +110,19 @@ void testRate(BlankerMode mode, int fs, const char *label)
         z[static_cast<std::size_t>(cw + i)] += 0.4 * ramp * std::sin(2.0 * kPi * 700.0 * i / fs);
     }
     ImpulseBlanker nb2;
-    nb2.configure(mode, mode == BlankerMode::Lpc ? lpcThreshold(BlankerLevel::Normal) : nb2Threshold(BlankerLevel::Normal), fs);
+    nb2.configure(BlankerMode::Nb2, nb2Threshold(BlankerLevel::Normal), fs);
     std::vector<double> w = run(nb2, z);
+    ImpulseBlanker automatic;
+    automatic.configure(BlankerMode::Auto, nb2Threshold(BlankerLevel::Normal), fs);
+    check(automatic.latencySamples() == delay, "Auto and manual use the same audio delay");
+    check(run(automatic, x) == y && automatic.events() == 0 &&
+              automatic.evaluations() * 20 < nb.evaluations(),
+          "Auto passes clean input without running the envelope analysis on almost all blocks");
+    automatic.reset();
+    const auto previousEvaluations = automatic.evaluations();
+    check(run(automatic, z) == w && automatic.events() == nb2.events() &&
+              automatic.evaluations() - previousEvaluations < nb2.evaluations(),
+          "Auto catches isolated clicks and protects pings and CW like manual NB2");
     double before = 0.0, after = 0.0;
     for (int at : clicks) {
         before += energy(z, at, at + fs / 400) - energy(x, at, at + fs / 400);
@@ -121,7 +131,7 @@ void testRate(BlankerMode mode, int fs, const char *label)
     const double reduction = 10.0 * std::log10(before / std::max(after, 1e-12));
     std::snprintf(text, sizeof(text), "%s: 40 clicks, %llu events, click energy above the background down by %.1f dB",
                   label, static_cast<unsigned long long>(nb2.events()), reduction);
-    check(reduction > (mode == BlankerMode::Lpc ? 6.0 : 15.0), text);
+    check(reduction > 15.0, text);
     const double pingIn = energy(z, ping, ping + fs * 6 / 100);
     const double pingOut = energy(w, ping + delay, ping + delay + fs * 6 / 100);
     std::snprintf(text, sizeof(text), "%s: 60 ms ping kept (%.3f of its energy)", label, pingOut / pingIn);
@@ -186,20 +196,52 @@ void testStage()
     s.mskCarrierNotch = true;
     setSettings(s);
     check(!stage.update(12000) && stage.active(), "stage: carrier notch adds no delay");
+    s.mode = BlankerMode::Auto;
+    setSettings(s);
+    check(!stage.update(12000) && stage.latencyNs() == 48000000,
+          "switching from manual NB2 to Auto keeps the audio timeline");
     s.mode = BlankerMode::Off;
     s.mskCarrierNotch = false;
     setSettings(s);
     check(stage.update(12000) && stage.latencyNs() == 0 && !stage.active(), "stage off again");
 }
+
+void testAutoTransitions()
+{
+    constexpr int fs = 12000;
+    const double threshold = nb2Threshold(BlankerLevel::Normal);
+    auto x = noise(fs * 3, 0.01, 13);
+    addImpulse(x, fs + 181, 0.9, fs);
+    ImpulseBlanker automatic;
+    automatic.configure(BlankerMode::Auto, threshold, fs);
+    auto y = x;
+    automatic.process(y.data(), fs);
+    const auto clean = automatic.evaluations();
+    automatic.process(y.data() + fs, fs);
+    const auto afterClick = automatic.evaluations();
+    automatic.process(y.data() + 2 * fs, fs);
+    check(automatic.events() == 1 && afterClick > clean,
+          "Auto catches the first isolated click after quiet audio");
+    check(automatic.evaluations() - afterClick < 4,
+          "Auto stops running NB2 when the impulse has left the window");
+
+    auto switched = x;
+    const int split = fs + 99;
+    automatic.reset();
+    automatic.process(switched.data(), split);
+    automatic.configure(BlankerMode::Nb2, threshold, fs);
+    automatic.process(switched.data() + split, fs * 3 - split);
+    check(switched == y, "manual/Auto setting change preserves buffered audio and alignment");
+}
 } // namespace
 
 int main()
 {
-    testRate(BlankerMode::Nb2, 12000, "NB2 12 kHz");
-    testRate(BlankerMode::Nb2, 48000, "NB2 48 kHz");
-    testRate(BlankerMode::Lpc, 12000, "LPC 12 kHz");
+    testRate(12000, "NB2 12 kHz");
+    testRate(48000, "NB2 48 kHz");
     testCarrierNotch();
     testStage();
+    testAutoTransitions();
     std::printf(failures ? "%d FAILED\n" : "ALL PASSED\n", failures);
     return failures ? 1 : 0;
 }

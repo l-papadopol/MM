@@ -1,4 +1,6 @@
 #include "RxNoiseBlanker.h"
+#include "../FftwPlannerLock.h"
+#include "../../third_party/mshv_gpl/port/Hv_Lib_fftw/fftw3.h"
 
 /*
  * RX noise blanker and MSK144 carrier notch (IC8TEM). See RxNoiseBlanker.h.
@@ -9,6 +11,7 @@
 #include <atomic>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 
 namespace MadModemNoise {
 namespace {
@@ -45,7 +48,8 @@ Settings settings()
 
 void setSettings(const Settings &s)
 {
-    const int mode = qBound(0, static_cast<int>(s.mode), 2);
+    const int mode = s.mode == BlankerMode::Nb2 || s.mode == BlankerMode::Auto
+        ? static_cast<int>(s.mode) : static_cast<int>(BlankerMode::Off);
     const int level = qBound(0, static_cast<int>(s.level), 2);
     const bool modeChanged = g_mode.exchange(mode, std::memory_order_acq_rel) != mode;
     const bool levelChanged = g_level.exchange(level, std::memory_order_acq_rel) != level;
@@ -69,7 +73,7 @@ QString modeName(BlankerMode mode)
 {
     switch (mode) {
     case BlankerMode::Nb2: return QStringLiteral("NB2");
-    case BlankerMode::Lpc: return QStringLiteral("LPC");
+    case BlankerMode::Auto: return QStringLiteral("NB2 Auto");
     case BlankerMode::Off: break;
     }
     return QStringLiteral("Off");
@@ -83,16 +87,6 @@ double nb2Threshold(BlankerLevel level)
     case BlankerLevel::Normal: break;
     }
     return 5.0; // MSHV-IC8TEM value
-}
-
-double lpcThreshold(BlankerLevel level)
-{
-    switch (level) {
-    case BlankerLevel::Sensitive: return 8.0;
-    case BlankerLevel::StrongOnly: return 14.0;
-    case BlankerLevel::Normal: break;
-    }
-    return 10.0; // MSHV-IC8TEM value
 }
 
 // ------------------------------------------------------------------ FFT
@@ -147,9 +141,71 @@ void Fft::run(std::complex<double> *data, bool inverse) const
 
 // ------------------------------------------------------------------ impulse blanker
 
+struct ImpulseBlanker::HilbertTransform
+{
+    explicit HilbertTransform(int size)
+        : length(size), time(fftw_alloc_real(size), fftw_free),
+          spectrum(fftw_alloc_complex(size / 2 + 1), fftw_free)
+    {
+        if (!time || !spectrum) throw std::bad_alloc();
+        std::lock_guard<std::mutex> lock(MadModemDsp::fftwPlannerMutex);
+        forward = fftw_plan_dft_r2c_1d(length, time.get(), spectrum.get(), FFTW_ESTIMATE);
+        inverse = fftw_plan_dft_c2r_1d(length, spectrum.get(), time.get(), FFTW_ESTIMATE);
+        if (!forward || !inverse) {
+            if (forward) fftw_destroy_plan(forward);
+            if (inverse) fftw_destroy_plan(inverse);
+            throw std::runtime_error("NB2 Hilbert transform planning failed");
+        }
+    }
+
+    ~HilbertTransform()
+    {
+        std::lock_guard<std::mutex> lock(MadModemDsp::fftwPlannerMutex);
+        fftw_destroy_plan(forward);
+        fftw_destroy_plan(inverse);
+    }
+
+    void envelope(const std::vector<double> &input, std::vector<double> &env) const
+    {
+        double *samples = time.get();
+        const int count = static_cast<int>(input.size());
+        std::copy(input.begin(), input.end(), samples);
+        std::fill(samples + count, samples + length, 0.0);
+        fftw_execute(forward);
+
+        // Apply -i on positive frequencies. The inverse supplies the conjugate
+        // negative frequencies, so its output is the real Hilbert quadrature.
+        auto *bins = spectrum.get();
+        bins[0][0] = bins[0][1] = 0.0;
+        for (int k = 1; k < length / 2; ++k) {
+            const double real = bins[k][0];
+            bins[k][0] = bins[k][1];
+            bins[k][1] = -real;
+        }
+        bins[length / 2][0] = bins[length / 2][1] = 0.0;
+        fftw_execute(inverse);
+
+        const double scale = 1.0 / length;
+        for (int i = 0; i < count; ++i) {
+            const double quadrature = samples[i] * scale;
+            env[i] = std::sqrt(input[i] * input[i] + quadrature * quadrature);
+        }
+    }
+
+    const int length;
+    const std::unique_ptr<double, decltype(&fftw_free)> time;
+    const std::unique_ptr<fftw_complex, decltype(&fftw_free)> spectrum;
+    fftw_plan forward = nullptr;
+    fftw_plan inverse = nullptr;
+};
+
+ImpulseBlanker::ImpulseBlanker() = default;
+ImpulseBlanker::~ImpulseBlanker() = default;
+
 void ImpulseBlanker::configure(BlankerMode mode, double threshold, int sampleRate)
 {
-    const bool geometry = mode != m_mode || sampleRate != m_fs;
+    const bool geometry = (mode == BlankerMode::Off) != (m_mode == BlankerMode::Off)
+        || sampleRate != m_fs;
     m_mode = mode;
     m_threshold = threshold;
     if (!geometry) {
@@ -168,11 +224,7 @@ void ImpulseBlanker::configure(BlankerMode mode, double threshold, int sampleRat
     auto samples = [sampleRate](double seconds, int minimum) {
         return std::max(minimum, static_cast<int>(std::lround(seconds * sampleRate)));
     };
-    // LPC frames as in DL2FW/MSHV at 12 kHz (128 samples, order 10, 11-sample repair).
-    m_frame = std::max(32, static_cast<int>(std::lround(128.0 * scale)));
-    m_order = qBound(6, static_cast<int>(std::lround(10.0 * scale)), 40);
-    m_half = qBound(2, static_cast<int>(std::lround(5.0 * scale)), 20);
-    m_c = 2 * m_frame;                 // 21.3 ms chunk
+    m_c = 2 * std::max(32, static_cast<int>(std::lround(128.0 * scale))); // 21.3 ms at 12 kHz
     m_h = samples(0.024, 8);           // history: level before the event, reference blocks
     m_l = samples(0.0267, 8);          // look-ahead: longest event plus the level after it
     m_w = m_h + m_c + m_l;
@@ -183,11 +235,20 @@ void ImpulseBlanker::configure(BlankerMode mode, double threshold, int sampleRat
     m_guard = samples(0.0005, 1);      // 0.5 ms advance and hang time
     m_slew = samples(0.0005, 1);       // 0.5 ms raised-cosine slews
     m_side = samples(0.004, 4);        // level around the event, 4 ms each side
-    int n = 1;
-    while (n < m_w) {
-        n <<= 1;
+    m_fftLength = 1;
+    while (m_fftLength < m_w) {
+        m_fftLength <<= 1;
     }
-    m_fft.resize(n);
+    m_blockPower.resize(m_w / m_block);
+    m_blockPeakPower.resize(m_w / m_block);
+    m_slewDown.resize(m_slew);
+    m_slewUp.resize(m_slew);
+    for (int k = 0; k < m_slew; ++k) {
+        const double c = 0.5 * std::cos(kPi * (k + 1) / (m_slew + 1));
+        m_slewDown[k] = 0.5 + c;
+        m_slewUp[k] = 0.5 - c;
+    }
+    m_env.resize(m_w);
     reset();
 }
 
@@ -222,14 +283,8 @@ void ImpulseBlanker::process(double *x, int n)
 
 void ImpulseBlanker::step()
 {
-    if (m_mode == BlankerMode::Nb2) {
+    if (m_mode == BlankerMode::Nb2 || mayContainImpulse()) {
         detectNb2();
-    } else if (m_mode == BlankerMode::Lpc) {
-        // Frames start half a repair window after the chunk, so that a repair never
-        // reaches samples already delivered.
-        for (int start = m_h + m_half; start < m_h + m_c + m_half; start += m_frame) {
-            repairLpcFrame(start);
-        }
     }
     if (m_outRead > 0) {
         m_out.erase(m_out.begin(), m_out.begin() + static_cast<std::ptrdiff_t>(m_outRead));
@@ -246,25 +301,45 @@ void ImpulseBlanker::step()
     m_fill = 0;
 }
 
+bool ImpulseBlanker::mayContainImpulse()
+{
+    const int blocks = static_cast<int>(m_blockPower.size());
+    for (int b = 0; b < blocks; ++b) {
+        double power = 0.0;
+        double peak = 0.0;
+        const double *samples = m_buffer.data() + b * m_block;
+        for (int i = 0; i < m_block; ++i) {
+            const double squared = samples[i] * samples[i];
+            power += squared;
+            peak = std::max(peak, squared);
+        }
+        m_blockPower[b] = power / m_block;
+        m_blockPeakPower[b] = peak;
+    }
+
+    // Include the NB2 scan region and adjacent samples. The raw peak can
+    // precede or follow the peak of the Hilbert envelope.
+    const int first = (m_h - m_gap) / m_block;
+    const int last = std::min(blocks - 1, (m_h + m_c + m_guard + m_slew + m_gap - 1) / m_block);
+    const double peakToRms = 0.9 * m_threshold;
+    for (int b = first; b <= last; ++b) {
+        const int from = std::max(0, b - 4);
+        const int to = std::min(blocks, b + 5);
+        const double localPower = medianOf(m_blockPower.data() + from, to - from, m_scratch);
+        if (m_blockPeakPower[b] > peakToRms * peakToRms * localPower) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void ImpulseBlanker::detectNb2()
 {
-    // Envelope of the analytic signal of the whole window.
-    const int n = m_fft.size();
-    m_analytic.assign(static_cast<std::size_t>(n), std::complex<double>());
-    for (int i = 0; i < m_w; ++i) {
-        m_analytic[static_cast<std::size_t>(i)] = std::complex<double>(m_buffer[static_cast<std::size_t>(i)], 0.0);
+    ++m_evaluations;
+    if (!m_hilbert || m_hilbert->length != m_fftLength) {
+        m_hilbert = std::make_unique<HilbertTransform>(m_fftLength);
     }
-    m_fft.forward(m_analytic.data());
-    for (int k = 1; k < n / 2; ++k) {
-        m_analytic[static_cast<std::size_t>(k)] *= 2.0;
-    }
-    std::fill(m_analytic.begin() + n / 2 + 1, m_analytic.end(), std::complex<double>());
-    m_fft.inverse(m_analytic.data());
-    m_env.resize(static_cast<std::size_t>(m_w));
-    const double scale = 1.0 / n;
-    for (int i = 0; i < m_w; ++i) {
-        m_env[static_cast<std::size_t>(i)] = std::abs(m_analytic[static_cast<std::size_t>(i)]) * scale;
-    }
+    m_hilbert->envelope(m_buffer, m_env);
 
     // Median of 4 ms blocks, reference = median of the nine blocks around.
     const int blocks = m_w / m_block;
@@ -338,179 +413,16 @@ void ImpulseBlanker::detectNb2()
         const int a = s - m_guard;
         const int z = e + m_guard;
         for (int k = 0; k < m_slew; ++k) {
-            const double w = 0.5 + 0.5 * std::cos(kPi * (k + 1) / (m_slew + 1));
-            m_gain[static_cast<std::size_t>(a - m_slew + k)] *= w;
+            m_gain[static_cast<std::size_t>(a - m_slew + k)] *= m_slewDown[k];
         }
         for (int k = a; k <= z; ++k) {
             m_gain[static_cast<std::size_t>(k)] = 0.0;
         }
         for (int k = 0; k < m_slew; ++k) {
-            const double w = 0.5 - 0.5 * std::cos(kPi * (k + 1) / (m_slew + 1));
-            m_gain[static_cast<std::size_t>(z + 1 + k)] *= w;
+            m_gain[static_cast<std::size_t>(z + 1 + k)] *= m_slewUp[k];
         }
         ++m_events;
         g_events.fetch_add(1, std::memory_order_relaxed);
-    }
-}
-
-void ImpulseBlanker::repairLpcFrame(int start)
-{
-    const int order = m_order;
-    const int frame = m_frame;
-    const int half = m_half;
-    const int span = 2 * half + 1;
-    constexpr int kMaxImpulses = 5; // DL2FW
-    constexpr int kMaxOrder = 40;
-    double *x = m_buffer.data();
-    if (start - 2 * order < 0 || start + frame > m_w) {
-        return;
-    }
-
-    // Autocorrelation and Levinson-Durbin.
-    double r[kMaxOrder + 1] = {};
-    for (int lag = 0; lag <= order; ++lag) {
-        double acc = 0.0;
-        for (int t = 0; t < frame - lag; ++t) {
-            acc += x[start + t] * x[start + t + lag];
-        }
-        r[lag] = acc;
-    }
-    if (!(r[0] > 0.0)) {
-        return;
-    }
-    r[0] *= (order > 10 ? 1.0 + 1.0e-7 : 1.0 + 1.0e-9);
-    double a[kMaxOrder + 1] = {};
-    double next[kMaxOrder + 1] = {};
-    a[0] = 1.0;
-    for (int k = 1; k <= order; ++k) {
-        a[k] = 0.0;
-    }
-    double alfa = r[0];
-    for (int m = 1; m <= order; ++m) {
-        double sum = 0.0;
-        for (int u = 1; u < m; ++u) {
-            sum += a[u] * r[m - u];
-        }
-        const double k = -(r[m] + sum) / alfa;
-        for (int v = 1; v < m; ++v) {
-            next[v] = a[v] + k * a[m - v];
-        }
-        for (int v = 1; v < m; ++v) {
-            a[v] = next[v];
-        }
-        a[m] = k;
-        alfa *= (1.0 - k * k);
-        if (!(alfa > 0.0)) {
-            return;
-        }
-    }
-
-    // Inverse filter (prediction error), then matched filter: peak delayed by the order.
-    std::vector<double> &e = m_env;
-    std::vector<double> &matched = m_reference;
-    e.assign(static_cast<std::size_t>(frame + order), 0.0);
-    matched.assign(static_cast<std::size_t>(frame), 0.0);
-    for (int t = -order; t < frame; ++t) {
-        double acc = 0.0;
-        for (int j = 0; j <= order; ++j) {
-            acc += a[j] * x[start + t - j];
-        }
-        e[static_cast<std::size_t>(t + order)] = acc;
-    }
-    for (int t = 0; t < frame; ++t) {
-        double acc = 0.0;
-        for (int j = 0; j <= order; ++j) {
-            acc += a[order - j] * e[static_cast<std::size_t>(t - j + order)];
-        }
-        matched[static_cast<std::size_t>(t)] = acc;
-    }
-
-    // Robust level of the matched filter output (median absolute deviation).
-    const double med = medianOf(matched.data(), frame, m_scratch);
-    m_blockMedian.resize(static_cast<std::size_t>(frame));
-    for (int t = 0; t < frame; ++t) {
-        m_blockMedian[static_cast<std::size_t>(t)] = std::fabs(matched[static_cast<std::size_t>(t)] - med);
-    }
-    const double sigma = 1.4826 * medianOf(m_blockMedian.data(), frame, m_scratch);
-    if (!(sigma > 0.0)) {
-        return;
-    }
-    const double threshold = m_threshold * sigma;
-    auto excess = [&matched, med](int t) { return std::fabs(matched[static_cast<std::size_t>(t)] - med); };
-    // An impulse must also stand out of the audio itself. Without this, the symbol
-    // transitions of a strong, clean digital signal (tiny prediction error everywhere
-    // else) would be taken for impulses.
-    for (int t = 0; t < frame; ++t) {
-        m_blockMedian[static_cast<std::size_t>(t)] = std::fabs(x[start + t]);
-    }
-    const double amplitude = 1.4826 * medianOf(m_blockMedian.data(), frame, m_scratch);
-
-    int count = 0;
-    double forward[kMaxOrder + 2 * 20 + 2];
-    double backward[kMaxOrder + 2 * 20 + 2];
-    if (order + span > static_cast<int>(sizeof(forward) / sizeof(forward[0]))) {
-        return;
-    }
-    for (int t = order; t < frame && count < kMaxImpulses; ++t) {
-        if (excess(t) <= threshold) {
-            continue;
-        }
-        // Only short isolated impulses: the excess must end within the repair window.
-        int r0 = t;
-        int r1 = t;
-        while (r0 > 0 && excess(r0 - 1) > 0.5 * threshold) {
-            --r0;
-        }
-        while (r1 < frame - 1 && excess(r1 + 1) > 0.5 * threshold) {
-            ++r1;
-        }
-        if (r1 - r0 + 1 > span) {
-            t = r1;
-            continue;
-        }
-        const int centre = start + t - order;
-        const int first = centre - half;
-        const int last = centre + half;
-        if (first < m_h || first - order < 0 || last + order >= m_w) {
-            t += half;
-            continue;
-        }
-        double peak = 0.0;
-        for (int q = first; q <= last; ++q) {
-            peak = std::max(peak, std::fabs(x[q]));
-        }
-        if (!(peak > 4.0 * amplitude)) {
-            t += half;
-            continue;
-        }
-        for (int k = 0; k < order; ++k) {
-            forward[k] = x[first - order + k];
-        }
-        for (int q = 0; q < span; ++q) {
-            double acc = 0.0;
-            for (int j = 1; j <= order; ++j) {
-                acc -= a[j] * forward[order + q - j];
-            }
-            forward[order + q] = acc;
-        }
-        for (int k = 0; k < order; ++k) {
-            backward[span + k] = x[last + 1 + k];
-        }
-        for (int q = span - 1; q >= 0; --q) {
-            double acc = 0.0;
-            for (int j = 1; j <= order; ++j) {
-                acc -= a[j] * backward[q + j];
-            }
-            backward[q] = acc;
-        }
-        for (int q = 0; q < span; ++q) {
-            const double wb = static_cast<double>(q) / static_cast<double>(span - 1);
-            x[first + q] = (1.0 - wb) * forward[order + q] + wb * backward[q];
-        }
-        ++count;
-        ++m_events;
-        g_events.fetch_add(1, std::memory_order_relaxed);
-        t += half;
     }
 }
 
@@ -763,8 +675,7 @@ bool RxNoiseStage::update(int sampleRate)
     m_generation = generation;
     const bool rateChanged = sampleRate != m_fs;
     m_fs = sampleRate;
-    const double threshold = s.mode == BlankerMode::Lpc ? lpcThreshold(s.level) : nb2Threshold(s.level);
-    m_blanker.configure(s.mode, threshold, sampleRate);
+    m_blanker.configure(s.mode, nb2Threshold(s.level), sampleRate);
     const bool notch = m_notchAllowed && s.mskCarrierNotch && sampleRate == CarrierNotch::kSampleRate;
     if (notch != m_notchOn || rateChanged) {
         m_notchOn = notch;

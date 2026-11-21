@@ -15,14 +15,14 @@ void RxDecoderWorker::configure(const Config &config) {
         m_config.filter.blackHz != config.filter.blackHz || m_config.filter.whiteHz != config.filter.whiteHz)
         m_afc.reset();
     if (m_config.mode!=config.mode || m_config.enabled!=config.enabled) {
-        m_queue.clear(); m_continuity.reset(); m_conditioner.reset(); m_afc.reset();
+        m_queue.clear(); m_continuity.reset(); m_conditioner.reset(); m_afc.reset(); m_noise.reset();
     }
     if (m_config.mode!=config.mode) { m_config=config; resetActive(); }
     else m_config=config;
     m_conditioner.setConfig(config.filter);
 }
 void RxDecoderWorker::beginCapture() {
-    m_queue.clear(); m_continuity.reset(); m_conditioner.reset(); m_afc.reset();
+    m_queue.clear(); m_continuity.reset(); m_conditioner.reset(); m_afc.reset(); m_noise.reset();
 }
 void RxDecoderWorker::drain() {
     Q_ASSERT(QThread::currentThread()==thread());

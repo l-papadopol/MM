@@ -275,6 +275,7 @@ void HamlibController::configure(const Config &config)
     }
     const bool oldHrd = isHamRadioDeluxeModel(m_config.rigModel);
     const bool newHrd = isHamRadioDeluxeModel(config.rigModel);
+    const QString previousRoute = m_config.txAudioRoute;
     const bool needReconnect = (m_config.catEnabled != config.catEnabled) ||
                                (m_config.pttEnabled != config.pttEnabled) ||
                                (m_config.readOnlyTest != config.readOnlyTest) ||
@@ -369,8 +370,12 @@ void HamlibController::configure(const Config &config)
         return;
     }
 
+    const bool alreadyConnected = isConnected();
     if (m_config.catEnabled) {
         connectRig();
+        if (alreadyConnected && isConnected() && previousRoute != m_config.txAudioRoute) {
+            setDigitalReceiveMode(m_digitalReceiveMode);
+        }
     }
 }
 
@@ -576,6 +581,7 @@ bool HamlibController::connectRig()
     }
 
     m_rig = rig;
+    m_rxModeSyncPending = m_digitalReceiveMode;
     setStatus(QStringLiteral("CAT connected"));
     reportPowerCapabilities();
 
@@ -808,6 +814,13 @@ bool HamlibController::disconnectRig()
     return pttOffConfirmed;
 }
 
+void HamlibController::setDigitalReceiveMode(bool enabled)
+{
+    m_digitalReceiveMode = enabled;
+    m_rxModeSyncPending = enabled;
+    if (enabled && isConnected()) pollNow();
+}
+
 void HamlibController::pollNow()
 {
     updateHamlibDiagnostics();
@@ -871,13 +884,38 @@ void HamlibController::pollNow()
         setStatus(QStringLiteral("CAT frequency error"));
     }
 
-    // Poll the active demodulation mode together with frequency.  RTTY uses
-    // this only as a polarity prior; no mode-setting command is issued here.
     rmode_t mode = RIG_MODE_NONE;
     pbwidth_t width = 0;
-    int modeRet = rig_get_mode(rig, activeVfo, &mode, &width);
-    if (modeRet != RIG_OK && activeVfo != RIG_VFO_CURR) {
-        modeRet = rig_get_mode(rig, RIG_VFO_CURR, &mode, &width);
+    vfo_t modeVfo = activeVfo;
+    int modeRet = rig_get_mode(rig, modeVfo, &mode, &width);
+    if (modeRet != RIG_OK && modeVfo != RIG_VFO_CURR) {
+        modeVfo = RIG_VFO_CURR;
+        modeRet = rig_get_mode(rig, modeVfo, &mode, &width);
+    }
+
+    // Apply an explicit digital RX policy on entry, QSY or reconnect. Preserve
+    // the filter when the radio already reports the correct mode.
+    if (m_rxModeSyncPending && !m_config.readOnlyTest && modeRet == RIG_OK) {
+        const rmode_t target = routeRequestsDataPktMode(m_config) ? RIG_MODE_PKTUSB
+                             : routeRequestsUsbMode(m_config) ? RIG_MODE_USB : RIG_MODE_NONE;
+        ptt_t ptt = RIG_PTT_OFF;
+        const bool radioTransmitting = target != RIG_MODE_NONE && mode != target
+            && rig->caps->get_ptt && rig_get_ptt(rig, modeVfo, &ptt) == RIG_OK && ptt != RIG_PTT_OFF;
+        if (!radioTransmitting) {
+            m_rxModeSyncPending = false;
+            if (target != RIG_MODE_NONE && mode != target) {
+                const int ret = rig_set_mode(rig, modeVfo, target, RIG_PASSBAND_NORMAL);
+                const auto targetName = QString::fromLatin1(rig_strrmode(target));
+                if (ret == RIG_OK) {
+                    modeRet = rig_get_mode(rig, modeVfo, &mode, &width);
+                    SessionDiagnostics::instance().record("cat.rx-mode", {{"requested", targetName},
+                        {"reported", modeRet == RIG_OK ? QString::fromLatin1(rig_strrmode(mode)) : QString()}});
+                } else {
+                    emitError(QStringLiteral("Hamlib could not set %1 receive mode: %2")
+                                  .arg(targetName, QString::fromLocal8Bit(rigerror(ret))));
+                }
+            }
+        }
     }
     if (modeRet == RIG_OK && mode != RIG_MODE_NONE) {
         const QString modeName = QString::fromLatin1(rig_strrmode(mode)).trimmed().toUpper();

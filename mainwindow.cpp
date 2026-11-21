@@ -11601,9 +11601,12 @@ void MainWindow::invokeRigConfigureFromSettings()
     if (m_rigController == nullptr) {
         return;
     }
+    const QString mode = ui && ui->cmbMode ? ui->cmbMode->currentText() : QString();
+    const bool digitalRx = Ft8Mode::isFamilyMode(mode) || Msk144Mode::isMode(mode) || Q65Mode::isFamilyMode(mode);
     const AppSettings settingsCopy = m_settings;
-    QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, settingsCopy]() {
+    QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, settingsCopy, digitalRx]() {
         controller->configureFromSettings(settingsCopy);
+        controller->setDigitalReceiveMode(digitalRx);
     }, Qt::QueuedConnection);
     appendLog(m_settings.hamlibCatEnabled
                   ? QStringLiteral("CAT: saved configuration queued; auto-connect enabled.")
@@ -12345,12 +12348,9 @@ void MainWindow::qsyRigToSelectedFtBand()
         return;
     }
     const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
+    if (!Ft8Mode::isFamilyMode(modeName)) return;
     const QString band = m_cmbFt8Band->currentText();
     const double targetHz = ftStandardFrequencyHz(modeName, band);
-    if (targetHz <= 0.0) {
-        appendLog(QStringLiteral("%1: no standard FT frequency configured for %2.").arg(modeName, band));
-        return;
-    }
     if (!m_settings.hamlibCatEnabled) {
         appendLog(QStringLiteral("%1 band %2 selected; CAT is disabled, rig not tuned.").arg(modeName, band));
         return;
@@ -12361,8 +12361,15 @@ void MainWindow::qsyRigToSelectedFtBand()
         // also tunes a freshly-enabled rig without requiring a separate Test CAT.
         invokeRigConfigureFromSettings();
     }
-    invokeRigSetFrequency(targetHz);
-    appendLog(QStringLiteral("%1 CAT QSY queued: %2 -> %3.").arg(modeName, band, formatRigFrequency(targetHz)));
+    if (targetHz > 0.0) invokeRigSetFrequency(targetHz);
+    QMetaObject::invokeMethod(m_rigController, [controller = m_rigController]() {
+        controller->setDigitalReceiveMode(true);
+    }, Qt::QueuedConnection);
+    if (targetHz > 0.0) {
+        appendLog(QStringLiteral("%1 CAT QSY queued: %2 -> %3.").arg(modeName, band, formatRigFrequency(targetHz)));
+    } else {
+        appendLog(QStringLiteral("%1: no standard FT frequency configured for %2.").arg(modeName, band));
+    }
 }
 
 
@@ -13305,6 +13312,12 @@ void MainWindow::finishPendingModeChange()
 
 void MainWindow::handleModeChanged(const QString &modeName)
 {
+    if (m_rigController && !Ft8Mode::isFamilyMode(modeName)) {
+        const bool digitalRx = Msk144Mode::isMode(modeName) || Q65Mode::isFamilyMode(modeName);
+        QMetaObject::invokeMethod(m_rigController, [controller = m_rigController, digitalRx]() {
+            controller->setDigitalReceiveMode(digitalRx);
+        }, Qt::QueuedConnection);
+    }
     m_rttySkimmerSpots.clear();
     if (m_waterfallWidget) m_waterfallWidget->clearSkimmer();
     if (m_rttyMultiDecoder) invokeRxDecoder(m_rttyMultiDecoder, &RttyMultiDecoder::reset);

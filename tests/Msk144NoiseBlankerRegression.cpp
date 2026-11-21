@@ -48,8 +48,8 @@ int main(int argc, char **argv)
     const struct { BlankerMode mode; bool zap; const char *name; } cases[] = {
         {BlankerMode::Off, false, "blanker off"},
         {BlankerMode::Nb2, false, "NB2"},
-        {BlankerMode::Lpc, false, "LPC"},
         {BlankerMode::Nb2, true, "NB2 and carrier notch"},
+        {BlankerMode::Auto, true, "NB2 Auto and carrier notch"},
     };
     for (const auto &c : cases) {
         Settings s;

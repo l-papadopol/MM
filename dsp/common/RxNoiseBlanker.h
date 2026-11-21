@@ -11,16 +11,12 @@
  *    analytic signal against the median level of 4 ms blocks, then blanked with
  *    advance and hang guard times and raised-cosine slews. Events whose core lasts
  *    more than 3 ms (meteor pings, keyed signals) and events framed by a strong level
- *    (the start or the end of a signal) are never touched.
- *  - LPC: linear prediction blanker, port of alt_noise_blanking() by Michael Wild
- *    DL2FW, UHSDR firmware (GPLv3): the samples of short isolated impulses are
- *    replaced by the weighted forward and backward linear prediction; robust
- *    threshold (median absolute deviation) for noise-like digital signals.
+ *    (the start or the end of a signal) are protected by these checks.
  *  - Carrier notch ("ZAP", MSK144 only), like the ZAP of the old WSJT: narrow lines
  *    steady over the last ~5 s are removed with 10 Hz notches; evenly spaced lines
  *    (a continuous MSK signal) are never notched.
  *
- * The blankers work on fixed chunks with a short look-ahead: the output is the
+ * The blanker works on fixed chunks with a short look-ahead: the output is the
  * input delayed by latencySamples() (48 ms). Callers that keep a UTC timeline
  * subtract latencyNs() from the capture time of the processed samples. With the
  * blanker off nothing is processed and the delay is zero.
@@ -36,11 +32,12 @@
 #include <QtGlobal>
 
 #include <complex>
+#include <memory>
 #include <vector>
 
 namespace MadModemNoise {
 
-enum class BlankerMode : int { Off = 0, Nb2 = 1, Lpc = 2 };
+enum class BlankerMode : int { Off = 0, Nb2 = 1, Auto = 3 }; // 2 was LPC in old settings.
 enum class BlankerLevel : int { Sensitive = 0, Normal = 1, StrongOnly = 2 };
 
 struct Settings
@@ -55,14 +52,13 @@ Settings settings();
 void setSettings(const Settings &settings);
 /** Changes every time setSettings() changes a value. */
 quint64 settingsGeneration();
-/** Impulses blanked or repaired since start, all decoders together (status display). */
+/** Impulses blanked since start, all decoders together (status display). */
 quint64 totalEvents();
 
 QString modeName(BlankerMode mode);
 double nb2Threshold(BlankerLevel level);
-double lpcThreshold(BlankerLevel level);
 
-/** Radix-2 complex FFT used by the blanker and the carrier notch. */
+/** Radix-2 complex FFT used by the carrier notch. */
 class Fft
 {
 public:
@@ -78,10 +74,12 @@ private:
     std::vector<int> m_bitReverse;
 };
 
-/** NB2 or LPC impulse blanker on a real audio stream, any sample rate. */
+/** NB2 impulse blanker on a real audio stream, any sample rate. */
 class ImpulseBlanker
 {
 public:
+    ImpulseBlanker();
+    ~ImpulseBlanker();
     void configure(BlankerMode mode, double threshold, int sampleRate);
     BlankerMode mode() const { return m_mode; }
     int sampleRate() const { return m_fs; }
@@ -91,11 +89,12 @@ public:
     /** Processes n samples in place; the output is the input delayed by latencySamples(). */
     void process(double *x, int n);
     quint64 events() const { return m_events; }
+    quint64 evaluations() const { return m_evaluations; }
 
 private:
     void step();
+    bool mayContainImpulse();
     void detectNb2();
-    void repairLpcFrame(int start);
 
     BlankerMode m_mode = BlankerMode::Off;
     double m_threshold = 5.0;
@@ -104,17 +103,20 @@ private:
     int m_h = 0, m_c = 0, m_l = 0, m_w = 0;
     // NB2 times in samples.
     int m_block = 0, m_gap = 0, m_coreMax = 0, m_eventMax = 0, m_guard = 0, m_slew = 0, m_side = 0;
-    // LPC geometry in samples.
-    int m_order = 10, m_frame = 128, m_half = 5;
     std::vector<double> m_buffer, m_gain, m_out;
-    std::vector<std::complex<double>> m_analytic;
+    struct HilbertTransform;
+    std::unique_ptr<HilbertTransform> m_hilbert;
+    int m_fftLength = 0;
+    std::vector<double> m_slewDown, m_slewUp;
     std::vector<double> m_env, m_blockMedian, m_reference, m_scratch;
-    Fft m_fft;
+    std::vector<double> m_blockPower, m_blockPeakPower;
+
     std::size_t m_outRead = 0;
     int m_fill = 0;
     qint64 m_windowStart = 0;
     qint64 m_lastEventEnd = -1;
     quint64 m_events = 0;
+    quint64 m_evaluations = 0;
 };
 
 /** Steady narrow carriers notched out of a 12 kHz stream (MSK144 "ZAP"). */
