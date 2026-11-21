@@ -564,6 +564,7 @@ add_executable(MadModem
     modems/ft8/Ft8Mode.h
     modems/ft8/Ft8Mode.cpp
     modems/ft8/FtSlotMemory.h
+    modems/ft8/Ft8RepeatRecovery.h
     modems/ft8/Ft8RxDecoder.h
     modems/ft8/Ft8RxDecoder.cpp
     modems/ft8/FtNativeSpectrum.h

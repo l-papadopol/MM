@@ -1,5 +1,6 @@
 #include "FtLdpcCheck.h"
 #include "FtNativeSpectrum.h"
+#include "Ft8RepeatRecovery.h"
 #include "FtCoherentAlignment.h"
 #include "FtSignalEnvelope.h"
 #include "FtDiagnostics.h"
@@ -46,6 +47,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -4077,8 +4079,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
     // The bounded memory retry runs before optional coherent/reference tails
     // so it can still meet the live reply deadline. Its rows stay out of SIC.
+    const auto cqTracks = m_slotMemory.recentCqs(slotMemory.context, slotStartUtc.toMSecsSinceEpoch());
     const auto memoryRows = recoverWithSlotMemory(slotMemory, slotStartUtc, out, stats);
     if (publish && !memoryRows.isEmpty()) publish(memoryRows);
+    const auto repeatRows = recoverFt8CqTracks(slotMemory, samples, slotStartUtc, out + memoryRows, cqTracks, stats);
+    if (publish && !repeatRows.isEmpty()) publish(repeatRows);
 
     // All baseline passes, including optional drift recovery, have finished.
     // Retry only failed first-pass candidates; never replace any baseline row.
@@ -4257,9 +4262,12 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
             {"elapsed_ms", elapsed}, {"cutoff", QDateTime::currentMSecsSinceEpoch() >= nativeStop - 25}});
     }
 
-    for (const Decode &row : memoryRows) {
-        if (std::none_of(out.cbegin(), out.cend(), [&](const Decode &d) { return d.message == row.message; }))
-            out.append(row);
+    rememberFt8CqTracks(slotMemory, slotStartUtc, out);
+    for (const auto &additional : {&memoryRows, &repeatRows}) {
+        for (const Decode &row : *additional) {
+            if (std::none_of(out.cbegin(), out.cend(), [&](const Decode &d) { return d.message == row.message; }))
+                out.append(row);
+        }
     }
 
     m_lastCandidateCount.store(totalCandidates);
@@ -4853,6 +4861,148 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::recoverWithSlotMemory(
         return recovered;
     }
     return {};
+}
+
+void Ft8RxDecoder::rememberFt8CqTracks(const SlotMemoryJob &job, const QDateTime &slot,
+                                     const QVector<Decode> &decodes)
+{
+    if (job.context.periodMs != 15000 || decodeCancellationRequested() ||
+        job.context.generation != m_decodeGeneration.load(std::memory_order_acquire) ||
+        job.context.tuningGeneration != m_slotMemoryTuningGeneration.load(std::memory_order_acquire) ||
+        job.context.blankerGeneration != MadModemNoise::settingsGeneration())
+        return;
+
+    auto strongest = decodes;
+    std::stable_sort(strongest.begin(), strongest.end(), [](const Decode &a, const Decode &b) {
+        return a.snrDb > b.snrDb;
+    });
+    std::vector<MadModemFt::FtSlotMemory::Ft8Cq> tracks;
+    for (const Decode &row : strongest) {
+        if (tracks.size() >= MadModemFt::FtSlotMemory::maxCqTracks) break;
+        if (!row.message.startsWith(QStringLiteral("CQ ")) ||
+            row.frequencyHz < job.context.lowHz || row.frequencyHz > job.context.highHz ||
+            !std::isfinite(row.dt))
+            continue;
+        MadModemFt::FtSlotMemory::Ft8Cq track;
+        track.frequencyHz = row.frequencyHz;
+        track.startSec = row.dt + .5;
+        std::array<int, 100> tones{};
+        {
+            std::lock_guard<WeakSignalCodecLock::Mutex> codecLock(WeakSignalCodecLock::mutex());
+            GenFt8 generator(false);
+            generator.pack77_make_c77_i4tone(row.message, tones.data());
+        }
+        std::copy_n(tones.begin(), track.tones.size(), track.tones.begin());
+        tracks.push_back(track);
+    }
+    m_slotMemory.rememberCqs(job.context, slot.toMSecsSinceEpoch(), std::move(tracks));
+}
+
+QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::recoverFt8CqTracks(
+    const SlotMemoryJob &job, const QVector<double> &samples, const QDateTime &slot,
+    const QVector<Decode> &ordinary, const std::vector<MadModemFt::FtSlotMemory::Ft8Cq> &tracks,
+    const PerfStats *stats)
+{
+    QVector<Decode> recovered;
+    const auto &context = job.context;
+    if (context.periodMs != 15000 || tracks.empty()) return recovered;
+    const qint64 slotMs = slot.toMSecsSinceEpoch();
+
+    const auto profile = Ft8Mode::profileForMode(m_modeName);
+    const auto deadline = MadModemFtTiming::recoveryDeadlineUtcMs(slotMs, profile.slotMs, profile.signalMs);
+    const auto budgetEnd = std::chrono::steady_clock::now() + std::chrono::milliseconds(65);
+    const auto timeAvailable = [&] {
+        return !decodeCancellationRequested() && std::chrono::steady_clock::now() < budgetEnd &&
+               (stats->offline || QDateTime::currentMSecsSinceEpoch() + 4 < deadline) &&
+               context.generation == m_decodeGeneration.load(std::memory_order_acquire) &&
+               context.tuningGeneration == m_slotMemoryTuningGeneration.load(std::memory_order_acquire) &&
+               context.blankerGeneration == MadModemNoise::settingsGeneration();
+    };
+    if (!timeAvailable()) return recovered;
+    const double driftLimit =
+        m_driftRxEnabled && m_radioFrequencyHz.load(std::memory_order_acquire) >= 144000000.0
+        ? m_driftMaxHzPerSec : 0.0;
+    try {
+        MadModemFt::FtNativeSpectrum spectrum(samples.constData(), int(samples.size()));
+        for (const auto &track : tracks) {
+            if (!timeAvailable()) break;
+            const auto sameTrack = [&](const Decode &d) {
+                return std::abs(d.frequencyHz - track.frequencyHz) <= 3.0 &&
+                       std::abs(d.dt + .5 - track.startSec) <= .060;
+            };
+            if (std::any_of(ordinary.cbegin(), ordinary.cend(), sameTrack))
+                continue;
+
+            auto centerHz = track.frequencyHz;
+            std::vector<std::complex<double>> baseband;
+            spectrum.extract(centerHz, baseband, 23.0);
+            const auto fit = MadModemFt::Ft8RepeatRecovery::demodulate(baseband, centerHz, track.startSec, driftLimit);
+            if (!fit || !timeAvailable()) continue;
+
+            MadModemFt::FtSlotMemory::Evidence current;
+            std::array<int, 174> codeword{};
+            double signal = 0.0, noise = 0.0;
+            double parityFraction = 0.0;
+            int parityWinners[2]{};
+            int dataSymbol = 0;
+            for (int sym = 0; sym < kSymbols; ++sym) {
+                if (isSyncSymbol(sym)) continue;
+                const auto &power = fit->power[sym];
+                const int expected = track.tones[sym];
+                const double total = std::accumulate(power.begin(), power.end(), 0.0);
+                signal += power[expected];
+                noise += (total - power[expected]) / 7.0;
+                if (dataSymbol >= 31 && total > kEps) {
+                    parityFraction += power[expected] / total;
+                    parityWinners[dataSymbol >= 44] +=
+                        power[expected] == *std::max_element(power.begin(), power.end());
+                }
+                const int encoded = grayInverse(expected);
+                for (int bit = 0; bit < 3; ++bit) {
+                    double best0 = 0.0, best1 = 0.0;
+                    const int mask = 1 << (2 - bit);
+                    for (int tone = 0; tone < 8; ++tone) {
+                        double &best = (grayInverse(tone) & mask) ? best1 : best0;
+                        best = std::max(best, power[tone]);
+                    }
+                    const int i = dataSymbol * 3 + bit;
+                    codeword[i] = (encoded & mask) != 0;
+                    current.llr[i] = float(2.2 * std::log((best0 + kEps) / (best1 + kEps)));
+                }
+                ++dataSymbol;
+            }
+            // Separate checks on both halves of the independently received
+            // parity tones prevent a different CQ with the same prefix from
+            // being mistaken for the previously decoded one.
+            if (parityWinners[0] < 4 || parityWinners[1] < 4 ||
+                parityWinners[0] + parityWinners[1] < 10 || parityFraction < 27 * .22 ||
+                !MadModemFt::FtSlotMemory::supports(current, codeword) ||
+                !syndromeOk(codeword) || !crc14Ok(codeword)) continue;
+
+            const QString message = unpackMessage77(codeword).trimmed().toUpper();
+            const auto duplicate = [&](const Decode &d) { return d.message == message; };
+            if (!message.startsWith(QStringLiteral("CQ ")) || !looksLikeUsefulFt8Message(message) ||
+                std::any_of(ordinary.cbegin(), ordinary.cend(), duplicate) ||
+                std::any_of(recovered.cbegin(), recovered.cend(), duplicate) ||
+                !timeAvailable()) continue;
+
+            Decode row;
+            row.message = message;
+            row.utc = slot.time().toString(QStringLiteral("HHmmss"));
+            row.slotStartUtcMs = slotMs;
+            row.frequencyHz = qRound(fit->frequencyHz);
+            row.dt = fit->startSec - .5;
+            row.syncScore = fit->syncRatio;
+            row.snrDb = wsjtxFt8ReportDb(signal, noise, fit->hardSync);
+            row.driftHzPerSec = fit->drift;
+            row.driftSyncEvidence = fit->syncRatio;
+            row.slotMemoryRecovered = true;
+            recovered.append(row);
+        }
+    } catch (const std::exception &e) {
+        SessionDiagnostics::instance().record("ft.repeat.error", {{"error", QString::fromUtf8(e.what())}});
+    }
+    return recovered;
 }
 
 bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,

@@ -42,6 +42,41 @@ public:
         int hardSync = 0;
     };
 
+    struct Ft8Cq {
+        std::array<int, 79> tones{};
+        double frequencyHz = 0.0;
+        double startSec = 0.0;
+    };
+
+    static constexpr std::size_t maxCqTracks = 24;
+
+    std::vector<Ft8Cq> recentCqs(const Context &context, std::int64_t slotUtcMs) const
+    {
+        std::vector<Ft8Cq> tracks;
+        if (context.periodMs != 15000) return tracks;
+        for (int lag : {2, 4, 6}) {
+            const auto priorSlot = slotUtcMs - lag * context.periodMs;
+            const auto &frame = m_cqFrames[cqFrameIndex(priorSlot, context.periodMs)];
+            if (frame.slotUtcMs != priorSlot || !(frame.context == context)) continue;
+            for (const Ft8Cq &track : frame.cqs) {
+                if (tracks.size() >= maxCqTracks) return tracks;
+                if (std::none_of(tracks.begin(), tracks.end(), [&](const Ft8Cq &newer) {
+                    return newer.tones == track.tones;
+                })) tracks.push_back(track);
+            }
+        }
+        return tracks;
+    }
+
+    void rememberCqs(const Context &context, std::int64_t slotUtcMs, std::vector<Ft8Cq> cqs)
+    {
+        if (context.periodMs != 15000) return;
+        const auto &frame = m_frames[(slotUtcMs / context.periodMs) & 1];
+        if (!(frame.context == context) || frame.slotUtcMs != slotUtcMs) return;
+        auto &history = m_cqFrames[cqFrameIndex(slotUtcMs, context.periodMs)];
+        history = {context, slotUtcMs, std::move(cqs)};
+    }
+
     static bool nearby(const Evidence &a, const Evidence &b, int periodMs)
     {
         const double frequencyTolerance = periodMs == 7500 ? 4.5 : 2.5;
@@ -53,14 +88,14 @@ public:
                           const Evidence &current) const
     {
         if (context.periodMs <= 0 || current.hardSync == 0) return nullptr;
-        const auto &frame = m_frames[(slotUtcMs / context.periodMs) & 1];
-        if (!(frame.context == context) || slotUtcMs - frame.slotUtcMs != 2LL * context.periodMs) return nullptr;
+        const auto *frame = previousFrame(context, slotUtcMs);
+        if (!frame) return nullptr;
 
         // The parity bits decorrelate different payloads with a common CQ
         // prefix. Match at most one observation from the preceding RX period.
         double best = .12;
         const Evidence *match = nullptr;
-        for (const Evidence &previous : frame.candidates) {
+        for (const Evidence &previous : frame->candidates) {
             if (!nearby(previous, current, context.periodMs)) continue;
             double dot = 0, oldPower = 0, newPower = 0;
             for (int i = firstParityBit; i < bitCount; ++i) {
@@ -117,7 +152,29 @@ private:
         std::int64_t slotUtcMs = 0;
         std::vector<Evidence> candidates;
     };
+
+    struct CqFrame {
+        Context context;
+        std::int64_t slotUtcMs = 0;
+        std::vector<Ft8Cq> cqs;
+    };
+
+    static constexpr int cqFrameCount = 6;
+
+    static std::size_t cqFrameIndex(std::int64_t slotUtcMs, int periodMs)
+    {
+        return (slotUtcMs / periodMs % cqFrameCount + cqFrameCount) % cqFrameCount;
+    }
+
+    const Frame *previousFrame(const Context &context, std::int64_t slotUtcMs) const
+    {
+        if (context.periodMs <= 0) return nullptr;
+        const auto &frame = m_frames[(slotUtcMs / context.periodMs) & 1];
+        return frame.context == context && slotUtcMs - frame.slotUtcMs == 2LL * context.periodMs
+            ? &frame : nullptr;
+    }
     std::array<Frame, 2> m_frames;
+    std::array<CqFrame, cqFrameCount> m_cqFrames;
 };
 
 } // namespace MadModemFt

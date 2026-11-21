@@ -1,1 +1,1 @@
-0.6.6-source-r5-ft-slot-memory
+0.6.6-source-r6-ft8-recovery

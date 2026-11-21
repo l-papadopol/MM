@@ -35,11 +35,11 @@ public:
   fftw_execute(plan);{std::lock_guard<std::mutex> lock(MadModemDsp::fftwPlannerMutex);fftw_destroy_plan(plan);}
   for(int k=0;k<=inputSize/2;++k)bins[k]={output.get()[k][0],output.get()[k][1]};
  }
- void extract(double &frequency,std::vector<std::complex<double>>&out)const{
+ void extract(double &frequency,std::vector<std::complex<double>>&out,double guardHz=0.)const{
   if(!std::isfinite(frequency)||frequency<50||frequency>5000)throw std::runtime_error("FT8 baseband frequency");
   thread_local Inverse inverse;
   constexpr double df=12000./inputSize,baud=6.25,pi=3.14159265358979323846;
-  int center=int(std::lround(frequency/df)),low=std::max(1,int(std::lround((frequency-1.5*baud)/df))),high=std::min(inputSize/2,int(std::lround((frequency+8.5*baud)/df)));
+  int center=int(std::lround(frequency/df)),low=std::max(1,int(std::lround((frequency-1.5*baud-guardHz)/df))),high=std::min(inputSize/2,int(std::lround((frequency+8.5*baud+guardHz)/df)));
   frequency=center*df;auto data=inverse.data.get();
   for(int k=0;k<outputSize;++k)data[k][0]=data[k][1]=0.;
   for(int k=low;k<=high;++k){

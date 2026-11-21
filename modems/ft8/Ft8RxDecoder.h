@@ -376,6 +376,11 @@ private:
     SlotMemoryJob beginSlotMemory(const QVector<double> &, const QDateTime &, const PerfStats *) const;
     QVector<Decode> recoverWithSlotMemory(const SlotMemoryJob &, const QDateTime &,
                                           const QVector<Decode> &, PerfStats *);
+    QVector<Decode> recoverFt8CqTracks(const SlotMemoryJob &, const QVector<double> &,
+                                       const QDateTime &, const QVector<Decode> &,
+                                       const std::vector<MadModemFt::FtSlotMemory::Ft8Cq> &,
+                                       const PerfStats *);
+    void rememberFt8CqTracks(const SlotMemoryJob &, const QDateTime &, const QVector<Decode> &);
     template<std::size_t Symbols, std::size_t Tones>
     static void captureSlotObservation(SlotObservation *, const std::array<double, 174> &,
                                        const std::array<std::array<double, Tones>, Symbols> &,
