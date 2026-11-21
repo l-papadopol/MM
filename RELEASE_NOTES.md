@@ -6,6 +6,7 @@ progetto MadModem di **Lucian-Ioan Papadopol, IZ6NNH**.
 - Con CAT Hamlib, la preferenza USB o Data/Pkt si applica anche in ricezione
   per FT8, FT4, Q65 e MSK144. Vale al collegamento, al cambio di modo e durante
   il QSY delle bande FT.
+- Recupero CQ in FT8 e FT4 tramite combinazione delle metriche di due slot della stessa parità.
 - NB2 Auto rileva i possibili impulsi e avvia NB2 solo nelle finestre interessate.
   Il ritardo audio resta costante.
 - Noise blanker NB2 ottimizzato anche per CW, RTTY e i loro skimmer. LPC viene

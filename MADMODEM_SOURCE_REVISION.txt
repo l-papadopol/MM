@@ -1,1 +1,1 @@
-0.6.6-source-r4-nb2-auto
+0.6.6-source-r5-ft-slot-memory

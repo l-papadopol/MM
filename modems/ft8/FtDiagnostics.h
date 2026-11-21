@@ -11,6 +11,8 @@ inline void recordFtPerformance(const Ft8RxDecoder::PerfStats &s,const QString &
     data.insert("referenceRejected",s.referenceRejected);
     data.insert("referenceMs",s.referenceMs);
     data.insert("referenceCutoff",s.referenceCutoff);
+    data.insert("slotMemoryAttempts",s.slotMemoryAttempts);
+    data.insert("slotMemoryDecodes",s.slotMemoryDecodes);
     data.insert("modeName",s.modeName);
     data.insert("slotUtc",s.slotUtc);
     data.insert("candidateCount",s.candidateCount);

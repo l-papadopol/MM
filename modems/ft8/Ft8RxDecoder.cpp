@@ -1368,8 +1368,10 @@ bool Ft8RxDecoder::gpuToneEnergies(const QVector<double> &samples, int start, do
 
 void Ft8RxDecoder::setRadioFrequencyHz(double hz)
 {
-    m_radioFrequencyHz.store(std::isfinite(hz) && hz > 0.0 ? hz : 0.0,
-                             std::memory_order_release);
+    const double next = std::isfinite(hz) && hz > 0.0 ? hz : 0.0;
+    if (m_radioFrequencyHz.exchange(next, std::memory_order_acq_rel) != next) {
+        m_slotMemoryTuningGeneration.fetch_add(1, std::memory_order_release);
+    }
 }
 
 void Ft8RxDecoder::setDriftRxOptions(bool enabled, double maxHzPerSec)
@@ -3227,13 +3229,15 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
     const bool gateCandidateSet = stats != nullptr &&
                                   stats->phase.startsWith(QStringLiteral("wsjtx-gate"));
+    auto slotMemory = beginSlotMemory(samples, slotStartUtc, stats);
     auto decodeCandidateSet = [this, &slotStartUtc, &betterDecode, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueCandidates, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, gateCandidateSet](const QVector<double> &slotSamples,
                                                                                                                const QVector<Candidate> &candidateSet,
                                                                                                                int *workerCountOut,
                                                                                                                bool qsoDeadlineSet,
                                                                                                                QVector<Candidate> *failedForCoherent = nullptr,
                                                                                                                bool nativeRecoveryPass = false,
-                                                                                                               qint64 nativeStopUtcMs = 0) {
+                                                                                                               qint64 nativeStopUtcMs = 0,
+                                                                                                               std::vector<SlotObservation> *observations = nullptr) {
         QVector<CandidateDecode> rawPairs;
         if (candidateSet.isEmpty()) {
             if (workerCountOut != nullptr) {
@@ -3287,7 +3291,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         // LDPC and metric retries have variable cost. Dynamic candidate
         // stealing keeps every permitted worker useful without creating threads
         // or statically pinning one expensive cluster to one worker.
-        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, nativeSpectrum, nativeStopUtcMs, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, &coherentFailed, failedForCoherent, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet, qsoDeadlineSet](int, int) {
+        FtDecodeWorkerPool::instance().parallelFor(workerCount, workerCount, [this, nativeSpectrum, nativeStopUtcMs, &slotSamples, &slotStartUtc, &candidateSet, &rawPairs, &rawMutex, &diagMutex, &nextCandidate, &diagAttemptedCandidates, &diagLdpcTried, &diagBucketRescueDecodes, &noteRejectReason, &noteQuality, &noteOsdQuality, &osdGf2TriedInSet, &osdGf2TenthsMsInSet, &coherentFailed, failedForCoherent, osdGf2TryLimit, osdGf2BudgetTenthsMs, gateCandidateSet, qsoDeadlineSet, observations](int, int) {
             MadModemFt::FtNativeSpectrumScope spectrumScope(nativeSpectrum.get(), nativeStopUtcMs);
             QVector<CandidateDecode> localPairs;
             localPairs.reserve(8);
@@ -3331,7 +3335,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
                                                      &rejectReason,
                                                      &quality,
                                                      !gateCandidateSet || qsoDeadlineSet,
-                                                     osdPermit);
+                                                     osdPermit, false,
+                                                     observations && i < int(observations->size())
+                                                         ? &(*observations)[i] : nullptr);
                 if (osdPermit) {
                     MadModemRuntime::SystemResourceManager::instance().releaseOsdPermit();
                 }
@@ -3710,7 +3716,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         int workersThisPass = 0;
         const auto decodeStart = Clock::now();
         QVector<CandidateDecode> passPairs = decodeCandidateSet(working, filtered, &workersThisPass, false,
-            liveBoundaryDecode && pass == 0 ? &coherentRetries : nullptr);
+            liveBoundaryDecode && pass == 0 ? &coherentRetries : nullptr, false, 0,
+            pass == 0 && !slotMemory.observations.empty() ? &slotMemory.observations : nullptr);
         const auto decodeEnd = Clock::now();
         decodeMs += std::chrono::duration<double, std::milli>(decodeEnd - decodeStart).count();
         firstWorkerCount = qMax(firstWorkerCount, workersThisPass);
@@ -4068,6 +4075,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
 
     if (!gateCandidateSet) recoverDriftingSignal(samples, slotStartUtc, out, stats, publish);
 
+    // The bounded memory retry runs before optional coherent/reference tails
+    // so it can still meet the live reply deadline. Its rows stay out of SIC.
+    const auto memoryRows = recoverWithSlotMemory(slotMemory, slotStartUtc, out, stats);
+    if (publish && !memoryRows.isEmpty()) publish(memoryRows);
+
     // All baseline passes, including optional drift recovery, have finished.
     // Retry only failed first-pass candidates; never replace any baseline row.
     // The deadline includes actual UTC job age, GUI dispatch and the existing
@@ -4243,6 +4255,11 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlot(const QVector<double> &sa
         SessionDiagnostics::instance().record("ft.native.recovery", {
             {"candidates", searched}, {"added", added}, {"workers", nativeWorkers}, {"passes", residualPasses},
             {"elapsed_ms", elapsed}, {"cutoff", QDateTime::currentMSecsSinceEpoch() >= nativeStop - 25}});
+    }
+
+    for (const Decode &row : memoryRows) {
+        if (std::none_of(out.cbegin(), out.cend(), [&](const Decode &d) { return d.message == row.message; }))
+            out.append(row);
     }
 
     m_lastCandidateCount.store(totalCandidates);
@@ -4689,6 +4706,155 @@ QVector<Ft8RxDecoder::Candidate> Ft8RxDecoder::findCandidates(const QVector<doub
     return candidates;
 }
 
+Ft8RxDecoder::SlotMemoryJob Ft8RxDecoder::beginSlotMemory(const QVector<double> &samples,
+                                                        const QDateTime &slot, const PerfStats *stats) const
+{
+    SlotMemoryJob job;
+    const int periodMs = Ft8Mode::profileForMode(m_modeName).slotMs;
+    if (!stats || (!stats->offline && stats->phase != QStringLiteral("boundary")) ||
+        !slot.isValid() || slot.toMSecsSinceEpoch() % periodMs != 0 || samples.size() < periodMs * 12) {
+        return job;
+    }
+    job.context = {m_decodeGeneration.load(std::memory_order_acquire),
+                   m_slotMemoryTuningGeneration.load(std::memory_order_acquire),
+                   MadModemNoise::settingsGeneration(),
+                   periodMs, m_searchLowHz, m_searchHighHz};
+    job.observations.resize(MadModemFt::FtSlotMemory::maxCandidates);
+    return job;
+}
+
+template<std::size_t Symbols, std::size_t Tones>
+void Ft8RxDecoder::captureSlotObservation(SlotObservation *observation, const std::array<double, 174> &llr,
+                                         const std::array<std::array<double, Tones>, Symbols> &energies,
+                                         double frequency, int startSample, int hardSync, double sync)
+{
+    if (!observation || hardSync < 8 || !std::isfinite(frequency) ||
+        !std::isfinite(sync) || !std::all_of(llr.begin(), llr.end(), [](double v) { return std::isfinite(v); })) {
+        return;
+    }
+    auto &evidence = observation->evidence;
+    evidence.frequencyHz = frequency;
+    evidence.startSec = double(startSample) / kDecodeSampleRate;
+    evidence.hardSync = hardSync;
+    evidence.sync = sync;
+    std::copy(llr.begin(), llr.end(), evidence.llr.begin());
+    for (std::size_t sym = 0; sym < Symbols; ++sym) {
+        std::copy(energies[sym].begin(), energies[sym].end(), observation->powers[sym].begin());
+    }
+}
+
+QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::recoverWithSlotMemory(
+    const SlotMemoryJob &job, const QDateTime &slot, const QVector<Decode> &ordinary, PerfStats *stats)
+{
+    using Memory = MadModemFt::FtSlotMemory;
+    QVector<Decode> recovered;
+    if (job.observations.empty()) return recovered;
+
+    const auto &context = job.context;
+    const auto validContext = [&] {
+        return !decodeCancellationRequested() &&
+               context.generation == m_decodeGeneration.load(std::memory_order_acquire) &&
+               context.tuningGeneration == m_slotMemoryTuningGeneration.load(std::memory_order_acquire) &&
+               context.blankerGeneration == MadModemNoise::settingsGeneration();
+    };
+    if (!validContext()) return recovered;
+
+    const auto slotUtcMs = slot.toMSecsSinceEpoch();
+    const auto profile = Ft8Mode::profileForMode(m_modeName);
+    const bool ft4 = context.periodMs == 7500;
+    const auto deadline = MadModemFtTiming::recoveryDeadlineUtcMs(slotUtcMs, context.periodMs, profile.signalMs);
+    const bool offline = stats->offline;
+    const auto finishBy = std::chrono::steady_clock::now() + std::chrono::milliseconds(8);
+    const auto timeAvailable = [&] {
+        return std::chrono::steady_clock::now() < finishBy &&
+               (offline || QDateTime::currentMSecsSinceEpoch() < deadline);
+    };
+    const auto overlapsDecodedTrack = [&](const Memory::Evidence &candidate) {
+        return std::any_of(ordinary.cbegin(), ordinary.cend(), [&](const Decode &d) {
+            return std::abs(d.frequencyHz - candidate.frequencyHz) <= (ft4 ? 6. : 4.) &&
+                   std::abs(d.dt + .5 - candidate.startSec) <= .075;
+        });
+    };
+
+    std::vector<Memory::Evidence> retain;
+    retain.reserve(job.observations.size());
+    for (const SlotObservation &observation : job.observations) {
+        const auto &current = observation.evidence;
+        if (current.hardSync < 8) continue;
+        retain.push_back(current);
+        if (stats->slotMemoryAttempts >= 12 || !timeAvailable() || !validContext() ||
+            overlapsDecodedTrack(current)) continue;
+        const auto *previous = m_slotMemory.match(context, slotUtcMs, current);
+        if (!previous) continue;
+
+        ++stats->slotMemoryAttempts;
+        std::array<double, 174> combined{};
+        for (std::size_t i = 0; i < combined.size(); ++i) {
+            combined[i] = std::clamp(double(current.llr[i]) + previous->llr[i], -18., 18.);
+        }
+        std::array<int, 174> bits{};
+        int iterations = 0;
+        if (!ldpcDecode174_91(combined, bits, iterations) || !crc14Ok(bits) ||
+            !Memory::supports(current, bits) || !Memory::supports(*previous, bits)) continue;
+
+        const QString message = (ft4 ? unpackFt4Message77(bits) : unpackMessage77(bits)).trimmed().toUpper();
+        auto hasMessage = [&](const Decode &d) { return d.message == message; };
+        if (!message.startsWith(QStringLiteral("CQ ")) || !looksLikeUsefulFt8Message(message) ||
+            std::any_of(ordinary.cbegin(), ordinary.cend(), hasMessage) ||
+            std::any_of(recovered.cbegin(), recovered.cend(), hasMessage) ||
+            !timeAvailable() || !validContext()) continue;
+
+        // SNR is measured from the current slot's data tones, in the same
+        // units as the ordinary decoder. The cached slot contributes only to FEC.
+        double signal = 0., noise = 0.;
+        int dataSymbols = 0;
+        if (ft4) {
+            for (int sym = 0; sym < 103; ++sym) {
+                if (sym < 4 || (sym >= 33 && sym < 37) || (sym >= 66 && sym < 70) || sym >= 99) continue;
+                const int bit = dataSymbols++ * 2;
+                const int tone = kFt4GrayMap[(bits[bit] << 1) | bits[bit + 1]];
+                signal += observation.powers[sym][tone];
+                for (int other = 0; other < 4; ++other) {
+                    if (other != tone) noise += observation.powers[sym][other];
+                }
+            }
+        } else {
+            for (int sym = 0; sym < 79; ++sym) {
+                if (sym < 7 || (sym >= 36 && sym < 43) || sym >= 72) continue;
+                const int bit = dataSymbols++ * 3;
+                const int tone = kGrayMap[(bits[bit] << 2) | (bits[bit + 1] << 1) | bits[bit + 2]];
+                signal += observation.powers[sym][tone];
+                noise += observation.powers[sym][(tone + 4) % 7];
+            }
+        }
+        Decode row;
+        row.message = message;
+        row.utc = slot.time().toString(QStringLiteral("HHmmss"));
+        row.slotStartUtcMs = slotUtcMs;
+        row.slotPeriodMs = context.periodMs;
+        row.frequencyHz = qRound(current.frequencyHz);
+        row.dt = current.startSec - .5;
+        row.syncScore = current.sync;
+        row.snrDb = ft4 ? ft4ReportDbFromDecodedPowers(signal, noise, dataSymbols, 3 * dataSymbols)
+                        : wsjtxFt8ReportDb(signal, noise, current.hardSync);
+        row.slotMemoryRecovered = true;
+        recovered.append(row);
+    }
+
+    if (validContext()) {
+        // Only raw evidence is carried forward. Combined outputs cannot
+        // cascade into later slots.
+        m_slotMemory.remember(context, slotUtcMs, std::move(retain));
+        stats->slotMemoryDecodes += recovered.size();
+        if (stats->slotMemoryAttempts > 0)
+            SessionDiagnostics::instance().record("ft.slot_memory", {
+                {"mode", m_modeName}, {"slot_utc_ms", QString::number(slotUtcMs)},
+                {"attempts", stats->slotMemoryAttempts}, {"decodes", stats->slotMemoryDecodes}});
+        return recovered;
+    }
+    return {};
+}
+
 bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                                    const QDateTime &slotStartUtc,
                                    const Candidate &candidate,
@@ -4698,7 +4864,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                                    CandidateAttemptQuality *qualityOut,
                                    bool allowMetricRecovery,
                                    bool allowGf2Osd,
-                                    bool coherentRecoveryOnly)
+                                    bool coherentRecoveryOnly,
+                                   SlotObservation *slotObservation)
 {
     const bool traceEnabled=SessionDiagnostics::instance().enabled();
     const auto traceStart=std::chrono::steady_clock::now();
@@ -5018,6 +5185,9 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
     if (ldpcGhostCandidate) {
         return reject(DecodeRejectReason::SoftMetric);
     }
+
+    captureSlotObservation(slotObservation, llr, symbolEnergies, baseHz, startSample,
+                           hardSyncCount, refinedSync);
 
     const bool classicalWeakPlausible = classicalDeepRecovery &&
             (((hardSyncCount >= 8 && hardSyncCount <= 11) && meanAbsLlr >= 2.75) ||
@@ -5616,6 +5786,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
     const bool gateCandidateSet = stats != nullptr &&
                                   stats->phase.startsWith(QStringLiteral("wsjtx-gate"));
 
+    auto slotMemory = beginSlotMemory(samples, slotStartUtc, stats);
     auto decodeCandidateSet = [this, &osdTotals, &slotStartUtc,
                                &diagAttemptedCandidates, &diagLdpcTried,
                                &diagSyncGateRejects, &diagLdpcFailures,
@@ -5623,7 +5794,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
                                &diagSumProductAttempts, &diagSumProductRecovered,
                                &diagCoherentMetricAttempts, &diagCoherentMetricRecovered](const QVector<double> &slotSamples,
                                                                      const QVector<Candidate> &candidateSet,
-                                                                     int *workerCountOut) {
+                                                                     int *workerCountOut,
+                                                                     std::vector<SlotObservation> *observations = nullptr) {
         QVector<CandidateDecode> rawPairs;
         if (candidateSet.isEmpty()) {
             if (workerCountOut != nullptr) {
@@ -5651,7 +5823,7 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
              &diagSyncGateRejects, &diagLdpcFailures,
              &diagCrcFailures, &diagMessageRejects,
              &diagSumProductAttempts, &diagSumProductRecovered,
-             &diagCoherentMetricAttempts, &diagCoherentMetricRecovered](int, int) {
+             &diagCoherentMetricAttempts, &diagCoherentMetricRecovered, observations](int, int) {
             QVector<CandidateDecode> localPairs;
             localPairs.reserve(8);
             int localAttempted = 0;
@@ -5686,7 +5858,9 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
                                                         decode,
                                                         &quality,
                                                         &rejectReason,
-                                                        &decodedTones);
+                                                        &decodedTones,
+                                                        observations && i < int(observations->size())
+                                                            ? &(*observations)[i] : nullptr);
                 { std::lock_guard<std::mutex> lock(diagMutex);
                     osdTotals.osdGf2Tried += quality.osdGf2Tried;
                     osdTotals.osdGf2Recovered += quality.osdGf2Recovered;
@@ -5905,7 +6079,8 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
 
         int widebandWorkerCount = 0;
         const auto decodeStart = Clock::now();
-        const QVector<CandidateDecode> widebandRaw = decodeCandidateSet(samples, candidates, &widebandWorkerCount);
+        const QVector<CandidateDecode> widebandRaw = decodeCandidateSet(samples, candidates, &widebandWorkerCount,
+            slotMemory.observations.empty() ? nullptr : &slotMemory.observations);
         workerCount = qMax(workerCount, widebandWorkerCount);
         for (const CandidateDecode &pair : widebandRaw) {
             rawPairs.append(pair);
@@ -5994,7 +6169,13 @@ QVector<Ft8RxDecoder::Decode> Ft8RxDecoder::decodeSlotFt4(const QVector<double> 
 
     if (!gateCandidateSet) recoverDriftingSignal(samples, slotStartUtc, out, stats, publish);
 
+    const auto memoryRows = recoverWithSlotMemory(slotMemory, slotStartUtc, out, stats);
+    if (publish && !memoryRows.isEmpty()) publish(memoryRows);
     appendReferenceRecovery(samples, slotStartUtc, out, stats, publish);
+    for (const Decode &row : memoryRows) {
+        if (std::none_of(out.cbegin(), out.cend(), [&](const Decode &d) { return d.message == row.message; }))
+            out.append(row);
+    }
 
     const auto totalEnd = Clock::now();
     const double finalTotalMs = std::chrono::duration<double, std::milli>(totalEnd - totalStart).count();
@@ -6299,7 +6480,8 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
                                       Decode &decodeOut,
                                       CandidateAttemptQuality *qualityOut,
                                       DecodeRejectReason *rejectReasonOut,
-                                      std::array<int, 103> *decodedTonesOut)
+                                      std::array<int, 103> *decodedTonesOut,
+                                      SlotObservation *slotObservation)
 {
     const bool traceEnabled=SessionDiagnostics::instance().enabled();
     const auto traceStart=std::chrono::steady_clock::now();
@@ -6504,6 +6686,9 @@ bool Ft8RxDecoder::decodeFt4Candidate(const QVector<double> &samples,
     bool sawCrcFailure = false;
     bool finalViaSumProduct = false;
     bool finalViaCoherentMetric = false;
+
+    captureSlotObservation(slotObservation, llr, symbolEnergies, bestBaseHz, bestStart,
+                           bestHardSync, bestScore);
 
     auto tryFt4Metric = [&](const std::array<double, 174> &metric,
                             bool countCoherent) {

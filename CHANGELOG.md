@@ -2,6 +2,7 @@
 
 ## 0.6.6
 
+- Recover repeated FT8 and FT4 CQs from matched soft decisions in consecutive RX periods of the same parity.
 - Add NB2 Auto to analyze candidate impulse windows with NB2. The audio delay
   stays constant during automatic bypass and when switching to manual NB2.
 - Apply the configured USB or Data/Pkt mode when entering FT8, FT4, Q65 or

@@ -563,6 +563,7 @@ add_executable(MadModem
     modems/hell/HellschreiberDecoder.cpp
     modems/ft8/Ft8Mode.h
     modems/ft8/Ft8Mode.cpp
+    modems/ft8/FtSlotMemory.h
     modems/ft8/Ft8RxDecoder.h
     modems/ft8/Ft8RxDecoder.cpp
     modems/ft8/FtNativeSpectrum.h
@@ -1114,6 +1115,10 @@ if(BUILD_TESTING)
     target_include_directories(madmodem_ft_coherent_alignment PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME madmodem_ft_coherent_alignment COMMAND madmodem_ft_coherent_alignment)
     set_tests_properties(madmodem_ft_coherent_alignment PROPERTIES TIMEOUT 30)
+    add_executable(madmodem_ft_slot_memory tests/FtSlotMemoryRegression.cpp)
+    target_include_directories(madmodem_ft_slot_memory PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME madmodem_ft_slot_memory COMMAND madmodem_ft_slot_memory)
+    set_tests_properties(madmodem_ft_slot_memory PROPERTIES TIMEOUT 10)
     add_executable(madmodem_ft_signal_envelope tests/FtSignalEnvelopeRegression.cpp)
     target_include_directories(madmodem_ft_signal_envelope PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME madmodem_ft_signal_envelope COMMAND madmodem_ft_signal_envelope)

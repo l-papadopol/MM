@@ -25,6 +25,11 @@ The noise blanker adds processing delay, which is compensated in decoder timing.
 Filtering can change received signals; the safeguards do not guarantee identical
 decodes in every noise condition.
 
+FT8 and FT4 can recover weak, repeated CQ calls by combining the soft bits of
+two nearby candidates on the same RX parity. Both receptions must support the
+decoded codeword. The recovery stops at the existing reply deadline and the
+memory expires after one RX period of the same parity or a capture change.
+
 FT8/FT4 sequencing, priority queues and Evil Auto QSO remain available with
 Doppler correction. For automation traces and compressed diagnostics, see
 [Troubleshooting](TROUBLESHOOTING.md) and the built-in FT8/FT4 Help.
