@@ -56,20 +56,20 @@ missing_macos_arm64=false
 for arch in x86_64 arm64; do
     cpu=Intel
     [[ "$arch" != arm64 ]] || cpu=AppleSilicon
-    # GitHub sometimes has no macOS arm64 runner for hours. With
-    # MADMODEM_RELEASE_OPTIONAL_MACOS_ARM64=1 a build whose arm64 packages are not
-    # all there is published without them (and says so); every other package is
-    # still required.
-    if [[ "$arch" == arm64 && "${MADMODEM_RELEASE_OPTIONAL_MACOS_ARM64:-}" == 1 ]]; then
-        arm64_complete=true
-        for extension in zip dmg pkg; do
-            [[ -s "$assets_dir/MadModem-$version-macOS-$arch-unsigned.$extension" ]] || arm64_complete=false
-        done
-        if [[ "$arm64_complete" != true ]]; then
-            echo "WARNING: macOS arm64 packages are missing; publishing this build without them." >&2
-            missing_macos_arm64=true
-            continue
+    # Deliberate omission is only supported for a manual branch build.
+    if [[ "$arch" == arm64 && "${MADMODEM_RELEASE_SKIP_MACOS_ARM64:-}" == 1 ]]; then
+        if [[ "${GITHUB_EVENT_NAME:-}" != workflow_dispatch || "${GITHUB_REF_TYPE:-}" != branch ]]; then
+            echo 'ERROR: Apple Silicon can be omitted only for a manual branch build.' >&2
+            exit 1
         fi
+        for extension in zip dmg pkg; do
+            if [[ -e "$assets_dir/MadModem-$version-macOS-$arch-unsigned.$extension" ]]; then
+                echo 'ERROR: unexpected Apple Silicon artifacts in a build that omitted this target.' >&2
+                exit 1
+            fi
+        done
+        missing_macos_arm64=true
+        continue
     fi
     for extension in zip dmg pkg; do
         case "$extension" in zip) kind=Portable ;; dmg) kind=DiskImage ;; pkg) kind=Installer ;; esac
@@ -110,7 +110,7 @@ fi
 notes_file="$publish_dir/release-notes.md"
 python3 "$root/scripts/stamp_release_notes.py" "$root/RELEASE_NOTES.md" "$notes_file" "$GITHUB_RUN_NUMBER" "$GITHUB_SHA"
 if [[ "$missing_macos_arm64" == true ]]; then
-    printf '\n> **macOS Apple Silicon:** i pacchetti arm64 mancano in questa build (runner macOS arm64 di GitHub non disponibili): usare il pacchetto Intel (Rosetta) o una build successiva. / The Apple Silicon packages are missing from this build (no GitHub macOS arm64 runner): use the Intel package (Rosetta) or a later build.\n' >> "$notes_file"
+    printf '\n> **macOS Apple Silicon:** questa build manuale esclude i pacchetti Apple Silicon. / This manual build omits the Apple Silicon packages.\n' >> "$notes_file"
 fi
 
 # New releases stay drafts until every asset has uploaded. Re-runs resume drafts

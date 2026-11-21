@@ -271,6 +271,8 @@ void PowerSwrWindow::buildUi()
     connect(read, &QPushButton::clicked, this, &PowerSwrWindow::readPowerRequested);
     connect(m_unlock, &QPushButton::clicked, this, [this]() {
         m_blocked = false;
+        m_swrHigh.invalidate();
+        m_swrLastReading.invalidate();
         m_blockReason.clear();
         m_blockLabel->clear();
         m_unlock->setEnabled(false);
@@ -515,6 +517,7 @@ void PowerSwrWindow::setTransmitting(bool on)
     }
     m_transmitting = on;
     m_swrHigh.invalidate();
+    m_swrLastReading.invalidate();
     m_lowPoSeconds = 0.0;
     if (on) {
         m_txClock.start();
@@ -565,9 +568,17 @@ void PowerSwrWindow::setMeters(double watts, double powerFraction, double swr, d
     m_warnLabel->setText(warnings.join(QLatin1Char('\n')));
 
     // SWR protection: above the limit for longer than the set time.
-    if (!m_protect->isChecked() || m_blocked || !std::isfinite(swr)) {
+    if (!m_protect->isChecked() || m_blocked || !std::isfinite(swr) || swr < 1.0) {
+        m_swrHigh.invalidate();
+        m_swrLastReading.invalidate();
         return;
     }
+    // CAT polls nominally every 300 ms. A gap of several polls cannot count as
+    // uninterrupted above-threshold time.
+    constexpr int maxReadingGapMs = 900;
+    if (m_swrLastReading.isValid() && m_swrLastReading.elapsed() > maxReadingGapMs)
+        m_swrHigh.invalidate();
+    m_swrLastReading.start();
     if (swr > m_swrLimit->value()) {
         if (!m_swrHigh.isValid()) {
             m_swrHigh.start();

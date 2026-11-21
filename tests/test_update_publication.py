@@ -72,3 +72,28 @@ p.write_text(json.dumps(d));print(result);sys.exit(status)
     result=subprocess.run(['bash',str(ROOT/'scripts/publish_github_release.sh'),str(assets)],env=env,capture_output=True,text=True)
     assert result.returncode!=0 and state.read_bytes()==before, 'ambiguous native build was published'
     print('PASS DEB/RPM and existing 15 downloads uploaded with exact checksums; missing/ambiguous native packages prevent publication before any gh operation')
+
+    ambiguous.unlink()
+    arm_packages = {ext: assets / f'MadModem-{version}-macOS-arm64-unsigned.{ext}'
+                    for ext in ('zip', 'dmg', 'pkg')}
+    arm_packages['pkg'].unlink()  # An installer check failed after the portable upload.
+    def publish_with(overrides):
+        return subprocess.run(['bash', str(ROOT/'scripts/publish_github_release.sh'), str(assets)],
+                              env={**env, **overrides}, capture_output=True, text=True)
+    manual_skip = {'GITHUB_EVENT_NAME': 'workflow_dispatch', 'MADMODEM_RELEASE_SKIP_MACOS_ARM64': '1'}
+    before = state.read_bytes()
+    assert publish_with({}).returncode != 0
+    assert publish_with(manual_skip).returncode != 0
+    assert state.read_bytes() == before, 'incomplete Apple Silicon build was published'
+    arm_packages['zip'].unlink()
+    arm_packages['dmg'].unlink()
+    assert publish_with({**manual_skip, 'GITHUB_EVENT_NAME': 'push'}).returncode != 0
+    assert publish_with({**manual_skip, 'GITHUB_REF_TYPE': 'tag', 'GITHUB_REF_NAME': f'v{version}'}).returncode != 0
+    assert state.read_bytes() == before
+    state.unlink()  # Start a fresh release for an explicitly selected manual subset.
+    result = publish_with(manual_skip)
+    assert result.returncode == 0, result.stderr
+    d = json.loads(state.read_text())
+    assert not any('AppleSilicon' in name for name in d['uploaded'])
+    assert 'This manual build omits the Apple Silicon packages.' in d['body']
+    print('PASS missing ARM64 PKG blocks a partial build; an explicitly omitted manual target is supported')

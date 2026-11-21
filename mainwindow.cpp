@@ -269,6 +269,7 @@ namespace {
 // the full waveform plus the final guard to fit; an explicit operator action
 // may instead resume at the sample position of the current UTC period.
 constexpr int kFtPttPrearmLeadMs = MadModemFtTiming::pttPrearmLeadMs;
+constexpr int kNativeTxLatestStartMs = 100;
 constexpr int kFtLateStartPreparationMs = MadModemFtTiming::lateStartPreparationMs;
 constexpr int kFtGeneratedSignalAllowanceMs = MadModemFtTiming::generatedSignalAllowanceMs;
 constexpr int kFtSlotEndGuardMs = MadModemFtTiming::slotEndGuardMs;
@@ -1246,7 +1247,10 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_catCommand,&AsyncCatCommand::compensatedCommand,this,[this](bool recovered){
         m_ftSplitPreparedForTx=!recovered;
         m_ftSplitRestoreFailed=!recovered;
-        if(recovered)resumeQsoSignalPeakAfterTransmit();
+        if (recovered) {
+            m_tunePowerPreparedForTx = false;
+            resumeQsoSignalPeakAfterTransmit();
+        }
         else appendLog(QStringLiteral("CAT recovery failed: TX blocked; check PTT and reconnect/restart before transmitting."));
     });
     m_rxDecoderThread=new QThread(this);
@@ -11611,7 +11615,7 @@ void MainWindow::requestRigPtt(bool enabled, std::function<void(bool)> completio
     if(m_shutdownInProgress || m_runtimeShutdownComplete){completion(false);return;}
     auto *controller=m_rigController;
     m_catCommand->request(controller,[controller,enabled](){return controller->setPtt(enabled);},
-        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},std::move(completion),3000,!enabled);
+        [controller] { return controller->recoverTxCatState(); },std::move(completion),3000,!enabled);
 }
 
 QString MainWindow::ftSplitOperationKey() const
@@ -11671,7 +11675,7 @@ void MainWindow::prepareFtSplitForTx(std::function<void(bool)> completion, int l
     ftEffectiveTxAudioFrequency(logicalTxHz,&shift);
     auto *controller=m_rigController;
     m_catCommand->request(controller,[controller,operation,shift](){return controller->beginFtSplitTx(operation,shift);},
-        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},
+        [controller] { return controller->recoverTxCatState(); },
         [this,completion](bool ok){
             m_ftSplitPreparedForTx=ok;
             if(!ok)appendLog(QStringLiteral("FT TX aborted: asynchronous CAT split preparation failed or timed out."));
@@ -11681,13 +11685,15 @@ void MainWindow::prepareFtSplitForTx(std::function<void(bool)> completion, int l
 
 void MainWindow::restoreFtSplitAfterTx()
 {
-    if(!m_ftSplitPreparedForTx)return;
-    auto *controller=m_rigController;
-    m_catCommand->request(controller,[controller](){return controller->endFtSplitTx();},
-        [controller](){const bool off=controller->setPtt(false); return off && controller->endFtSplitTx();},[this](bool ok){
-            m_ftSplitPreparedForTx=!ok;m_ftSplitRestoreFailed=!ok;
-            appendLog(ok?QStringLiteral("FT Split: RX CAT state restored."):
-                QStringLiteral("FT Split ERROR: CAT could not fully restore the pre-TX RX/split state; further FT TX is blocked until the CAT state is restored or the rig is reconnected."));
+    if (!m_ftSplitPreparedForTx && !m_tunePowerPreparedForTx) return;
+    auto *controller = m_rigController;
+    m_catCommand->request(controller, [controller] { return controller->restoreTxCatSettings(); },
+        [controller] { return controller->recoverTxCatState(); },[this](bool ok){
+            m_ftSplitPreparedForTx = !ok;
+            m_ftSplitRestoreFailed = !ok;
+            if (ok) m_tunePowerPreparedForTx = false;
+            appendLog(ok ? QStringLiteral("RX CAT state restored.") :
+                QStringLiteral("CAT could not restore the pre-TX split or power setting; further TX is blocked."));
         },3000,true);
 }
 
@@ -11695,12 +11701,19 @@ void MainWindow::restoreFtSplitAfterTx()
 // TX audio kept between 1500 and 2000 Hz, CAT shifted in 500 Hz steps). The
 // split is prepared before PTT and restored by unkeyPttAfterTx(); when the PTT
 // does not key, the dial is restored at once.
-void MainWindow::keyPttForTxWithSplit(bool split, int logicalTxHz, std::function<void(bool)> completion)
+void MainWindow::keyPttForTxWithSplit(bool split, int logicalTxHz, qint64 deadlineUtcMs,
+                                      std::function<void(bool)> completion)
 {
-    if(!split){keyPttForTx(std::move(completion));return;}
-    prepareFtSplitForTx([this,completion](bool ok){
-        if(!ok){
+    if (!split) { keyPttForTx(std::move(completion)); return; }
+    prepareFtSplitForTx([this, completion, deadlineUtcMs](bool ok) {
+        if (!ok) {
             appendLog(QStringLiteral("TX aborted: CAT split preparation failed or timed out."));
+            completion(false);
+            return;
+        }
+        if (deadlineUtcMs > 0 && QDateTime::currentMSecsSinceEpoch() > deadlineUtcMs) {
+            appendLog(QStringLiteral("Weak-signal TX cancelled: CAT split missed the slot deadline."));
+            restoreFtSplitAfterTx();
             completion(false);
             return;
         }
@@ -14300,6 +14313,15 @@ void MainWindow::stopQ65Shell()
     }
 }
 
+int MainWindow::nativeTxPrearmLeadMs() const
+{
+    // MSK144 leaves at least 300 ms at the end of its period. Leave the
+    // preceding receive window intact until that guard before preparing TX.
+    const bool requiresPreparation = ftSplitOperationKey() != QStringLiteral("none") ||
+        m_settings.pttMethod.trimmed().compare(QStringLiteral("none"), Qt::CaseInsensitive) != 0;
+    return requiresPreparation ? 250 : 0;
+}
+
 void MainWindow::scheduleNativeWeakSignalPeriodTx()
 {
     if (m_nativeWeakSignalTxPending) {
@@ -14364,7 +14386,7 @@ void MainWindow::scheduleNativeWeakSignalPeriodTx()
 
     const qint64 delayMs = qBound<qint64>(
         qint64{1},
-        m_nativeWeakSignalTxBoundaryUtcMs - nowMs,
+        m_nativeWeakSignalTxBoundaryUtcMs - nowMs - nativeTxPrearmLeadMs(),
         static_cast<qint64>(std::numeric_limits<int>::max()));
     m_nativeWeakSignalTxTimer.start(static_cast<int>(delayMs));
 
@@ -14420,17 +14442,17 @@ void MainWindow::handleNativeWeakSignalPeriodTxDue()
 
     const qint64 nowMs = QDateTime::currentDateTimeUtc().toMSecsSinceEpoch();
     const qint64 remainingMs = m_nativeWeakSignalTxBoundaryUtcMs - nowMs;
-    if (remainingMs > 2) {
+    const qint64 untilPrearmMs = remainingMs - nativeTxPrearmLeadMs();
+    if (untilPrearmMs > 2) {
         m_nativeWeakSignalTxTimer.start(static_cast<int>(qMin<qint64>(
-            remainingMs, static_cast<qint64>(std::numeric_limits<int>::max()))));
+            untilPrearmMs, static_cast<qint64>(std::numeric_limits<int>::max()))));
         return;
     }
 
     // Normal precise-timer jitter is accepted, while a genuinely late wakeup
     // is moved to the next selected period. The transmitters retain a larger
     // end guard for CAT/PTT and audio-stream startup latency.
-    constexpr qint64 kMaximumBoundaryLatenessMs = 100;
-    if (-remainingMs > kMaximumBoundaryLatenessMs || !m_nativeWeakSignalPreparedModulator) {
+    if (-remainingMs > kNativeTxLatestStartMs || !m_nativeWeakSignalPreparedModulator) {
         appendLog(MadModemI18n::text(
             QStringLiteral("Weak-signal TX boundary missed by %1 ms; complete frame deferred."))
                       .arg(-remainingMs));
@@ -19931,8 +19953,13 @@ void MainWindow::updateFt8WaterfallOverlays()
 
 void MainWindow::startFt8TxShell()
 {
-    if (!m_ftRestartInProgress) m_ftRestartCounts.clear(); // IC8TEM: the operator pressed TX
-    m_ft8OperatorStopLatched = false;
+    startSelectedFt8Tx(true);
+}
+
+void MainWindow::startSelectedFt8Tx(bool operatorRequested)
+{
+    if (m_shutdownInProgress || m_runtimeShutdownComplete || !txAllowedBySwr()) return;
+    if (m_ft8OperatorStopLatched && !operatorRequested) return;
     applyFt8Settings();
     const QString modeName = (ui != nullptr && ui->cmbMode != nullptr) ? ui->cmbMode->currentText() : QStringLiteral("FT8");
     const Ft8Mode::Profile profile = Ft8Mode::profileForMode(modeName);
@@ -19966,6 +19993,10 @@ void MainWindow::startFt8TxShell()
         return;
     }
 
+    if (operatorRequested) {
+        m_ft8OperatorStopLatched = false;
+        m_ftRestartCounts.clear();
+    }
     int selectedRow = -1;
     if (m_tableFt8TxMessages != nullptr) {
         const QList<QTableWidgetItem *> selected = m_tableFt8TxMessages->selectedItems();
@@ -20026,7 +20057,7 @@ void MainWindow::startFt8TxShell()
             }
         }
     }
-    scheduleFt8SequencerMessage(message, QStringLiteral("TX"), true);
+    scheduleFt8SequencerMessage(message, QStringLiteral("TX"), operatorRequested);
 }
 
 void MainWindow::beginScheduledFt8Transmit()
@@ -20135,7 +20166,8 @@ void MainWindow::stopFt8Shell()
     }
 
     m_txPreparationPending=false;
-    unkeyPttAfterTx();
+    // Active Tune audio must stop before the power can be restored (also for VOX).
+    if (!txWasActive || !m_pendingFt8TxPlan.tune) unkeyPttAfterTx();
 
     m_ft8PendingTxArmed = false;
     m_ft8PendingTxToken.clear();
@@ -20237,6 +20269,7 @@ void MainWindow::tuneFt8Shell()
         return;
     }
 
+    if (!txAllowedBySwr()) return;
     if (m_txRunning || m_ftTxWorkerRunning || (m_txAudioEngine != nullptr && m_txAudioEngine->isRunning())) {
         appendLog("FT digital Tune blocked: another TX is active.");
         return;
@@ -22621,6 +22654,10 @@ void MainWindow::showAppSettingsDialogPage(AppSettingsDialog::InitialPage page)
         }, Qt::QueuedConnection);
     });
     connect(&dialog, &AppSettingsDialog::pttTestRequested, this, [this, dialogPtr, &settingsCatRuntimeTouched](const HamlibController::Config &cfg, bool enabled) {
+        if (enabled && !txAllowedBySwr()) {
+            if (dialogPtr) dialogPtr->setExternalCatTestStatus(QStringLiteral("PTT TEST blocked by SWR protection"), false);
+            return;
+        }
         settingsCatRuntimeTouched = true;
         appendLog(enabled ? QStringLiteral("PTT TEST: ON queued on isolated worker.")
                           : QStringLiteral("PTT TEST: OFF queued on isolated worker."));
@@ -24619,20 +24656,11 @@ void MainWindow::updateTxControlState()
 
 void MainWindow::keyPttForTx(std::function<void(bool)> completion)
 {
-    // IC8TEM: the SWR protection blocks every TX until Unlock; a keyed TX starts
-    // the meters (and the tune power for an FT Tune).
-    if (m_powerSwr != nullptr && m_powerSwr->txBlocked()) {
-        appendLog(QStringLiteral("TX blocked by the SWR protection: %1").arg(m_powerSwr->blockReason()));
-        completion(false);
-        return;
-    }
-    {
-        const bool tune = m_pendingFt8TxPlan.tune;
-        completion = [this, tune, inner = std::move(completion)](bool ok) {
-            if (ok) powerSwrTxStarted(tune);
-            inner(ok);
-        };
-    }
+    if (!txAllowedBySwr()) { completion(false); return; }
+    completion = [this, inner = std::move(completion)](bool ok) {
+        if (ok) powerSwrTxStarted();
+        inner(ok);
+    };
     if (m_cwKeyReleaseFailed) { completion(false); return; }
     if(m_catCommand->faulted() || m_ftSplitRestoreFailed){completion(false);return;}
     if (!ensureStationIdentityForTx(QStringLiteral("TX/PTT"))) {
@@ -24738,7 +24766,14 @@ void MainWindow::unkeyPttAfterTx()
                                       m_settings.hamlibCatEnabled && pttUsesCatPort);
 
     if (m_pttSerial.isOpen()) {
-        m_pttSerial.setRequestToSend(false);m_pttSerial.setDataTerminalReady(false);m_pttSerial.close();
+        const bool released = pttMethod == QStringLiteral("serial_dtr")
+            ? m_pttSerial.setDataTerminalReady(false) : m_pttSerial.setRequestToSend(false);
+        if (!released) {
+            m_ftSplitRestoreFailed = true;
+            appendLog(QStringLiteral("Serial PTT OFF not confirmed; press Stop to retry release."));
+            return;
+        }
+        m_pttSerial.close();
     }
     if (m_catCommand->busy()) {
         m_catCommand->cancel(); // In-flight command must unkey/restore before its gate reopens.
@@ -24834,6 +24869,7 @@ void MainWindow::loadTxImage()
 
 void MainWindow::startImageTx()
 {
+    if (!txAllowedBySwr()) return;
     if (m_cwKeyReleaseFailed) { appendLog("TX blocked: CW KEY release was not confirmed. Press Stop to retry release."); return; }
     if (m_txPreparationPending) return;
     if (m_catCommand->busy()) {
@@ -24981,15 +25017,15 @@ void MainWindow::startImageTx()
         textEditor ? textEditor->toPlainText() : QString();
     const auto captureStopGeneration = m_txRequestGeneration;
     const bool nativeBoundaryStart = (msk144Mode || q65Mode) && m_nativeWeakSignalTxBoundaryStart;
-    const qint64 nativeBoundaryUtcMs = m_nativeWeakSignalTxBoundaryUtcMs;
+    const qint64 nativeBoundaryUtcMs = nativeBoundaryStart ? m_nativeWeakSignalTxBoundaryUtcMs : 0;
+    const qint64 nativeDeadlineUtcMs = nativeBoundaryUtcMs > 0 ? nativeBoundaryUtcMs + kNativeTxLatestStartMs : 0;
     const auto nativeWaveform = std::make_shared<std::unique_ptr<TxModulator>>();
     if (nativeBoundaryStart) *nativeWaveform = std::move(m_nativeWeakSignalPreparedModulator);
     auto continueTransmit = [=] {
         if (captureStopGeneration != m_txRequestGeneration || m_shutdownInProgress ||
             activeModeName != ui->cmbMode->currentText()) return;
         m_txPreparationPending = false;
-        if (nativeBoundaryStart && nativeBoundaryUtcMs > 0 &&
-            QDateTime::currentMSecsSinceEpoch() > nativeBoundaryUtcMs + 100) {
+        if (nativeDeadlineUtcMs > 0 && QDateTime::currentMSecsSinceEpoch() > nativeDeadlineUtcMs) {
             const bool resume = m_returnToRxAfterTx;
             m_returnToRxAfterTx = false;
             m_currentTxIsTextMode = false;
@@ -25077,70 +25113,92 @@ void MainWindow::startImageTx()
     // IC8TEM: Split Operation for MSK144 and Q65, as for FT4/FT8.
     const int weakSignalTxHz = msk144Mode ? (m_spinMsk144TxFreq ? m_spinMsk144TxFreq->value() : 1500)
                                           : (m_spinQ65TxFreq ? m_spinQ65TxFreq->value() : 1500);
-    keyPttForTxWithSplit(msk144Mode || q65Mode, weakSignalTxHz, [=](bool pttKeyed) mutable {
+    const auto abortPreparedTx = [this] {
+        m_txPreparationPending = false;
+        const bool restartRx = m_returnToRxAfterTx;
+        m_returnToRxAfterTx = false;
+        m_currentTxIsTextMode = false;
+        updateTxControlState();
+        if (restartRx) {
+            const auto generation = m_txRequestGeneration;
+            QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this, generation] {
+                if (generation == m_txRequestGeneration && !m_txPreparationPending && !m_txRunning) startRx();
+            });
+        }
+    };
+    const auto startAudio = [=] {
         if (generation != m_txRequestGeneration || m_shutdownInProgress ||
             preparedMode != ui->cmbMode->currentText()) return;
-        m_txPreparationPending=false;
+        if (nativeDeadlineUtcMs > 0 && QDateTime::currentMSecsSinceEpoch() > nativeDeadlineUtcMs) {
+            appendLog(QStringLiteral("Weak-signal TX cancelled: PTT/audio preparation missed the slot deadline."));
+            unkeyPttAfterTx();
+            abortPreparedTx();
+            return;
+        }
+        m_txPreparationPending = false;
         updateTxControlState();
-        auto modulator=std::move(*prepared);
-    if (!pttKeyed) {
-        appendLog("TX aborted: PTT/safety gate did not allow transmission; no audio TX will be generated.");
-        const bool restartRx = m_returnToRxAfterTx;
-        m_returnToRxAfterTx = false;
-        m_currentTxIsTextMode = false;
-        if (restartRx) {
-            QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this]() { startRx(); });
-        }
-        return;
-    }
+        auto modulator = std::move(*prepared);
+        const QString description = modulator->description();
+        const QString outputName = selectedAudioOutputName();
+        const QString outputLabel = selectedAudioOutputLabel();
 
-    const QString description = modulator->description();
-    const QString outputName = selectedAudioOutputName();
-    const QString outputLabel = selectedAudioOutputLabel();
+        appendLog("Starting TX: " + description);
+        appendLog("Audio output: " + outputLabel);
 
-    appendLog("Starting TX: " + description);
-    appendLog("Audio output: " + outputLabel);
-
-    m_offlineAnalysisActive = false;
-    m_txRunning = true;
-    setReceiverRunning(false);
-    m_progressTx->setValue(0);
-
-    if (ft8Mode && m_ftTxWorker != nullptr) {
-        m_ftTxWorkerRunning = true;
-        m_ftTxActiveRequest=m_ftTxWorker->newRequest();
-        appendLog("FT timing: handing prepared waveform to dedicated FT TX worker thread.");
-        const auto owned = std::make_shared<std::unique_ptr<TxModulator>>(std::move(modulator));
-        auto *worker = m_ftTxWorker;
-        const auto request = m_ftTxActiveRequest;
-        QMetaObject::invokeMethod(worker, [worker, outputName, owned, request] {
-            worker->startScheduledOutput(outputName, owned->release(), 0, request);
-        }, Qt::QueuedConnection);
-        return;
-    }
-
-    m_pendingTextTxText = textSnapshot;
-    m_pendingTextTxMode = activeModeName;
-    if (!m_txAudioEngine->startOutput(outputName, std::move(modulator))) {
-        m_pendingTextTxText.clear();
-        m_pendingTextTxMode.clear();
-        unkeyPttAfterTx();
-        const bool restartRx = m_returnToRxAfterTx;
-        m_txRunning = false;
-        m_returnToRxAfterTx = false;
-        m_currentTxIsTextMode = false;
+        m_offlineAnalysisActive = false;
+        m_txRunning = true;
         setReceiverRunning(false);
-        const QString reason = uiText("tx_audio_start_failed",
-                                      "TX audio output could not be started. Check Settings -> Audio/PTT, the selected TX audio device and operating-system audio permissions.");
-        appendLog("TX start failed: " + reason);
-        showTxBlockedWarning(QStringLiteral("TX"),
-                             reason,
-                             AppSettingsDialog::InitialPage::AudioPtt,
-                             uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
-        if (restartRx) {
-            QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this]() { startRx(); });
+        m_progressTx->setValue(0);
+
+        if (ft8Mode && m_ftTxWorker != nullptr) {
+            m_ftTxWorkerRunning = true;
+            m_ftTxActiveRequest=m_ftTxWorker->newRequest();
+            appendLog("FT timing: handing prepared waveform to dedicated FT TX worker thread.");
+            const auto owned = std::make_shared<std::unique_ptr<TxModulator>>(std::move(modulator));
+            auto *worker = m_ftTxWorker;
+            const auto request = m_ftTxActiveRequest;
+            QMetaObject::invokeMethod(worker, [worker, outputName, owned, request] {
+                worker->startScheduledOutput(outputName, owned->release(), 0, request);
+            }, Qt::QueuedConnection);
+            return;
         }
-    }
+
+        m_pendingTextTxText = textSnapshot;
+        m_pendingTextTxMode = activeModeName;
+        if (!m_txAudioEngine->startOutput(outputName, std::move(modulator), nativeDeadlineUtcMs)) {
+            m_pendingTextTxText.clear();
+            m_pendingTextTxMode.clear();
+            unkeyPttAfterTx();
+            const bool restartRx = m_returnToRxAfterTx;
+            m_txRunning = false;
+            m_returnToRxAfterTx = false;
+            m_currentTxIsTextMode = false;
+            setReceiverRunning(false);
+            const QString reason = uiText("tx_audio_start_failed",
+                                          "TX audio output could not be started. Check Settings -> Audio/PTT, the selected TX audio device and operating-system audio permissions.");
+            appendLog("TX start failed: " + reason);
+            showTxBlockedWarning(QStringLiteral("TX"),
+                                 reason,
+                                 AppSettingsDialog::InitialPage::AudioPtt,
+                                 uiText("open_audio_ptt_settings", "Open Audio/PTT settings"));
+            if (restartRx) {
+                QTimer::singleShot(m_fastResumeCwRttyRxPending ? 0 : 250, this, [this]() { startRx(); });
+            }
+        }
+    };
+    keyPttForTxWithSplit(msk144Mode || q65Mode, weakSignalTxHz, nativeDeadlineUtcMs, [=](bool pttKeyed) {
+        if (generation != m_txRequestGeneration || m_shutdownInProgress ||
+            preparedMode != ui->cmbMode->currentText()) return;
+        if (!pttKeyed) {
+            appendLog(QStringLiteral("TX aborted: PTT/safety gate did not allow transmission; no audio TX will be generated."));
+            abortPreparedTx();
+            return;
+        }
+        const qint64 waitMs = nativeBoundaryUtcMs - QDateTime::currentMSecsSinceEpoch();
+        if (waitMs > 0)
+            QTimer::singleShot(static_cast<int>(waitMs), Qt::PreciseTimer, this, startAudio);
+        else
+            startAudio();
     });
     };
     if (liveRxRunning && m_audioEngine != nullptr) {
@@ -25290,7 +25348,13 @@ void MainWindow::prearmFtPreparedSlotTransmit()
     };
     prepareFtSplitForTx([this,complete,token,generation](bool ok){
         if(!ok || token!=m_ft8PendingTxToken || generation!=m_txRequestGeneration){complete(false);return;}
-        keyPttForTx(complete);
+        prepareFtTunePower([this, complete, token, generation](bool powerReady) {
+            if (!powerReady || token != m_ft8PendingTxToken || generation != m_txRequestGeneration) {
+                complete(false);
+                return;
+            }
+            keyPttForTx(complete);
+        });
     });
 
 }
@@ -25672,7 +25736,8 @@ void MainWindow::maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDe
     // IC8TEM (from MSHV-IC8TEM "TO RADIO Call Decoded Again Sets Auto Is On"):
     // when the transmission has stopped and the DX call is decoded again as the
     // sender, call him again with the selected message, in the opposite period.
-    if (m_actionFtRestart == nullptr || !m_actionFtRestart->isChecked() || m_editFt8DxCall == nullptr) {
+    if (m_ft8OperatorStopLatched || m_shutdownInProgress || m_runtimeShutdownComplete ||
+        m_actionFtRestart == nullptr || !m_actionFtRestart->isChecked() || m_editFt8DxCall == nullptr) {
         return;
     }
     const QString dx = m_editFt8DxCall->text().trimmed().toUpper();
@@ -25687,6 +25752,9 @@ void MainWindow::maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDe
     if (m_powerSwr != nullptr && m_powerSwr->txBlocked()) {
         return;
     }
+    const auto profile = Ft8Mode::profileForMode(ui->cmbMode->currentText());
+    const qint64 ageMs = QDateTime::currentMSecsSinceEpoch() - decode.slotStartUtcMs;
+    if (decode.slotStartUtcMs <= 0 || ageMs < 0 || ageMs > 2 * profile.slotMs + 1000) return;
     // The selected message must be for him and must not end the QSO.
     const QString message = selectedFt8TxMessage().trimmed().toUpper();
     const QStringList words = message.split(QLatin1Char(' '), Qt::SkipEmptyParts);
@@ -25706,9 +25774,7 @@ void MainWindow::maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDe
     appendLog(QStringLiteral("FT: %1 decoded again (%2); calling him again with \"%3\" (automatic restart %4 of 3).")
                   .arg(dx, decode.message.trimmed(), message).arg(count));
     selectFt8OppositePeriodFromDecode(decode);
-    m_ftRestartInProgress = true;
-    startFt8TxShell();
-    m_ftRestartInProgress = false;
+    startSelectedFt8Tx(false);
 }
 
 void MainWindow::installLogReset()
@@ -25780,19 +25846,40 @@ void MainWindow::installLogReset()
     });
 }
 
-void MainWindow::powerSwrTxStarted(bool tune)
+bool MainWindow::txAllowedBySwr()
+{
+    if (!m_powerSwr || !m_powerSwr->txBlocked()) return true;
+    appendLog(QStringLiteral("TX blocked by the SWR protection: %1").arg(m_powerSwr->blockReason()));
+    return false;
+}
+
+void MainWindow::prepareFtTunePower(std::function<void(bool)> completion)
+{
+    const int percent = m_pendingFt8TxPlan.tune && m_settings.hamlibCatEnabled &&
+                        m_powerSwr && m_powerSwr->powerControlAvailable() ? m_powerSwr->tunePercent() : -1;
+    if (percent <= 0) { completion(true); return; }
+
+    auto *controller = m_rigController;
+    m_catCommand->request(controller,
+        [controller, percent] { return controller->prepareTunePower(percent / 100.0); },
+        [controller] { return controller->recoverTxCatState(); },
+        [this, completion = std::move(completion), percent](bool ok) {
+            if (ok) {
+                m_tunePowerPreparedForTx = true;
+                appendLog(QStringLiteral("Power: Tune set to %1 % before PTT.").arg(percent));
+            } else {
+                appendLog(QStringLiteral("Tune cancelled: reduced power was not confirmed by CAT."));
+            }
+            completion(ok);
+        });
+}
+
+void MainWindow::powerSwrTxStarted()
 {
     if (m_powerSwr == nullptr || m_rigController == nullptr || !m_settings.hamlibCatEnabled) {
         return;
     }
     auto *controller = m_rigController;
-    const int tunePercent = tune && m_powerSwr->powerControlAvailable() ? m_powerSwr->tunePercent() : -1;
-    if (tunePercent > 0 && m_powerSwr->currentPercent() >= 0 && tunePercent != m_powerSwr->currentPercent()) {
-        m_powerTuneRestorePercent = m_powerSwr->currentPercent();
-        appendLog(QStringLiteral("Power: tune at %1 % (back to %2 % after the tune).").arg(tunePercent).arg(m_powerTuneRestorePercent));
-        const double fraction = tunePercent / 100.0;
-        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
-    }
     m_powerSwrMetering = true;
     m_powerSwr->setTransmitting(true);
     QMetaObject::invokeMethod(controller, [controller]() { controller->setMeterPolling(true); }, Qt::QueuedConnection);
@@ -25808,11 +25895,6 @@ void MainWindow::powerSwrTxEnded()
         m_powerSwrMetering = false;
         m_powerSwr->setTransmitting(false);
         QMetaObject::invokeMethod(controller, [controller]() { controller->setMeterPolling(false); }, Qt::QueuedConnection);
-    }
-    if (m_powerTuneRestorePercent >= 0) {
-        const double fraction = m_powerTuneRestorePercent / 100.0;
-        m_powerTuneRestorePercent = -1;
-        QMetaObject::invokeMethod(controller, [controller, fraction]() { controller->setRfPower(fraction); }, Qt::QueuedConnection);
     }
 }
 

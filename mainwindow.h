@@ -689,6 +689,7 @@ private slots:
     void scheduleNativeWeakSignalPeriodTx();
     void cancelNativeWeakSignalPeriodTx(const QString &reason = QString());
     void handleNativeWeakSignalPeriodTxDue();
+    int nativeTxPrearmLeadMs() const;
 
     QString ft8TxFrequencyStrategyKey() const;
     int chooseFt8AutoFreeTxFrequency(int wantedHz = 0, QString *reason = nullptr) const;
@@ -1484,9 +1485,12 @@ private:
     void refreshFtLotwFilter();
     bool ftRowHiddenByLotw(const QString &message) const;
     // IC8TEM: call the DX again when he is decoded after the TX stopped.
+    void startSelectedFt8Tx(bool operatorRequested);
     void maybeRestartFt8TxForDx(const QString &senderCall, const Ft8RxDecoder::Decode &decode);
     QMenu *toolsMenu();
-    void powerSwrTxStarted(bool tune);
+    bool txAllowedBySwr();
+    void prepareFtTunePower(std::function<void(bool)> completion);
+    void powerSwrTxStarted();
     void powerSwrTxEnded();
     void stopTxForPowerProtection(const QString &reason);
 
@@ -1526,7 +1530,8 @@ private:
     QString weakSignalSplitLabel(int logicalTxHz) const; // IC8TEM
     int ftEffectiveTxAudioFrequency(int logicalFrequencyHz, int *rfShiftHz = nullptr) const;
     void prepareFtSplitForTx(std::function<void(bool)> completion, int logicalTxHz = -1);
-    void keyPttForTxWithSplit(bool split, int logicalTxHz, std::function<void(bool)> completion); // IC8TEM
+    void keyPttForTxWithSplit(bool split, int logicalTxHz, qint64 deadlineUtcMs,
+                              std::function<void(bool)> completion);
     void restoreFtSplitAfterTx();
 
     /**
@@ -1761,10 +1766,9 @@ private:
     LotwUsers *m_lotwUsers = nullptr;           // IC8TEM
     QAction *m_actionFtRestart = nullptr;       // IC8TEM TX restart option
     QHash<QString, int> m_ftRestartCounts;
-    bool m_ftRestartInProgress = false;
     QMenu *m_toolsMenu = nullptr;              // IC8TEM
     bool m_powerSwrMetering = false;
-    int m_powerTuneRestorePercent = -1;
+    bool m_tunePowerPreparedForTx = false;
     QThread *m_rigThread = nullptr;
     bool m_rigCatConnected = false;
     QString m_rigStatusMirror;

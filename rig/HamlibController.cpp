@@ -10,6 +10,7 @@
 #include <QThread>
 #include <QtGlobal>
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 
@@ -655,6 +656,36 @@ void HamlibController::pollMeters()
 
 bool HamlibController::setRfPower(double fraction)
 {
+    if (m_preTunePower >= 0.0) return false; // Tune owns the setting until release.
+    return applyRfPower(fraction);
+}
+
+bool HamlibController::prepareTunePower(double fraction)
+{
+    if (m_preTunePower >= 0.0 || m_lastPtt) return false;
+    const double previous = readRfPowerSetting();
+    if (previous < 0.0) return false;
+    // Keep the snapshot even on a failed write: the radio may have applied it.
+    m_preTunePower = previous;
+    return applyRfPower(fraction);
+}
+
+bool HamlibController::restoreTxCatSettings()
+{
+    if (m_preTunePower >= 0.0) {
+        if (!applyRfPower(m_preTunePower)) return false;
+        m_preTunePower = -1.0;
+    }
+    return endFtSplitTx();
+}
+
+bool HamlibController::recoverTxCatState()
+{
+    return setPtt(false) && restoreTxCatSettings();
+}
+
+bool HamlibController::applyRfPower(double fraction)
+{
 #ifdef MADMODEM_WITH_HAMLIB
     RIG *rig = static_cast<RIG *>(m_rig);
     if (rig == nullptr || rig_has_set_level(rig, RIG_LEVEL_RFPOWER) == 0) {
@@ -676,25 +707,33 @@ bool HamlibController::setRfPower(double fraction)
 #endif
 }
 
-void HamlibController::readRfPower()
+double HamlibController::readRfPowerSetting()
 {
 #ifdef MADMODEM_WITH_HAMLIB
     RIG *rig = static_cast<RIG *>(m_rig);
-    if (rig == nullptr || rig_has_get_level(rig, RIG_LEVEL_RFPOWER) == 0) {
-        return;
+    if (rig != nullptr && rig_has_get_level(rig, RIG_LEVEL_RFPOWER) != 0) {
+        value_t value{};
+        if (rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &value) == RIG_OK &&
+            std::isfinite(value.f) && value.f >= 0.0f && value.f <= 1.0f)
+            return static_cast<double>(value.f);
     }
-    value_t value;
-    std::memset(&value, 0, sizeof(value));
-    if (rig_get_level(rig, RIG_VFO_CURR, RIG_LEVEL_RFPOWER, &value) != RIG_OK) {
-        return;
-    }
+#endif
+    return -1.0;
+}
+
+void HamlibController::readRfPower()
+{
+#ifdef MADMODEM_WITH_HAMLIB
+    const double fraction = readRfPowerSetting();
+    if (fraction < 0.0) return;
+    RIG *rig = static_cast<RIG *>(m_rig);
     double fullScale = 0.0;
     unsigned int milliwatts = 0;
     const freq_t frequency = m_lastFrequencyHz > 0.0 ? static_cast<freq_t>(m_lastFrequencyHz) : 14074000.0;
     if (rig_power2mW(rig, &milliwatts, 1.0f, frequency, RIG_MODE_USB) == RIG_OK && milliwatts > 0) {
         fullScale = milliwatts / 1000.0;
     }
-    emit rfPowerChanged(qBound(0.0, static_cast<double>(value.f), 1.0), fullScale);
+    emit rfPowerChanged(fraction, fullScale);
 #endif
 }
 
@@ -715,11 +754,14 @@ bool HamlibController::disconnectRig()
     if (!pttOffConfirmed) {
         emitError(QStringLiteral("CAT disconnect: the radio did not confirm PTT OFF; transmitter state remains unknown after closing the backend"));
     }
-    if (pttOffConfirmed && m_ftSplitTxActive && !endFtSplitTx()) {
-        emitError(QStringLiteral("CAT disconnect: FT split state could not be fully restored before closing the backend."));
-    } else if (!pttOffConfirmed && m_ftSplitTxActive) {
-        emitError(QStringLiteral("CAT disconnect: FT split restore was not attempted because PTT OFF was not confirmed; inspect the radio manually."));
+    if (m_ftSplitTxActive || m_preTunePower >= 0.0) {
+        if (!pttOffConfirmed) {
+            emitError(QStringLiteral("CAT disconnect: inspect split and Tune power on the radio; PTT OFF was not confirmed."));
+        } else if (!restoreTxCatSettings()) {
+            emitError(QStringLiteral("CAT disconnect: could not restore split or Tune power before closing the backend."));
+        }
     }
+    m_preTunePower = -1.0; // A subsequently opened rig must never inherit this snapshot.
     disconnectHrd();
 #ifdef MADMODEM_WITH_HAMLIB
     if (m_rig != nullptr) {

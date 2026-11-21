@@ -40,6 +40,7 @@ void MainWindow::updateCwTxMethodNotice()
 }
 void MainWindow::startCwSerialTransmission(const QString& text)
 {
+    if (!txAllowedBySwr()) return;
     const QString port=m_settings.cwKeyPort.trimmed();
     QString error;
     if (port.isEmpty() || port.contains("://") || (port.contains(':') && !QRegularExpression("^COM[0-9]+:?$",QRegularExpression::CaseInsensitiveOption).match(port).hasMatch()))

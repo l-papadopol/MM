@@ -101,6 +101,7 @@ private:
     QString m_mode;
     QHash<QString, int> m_modeMemory; // "band|mode" -> %
     QElapsedTimer m_swrHigh;
+    QElapsedTimer m_swrLastReading;
     QElapsedTimer m_txClock;
     double m_lowPoSeconds = 0.0;
     bool m_loading = false;

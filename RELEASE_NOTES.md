@@ -13,6 +13,11 @@ progetto MadModem di **Lucian-Ioan Papadopol, IZ6NNH**.
   installazione predefinita in `%LOCALAPPDATA%\Programs\MadModem` e dati personali
   nelle cartelle AppData di sistema.
 - Aggiornamenti dal repository `l-papadopol/MM`, crediti aggiornati e documentazione consolidata.
+- STOP FT8/FT4 resta attivo durante il richiamo automatico. Il blocco ROS si applica
+  anche al CW seriale e richiede misure valide consecutive per scattare.
+- Tune attende la conferma CAT della potenza ridotta. MSK144 e Q65 verificano
+  la scadenza del periodo prima di avviare l'audio.
+- GitHub pubblica i pacchetti dopo le verifiche di tutte le piattaforme selezionate.
 
 Sono mantenuti correzione Doppler, decoder, sequencer, Evil Auto QSO, tracce
 operative e numero di build nel titolo. Il numero di build viene assegnato dal

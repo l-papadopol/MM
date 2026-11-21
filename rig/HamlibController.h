@@ -94,6 +94,10 @@ public slots:
     void setMeterPolling(bool enabled);
     bool setRfPower(double fraction);
     void readRfPower();
+    bool prepareTunePower(double fraction);
+    // Call after PTT OFF, or use recoverTxCatState to also release CAT PTT.
+    bool restoreTxCatSettings();
+    bool recoverTxCatState();
 
 signals:
     void statusChanged(const QString &status);
@@ -146,6 +150,9 @@ private:
     bool m_meterPolling = false;
     void pollMeters();
     void reportPowerCapabilities();
+    double readRfPowerSetting();
+    bool applyRfPower(double fraction);
+    double m_preTunePower = -1.0;
     double m_lastFrequencyHz = 0.0;
     QString m_lastModeName;
     Ts890FilterQuery m_ts890Filter;
