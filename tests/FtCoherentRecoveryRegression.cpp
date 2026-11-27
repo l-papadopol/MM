@@ -12,7 +12,11 @@
 static void check(bool ok,const char *why){if(!ok)throw std::runtime_error(why);}
 int main(int argc,char**argv){QCoreApplication app(argc,argv);
  Ft8RxDecoder fec;
- bool msg[77]={}, cw[174]={}; GenPomFt encoder; encoder.encode174_91(msg,cw);
+ // The encoder reads the zero padding and appends the CRC in this buffer.
+ bool msg[91]={}, cw[174]={};
+ GenPomFt encoder;
+ encoder.initGenPomFt();
+ encoder.encode174_91(msg,cw);
  std::array<int,174> valid{}, invalid{}, decoded{}; std::array<double,174> llr{};
  for(int i=0;i<174;++i)valid[i]=cw[i];
  invalid[0]=1;

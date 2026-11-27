@@ -5048,6 +5048,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
                 slotStartUtc.toMSecsSinceEpoch() + 15000 + 1100);
     };
     bool traceAccepted=false;
+    double osdSoftDistance = -1.0;
+    int osdSoftRejects = 0;
     const auto traceGuard=qScopeGuard([&]{
         if(!traceEnabled)return;
         QJsonObject data{{"gf2_allowed",allowGf2Osd},{"metric_recovery_allowed",allowMetricRecovery},{"mode","FT8"},{"slot_utc",slotStartUtc.toString(Qt::ISODateWithMs)},
@@ -5056,6 +5058,10 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
             {"message",traceAccepted?decodeOut.message:QString()},
             {"elapsed_ms",std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-traceStart).count()}};
         if(qualityOut){data.insert("hard_sync",qualityOut->hardSyncCount);data.insert("llr",qualityOut->meanAbsLlr);data.insert("osd_tries",qualityOut->osdGf2Tried);data.insert("osd_ms",qualityOut->osdGf2TotalMs);}
+        if (osdSoftDistance >= 0.0) {
+            data.insert("osd_soft_distance", osdSoftDistance);
+            data.insert("osd_soft_rejects", osdSoftRejects);
+        }
         SessionDiagnostics::instance().record("ft.candidate",data);
     });
 
@@ -5513,6 +5519,26 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
             }
             rememberFailure(DecodeRejectReason::Crc);
             return false;
+        }
+        if (!ldpcSuccess) {
+            // Check the recovered word against the demodulator input to FEC.
+            // The OSD search itself orders bits using the LDPC posterior.
+            double disagreement = 0.0;
+            double confidence = 0.0;
+            for (std::size_t i = 0; i < candidateBits.size(); ++i) {
+                const double magnitude = std::abs(candidateLlr[i]);
+                confidence += magnitude;
+                if ((candidateLlr[i] < 0.0) != (candidateBits[i] != 0)) {
+                    disagreement += magnitude;
+                }
+            }
+            constexpr double maxOsdSoftDistance = 0.09;
+            osdSoftDistance = confidence > 0.0 ? disagreement / confidence : 1.0;
+            if (!(osdSoftDistance <= maxOsdSoftDistance)) {
+                ++osdSoftRejects;
+                rememberFailure(DecodeRejectReason::SoftMetric);
+                return false;
+            }
         }
         const QString candidateMessage = unpackMessage77(candidateBits).trimmed().toUpper();
         if (candidateMessage.isEmpty()) {
@@ -7883,70 +7909,99 @@ bool Ft8RxDecoder::osdGf2Repair174_91(const std::array<double, 174> &posterior,
         infoBits[i] = orderedBits[infoCols[i]].hardDecision;
     }
 
-    auto verifyPattern = [&](const std::array<int, 91> &testInfo) -> bool {
-        std::array<int, 174> testBits{};
-
+    const auto buildWord = [&](std::array<int, 174> &word) {
         for (int i = 0; i < 91; ++i) {
-            testBits[orderedBits[infoCols[i]].originalIndex] = testInfo[i];
+            word[orderedBits[infoCols[i]].originalIndex] = infoBits[i];
         }
-
         for (int r = 0; r < 83; ++r) {
-            int pivotBit = 0;
+            int parity = 0;
             for (int i = 0; i < 91; ++i) {
-                if (matrix.rows[r].getBit(infoCols[i]) != 0) {
-                    pivotBit ^= testInfo[i];
-                }
+                parity ^= matrix.rows[r].getBit(infoCols[i]) & infoBits[i];
             }
-            const int pivotCol = pivotColAtRow[r];
-            if (pivotCol < 0 || pivotCol >= 174) {
-                rankFail = true;
-                return false;
-            }
-            testBits[orderedBits[pivotCol].originalIndex] = pivotBit;
+            word[orderedBits[pivotColAtRow[r]].originalIndex] = parity;
         }
-
-        if (!syndromeOk(testBits)) {
-            return false;
-        }
-        if (!crc14Ok(testBits)) {
-            return false;
-        }
-        bits = testBits;
-        return true;
     };
 
-    if (verifyPattern(infoBits)) {
+    std::array<int, 174> baseWord{};
+    buildWord(baseWord);
+    const auto baseSyndrome = crc14Syndrome(baseWord);
+    if (baseSyndrome == 0 && syndromeOk(baseWord)) {
+        bits = baseWord;
         outOrder = 0;
         return true;
     }
 
-    /*
-     * 0.5.1 fast budget: alpha24 proved that order-0 and
-     * order-1 recover the useful cases in the current WAV set, while
-     * order-2 recovered nothing and consumed CPU. Keep the algebra
-     * unchanged, but bound the pattern search. Depths are supplied by
-     * the caller so live RX can be stricter than offline analysis.
-     */
     const int singleDepth = qBound(0, order1Depth, 91);
+    if (singleDepth == 0) {
+        return false;
+    }
+
+    // CRC-14 is linear. Each information-bit flip toggles that bit and
+    // a fixed set of parity bits. Derive its CRC effect from the reduced
+    // matrix so most search patterns cost just an XOR and a comparison.
+    // Decodium fastldpc (v1.0.590) uses the same CRC-linearity principle.
+    static const auto bitSyndromes = [] {
+        std::array<unsigned int, 174> syndromes{};
+        std::array<int, 174> word{};
+        for (int i = 0; i < 91; ++i) {
+            word[i] = 1;
+            syndromes[i] = crc14Syndrome(word);
+            word[i] = 0;
+        }
+        return syndromes;
+    }();
+
+    std::array<unsigned int, 91> flipSyndromes{};
     for (int i = 0; i < singleDepth; ++i) {
-        std::array<int, 91> testInfo = infoBits;
-        testInfo[i] ^= 1;
-        if (verifyPattern(testInfo)) {
-            outOrder = 1;
+        flipSyndromes[i] = bitSyndromes[orderedBits[infoCols[i]].originalIndex];
+    }
+    for (int r = 0; r < 83; ++r) {
+        const auto contribution = bitSyndromes[orderedBits[pivotColAtRow[r]].originalIndex];
+        if (contribution == 0) {
+            continue;
+        }
+        for (int i = 0; i < singleDepth; ++i) {
+            if (matrix.rows[r].getBit(infoCols[i])) {
+                flipSyndromes[i] ^= contribution;
+            }
+        }
+    }
+
+    const auto acceptPattern = [&](int order) {
+        std::array<int, 174> word{};
+        buildWord(word);
+        if (!syndromeOk(word) || !crc14Ok(word)) {
+            return false;
+        }
+        bits = word;
+        outOrder = order;
+        return true;
+    };
+
+    for (int i = 0; i < singleDepth; ++i) {
+        if (flipSyndromes[i] != baseSyndrome) {
+            continue;
+        }
+        infoBits[i] ^= 1;
+        if (acceptPattern(1)) {
             return true;
         }
+        infoBits[i] ^= 1;
     }
 
     const int pairDepth = qBound(0, qMin(order2Depth, singleDepth), 91);
     for (int i = 0; i < pairDepth; ++i) {
         for (int j = i + 1; j < pairDepth; ++j) {
-            std::array<int, 91> testInfo = infoBits;
-            testInfo[i] ^= 1;
-            testInfo[j] ^= 1;
-            if (verifyPattern(testInfo)) {
-                outOrder = 2;
+            if ((flipSyndromes[i] ^ flipSyndromes[j]) != baseSyndrome) {
+                continue;
+            }
+            infoBits[i] ^= 1;
+            infoBits[j] ^= 1;
+            if (acceptPattern(2)) {
                 return true;
             }
+            infoBits[i] ^= 1;
+            infoBits[j] ^= 1;
         }
     }
 
@@ -8029,12 +8084,17 @@ bool Ft8RxDecoder::syndromeOk(const std::array<int, 174> &bits) const
     return true;
 }
 
-unsigned int Ft8RxDecoder::crc14(const unsigned char *data, int length) const
+unsigned int Ft8RxDecoder::crc14(const unsigned char *data, int length)
 {
     return static_cast<unsigned int>(boost::augmented_crc<14, TRUNCATED_POLYNOMIAL14>(data, length)) & 0x3fffu;
 }
 
 bool Ft8RxDecoder::crc14Ok(const std::array<int, 174> &bits) const
+{
+    return crc14Syndrome(bits) == 0;
+}
+
+unsigned int Ft8RxDecoder::crc14Syndrome(const std::array<int, 174> &bits)
 {
     unsigned char bytes[12];
     for (unsigned char &b : bytes) {
@@ -8061,7 +8121,7 @@ bool Ft8RxDecoder::crc14Ok(const std::array<int, 174> &bits) const
         received <<= 1;
         received |= static_cast<unsigned int>(bits[77 + i] & 1);
     }
-    return (expected & 0x3fffu) == (received & 0x3fffu);
+    return (expected ^ received) & 0x3fffu;
 }
 
 QString Ft8RxDecoder::unpackMessage77(const std::array<int, 174> &bits)

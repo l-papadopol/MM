@@ -463,7 +463,8 @@ private:
                             int order2Depth) const;
     bool syndromeOk(const std::array<int, 174> &bits) const;
     bool crc14Ok(const std::array<int, 174> &bits) const;
-    unsigned int crc14(const unsigned char *data, int length) const;
+    static unsigned int crc14Syndrome(const std::array<int, 174> &bits);
+    static unsigned int crc14(const unsigned char *data, int length);
     QString unpackMessage77(const std::array<int, 174> &bits);
 
     static bool isSyncSymbol(int symbolIndex);
