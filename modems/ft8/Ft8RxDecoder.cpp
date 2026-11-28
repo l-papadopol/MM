@@ -1080,6 +1080,25 @@ bool looksLikeUsefulFt8Message(const QString &message)
     }
     return true;
 }
+
+bool ft8OsdCqShapeValid(const QString &message, const std::array<int, 174> &bits)
+{
+    const int type = (bits[74] << 2) | (bits[75] << 1) | bits[76];
+    if (type != 4 || !message.startsWith(QStringLiteral("CQ ")))
+        return true;
+
+    const QString call = message.mid(3);
+    if (call.size() < 10 || call.contains(QLatin1Char('/')) ||
+        call.startsWith(QStringLiteral("8J")) || call.startsWith(QStringLiteral("8N")))
+        return true;
+
+    // JTDX checks digit placement in long plain type-4 calls. Keep a
+    // permissive shape for special-event calls such as DL2019ABCDE.
+    static const QRegularExpression longCallShape(
+        QStringLiteral("^(?:[A-Z]{2}|[A-Z][0-9]|[0-9][A-Z])[0-9]{1,4}[A-Z]{5,8}$"));
+    return longCallShape.match(call).hasMatch();
+}
+
 QString formatSlotTime(const QDateTime &utc, int slotMs)
 {
     const QString fmt = (slotMs % 1000 == 0)
@@ -5548,7 +5567,8 @@ bool Ft8RxDecoder::decodeCandidate(const QVector<double> &samples,
             rememberFailure(DecodeRejectReason::Unpack);
             return false;
         }
-        if (!looksLikeUsefulFt8Message(candidateMessage)) {
+        if (!looksLikeUsefulFt8Message(candidateMessage) ||
+            (!ldpcSuccess && !ft8OsdCqShapeValid(candidateMessage, candidateBits))) {
             if (decodedViaGf2Osd && qualityOut != nullptr) {
                 ++qualityOut->osdGf2PostCrcRejects;
             }
@@ -8174,6 +8194,128 @@ int Ft8RxDecoder::grayInverse(int tone)
     return 0;
 }
 
+namespace {
+constexpr int kContextDecimation = 60;
+constexpr int kContextSamples = kFt8SubNFrame / kContextDecimation;
+constexpr int kContextBlocks = 16;
+constexpr double kContextSampleRate = 12000.0 / kContextDecimation;
+constexpr double kContextDominanceDb = 4.0;
+constexpr double kContextMinResidualDb = -1.0;
+using ContextWave = std::vector<std::complex<double>>;
+
+struct Ft8ContextFit {
+    double power = 0.0;
+    int start = 0;
+    double hz = 0.0;
+    std::array<std::complex<double>, kContextBlocks> amplitude{};
+};
+
+ContextWave ft8ContextWave(const QString &message)
+{
+    int tones[100]{};
+    {
+        std::lock_guard<WeakSignalCodecLock::Mutex> lock(WeakSignalCodecLock::mutex());
+        GenFt8 generator(false);
+        bool bits[100]{};
+        int type = -1;
+        generator.pack77(message, type, -1, bits);
+        bool valid = false;
+        const auto decoded = generator.unpack77(bits, valid);
+        if (!valid || decoded.simplified().compare(message.simplified(), Qt::CaseInsensitive) != 0)
+            return {};
+        generator.make_c77_i4tone(bits, tones);
+    }
+    const auto full = makeFt8ReferenceWaveformRx(tones, 0.0);
+    ContextWave wave(kContextSamples);
+    for (int i = 0; i < kContextSamples; ++i) wave[i] = full[i * kContextDecimation];
+    return wave;
+}
+
+Ft8ContextFit fitFt8Context(const ContextWave &audio, const ContextWave &wave,
+                           double startSec, double hz, int steps,
+                           const std::function<bool()> &stopped)
+{
+    Ft8ContextFit best;
+    ContextWave matched(wave.size());
+    std::array<double, kContextBlocks> energy{};
+    for (int b = 0; b < kContextBlocks; ++b) {
+        for (int i = b * kContextSamples / kContextBlocks;
+             i < (b + 1) * kContextSamples / kContextBlocks; ++i)
+            energy[b] += std::norm(wave[i]);
+    }
+    const int nominalStart = qRound(startSec * kContextSampleRate);
+    for (int d = -steps; d <= steps; ++d) {
+        if (stopped()) return {};
+        const double frequency = hz + 0.25 * d;
+        const auto step = std::polar(1.0, kTwoPi * frequency / kContextSampleRate);
+        std::complex<double> oscillator(1.0, 0.0);
+        for (int i = 0; i < kContextSamples; ++i) {
+            matched[i] = std::conj(wave[i] * oscillator);
+            oscillator *= step;
+        }
+        for (int dt = -12; dt <= 12; ++dt) {
+            const int start = nominalStart + dt;
+            if (start < 0 || start + kContextSamples > int(audio.size())) continue;
+            Ft8ContextFit fit;
+            fit.start = start;
+            fit.hz = frequency;
+            for (int b = 0; b < kContextBlocks; ++b) {
+                std::complex<double> correlation{};
+                for (int i = b * kContextSamples / kContextBlocks;
+                     i < (b + 1) * kContextSamples / kContextBlocks; ++i)
+                    correlation += audio[start + i] * matched[i];
+                fit.power += std::norm(correlation) / energy[b];
+                fit.amplitude[b] = correlation / energy[b];
+            }
+            if (fit.power > best.power) best = fit;
+        }
+    }
+    return best;
+}
+
+bool ft8ContextContradicts(const QVector<double> &samples, const Ft8RxDecoder::Decode &row,
+                           const Ft8RxDecoder::Decode &other, const std::function<bool()> &stopped,
+                           double &relativePowerDb, double &residualSupportDb)
+{
+    const auto suspect = ft8ContextWave(row.message);
+    const auto dominant = ft8ContextWave(other.message);
+    if (suspect.empty() || dominant.empty() || stopped()) return false;
+    static const auto taps = makeWindowedSincLowpass(721, 65.0, 12000.0);
+    ContextWave audio;
+    const double baseHz = other.frequencyHz;
+    if (!extractComplexBaseband(samples, 0, samples.size() / kContextDecimation,
+                               kContextDecimation, baseHz, taps, audio))
+        return false;
+    const auto strong = fitFt8Context(audio, dominant, other.dt + 0.5, 0.0, 6, stopped);
+    const double hz = row.frequencyHz - baseHz;
+    const auto raw = fitFt8Context(audio, suspect, row.dt + 0.5, hz, 8, stopped);
+    if (raw.power <= 0.0 || strong.power <= 0.0 || stopped()) return false;
+    relativePowerDb = 10.0 * std::log10(strong.power / raw.power);
+    if (relativePowerDb < kContextDominanceDb) return false;
+
+    // The fitted envelope changes on subsecond blocks so Doppler, fading
+    // and the second transmission do not need to share phase or amplitude.
+    const auto step = std::polar(1.0, kTwoPi * strong.hz / kContextSampleRate);
+    std::complex<double> oscillator(1.0, 0.0);
+    for (int b = 0; b < kContextBlocks; ++b) {
+        for (int i = b * kContextSamples / kContextBlocks;
+             i < (b + 1) * kContextSamples / kContextBlocks; ++i) {
+            audio[strong.start + i] -= strong.amplitude[b] * dominant[i] * oscillator;
+            oscillator *= step;
+        }
+    }
+    const auto expected = fitFt8Context(audio, suspect, row.dt + 0.5, hz, 8, stopped);
+    double nearbyPower = 0.0;
+    for (double offset : {-9.0, -6.0, 6.0, 9.0}) {
+        const auto shifted = fitFt8Context(audio, suspect, row.dt + 0.5, hz + offset, 8, stopped);
+        nearbyPower = std::max(nearbyPower, shifted.power);
+    }
+    if (expected.power <= 0.0 || nearbyPower <= 0.0 || stopped()) return false;
+    residualSupportDb = 10.0 * std::log10(expected.power / nearbyPower);
+    return residualSupportDb < kContextMinResidualDb;
+}
+} // namespace
+
 void Ft8RxDecoder::appendReferenceRecovery(const QVector<double>&samples,const QDateTime&slot,QVector<Decode>&out,PerfStats*stats,const std::function<void(const QVector<Decode>&)>&publish)
 {
     if ((!m_deepDecodeEnabled && !m_dspPlusDecodeEnabled) || decodeCancellationRequested()) return;
@@ -8188,19 +8330,90 @@ void Ft8RxDecoder::appendReferenceRecovery(const QVector<double>&samples,const Q
     request.deadlineUtcMs=request.slotUtcMs+profile.slotMs+(gate?-50:1100);
     request.workers=FtDecodeWorkerPool::instance().recommendedWorkerCount(request.offline?MadModemRuntime::WorkClass::FtOffline:MadModemRuntime::WorkClass::FtBoundary,4);
     request.cancelled=[this]{return decodeCancellationRequested();};
-    auto append=[&](const FtReferenceRecovery::Row&r) {
-        if (decodeCancellationRequested())return;
-        const bool known=std::any_of(out.cbegin(),out.cend(),[&](const Decode&d){return d.message.trimmed().compare(r.message,Qt::CaseInsensitive)==0;});
-        if(known)return;
-        Decode d;d.message=r.message;d.frequencyHz=r.frequency;d.snrDb=r.snr;d.dt=r.dt;d.syncScore=r.quality;d.utc=slot.time().toString(QStringLiteral("HHmmss"));d.slotStartUtcMs=request.slotUtcMs;d.slotPeriodMs=profile.slotMs;
-        out.append(d);if(stats)++stats->referenceDecodes;if(publish)publish(QVector<Decode>{d});
+    const bool contextualFt8 = request.mode == QStringLiteral("FT8");
+    const auto weakSd = [&](const FtReferenceRecovery::Row &row) {
+        return contextualFt8 && row.method.endsWith(QLatin1Char('s')) && row.quality < 0.45;
+    };
+    auto append = [&](const FtReferenceRecovery::Row &r) {
+        if (decodeCancellationRequested()) return;
+        const bool known = std::any_of(out.cbegin(), out.cend(), [&](const Decode &d) {
+            return d.message.trimmed().compare(r.message, Qt::CaseInsensitive) == 0;
+        });
+        if (known) return;
+        Decode d;
+        d.message = r.message;
+        d.frequencyHz = r.frequency;
+        d.snrDb = r.snr;
+        d.dt = r.dt;
+        d.syncScore = r.quality;
+        d.utc = slot.time().toString(QStringLiteral("HHmmss"));
+        d.slotStartUtcMs = request.slotUtcMs;
+        d.slotPeriodMs = profile.slotMs;
+        out.append(d);
+        if (stats) ++stats->referenceDecodes;
+        if (publish) publish(QVector<Decode>{d});
+    };
+    // Weak SD hypotheses need the ordinary candidates from the full slot.
+    // Keep them in the reference decoder's slot cache during the early gate.
+    const auto publishOrdinary = [&](const FtReferenceRecovery::Row &row) {
+        if (!weakSd(row)) append(row);
     };
     try {
-        const auto recovered=m_referenceRecovery->decode(samples,request,append);
-        // Retain earlier published gate recoveries even when a final job has
-        // no time left. No stale/cancelled generation is republished.
-        for(const auto&r:recovered.rows)append(r);
-        if(stats){stats->referenceMs=recovered.elapsedMs;stats->referenceWorkers=recovered.workers;stats->referenceRejected=recovered.rejected;stats->referenceCutoff=recovered.timedOut;}
+        const auto recovered = m_referenceRecovery->decode(samples, request, publishOrdinary);
+        for (const auto &row : recovered.rows) publishOrdinary(row);
+        const int confirmed = out.size();
+        const auto contextStart = std::chrono::steady_clock::now();
+        const auto timeLimit = contextStart +
+            std::chrono::milliseconds(request.offline ? 200 : 28);
+        const auto stopped = [&] {
+            return decodeCancellationRequested() || std::chrono::steady_clock::now() >= timeLimit ||
+                (!request.offline && QDateTime::currentMSecsSinceEpoch() >= request.deadlineUtcMs - 20);
+        };
+        int tested = 0;
+        int rejectedByContext = 0;
+        for (const auto &row : recovered.rows) {
+            if (!weakSd(row) || (gate && !request.offline)) continue;
+            if (std::any_of(out.cbegin(), out.cend(), [&](const Decode &d) {
+                    return d.message.trimmed().compare(row.message, Qt::CaseInsensitive) == 0;
+                })) continue;
+            const Decode *other = nullptr;
+            for (int i = 0; i < confirmed; ++i) {
+                const Decode &d = out[i];
+                if (std::abs(d.frequencyHz - row.frequency) <= 3 &&
+                    std::abs(d.dt - row.dt) <= 0.075 &&
+                    d.snrDb >= row.snr + kContextDominanceDb && (!other || d.snrDb > other->snrDb))
+                    other = &d;
+            }
+            if (other && tested < 4 && !stopped()) {
+                ++tested;
+                Decode hypothesis;
+                hypothesis.message = row.message;
+                hypothesis.dt = row.dt;
+                hypothesis.frequencyHz = row.frequency;
+                double relativePowerDb = 0.0, residualSupportDb = 0.0;
+                const bool contradicted = ft8ContextContradicts(samples, hypothesis, *other, stopped,
+                                                               relativePowerDb, residualSupportDb);
+                SessionDiagnostics::instance().record("ft.reference.context",
+                    {{"slot_utc_ms", QString::number(request.slotUtcMs)}, {"message", row.message},
+                     {"competing_message", other->message}, {"dominance_db", relativePowerDb},
+                     {"residual_support_db", residualSupportDb}, {"rejected", contradicted}});
+                if (contradicted) {
+                    ++rejectedByContext;
+                    continue;
+                }
+            }
+            if (!request.offline && QDateTime::currentMSecsSinceEpoch() >= request.deadlineUtcMs)
+                break;
+            append(row);
+        }
+        if (stats) {
+            const auto contextElapsed = std::chrono::steady_clock::now() - contextStart;
+            const auto contextMs = std::chrono::duration<double, std::milli>(contextElapsed).count();
+            stats->referenceMs = recovered.elapsedMs + contextMs;
+            stats->referenceWorkers = recovered.workers;
+            stats->referenceRejected = recovered.rejected + rejectedByContext;
+            stats->referenceCutoff = recovered.timedOut;
+        }
     } catch(const std::exception&e) {
         SessionDiagnostics::instance().record("ft.reference.error",{{"mode",m_modeName},{"error",QString::fromUtf8(e.what())}});
     }

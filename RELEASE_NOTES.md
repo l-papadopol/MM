@@ -3,6 +3,17 @@
 Questa versione integra i contributi di **Costantino Cerrotta, IC8TEM** nel
 progetto MadModem di **Lucian-Ioan Papadopol, IZ6NNH**.
 
+### Revisione R10
+
+In FT8 la R10 controlla i recuperi deboli sovrapposti a un segnale più forte
+verificando il messaggio sull'audio residuo. Controlla anche la forma dei
+nominativi lunghi nei CQ non standard recuperati via OSD.
+
+Il [confronto tra sette decoder](README.md#benchmark-ft8-e-ft4-della-r10)
+riporta i risultati sui WAV di IC8TEM, i falsi nei sintetici e i tempi.
+
+### Novità della 0.6.6
+
 - Con CAT Hamlib, la preferenza USB o Data/Pkt si applica anche in ricezione
   per FT8, FT4, Q65 e MSK144. Vale al collegamento, al cambio di modo e durante
   il QSY delle bande FT.

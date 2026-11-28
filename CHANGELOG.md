@@ -2,6 +2,7 @@
 
 ## 0.6.6
 
+- Validate weak overlapping FT8 decodes against residual audio and check long callsigns in nonstandard CQ messages recovered by OSD. See the [R10 benchmark](README.md#benchmark-ft8-e-ft4-della-r10).
 - Speed up the FT8 Costas search with reusable real FFT plans and precomputed frequency interpolation.
 - Add FT8/FT4 display filters for continent, DXCC, CQ and ITU zones, WAP references and CQ traffic.
 - Recover weak FT8 CQs using recently decoded tracks from the same RX parity. Estimate the current timing, frequency and drift from Costas symbols and confirm the codeword from the current slot.

@@ -22,6 +22,40 @@ I contributi di **Costantino Cerrotta, IC8TEM** sono integrati in MadModem.
 Funzioni e comandi sono descritti nella [guida agli strumenti](docs/FEATURES.md).
 Crediti completi in [AUTHORS.md](AUTHORS.md).
 
+## Benchmark FT8 e FT4 della R10
+
+Il confronto comprende **1.988 esecuzioni offline**, su **136 WAV di IC8TEM**
+e **148 periodi sintetici** per ciascuno dei sette decoder. Il banco fattoriale
+incrocia rumore impulsivo, QSB globale e selettivo, sovrapposizioni e Doppler
+in 32 combinazioni per modo. Il test Mega combina tutti i disturbi con 48
+portanti per periodo. Per MadModem sono attivi Auto-NB2 e, nei sintetici VHF,
+la correzione Doppler.
+
+Le colonne dei sintetici mostrano **messaggi corretti / falsi**, su 768
+trasmissioni per modo nel fattoriale e 288 nel Mega. La colonna dei 40 m
+mostra i messaggi con riscontro nei log di IC8TEM e quanti dei sei sospetti
+già verificati sull'audio sono riemersi.
+
+| Decoder | FT8 fattoriale | FT4 fattoriale | FT8 Mega | FT4 Mega | IC8TEM FT8 40 m, riscontri / sospetti su 6 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| MadModem R7 | 303 / 2 | 236 / 0 | 7 / 0 | 3 / 0 | 2.152 / 5 |
+| MadModem R8 | 304 / 2 | 236 / 0 | 7 / 0 | 3 / 0 | 2.155 / 4 |
+| MadModem R9 | 303 / 1 | 236 / 0 | 7 / 0 | 3 / 0 | 2.153 / 2 |
+| **MadModem R10** | **303 / 1** | **236 / 0** | **7 / 0** | **3 / 0** | **2.153 / 0** |
+| JTDX | 283 / 0 | 176 / 0 | 3 / 0 | 0 / 0 | 2.076 / 2 |
+| MSHV | 242 / 0 | 186 / 0 | 3 / 1 | 0 / 0 | 2.160 / 2 |
+| WSJT-X | 241 / 0 | 183 / 0 | 3 / 0 | 0 / 0 | 2.115 / 2 |
+
+Nei 40 m la R10 mantiene i 2.153 riscontri FT8 della R9 e scarta entrambi
+i sospetti che la R9 riportava. I log sul traffico reale offrono una copertura
+parziale. Nel fattoriale FT8 la R10 supera JTDX di 20 messaggi corretti e
+produce un falso. La R10 richiede in media 5,11 s di CPU per periodo FT8 e
+1,22 s per FT4, mentre JTDX richiede 2,95 s e 0,42 s.
+
+Versioni dei decoder, condizioni, tempi e risultati per periodo sono nel
+[foglio completo del benchmark FT8/FT4](docs/benchmarks/MadModem_Benchmark_FT8_FT4.xlsx).
+Le registrazioni sono disponibili nel [repository di IC8TEM](https://github.com/ic8tem/MadModem-test-recordings/tree/47b3538d2f997f878811986ba599b8e72ab10631).
+
 ## Download e installazione
 
 Scaricare i pacchetti da [GitHub Releases](https://github.com/l-papadopol/MM/releases).
